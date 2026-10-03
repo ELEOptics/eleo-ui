@@ -3,7 +3,11 @@
   "private": true,
   "description": "ELEO's shared visual layer: design tokens, optical plot renderers and their Svelte components.",
   "type": "module",
-  "workspaces": ["packages/tokens", "packages/plots", "packages/plots-svelte"],
+  "workspaces": [
+    "packages/tokens",
+    "packages/plots",
+    "packages/plots-svelte"
+  ],
   "scripts": {
     "build": "npm run build -w @eleoptics/tokens -w @eleoptics/plots -w @eleoptics/plots-svelte",
     "check": "npm run check -w @eleoptics/plots-svelte",
@@ -18,9 +22,14 @@
     "@changesets/cli": "^2",
     "@playwright/test": "^1",
     "@sveltejs/package": "^2",
+    "@types/node": "^24.19.1",
     "esbuild": "^0.25",
     "svelte": "^5",
     "svelte-check": "^4",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=24",
+    "npm": ">=11"
   }
 }
