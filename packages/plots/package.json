@@ -1,0 +1,61 @@
+{
+  "name": "@eleoptics/plots",
+  "version": "0.1.0",
+  "description": "ELEO's optical plot renderers: lens layouts, spot diagrams, ray fans, PSF and wavefront maps, MTF and more. Framework-free, themed by @eleoptics/tokens.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ELEOptics/eleo-ui.git",
+    "directory": "packages/plots"
+  },
+  "homepage": "https://eleoptics.com",
+  "keywords": [
+    "optics",
+    "optical design",
+    "ray tracing",
+    "psf",
+    "spot diagram",
+    "aurora"
+  ],
+  "sideEffects": [
+    "./dist/sample.js",
+    "./dist/eleo-*.js",
+    "*.css"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./sample": {
+      "types": "./dist/sample.d.ts",
+      "default": "./dist/sample.js"
+    },
+    "./physics": {
+      "types": "./dist/physics.d.ts",
+      "default": "./dist/physics.js"
+    },
+    "./plots.css": "./dist/plots.css",
+    "./eleo-plots.js": "./dist/eleo-plots.js",
+    "./eleo-plots-sample.js": "./dist/eleo-plots-sample.js",
+    "./eleo-physics.js": "./dist/eleo-physics.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@eleoptics/tokens": "^0.1.0"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "prepack": "cp ../../LICENSE LICENSE"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@eleoptics/tokens",
+  "version": "0.1.0",
+  "description": "ELEO design tokens: colors for light and dark themes, colormaps, type, spacing and line weights, as CSS variables and data.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ELEOptics/eleo-ui.git",
+    "directory": "packages/tokens"
+  },
+  "homepage": "https://eleoptics.com",
+  "sideEffects": [
+    "*.css"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./dist/tokens.css",
+    "./tokens.json": "./dist/tokens.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "prepack": "cp ../../LICENSE LICENSE"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

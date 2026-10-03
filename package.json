@@ -1,0 +1,26 @@
+{
+  "name": "eleo-ui",
+  "private": true,
+  "description": "ELEO's shared visual layer: design tokens, optical plot renderers and their Svelte components.",
+  "type": "module",
+  "workspaces": ["packages/tokens", "packages/plots", "packages/plots-svelte"],
+  "scripts": {
+    "build": "npm run build -w @eleoptics/tokens -w @eleoptics/plots -w @eleoptics/plots-svelte",
+    "check": "npm run check -w @eleoptics/plots-svelte",
+    "test": "node --test \"tests/unit/*.test.js\" && playwright test",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "gallery": "node gallery/serve.mjs",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2",
+    "@playwright/test": "^1",
+    "@sveltejs/package": "^2",
+    "esbuild": "^0.25",
+    "svelte": "^5",
+    "svelte-check": "^4",
+    "typescript": "^5"
+  }
+}

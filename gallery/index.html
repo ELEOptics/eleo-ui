@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ELEO plots gallery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Fira+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/packages/tokens/dist/tokens.css">
+  <link rel="stylesheet" href="/packages/plots/dist/plots.css">
+  <style>
+    /* Every renderer, side by side in both themes: the review surface for any change to a plot or token. */
+    body { margin: 0; font: 400 15px/22px var(--font-sans); background: var(--ground); color: var(--ink); }
+    header { padding: 24px 32px 8px; }
+    header h1 { margin: 0 0 4px; font-size: 28px; line-height: 34px; }
+    header p { margin: 0; color: var(--ink-muted); max-width: 72ch; }
+    .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); }
+    .theme { background: var(--ground); color: var(--ink); padding: 24px 32px 48px; display: grid; gap: 12px; align-content: start; }
+    .theme > h2 { margin: 0; font-size: 16px; }
+    .row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .map { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+    .map .eleo-colorbar i { height: 100%; }
+    .icons { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ELEO plots</h1>
+    <p>Every renderer in @eleoptics/plots, drawn from the sample achromat, in both themes. Check this page after any change to a renderer or a token.</p>
+  </header>
+  <main class="themes">
+    <section class="theme" data-theme="light"><h2>Light</h2></section>
+    <section class="theme" data-theme="dark"><h2>Dark</h2></section>
+  </main>
+  <template id="tiles">
+    <section class="eleo-plot" data-tile="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div><div class="eleo-plot__ft eleo-legend" data-legend="field"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-fan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
+    <div class="row">
+      <section class="eleo-plot" data-tile="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
+      <section class="eleo-plot" data-tile="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
+    </div>
+    <div class="row">
+      <section class="eleo-plot" data-tile="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">TRA, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="ts"></div></section>
+      <section class="eleo-plot" data-tile="rayFan-opd"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">OPD, waves</span></div><div class="eleo-plot__body" data-svg="rayFan-opd"></div></section>
+    </div>
+    <div class="row">
+      <section class="eleo-plot" data-tile="psf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">PSF, linear</span></div><div class="eleo-plot__body map"><canvas data-canvas="psf"></canvas><div class="eleo-colorbar"><i data-bar="ember"></i><span><b>1</b><b>0</b></span></div></div></section>
+      <section class="eleo-plot" data-tile="wavefront"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">wavefront, waves</span></div><div class="eleo-plot__body map"><canvas data-canvas="wavefront"></canvas><div class="eleo-colorbar"><i data-bar="wave"></i><span><b>+</b><b>0</b><b>−</b></span></div></div></section>
+    </div>
+    <div class="row">
+      <section class="eleo-plot" data-tile="mtf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF</span></div><div class="eleo-plot__body" data-svg="mtf"></div></section>
+      <section class="eleo-plot" data-tile="fieldCurvature"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">field curvature</span></div><div class="eleo-plot__body" data-svg="fieldCurvature"></div></section>
+      <section class="eleo-plot" data-tile="distortion"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">distortion</span></div><div class="eleo-plot__body" data-svg="distortion"></div></section>
+      <section class="eleo-plot" data-tile="chromaticFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">chromatic focus</span></div><div class="eleo-plot__body" data-svg="chromaticFocus"></div></section>
+    </div>
+    <div class="row">
+      <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D" width="480" height="300"></canvas></div></section>
+      <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy" width="240" height="240"></canvas></div></section>
+    </div>
+    <section class="eleo-plot" data-tile="icons"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Icons</h3><span class="eleo-plot__meta">glass, then line</span></div><div class="eleo-plot__body icons" data-icons></div></section>
+  </template>
+  <script src="/packages/plots/dist/eleo-plots.js"></script>
+  <script src="/packages/plots/dist/eleo-plots-sample.js"></script>
+  <script>
+    var SVG = {
+      'layout2D': function () { return ELEO.layout2D({ width: 1000 }); },
+      'layout2D-fan': function () { return ELEO.layout2D({ width: 1000, colorBy: 'wavelength', rays: 'fan' }); },
+      'spot': function () { return ELEO.spot(); },
+      'throughFocus': function () { return ELEO.throughFocus(); },
+      'rayFan': function () { return ELEO.rayFan(); },
+      'rayFan-opd': function () { return ELEO.rayFan({ kind: 'opd' }); },
+      'mtf': function () { return ELEO.curve({ kind: 'mtf' }); },
+      'fieldCurvature': function () { return ELEO.curve({ kind: 'fieldCurvature' }); },
+      'distortion': function () { return ELEO.curve({ kind: 'distortion' }); },
+      'chromaticFocus': function () { return ELEO.curve({ kind: 'chromaticFocus' }); }
+    };
+    function airyTile(canvas) {
+      var n = canvas.width, ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
+      for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+        var r = Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / n * span, c = lut[Math.round(Math.sqrt(ELEO.airy(r, 0.5876, 4)) * 255)], p = (y * n + x) * 4;
+        img.data[p] = c[0]; img.data[p + 1] = c[1]; img.data[p + 2] = c[2]; img.data[p + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    document.querySelectorAll('.theme').forEach(function (theme) {
+      theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
+      theme.querySelectorAll('[data-svg]').forEach(function (el) { el.innerHTML = SVG[el.dataset.svg](); });
+      theme.querySelectorAll('[data-legend]').forEach(function (el) { el.innerHTML = ELEO.legend(el.dataset.legend); });
+      theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
+      theme.querySelectorAll('[data-canvas]').forEach(function (el) {
+        var k = el.dataset.canvas;
+        if (k === 'layout3D') ELEO.layout3D(el);
+        else if (k === 'airy') airyTile(el);
+        else ELEO.map2D(el, { kind: k });
+      });
+      var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
+        .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));
+      theme.querySelector('[data-icons]').innerHTML = icons.join('');
+    });
+    document.body.dataset.ready = 'true';
+  </script>
+</body>
+</html>
