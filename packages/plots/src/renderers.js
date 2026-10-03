@@ -1,6 +1,3 @@
-// Imported from the ELEO design system bundle (claude.ai/artifact/JRXsjqrJmdRspmiPEtvEMt, format 4).
-// This repo is now the source of truth; the artifact re-syncs from it.
-/* @ds-bundle: {"format":4,"namespace":"ELEO","components":[{"name":"Button"},{"name":"SegmentedControl"},{"name":"NumberField"},{"name":"StatusBadge"},{"name":"NavList"},{"name":"MetricStrip"},{"name":"DataTable"},{"name":"PlotCard"},{"name":"PlotLegend"},{"name":"Layout2D"},{"name":"Layout3D"},{"name":"SpotDiagram"},{"name":"RayFan"},{"name":"Map2D"},{"name":"CurvePlot"},{"name":"Icon"}]} */
 /* ELEO plot renderers. Plain functions, no framework. SVG renderers return markup that reads colors from
    tokens.css variables, so one drawing works in both themes. Canvas renderers read the variables at draw time:
    call them again after a theme change. Sample data: a traced AC254-100-A style achromat (see ELEO.sample.note). */

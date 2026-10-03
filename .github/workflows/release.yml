@@ -1,5 +1,6 @@
 # On main: opens or updates the "Version packages" PR from pending changesets; when that PR is
-# merged, publishes the new versions to npm with provenance.
+# merged (or a version isn't on npm yet), publishes it. npm trusted publishing authenticates the
+# publish through GitHub's OIDC token: no npm token is stored anywhere, and npm adds provenance.
 name: Release
 on:
   push:
@@ -12,22 +13,19 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v5
+      # No registry-url: setup-node would write an .npmrc expecting a token.
       - uses: actions/setup-node@v5
-        with: { node-version: 24, cache: npm, registry-url: 'https://registry.npmjs.org' }
+        with: { node-version: 24, cache: npm }
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@^11.5.1
       - run: npm ci
       - run: npm run build
       - run: npm run test:unit
-      # Skipped until the NPM_TOKEN secret exists, so pushes before then don't fail.
-      - if: env.NPM_TOKEN != ''
-        uses: changesets/action@v1
+      - uses: changesets/action@v1
         with:
           version: npm run version
           publish: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true

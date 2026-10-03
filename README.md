@@ -1,14 +1,12 @@
 # eleo-ui
 
-ELEO's shared visual layer: one source for the design tokens and optical plots used by Phos, eleoptics.com and anyone building on Aurora.
+The design tokens and optical plots behind ELEO's tools, including Phos and eleoptics.com, open for anyone building on Aurora or drawing their own optical systems.
 
-| Package | What it is | Used by |
-| -- | -- | -- |
-| [`@eleoptics/tokens`](packages/tokens) | Colors for both themes, colormaps, type, spacing and line weights, as `tokens.css` and as data | everything |
-| [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, RayFan, Map2D (PSF, wavefront), CurvePlot (MTF and more), icons, legends; plus small exact physics helpers (`airy`, `j1`, `slabMode`, `colormap`) | the website (classic scripts), Phos (through the Svelte package), Aurora users |
-| [`@eleoptics/plots-svelte`](packages/plots-svelte) | Svelte 5 components around `@eleoptics/plots`: PlotCard, Layout2D, Map2D and the rest, redrawn on theme change | Phos |
-
-This repo is the source of truth. The ELEO design system artifact (claude.ai/artifact/JRXsjqrJmdRspmiPEtvEMt) holds the brand book and re-syncs its tokens and bundle from here.
+| Package | What it is |
+| -- | -- |
+| [`@eleoptics/tokens`](packages/tokens) | Colors for light and dark themes, colormaps, type, spacing and line weights, as `tokens.css` and as data |
+| [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, RayFan, Map2D (PSF, wavefront), CurvePlot (MTF and more), icons and legends; plus small, exact physics helpers (`airy`, `j1`, `slabMode`, `colormap`) |
+| [`@eleoptics/plots-svelte`](packages/plots-svelte) | Svelte 5 components around `@eleoptics/plots`: PlotCard, Layout2D, Map2D and the rest, redrawn on theme change |
 
 ## Use it
 
@@ -26,16 +24,17 @@ map2D(canvas, { data: mySystem, kind: 'psf' });  // canvas; call again after a t
 ```
 
 - Pass your traced system as `data`, or `import '@eleoptics/plots/sample'` to draw the sample achromat (190 KB, so it is opt-in).
-- Themes: light by default, dark when the OS prefers it, or force either with `data-theme="light"` / `"dark"` on any element; plots inside follow it.
+- Themes: light by default, dark when the OS prefers it, or force either with `data-theme="light"` or `"dark"` on any element; plots inside follow it.
+- Fonts: the plots use Fira Sans and Fira Code. Load them yourself (Google Fonts on the web, bundled files in a desktop app).
 - Without a bundler: load `@eleoptics/plots/eleo-plots.js` (then `eleo-plots-sample.js` if you want the sample); both add to `window.ELEO`. `eleo-physics.js` is the 1 KB physics helpers alone.
 
-In Svelte (Phos):
+In Svelte:
 
 ```svelte
 <script>
   import '@eleoptics/tokens/tokens.css';
   import '@eleoptics/plots/plots.css';
-  import { PlotCard, Layout2D, Map2D, Colorbar } from '@eleoptics/plots-svelte';
+  import { PlotCard, Map2D } from '@eleoptics/plots-svelte';
   let { system } = $props();
 </script>
 
@@ -56,7 +55,7 @@ npm run check          # Svelte type check
 
 First time only: `npx playwright install chromium` for the gallery check.
 
-To try a change in Phos or the website before it's published, link it: `npm link` in `packages/plots`, then `npm link @eleoptics/plots` in the other repo. CI there always builds against published versions.
+To try an unpublished change in another project, link it: `npm link` in `packages/plots`, then `npm link @eleoptics/plots` in that project.
 
 ### Changing things
 
@@ -66,8 +65,8 @@ To try a change in Phos or the website before it's published, link it: `npm link
 
 ## Release
 
-Releases run from GitHub Actions (`.github/workflows/release.yml`). Merging to main opens a "Version packages" PR from the pending changesets; merging that PR publishes to npm with provenance, and Dependabot or Renovate in Phos and the website opens the upgrade PRs.
+Releases run from GitHub Actions (`.github/workflows/release.yml`). Merging to main opens a "Version packages" PR from the pending changesets; merging that PR publishes the new versions to npm through trusted publishing, with provenance and no stored token.
 
-Before the first release, add the `NPM_TOKEN` secret to the GitHub repo: a granular npm token that can publish to the `eleoptics` organization. After the first publish, you can switch each package to npm trusted publishing and delete the token.
+## License
 
-The packages are MIT licensed (`LICENSE`).
+MIT. See [LICENSE](LICENSE).

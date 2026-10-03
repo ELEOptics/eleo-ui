@@ -1,4 +1,4 @@
-// Small, exact optics helpers shared by the plots, Phos and the website's hero. No DOM except
+// Small, exact optics helpers for plots and diagrams. No DOM except
 // colormap(), which reads the theme's map tokens from CSS.
 
 /** Bessel function of the first kind, order 1, by its integral (accurate to ~1e-6 for |x| < 40). */
