@@ -58,6 +58,8 @@
       <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D" width="480" height="300"></canvas></div></section>
       <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy" width="240" height="240"></canvas></div></section>
     </div>
+    <!-- Segmented control specimen, not a tile. Each column's <form> scopes its own radio group. -->
+    <form><div class="eleo-seg" role="radiogroup" aria-label="Units"><label><input type="radio" name="units" value="um" checked><span>µm</span></label><label><input type="radio" name="units" value="waves"><span>waves</span></label><label><input type="radio" name="units" value="mm"><span>mm</span></label></div></form>
     <section class="eleo-plot" data-tile="icons"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Icons</h3><span class="eleo-plot__meta">glass, then line</span></div><div class="eleo-plot__body icons" data-icons></div></section>
   </template>
   <script src="/packages/plots/dist/eleo-plots.js"></script>
