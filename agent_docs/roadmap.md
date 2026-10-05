@@ -18,7 +18,7 @@ workflow.md TDD > Oracles). Agents propose the oracles; the user approves the co
 
 | ID | Outcome | Oracle | Plan |
 | -- | -- | -- | -- |
-| U1 | Every renderer colors fields in a colour-blind-safe order: the first three fields stay distinguishable under protanopia, deuteranopia and tritanopia, and none reads as amber. Today they use fields 1, 2, 3, and field 2 reads as amber; the website uses 1, 7, 8, recorded as passing. | `paper Machado, Oliveira & Fernandes 2009, via culori's deficiency filters and CIEDE2000; property: in both themes and under each simulation, the order's first three colors are pairwise at least as far apart as fields 1, 7 and 8 measure today, and each is at least as far from --accent as field 1 is` | A |
+| U1 | Every renderer colors index 1 to 3 with fields 1, 7, 8, retuned so they stay distinguishable under protanopia, deuteranopia and tritanopia in both themes and none reads as amber. Today they use fields 1, 2, 3, and field 2 reads as amber; the website's 1, 7, 8 measured short of the bar (1–7 at ΔE2000 6.8, dark protan). | `paper Machado, Oliveira & Fernandes 2009, via culori's deficiency filters and CIEDE2000; property: in both themes, under normal vision and each simulation, fields 1, 7, 8 are pairwise at least as far apart as they measured at cc675cf and at least 10, each at least 20 from --accent; spec WCAG 2.2: each 3:1 on --surface` | A |
 | U2 | The segmented control marks the selected option in glass, not amber, so a view keeps one amber accent. | `user ELEO design system (claude.ai/artifact/JRXsjqrJmdRspmiPEtvEMt): one amber accent per view` | A |
 | U3 | `layout2D` draws any recorded sequential system: surfaces with their real profiles, crown or flint glass, a standalone stop, the image plane and a ray fan per field, labelled at the image, with an optional shared-scale `box`. The format is typed in `index.d.ts`, and the sample is one instance of it. | `fixture: the website's layouts recorded by its scripts/layout.py, plus the sample: inverting each SVG's transform recovers every surface profile and ray within 0.01 mm` | Layouts |
 | U4 | A page without a bundler can load `layout2D` alone, as it can the physics helpers (`eleo-physics.js`). | `property: the entry loads in a page with no other ELEO script and draws U3's fixtures` | Layouts |
@@ -31,7 +31,7 @@ Row letters and the Plan column: `agent_docs/agents/workflow.md`, Artifacts (Roa
 
 | Row | Plan | Scope | Exit criterion | Status |
 | -- | -- | -- | -- | -- |
-| A | #2 | Brand fixes: one CVD-safe field order used by every renderer (`layout2D`, `layout3D`, `spot`, `rayFan`, `curve`, `legend`), tested with culori; `.eleo-seg` marked in glass. | U1's test passes; gallery checked in both themes and approved. | next |
+| A | #4 | Brand fixes: field-7/8 retuned and one CVD-safe field order used by every renderer (`layout2D`, `layout3D`, `spot`, `rayFan`, `curve`, `legend`), tested with culori; `.eleo-seg` marked in glass. | U1's test passes; gallery checked in both themes and approved. | active |
 | Layouts | #3 | `layout2D` on the recorded format, fixtures copied from the website, the sample converted, a `box` option, the standalone entry, Svelte wrapper and gallery tile updated. Then one minor release (`npx changeset`, the user merges the Version packages PR). | U3 and U4 pass; every gallery tile unchanged apart from U1's colors; the release is on npm. | later |
 
 Layouts waits on A (both edit `renderers.js`). Not here: a shared line chart, histogram and sensitivity bars
@@ -76,6 +76,8 @@ coverage table). Each row names the plan that delivers it.
 ## Change log
 
 One bullet per entry (bare lines render as one paragraph).
+
+- 2026-10-05 plan #4 (user): A / U1 kill criterion fired before approval (fields 1–7 at ΔE2000 6.8, dark protan; the approved accent clause admits only blues); user chose to pivot: field-7/8 retuned through a spike, U1's oracle reworded (accent floor 20, contrast 3:1 added). Row A planned as #4, absorbing #2.
 
 - 2026-10-05 approval (user): outcomes U1–U4 and their oracles approved; culori approved as a dev dependency; rows filed as #2 and #3.
 - 2026-10-05: drafted with ELEOptics/eleo-website's roadmap, from that repo's review of its local UI code; scope after that roadmap's review (roadmap-reviewer, claude-fable-5-1, findings 1 to 4, 11, 13, 15).
