@@ -1,7 +1,7 @@
 # Plan #4: Brand fixes: colour-blind-safe field colors, glass segmented control
 
 Status: approved 2026-10-05
-Branch: `plan/4-brand-fixes` PR: #<pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row A
+Branch: `plan/4-brand-fixes` PR: #12 Depends on: none Roadmap: `agent_docs/roadmap.md`, row A
 
 ## Problem
 
