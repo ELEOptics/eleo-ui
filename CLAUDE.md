@@ -1,12 +1,14 @@
-# <Repo> (agent entry)
+# eleo-ui (agent entry)
 
-<One line: what this is.> Read `agent_docs/agents/workflow.md` before any task.
+ELEO's shared visual layer: design tokens, optical plot renderers and their Svelte components, published to npm as `@eleoptics/*`. Read `agent_docs/agents/workflow.md` before any task.
 Plans: `agent_docs/plans/`. Decisions: `agent_docs/adr/`. Humans: `README.md`.
 
 ## Commands
 
-- Setup:
-- Tests:
+- Setup: `npm ci && npm run build`
+- Tests: `npm run test:unit` (needs a build), `npx playwright test` (gallery)
+- Gallery: `npm run gallery`
+- Release notes: `npx changeset` per user-facing change
 - Everything CI runs: `scripts/check.sh`
 - Fast gate, per work item: `scripts/check.sh --fast`
 - Hooks: `git config core.hooksPath .githooks` once per clone.
