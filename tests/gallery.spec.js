@@ -33,3 +33,26 @@ test('canvas maps follow their theme', async ({ page }) => {
   expect((await corner('light')).every((v) => v > 230)).toBe(true);
   expect((await corner('dark')).every((v) => v < 40)).toBe(true);
 });
+
+// O2 (plan #4): the selected segment is marked in glass, not amber. oracle: user ELEO design system, one amber accent per view.
+test.skip('segmented control marks in glass', async ({ page }) => { // #5: unskipped by #11
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const col = page.locator(`.theme[data-theme="${theme}"]`);
+    await expect(col.locator('.eleo-seg')).not.toHaveCount(0);
+    const seg = await col.evaluate((el) => {
+      const probe = (v) => { const p = document.createElement('i'); p.style.color = `var(${v})`; el.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
+      const rgbs = (s) => s.match(/rgba?\([^)]*\)/g) || [];
+      const control = el.querySelector('.eleo-seg');
+      const colors = [control, ...control.querySelectorAll('*')].flatMap((n) => {
+        const s = getComputedStyle(n);
+        return [s.color, s.backgroundColor, s.borderTopColor, s.borderRightColor, s.borderBottomColor, s.borderLeftColor, s.outlineColor, ...rgbs(s.boxShadow)];
+      });
+      const checked = control.querySelector('input:checked + span');
+      return { glass: probe('--glass-edge'), accent: probe('--accent'), marker: checked && rgbs(getComputedStyle(checked).boxShadow)[0], colors };
+    });
+    expect(seg.marker, `${theme} checked marker`).toBe(seg.glass);
+    expect(seg.colors, `${theme} control uses no accent`).not.toContain(seg.accent);
+  }
+});
