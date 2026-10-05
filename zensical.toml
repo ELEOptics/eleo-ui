@@ -1,0 +1,9 @@
+# Developer site: uvx zensical@0.0.67 serve | build --strict
+[project]
+site_name = "Developer docs"
+docs_dir = "dev_docs"
+# serve and build write here: add it to .gitignore
+site_dir = "site"
+nav = [
+  { "Home" = "index.md" },
+]

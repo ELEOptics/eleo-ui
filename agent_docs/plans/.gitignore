@@ -1,0 +1,2 @@
+# /plan writes draft-<slug>.md before round 1; ignored so a leftover never shows as a change (#451).
+/draft-*.md
