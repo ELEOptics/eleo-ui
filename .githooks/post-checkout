@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# git clone and git worktree add leave submodules empty; submodule.recurse only updates initialized ones.
+[ "$3" = 1 ] && [ -f .gitmodules ] || exit 0    # branch checkouts only
+git submodule update --init --recursive || echo "post-checkout: submodule update failed" >&2
+exit 0    # the checkout itself succeeded; don't fail rebases over a network error

@@ -1,0 +1,25 @@
+# Installed by agents/workflow/adopt.sh. Per commit: a test touched with source.
+name: agent-workflow
+# Off until runners or Actions minutes exist; see CR #17 (itrumper/agents).
+on: workflow_dispatch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }  # the checks diff against a base; shallow clones have no base
+      - env:
+          # Run by hand: the dispatched ref against the default branch.
+          BASE: ${{ github.event.pull_request.base.sha || format('origin/{0}', github.event.repository.default_branch) }}
+          HEAD: ${{ github.event.pull_request.head.sha || 'HEAD' }}
+        run: |
+          for c in $(git rev-list --no-merges "$BASE..$HEAD"); do sh scripts/check-tests-touched.sh "$c^..$c"; done
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install uv==0.12.21
+      - run: '[ ! -f zensical.toml ] || uvx zensical@0.0.67 build --strict'
