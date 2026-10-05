@@ -43,7 +43,7 @@ culori), colors from `packages/tokens/src/tokens.json`, distances ΔE2000 (culor
 
 ## Non-goals
 
-- Exporting the order as public API (`fieldOrder`): the renderers and `legend` cover every use the website has; next plan if Phos needs it.
+- Exporting the order as public API (`fieldOrder`): the renderers and `legend` cover every use the website has; next plan if Phos needs it (#13).
 - Retuning fields 1 to 6: only 7 and 8 fail; field 2 and 5 stay amber-like but move late (O3).
 - Screenshot baselines for the gallery: the M1 demo in both themes is the visual check (round 2); the existing gallery test still checks every tile draws.
 - Updating the design system artifact: the user does it when signing off the spike's values; this repo copies them.
