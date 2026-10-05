@@ -1,6 +1,6 @@
 # Plan #4: Brand fixes: colour-blind-safe field colors, glass segmented control
 
-Status: approved 2026-10-05
+Status: approved 2026-10-05, paused 2026-10-05 for re-plan (CR #14)
 Branch: `plan/4-brand-fixes` PR: #12 Depends on: none Roadmap: `agent_docs/roadmap.md`, row A
 
 ## Problem
@@ -114,3 +114,5 @@ One bullet per entry (bare lines render as one paragraph).
 [#2]: https://github.com/ELEOptics/eleo-ui/issues/2
 [#3]: https://github.com/ELEOptics/eleo-ui/issues/3
 - 2026-10-05 approval (user): plan approved; published as #4 with work items #5 to #11.
+- 2026-10-05 spike #6: no dark field-8 meets O1 as worded (best −1.6 ΔE2000; orchestrator re-sweep −1.85). CR #14 filed.
+- 2026-10-05 #14 (user): re-scope. "Choose the field colors based on what is best for standard vision. Then add a setting that lets users choose color palettes that account for their visual conditions … They don't all have to work simultaneously." Plan paused for `/plan` revision; #5, #6 and #10 are done; #6's values are not signed off.
