@@ -1,4 +1,4 @@
-// Acceptance tests for plan #30 (agent_docs/plans/30-layouts.md), outcome O1.
+// Acceptance tests for plan #30 (agent_docs/plans/30-layouts.md), outcomes O1 and O2.
 // oracle: fixture the website's layouts recorded by its scripts/layout.py (eleo-website@39d19e4), plus the sample; inverting each SVG's transform recovers every surface profile and ray within 0.01 mm
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as layout2dModule from '../../packages/plots/src/layout2d.js';
+const { layoutBounds } = layout2dModule;
 
 const TOL = 0.01; // mm
 const FIXTURES = ['analysis', 'merit-before', 'merit-after', 'focus', 'tolerance'];
@@ -298,4 +299,37 @@ test('a fan that is not an array is named', () => {
 // oracle: spec the plan's Public API list (layout2D, layoutBounds).
 test('layout2d.js exports layout2D and layoutBounds only', () => {
   assert.deepEqual(Object.keys(layout2dModule).sort(), ['layout2D', 'layoutBounds']);
+});
+
+// Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
+// oracle: property one box → one transform; metamorphic: a layout alone vs in a shared box differs only by the box
+test('shared box', { skip: '#34' }, () => {
+  const before = fixture('merit-before'), after = fixture('merit-after');
+  const box = layoutBounds([before, after]);
+  const labels = ['0°', '12°', '24°'];
+  const drawings = [before, after].map((L) => ({ L, svg: ELEO.layout2D({ data: L, box, labels, marks: false }) }));
+  const [Mb, Ma] = drawings.map(({ svg }) => geometry(svg).M);
+  assert.deepEqual(Ma, Mb, 'one box → one transform');
+
+  for (const { L, svg } of drawings) {
+    // Metamorphic: the box is the only input that changes. The default box is the layout's own; passing it is a no-op,
+    // and the shared box moves no glass or ray in mm.
+    assert.equal(ELEO.layout2D({ data: L, box: layoutBounds([L]), labels, marks: false }), ELEO.layout2D({ data: L, labels, marks: false }),
+      'the default box is layoutBounds([L])');
+    const alone = drawn(ELEO.layout2D({ data: L, labels, marks: false })), shared = drawn(svg);
+    assert.deepEqual(shared.polygons, alone.polygons, 'glass is the same in mm');
+    assert.deepEqual(shared.polylines, alone.polylines, 'rays are the same in mm');
+
+    // Each labels[k] sits at the image end of fan k's chief (the middle ray: merit records no chief), in viewBox px.
+    const [s, , , ns, tx, ty] = geometry(svg).M;
+    const texts = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+    labels.forEach((label, k) => {
+      const got = texts.filter((t) => t.text === label);
+      assert.equal(got.length, 1, `label ${label} drawn once`);
+      const fan = L.rays[k], ray = fan[L.chief?.[k] ?? Math.floor(fan.length / 2)], end = ray[ray.length - 1];
+      const px = [end[0] * s + tx, end[1] * ns + ty];
+      const d = Math.hypot(+got[0].x - px[0], +got[0].y - px[1]);
+      assert.ok(d <= 16, `label ${label} at (${got[0].x}, ${got[0].y}) px is within 16 px of fan ${k}'s chief end (${px[0].toFixed(2)}, ${px[1].toFixed(2)})`);
+    });
+  }
 });
