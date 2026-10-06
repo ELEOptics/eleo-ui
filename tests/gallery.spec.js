@@ -34,23 +34,8 @@ test('canvas maps follow their theme', async ({ page }) => {
   expect((await corner('dark')).every((v) => v < 40)).toBe(true);
 });
 
-// #10: the checked segment's underline is the lens-rim color. oracle: user, plan #4 round 1 (inset 0 -2px 0 var(--glass-edge)).
-test('checked segment uses glass-edge in both themes', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const col = page.locator(`.theme[data-theme="${theme}"]`);
-    const { glass, marker } = await col.evaluate((el) => {
-      const p = document.createElement('i'); p.style.color = 'var(--glass-edge)'; el.append(p);
-      const glass = getComputedStyle(p).color; p.remove();
-      const checked = el.querySelector('.eleo-seg input:checked + span');
-      return { glass, marker: checked && (getComputedStyle(checked).boxShadow.match(/rgba?\([^)]*\)/) || [null])[0] };
-    });
-    expect(marker, `${theme} checked span's box-shadow color`).toBe(glass);
-  }
-});
-
 // O2 (plan #4): the selected segment is marked in glass, not amber. oracle: user ELEO design system, one amber accent per view.
+// The marker is inset 0 -2px 0 var(--glass-edge). oracle: user, plan #4 round 1 (carried from #10, which this subsumes).
 test('segmented control marks in glass', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
