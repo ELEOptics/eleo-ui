@@ -22,6 +22,18 @@ colorbarEl.style.background = gradient('ember');
 - **Data:** pass your traced system as `data`. To try things out, `import '@eleoptics/plots/sample'` makes a traced achromat the default (190 KB, so it is opt-in).
 - **Fonts:** Fira Sans and Fira Code. Load them yourself.
 
+## Palettes
+
+Plots color index 1 to 8 in the standard order. For readers with color vision deficiency, set a palette on the page:
+
+```html
+<html data-palette="red-green">
+```
+
+The values are `standard` (the default), `red-green` (protanopia and deuteranopia) and `blue-yellow` (tritanopia). Use one palette per page, on `<html>`. SVG plots recolor at once; canvas plots (`map2D`, `layout3D`) redraw as on a theme change.
+
+`--series-1` to `--series-8` are the index colors for any chart on the page. They follow the palette and theme. The token number is not the index.
+
 ## Physics helpers
 
 ```js
