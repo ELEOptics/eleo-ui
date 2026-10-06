@@ -374,7 +374,7 @@ test('marks off', () => {
 
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
 // oracle: property one box → one transform; metamorphic: a layout alone vs in a shared box differs only by the box
-test('shared box', { skip: '#34' }, () => {
+test('shared box', () => {
   const before = fixture('merit-before'), after = fixture('merit-after');
   const box = layoutBounds([before, after]);
   const labels = ['0°', '12°', '24°'];

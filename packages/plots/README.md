@@ -22,6 +22,39 @@ colorbarEl.style.background = gradient('ember');
 - **Data:** pass your traced system as `data`. To try things out, `import '@eleoptics/plots/sample'` makes a traced achromat the default (190 KB, so it is opt-in).
 - **Fonts:** Fira Sans and Fira Code. Load them yourself.
 
+## Lens layouts
+
+`layout2D` draws any sequential system recorded in this format (eleoptics.com's `scripts/layout.py` writes it). Every length is in mm, in the YZ section:
+
+```js
+{
+  surfaces: [{ z, sd, stop, image, glass, profile }],  // glass: null | 'crown' | 'flint', the material after the surface
+  rays: [[[[z, y], ...], ...], ...],                    // rays[fan][ray] is a polyline
+  chief: [3, 3, 2],                                     // optional: one ray index per fan
+}
+```
+
+`profile` is the surface's section as `[z, y]` points. `data` is a recorded layout, or a system whose `layout` (colored by field) and `layoutWl` (colored by wavelength) are recorded layouts; `colorBy` picks which one.
+
+- **Chief ray:** `chief[k]` for fan k; without `chief`, the fan's middle ray, `floor(n / 2)`. That is eleoptics.com's rule, and it can be wrong for a vignetted fan, so record `chief` when you know it. An index outside the fan throws an error naming the fan.
+- **`box`:** the `{zmin, zmax, ylo, yhi}` the drawing shows, in mm. It defaults to `layoutBounds([layout])`. Drawings given the same `box` and `width` share one scale, so they compare true to size.
+- **`layoutBounds(layouts)`:** the box that frames every layout given: z covers the rays, y covers 0, the rays and every surface edge but the image's, padded 4%.
+- **`labels`:** one text per fan, drawn at the image end of that fan's chief ray. A fan with no rays gets none.
+- **`marks`:** `false` drops the STO and IMA labels. Default `true`.
+
+```js
+import { layout2D, layoutBounds } from '@eleoptics/plots';
+
+const box = layoutBounds([before, after]);
+const labels = ['0°', '12°', '24°'];
+beforeEl.innerHTML = layout2D({ data: before, box, labels, marks: false });
+afterEl.innerHTML = layout2D({ data: after, box, labels, marks: false });
+```
+
+### Migration: `data.layout` is a recorded layout
+
+This is a breaking change. `data.layout` used to be a bare rays array (`layout[field][ray]` of `[z, y]` points), drawn against `data.profiles` and `data.zimg`. It is now a recorded layout, `{surfaces, rays, chief?}`, and so is `data.layoutWl` (previously `{field, rays}`). Record your system in the format above: each lens surface becomes a `surfaces` entry with its `profile` and the `glass` after it, the stop and the image become surfaces with `stop` or `image` set, and the old rays array moves to `rays`. `layout2D` throws on the old shape. `layout3D` is unchanged: it still reads `profiles` and `rays3d`.
+
 ## Palettes
 
 Plots color index 1 to 8 in the standard order. For readers with color vision deficiency, set a palette on the page:
