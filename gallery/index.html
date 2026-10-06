@@ -15,6 +15,7 @@
     header { padding: 24px 32px 8px; }
     header h1 { margin: 0 0 4px; font-size: 28px; line-height: 34px; }
     header p { margin: 0; color: var(--ink-muted); max-width: 72ch; }
+    header .palette { margin-top: 12px; }
     .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); }
     .theme { background: var(--ground); color: var(--ink); padding: 24px 32px 48px; display: grid; gap: 12px; align-content: start; }
     .theme > h2 { margin: 0; font-size: 16px; }
@@ -28,6 +29,7 @@
   <header>
     <h1>ELEO plots</h1>
     <p>Every renderer in @eleoptics/plots, drawn from the sample achromat, in both themes. Check this page after any change to a renderer or a token.</p>
+    <form class="palette"><div class="eleo-seg" role="radiogroup" aria-label="Palette"><label><input type="radio" name="palette" value="standard" checked><span>Standard</span></label><label><input type="radio" name="palette" value="red-green"><span>Red-green</span></label><label><input type="radio" name="palette" value="blue-yellow"><span>Blue-yellow</span></label></div></form>
   </header>
   <main class="themes">
     <section class="theme" data-theme="light"><h2>Light</h2></section>
@@ -58,6 +60,8 @@
       <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D" width="480" height="300"></canvas></div></section>
       <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy" width="240" height="240"></canvas></div></section>
     </div>
+    <!-- Segmented control specimen, not a tile. Each column's <form> scopes its own radio group. -->
+    <form><div class="eleo-seg" role="radiogroup" aria-label="Units"><label><input type="radio" name="units" value="um" checked><span>µm</span></label><label><input type="radio" name="units" value="waves"><span>waves</span></label><label><input type="radio" name="units" value="mm"><span>mm</span></label></div></form>
     <section class="eleo-plot" data-tile="icons"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Icons</h3><span class="eleo-plot__meta">glass, then line</span></div><div class="eleo-plot__body icons" data-icons></div></section>
   </template>
   <script src="/packages/plots/dist/eleo-plots.js"></script>
@@ -83,20 +87,30 @@
       }
       ctx.putImageData(img, 0, 0);
     }
-    document.querySelectorAll('.theme').forEach(function (theme) {
-      theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
-      theme.querySelectorAll('[data-svg]').forEach(function (el) { el.innerHTML = SVG[el.dataset.svg](); });
-      theme.querySelectorAll('[data-legend]').forEach(function (el) { el.innerHTML = ELEO.legend(el.dataset.legend); });
-      theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
-      theme.querySelectorAll('[data-canvas]').forEach(function (el) {
+    // Canvas tiles read their colors once per draw, so a palette change redraws them; SVG recolors through CSS.
+    function drawCanvases() {
+      document.querySelectorAll('.theme [data-canvas]').forEach(function (el) {
         var k = el.dataset.canvas;
         if (k === 'layout3D') ELEO.layout3D(el);
         else if (k === 'airy') airyTile(el);
         else ELEO.map2D(el, { kind: k });
       });
+    }
+    document.querySelectorAll('.theme').forEach(function (theme) {
+      theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
+      theme.querySelectorAll('[data-svg]').forEach(function (el) { el.innerHTML = SVG[el.dataset.svg](); });
+      theme.querySelectorAll('[data-legend]').forEach(function (el) { el.innerHTML = ELEO.legend(el.dataset.legend); });
+      theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
       var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
         .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));
       theme.querySelector('[data-icons]').innerHTML = icons.join('');
+    });
+    drawCanvases();
+    document.querySelector('header .palette').addEventListener('change', function (e) {
+      var v = e.target.value;
+      if (v === 'standard') document.documentElement.removeAttribute('data-palette');
+      else document.documentElement.dataset.palette = v;
+      drawCanvases();
     });
     document.body.dataset.ready = 'true';
   </script>

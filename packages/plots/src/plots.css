@@ -7,6 +7,27 @@
 .eleo-nav a { display: flex; align-items: center; gap: var(--space-2); }
 .eleo-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
+/* ---------- Series palettes ----------
+   --series-k is the color of index k. A var() resolves where it is declared, so each mapping is restated on every
+   [data-theme] element. Palettes beat the standard block by source order (equal specificity): keep it first.
+   The orders are checked against tokens.json by tests/unit/field-order.test.js (plan #4, rule R). */
+:root, [data-theme] {
+  --series-1: var(--field-1); --series-2: var(--field-7); --series-3: var(--field-8); --series-4: var(--field-3);
+  --series-5: var(--field-4); --series-6: var(--field-6); --series-7: var(--field-2); --series-8: var(--field-5);
+}
+[data-palette="standard"], [data-palette="standard"] [data-theme] {
+  --series-1: var(--field-1); --series-2: var(--field-7); --series-3: var(--field-8); --series-4: var(--field-3);
+  --series-5: var(--field-4); --series-6: var(--field-6); --series-7: var(--field-2); --series-8: var(--field-5);
+}
+[data-palette="red-green"], [data-palette="red-green"] [data-theme] {
+  --series-1: var(--field-3); --series-2: var(--field-4); --series-3: var(--field-8); --series-4: var(--field-7);
+  --series-5: var(--field-5); --series-6: var(--field-1); --series-7: var(--field-6); --series-8: var(--field-2);
+}
+[data-palette="blue-yellow"], [data-palette="blue-yellow"] [data-theme] {
+  --series-1: var(--field-1); --series-2: var(--field-4); --series-3: var(--field-6); --series-4: var(--field-7);
+  --series-5: var(--field-3); --series-6: var(--field-2); --series-7: var(--field-8); --series-8: var(--field-5);
+}
+
 /* ---------- Button ---------- */
 .eleo-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
@@ -33,7 +54,7 @@
 .eleo-seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
 .eleo-seg span { display: block; padding: 6px 12px; font: 400 13px/18px var(--font-sans); color: var(--ink-muted); cursor: pointer; }
 .eleo-seg label + label span { border-left: 1px solid var(--line); }
-.eleo-seg input:checked + span { background: var(--surface-alt); color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
+.eleo-seg input:checked + span { background: var(--surface-alt); color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--glass-edge); }
 .eleo-seg input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: -3px; }
 
 /* ---------- Number field ---------- */
