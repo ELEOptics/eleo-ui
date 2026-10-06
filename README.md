@@ -60,7 +60,7 @@ To try an unpublished change in another project, link it: `npm link` in `package
 ### Changing things
 
 - **A token:** edit `packages/tokens/src/tokens.json`, keeping every color in both themes and each text color at 4.5:1 on its ground. The renderers read tokens as CSS variables, so most token changes need no renderer change, except the field order: it is pinned per palette in `packages/plots/src/plots.css` and checked against the tokens, so a field token change reruns that check.
-- **A renderer:** edit `packages/plots/src/renderers.js` and check the gallery in both themes. A new renderer also gets a gallery tile, a type in `index.d.ts` and a Svelte wrapper.
+- **A renderer:** edit `packages/plots/src/layout2d.js` for `layout2D`, `packages/plots/src/common.js` for the shared helpers (`STANDARD`, `idx`, `svg`) and `packages/plots/src/renderers.js` for the rest, then check the gallery in both themes. A new renderer also gets a gallery tile, a type in `index.d.ts` and a Svelte wrapper.
 - **Every PR that changes a package** adds a changeset (`npx changeset`): patch for fixes, minor for new renderers, props or tokens, major for anything that breaks a consumer.
 
 ## Release
