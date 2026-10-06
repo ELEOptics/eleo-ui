@@ -111,7 +111,7 @@ The gallery keeps every tile drawing, with no change apart from U1's colors. Thi
 
 - The format is the site's `layout.py` output, plus an optional `chief: number[]` (one ray index per fan; round 1, user). Without `chief`, the chief is the fan's middle ray `floor(n/2)`. That is the site's rule, and it can be wrong for a vignetted fan.
 - `data` is either a recorded layout (it has `surfaces`) or a system whose `layout` (field-colored) and `layoutWl` (wavelength-colored) are recorded layouts (round 1, user). `Layout2D.svelte` spreads its props into `layout2D`, so the Svelte wrapper needs no code change, only its README example.
-- Geometry (glass, axis, stop, image, rays) is drawn in mm inside one `<g transform="matrix(s 0 0 −s tx ty)">`, with points at `toFixed(3)` mm. Strokes keep `vector-effect="non-scaling-stroke"`. Text, the chief dot and the scale bar sit outside the group, in viewBox px. Dash arrays inside the group are written as px/s, so they look as they do today.
+- Geometry (glass, axis, stop, image, rays) is drawn in mm inside one `<g transform="matrix(s 0 0 −s tx ty)">`, with points at `toFixed(3)` mm. Strokes keep `vector-effect="non-scaling-stroke"`. Text, the chief dot and the scale bar sit outside the group, in viewBox px. Dash arrays stay in px, as today: under `non-scaling-stroke` the browser applies them in screen space (CR #48).
 - What "recovers" means in O1, per surface kind:
   - glass profiles: from the polygons, exact to `toFixed(3)` (≤ 0.0005 mm);
   - a standalone stop: from its tick ends at ±sd and ±(sd + 2.5);
@@ -158,6 +158,11 @@ Proves: O1. The kill criterion is decided in the last item: converting the sampl
 | #32 | `src/layout2d.js` draws `data.surfaces` layouts: glass polygons, the axis, ticks for a standalone stop, the image, the `rays` option over `chief` or the middle ray, the chief dot, STO and IMA marks, `layoutBounds` (used, not yet exported) and the `box` option (`o.box || layoutBounds([L])`). Shared `STANDARD`, `idx`, `svg` and `NS` move to `src/common.js`. `renderers.js` delegates to it when `data` has `surfaces` and keeps its old path for the sample. #27's `renderers.js:3` line rides along | its own module because M3 bundles it alone; considered editing it inside the `renderers.js` closure, ruled out because then it can't be bundled without every renderer. `common.js` because two copies of the field order would drift; `field-order.test.js` imports `STANDARD` from it, so the test guards the single source | `src/layout2d.js`, `src/common.js`, `src/renderers.js`; `tests/unit/field-order.test.js` (import) | `layout2d.test.js::triplet draws 3 polygons, no stop ticks`, `::singlet draws 1 polygon and 2 ticks`, `::chief index picks the dot` (unskipped, synthetic 5-ray fan) | #31 |
 | #46 | From CR #45: `README.md`'s "A renderer" line names `layout2d.js` and `common.js` | forced (CR #45: stale doc after #32) | `README.md` | the named paths exist | #32 |
 | #33 | Sample: `layout` and `layoutWl` become recorded layouts. Surfaces come from `profiles` ys/zs, crown then flint; `stop: true` goes on surface 0; the image is at `zimg`, with `sd` = the largest \|y\| of the rays there and `profile` = `[[zimg, y] × 41]`; no `chief` (7-ray fans, middle = 3). Deletes `renderers.js`'s old path. The two gallery sample tiles pin `box: {zmin: -8, zmax: zimg + 4, ylo: -13.5, yhi: 13.5}`, today's framing (user, at approval). Unskips O1 | a one-off conversion by `scripts/sample-layout.mjs`, committed, because the sample is static data; considered converting at load in `sample.js`, ruled out because that is the special case the kill criterion names | `src/sample.json`, `src/renderers.js`, `scripts/sample-layout.mjs`, `gallery/index.html`; `tests/unit/layout2d.test.js` (unskip) | O1 green; `::sample surfaces equal its profiles` (oracle: the sample's own `profiles`); `field-order.test.js` still green | #32 |
+| #49 | From CR #48: dash arrays in px (`4 6` axis, `6 4` chief); `dash()` deleted | forced (CR #48: non-scaling-stroke dashes in screen space) | `packages/plots/src/layout2d.js` | dash-array test asserts `4 6` / `6 4` | #33 |
+| #50 | Review finding 2: the sample test's oracle line names its kind | forced (hook: every `oracle:` line in a new file has a kind) | `tests/unit/layout2d.test.js` | `check-tests-touched.sh 42d355f..HEAD` passes | #33 |
+| #51 | Review finding 3: `layoutBounds` ports the site's `bounds()` (skip the image, reach `\|profile[0][1]\|`); the image line is clamped to the box | the plan says port, because the site's two-layout figures depend on its framing; considered amending the plan to keep ours, ruled out because it's 41% taller on the triplet | `packages/plots/src/layout2d.js` | `::layoutBounds ports the site` (reference: the site's function) | #49 |
+| #52 | Review finding 5: an old-shape layout throws a named error; an empty fan is skipped | one guard and one skip, because the format allows an all-dead fan; considered validating `box` too, which waits for M2 when `box` goes public | `packages/plots/src/layout2d.js` | `::old shape is named`, `::empty fan is skipped` | #51 |
+| #53 | Review finding 6: README lists `NS` among common.js's helpers | forced (stale doc) | `README.md` | the list matches common.js's exports | #46 |
 
 ### M2: shared box and labels, typed and documented. GitHub: `P30 M2: shared box, labels, types`
 
@@ -196,14 +201,14 @@ Proves: O3, O4.
 | #28 reuse | Bump `@changesets/cli`; add root `overrides` only if `npm audit` still reports. Re-check #21's option against the new config validator. The root README says `npm audit --omit=dev` is what ships | bump first because it removes rather than pins (round 2, user); considered overrides only | `package.json`, `package-lock.json`, root README line | `npm audit` 0 (stop condition); `release.test.js` still green | #21 |
 | #41 | `.changeset/layouts.md`: plots minor, with the breaking `data.layout` shape and its migration; plots-svelte patch, naming the widened peer range. #27's last lines (`packages/plots/README.md:21`, `Layout3D.svelte:1`) | forced (`workflow.md`, TDD; the release needs a changeset). The #27 lines ride here because this item touches tests and the hook needs that | `.changeset/layouts.md`, `packages/plots/README.md`, `packages/plots-svelte/src/lib/Layout3D.svelte`; `tests/unit/release.test.js` (asserts the changeset's bump types) | O3, O4 green | #40, #21, #28 |
 
-15 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
+20 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
 
 ## Risks and spikes
 
 | Risk | Impact | Mitigation |
 | -- | -- | -- |
 | The sample needs a special case (kill criterion) | stop and ask: pivot, cut or continue | decided by M1's last item, which must delete the old path |
-| The mm group changes how dashes and dots render | the tiles look off | dot outside the group, dashes as px/s; checked at the M1 demo in both themes |
+| The mm group changes how dashes and dots render | the tiles look off | dot outside the group, dashes in px (CR #48: px/s rendered solid); checked at the M1 demo in both themes |
 | The bump to `@changesets/cli` 3.x drops or renames #21's option | #21's fix breaks | `release.test.js` runs on the bumped CLI; #28 comes after #21 |
 | The bump changes how `changeset version` writes its output | the release PR looks different | a dry `changeset version` at the M3 demo, then reverted |
 
@@ -219,3 +224,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-05: published. Plan issue #30, milestones P30 M1 to M3, work items #31 to #41 (#21 and #28 reused). #3 and #27 absorbed.
 - 2026-10-05 headless: CR #43 accepted (keeps every invariant; row: Split, CR triage, commit order, wave dispatch). New item #44 in M1; #31 runs after it.
 - 2026-10-06 headless: CR #45 accepted (stale doc, not Core; row: Split, CR triage, commit order, wave dispatch). New item #46 in M1.
+- 2026-10-06 headless: M1 review round 1, 1 blocking. CR #48 accepted (dash arrays in px; it restores the look the Constraints line asked for, so every invariant is kept; row: Split, CR triage, commit order, wave dispatch); the Constraints line is corrected. Item #49.
+- 2026-10-06 headless: backlog #50, #51, #52, #53 into M1 (row: milestone acceptance within the plan).
