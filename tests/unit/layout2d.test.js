@@ -164,7 +164,7 @@ test('chief index picks the dot', () => {
 });
 
 // Plan #30, #33: the sample's `layout` and `layoutWl` are recorded layouts.
-// oracle: the sample's own `profiles` (and its `zimg` and ray ends for the image).
+// oracle: fixture the sample's own profiles, zimg and ray ends (packages/plots/src/sample.json)
 test('sample surfaces equal its profiles', () => {
   for (const key of ['layout', 'layoutWl']) {
     const L = sample[key];
