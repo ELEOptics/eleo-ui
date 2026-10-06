@@ -1,7 +1,7 @@
 # Plan #30: General layout2D, standalone entry, release
 
 Status: approved 2026-10-05
-Branch: `plan/30-layouts` PR: #<pr> Depends on: plan #4 (done) Roadmap: `agent_docs/roadmap.md`, row B
+Branch: `plan/30-layouts` PR: #42 Depends on: plan #4 (done) Roadmap: `agent_docs/roadmap.md`, row B
 
 ## Problem
 
