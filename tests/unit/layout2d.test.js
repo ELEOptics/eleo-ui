@@ -286,6 +286,16 @@ test('no rays is named', () => {
   }
 });
 
+// Plan #30, #58: review round 3 finding 3. A fan that is not an array is named, not a bare TypeError.
+// oracle: spec the plan's `rays: [field][ray][[z, y]…]`
+test('a fan that is not an array is named', () => {
+  const L = fixture('tolerance');
+  for (const bad of [null, undefined, 3, {}]) {
+    assert.throws(() => ELEO.layout2D({ data: { ...L, rays: [bad, L.rays[0]] } }),
+      { message: /^layout2D: / }, `fan ${String(bad)}`);
+  }
+});
+
 // oracle: spec the plan's Public API list (layout2D, layoutBounds); recorded() stays internal.
 test('layout2d.js exports layout2D and layoutBounds only', () => {
   assert.deepEqual(Object.keys(layout2dModule).sort(), ['layout2D', 'layoutBounds']);

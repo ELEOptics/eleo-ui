@@ -40,6 +40,7 @@ function recorded(D, colorBy) { return D.surfaces ? D : colorBy === "wavelength"
 export function layout2D(o) {
   var D = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief", L = recorded(D, colorBy);
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
+  L.rays.forEach(function (fan, k) { if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays"); });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
   var S = L.surfaces;
   var B = o.box || layoutBounds([L]), W = o.width || 1000, s = W / (B.zmax - B.zmin);
