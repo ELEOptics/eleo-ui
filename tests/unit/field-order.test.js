@@ -151,11 +151,16 @@ test('standard order is rule R under normal vision', (t) => {
     }
   }
   assert.deepEqual(series(ELEO.legend('field', 8)), [1, 2, 3, 4, 5, 6, 7, 8], 'legend covers index 1 to 8');
+  assert.deepEqual(
+    [...drawn['legend field'].matchAll(/var\(--series-(\d+),\s*var\(--field-\d+\)\)/g)].map(([, k]) => Number(k)).sort(),
+    [1, 2, 3, 4, 5, 6, 7, 8],
+    'legend: every index 1 to 8 carries a field fallback',
+  );
 
   // layout3D: --series-1..3 when plots.css is loaded, the standard fields when --series-* reads empty.
-  assert.deepEqual(firstUse(layout3DStrokes((n) => n)).slice(0, 3), ['--series-1', '--series-2', '--series-3'], 'layout3D with plots.css');
+  assert.deepEqual(firstUse(layout3DStrokes((n) => n)), ['--series-1', '--series-2', '--series-3'], 'layout3D with plots.css');
   assert.deepEqual(
-    firstUse(layout3DStrokes((n) => (n.startsWith('--series-') ? '' : n))).slice(0, 3),
+    firstUse(layout3DStrokes((n) => (n.startsWith('--series-') ? '' : n))),
     standard.slice(0, 3).map((n) => `--field-${n}`),
     'layout3D without plots.css',
   );
