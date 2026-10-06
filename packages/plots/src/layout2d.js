@@ -32,7 +32,9 @@ export function layoutBounds(layouts) {
 export function recorded(D, colorBy) { return D.surfaces ? D : colorBy === "wavelength" ? D.layoutWl : D.layout; }
 
 export function layout2D(o) {
-  var D = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief", L = recorded(D, colorBy), S = L.surfaces;
+  var D = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief", L = recorded(D, colorBy);
+  if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
+  var S = L.surfaces;
   var B = o.box || layoutBounds([L]), W = o.width || 1000, s = W / (B.zmax - B.zmin), top = 3;
   var H = Math.round((B.yhi - B.ylo) * s) + 30, tx = -B.zmin * s, ty = top + B.yhi * s;
   function n(v) { return +v.toFixed(3); }
@@ -48,6 +50,7 @@ export function layout2D(o) {
   });
   var dots = "";
   L.rays.forEach(function (rays, k) {
+    if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
       g += '<polyline points="' + pts(rays[i]) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:var(--stroke-ray)" stroke-linecap="round" stroke-linejoin="round"' + (i === c && set !== "chief" ? ' stroke-dasharray="6 4"' : "") + " " + NS + "/>";

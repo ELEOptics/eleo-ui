@@ -219,3 +219,26 @@ test('layoutBounds ports the site', async (t) => {
     });
   }
 });
+
+// Plan #30, #52: review finding 5. A layout of the old shape is named; an all-dead fan is skipped.
+// oracle: spec the recorded format allows a fan with every ray dropped (eleo-website scripts/layout.py drops dead rays)
+test('old shape is named', () => {
+  const old = { layout: [[[0, 1], [10, 0]]], profiles: [], zimg: 10 };
+  assert.throws(() => ELEO.layout2D({ data: old }),
+    { message: 'layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note' });
+});
+
+test('empty fan is skipped', () => {
+  const L = fixture('merit-before');
+  const E = { ...L, rays: L.rays.map((fan, k) => (k === 1 ? [] : fan)) };
+  assert.deepEqual(layoutBounds([E]), bounds([E]), "an empty fan leaves the site's box as the site computes it");
+  for (const rays of ['fan', 'marginal-chief', 'chief']) {
+    let svg;
+    assert.doesNotThrow(() => { svg = ELEO.layout2D({ data: E, rays }); }, `${rays}: layout2D draws it`);
+    const d = drawn(svg);
+    const want = rays === 'fan' ? 14 : rays === 'chief' ? 2 : 6;
+    assert.equal(d.polylines.length, want, `${rays}: the other fans' polylines`);
+    assert.equal(d.dots.length, 2, `${rays}: a chief dot per drawn fan`);
+  }
+  roundTrip(E, ELEO.layout2D({ data: E, rays: 'fan' }));
+});
