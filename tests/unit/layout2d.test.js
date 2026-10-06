@@ -402,7 +402,7 @@ test('labels at the image', () => {
     }
   }
   // #64: with labels and marks on, IMA sits below the image line's lower end and clears every label and the scale bar.
-  // oracle: property labels don't overlap (IMA's anchor ≥ 12 px from every label's, to the SVG's 2 dp, inside the viewBox; IMA's and the scale text's x ranges apart at 8 px a character)
+  // oracle: property labels don't overlap (IMA's baseline ≥ 14 px below the image line: the 9 px ascent of plots.css `.eleo-tick`'s 10 px font + the 5 px gap `above` leaves; IMA's anchor ≥ 12 px from every label's, to the SVG's 2 dp, inside the viewBox; IMA's and the scale text's x ranges apart at 8 px a character)
   for (const [name, L] of [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]]) {
     for (const W of [1000, 480]) {
       const labels = L.rays.map((_, k) => `F${k}`);

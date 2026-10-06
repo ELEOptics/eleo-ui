@@ -100,8 +100,9 @@ export function layout2D(o) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
     if (img) {
       // With labels, IMA goes below the image line's lower end and a 12 px line below the lowest label.
-      var ys = tags.map(function (a) { return a.py; });
-      g += label(img.z, ys.length ? Math.max(+Y(Math.max(-img.sd, B.ylo)) + 14, Math.max.apply(null, ys) + 12) : above(img.sd), "IMA");
+      // Its baseline drops the text's height (9 px: the ascent of plots.css `.eleo-tick`'s 10 px font) plus the 5 px gap `above` leaves.
+      var IMA_DROP = 9 + 5, ys = tags.map(function (a) { return a.py; });
+      g += label(img.z, ys.length ? Math.max(+Y(Math.max(-img.sd, B.ylo)) + IMA_DROP, Math.max.apply(null, ys) + 12) : above(img.sd), "IMA");
     }
   }
   tags.forEach(function (a) { g += label(a.z, a.py, a.t); });
