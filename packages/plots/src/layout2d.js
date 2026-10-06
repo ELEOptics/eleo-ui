@@ -71,13 +71,21 @@ export function layout2D(o) {
   var img = S.filter(function (x) { return x.image; })[0];
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>" + dots;
-  function label(z, y, t) { return '<text class="eleo-tick" x="' + X(z) + '" y="' + Math.max(10, Y(y) - 5).toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
-  if (o.marks !== false) {
-    S.forEach(function (x, i) { if (x.stop) g += label(x.z, reach(S, i), "STO"); });
-    if (img) g += label(img.z, img.sd, "IMA");
-  }
+  // A text's baseline 5 px above y (mm), kept 10 px inside the top.
+  function above(y) { return +Math.max(10, Y(y) - 5).toFixed(2); }
+  function label(z, py, t) { return '<text class="eleo-tick" x="' + X(z) + '" y="' + py.toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
   // Each field's label sits 5 px above its chief's image end; an empty fan has no end and no label.
-  (o.labels || []).forEach(function (t, k) { if (ends[k]) g += label(ends[k][0], ends[k][1], esc(t)); });
+  var tags = [];
+  (o.labels || []).forEach(function (t, k) { if (ends[k]) tags.push({ z: ends[k][0], py: above(ends[k][1]), t: esc(t) }); });
+  if (o.marks !== false) {
+    S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
+    if (img) {
+      // With labels, IMA goes below the image line's lower end and a 12 px line below the lowest label.
+      var ys = tags.map(function (a) { return a.py; });
+      g += label(img.z, ys.length ? Math.max(+Y(Math.max(-img.sd, B.ylo)) + 14, Math.max.apply(null, ys) + 12) : above(img.sd), "IMA");
+    }
+  }
+  tags.forEach(function (a) { g += label(a.z, a.py, a.t); });
   var sb = 10 * s, by = H - 8;
   g += '<path d="M8,' + (by - 4) + " V" + (by + 4) + " M8," + by + " H" + (8 + sb).toFixed(1) + " M" + (8 + sb).toFixed(1) + "," + (by - 4) + " V" + (by + 4) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text class="eleo-tick" x="' + (16 + sb).toFixed(1) + '" y="' + (by + 3) + '">10 mm · true scale</text>';
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);

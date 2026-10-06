@@ -353,6 +353,29 @@ test('labels at the image', () => {
       });
     }
   }
+  // #64: with labels and marks on, IMA sits below the image line's lower end and clears every label and the scale bar.
+  // oracle: property labels don't overlap (IMA's anchor ≥ 12 px from every label's, to the SVG's 2 dp, inside the viewBox; IMA's and the scale text's x ranges apart at 8 px a character)
+  for (const [name, L] of [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]]) {
+    for (const W of [1000, 480]) {
+      const labels = L.rays.map((_, k) => `F${k}`);
+      const svg = ELEO.layout2D({ data: L, labels, width: W });
+      const view = nums(/<svg\b[^>]*\bviewBox="([^"]*)"/.exec(svg)[1]);
+      const T = texts(svg), ima = T.filter((t) => t.text === 'IMA');
+      assert.equal(ima.length, 1, `${name} w${W}: IMA drawn once`);
+      const [ix, iy] = [+ima[0].x, +ima[0].y];
+      assert.ok(iy >= 10 && iy <= view[3], `${name} w${W}: IMA (${ix}, ${iy}) inside the viewBox`);
+      const [, , , ns, , ty] = geometry(svg).M, img = L.surfaces.find((x) => x.image);
+      const low = Math.max(-img.sd, layoutBounds([L]).ylo) * ns + ty;
+      assert.ok(iy >= low + 14 - 0.005, `${name} w${W}: IMA (${iy}) at least 14 px below the image line's lower end (${low.toFixed(2)})`);
+      const span = (t) => { const x = +t.x, w = 8 * t.text.length, a = t['text-anchor'] || 'start'; return a === 'end' ? [x - w, x] : a === 'middle' ? [x - w / 2, x + w / 2] : [x, x + w]; };
+      const bar = span(T.find((t) => /true scale/.test(t.text))), im = span(ima[0]);
+      assert.ok(im[0] > bar[1] || im[1] < bar[0], `${name} w${W}: IMA x ${im.map((v) => v.toFixed(1))} clear of the scale text x ${bar.map((v) => v.toFixed(1))}`);
+      T.filter((t) => labels.includes(t.text)).forEach((t) => {
+        const d = Math.hypot(+t.x - ix, +t.y - iy);
+        assert.ok(d >= 12 - 0.005, `${name} w${W}: IMA is ${d.toFixed(1)} px from label ${t.text}, want ≥ 12`);
+      });
+    }
+  }
   const esc = ELEO.layout2D({ data: fixture('merit-before'), labels: ['a<b&c'] });
   assert.ok(esc.includes('>a&lt;b&amp;c</text>'), 'a label is escaped as text');
   assert.ok(!texts(ELEO.layout2D({ data: fixture('merit-before') })).some((t) => /°/.test(t.text)), 'no labels by default');
