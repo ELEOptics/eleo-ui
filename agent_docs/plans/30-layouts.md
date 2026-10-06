@@ -162,6 +162,9 @@ Proves: O1. The kill criterion is decided in the last item: converting the sampl
 | #50 | Review finding 2: the sample test's oracle line names its kind | forced (hook: every `oracle:` line in a new file has a kind) | `tests/unit/layout2d.test.js` | `check-tests-touched.sh 42d355f..HEAD` passes | #33 |
 | #51 | Review finding 3: `layoutBounds` ports the site's `bounds()` (skip the image, reach `\|profile[0][1]\|`); the image line is clamped to the box | the plan says port, because the site's two-layout figures depend on its framing; considered amending the plan to keep ours, ruled out because it's 41% taller on the triplet | `packages/plots/src/layout2d.js` | `::layoutBounds ports the site` (reference: the site's function) | #49 |
 | #52 | Review finding 5: an old-shape layout throws a named error; an empty fan is skipped | one guard and one skip, because the format allows an all-dead fan; considered validating `box` too, which waits for M2 when `box` goes public | `packages/plots/src/layout2d.js` | `::old shape is named`, `::empty fan is skipped` | #51 |
+| #54 | Review round 2 finding 1: STO label above a lens stop's profile edge (`reach()` uses `\|profile[0][1]\|`) | the same edge rule as `layoutBounds`, because the label must clear the glass it names; considered moving the label only, which leaves two edge rules | `packages/plots/src/layout2d.js` | `::STO label above the stop's edge` | #52 |
+| #55 | Review round 2 findings 2-3: out-of-range `chief` and a layout with no rays throw named errors | named errors like #52's, because bare TypeErrors and NaN drawings hide the cause; considered falling back to the middle ray, which hides a bad recording | `packages/plots/src/layout2d.js` | `::out-of-range chief is named`, `::no rays is named` | #54 |
+| #56 | Review round 2 finding 4: `recorded()` is not exported | forced (no caller outside the module; the plan's Public API doesn't list it) | `packages/plots/src/layout2d.js` | `::layout2d.js exports layout2D and layoutBounds only` | #55 |
 | #53 | Review finding 6: README lists `NS` among common.js's helpers | forced (stale doc) | `README.md` | the list matches common.js's exports | #46 |
 
 ### M2: shared box and labels, typed and documented. GitHub: `P30 M2: shared box, labels, types`
@@ -201,7 +204,7 @@ Proves: O3, O4.
 | #28 reuse | Bump `@changesets/cli`; add root `overrides` only if `npm audit` still reports. Re-check #21's option against the new config validator. The root README says `npm audit --omit=dev` is what ships | bump first because it removes rather than pins (round 2, user); considered overrides only | `package.json`, `package-lock.json`, root README line | `npm audit` 0 (stop condition); `release.test.js` still green | #21 |
 | #41 | `.changeset/layouts.md`: plots minor, with the breaking `data.layout` shape and its migration; plots-svelte patch, naming the widened peer range. #27's last lines (`packages/plots/README.md:21`, `Layout3D.svelte:1`) | forced (`workflow.md`, TDD; the release needs a changeset). The #27 lines ride here because this item touches tests and the hook needs that | `.changeset/layouts.md`, `packages/plots/README.md`, `packages/plots-svelte/src/lib/Layout3D.svelte`; `tests/unit/release.test.js` (asserts the changeset's bump types) | O3, O4 green | #40, #21, #28 |
 
-20 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
+23 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
 
 ## Risks and spikes
 
@@ -227,3 +230,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: M1 review round 1, 1 blocking. CR #48 accepted (dash arrays in px; it restores the look the Constraints line asked for, so every invariant is kept; row: Split, CR triage, commit order, wave dispatch); the Constraints line is corrected. Item #49.
 - 2026-10-06 headless: backlog #50, #51, #52, #53 into M1 (row: milestone acceptance within the plan).
 - 2026-10-06 (user): review finding 4 accepted: the sample's image line is ± the rays' reach at zimg (shorter than main's ±5 mm), with STO/IMA labels moved; logged as the exception to 'tiles unchanged' in the M1 demo line and row B's exit.
+- 2026-10-06 headless: M1 review round 2, 0 blocking. Backlog #54, #55, #56 into M1 (row: milestone acceptance within the plan); finding 5 (stale demo image) re-captured at the demo.
