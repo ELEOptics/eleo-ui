@@ -120,6 +120,10 @@ curves included. The segmented controls mark in glass. Proves: O1, O2, O3
 | [#19] | Svelte canvases redraw on a palette change | add `'data-palette'` to `theme.svelte.js`'s `attributeFilter` (it watches `<html>`) because that is how theme redraws work, and `plots-svelte/README.md:3` gains "or the palette". Considered a separate store, ruled out by duplication. Test recipe (critic, verified): `compileModule(src, { generate: 'client' })` from `svelte/compiler`, write the output under the repo so `svelte/internal/client` resolves, stub `window`, `document.documentElement`, `MutationObserver` (capture options and callback) and `matchMedia`; assert `attributeFilter` includes `data-palette` and two callbacks bump `themeTick()` by 2. `oracle: spec DOM MutationObserver attributeFilter` | `packages/plots-svelte/src/lib/theme.svelte.js`, `packages/plots-svelte/README.md` | `tests/unit/theme-tick.test.js::a data-palette change bumps the tick` | none |
 | [#20] | Gallery palette switch | an `.eleo-seg` in the page header (Standard / Red-green / Blue-yellow) sets `data-palette` on `<html>` (where apps and the Svelte observer put it) and redraws the canvas tiles, because the demo has to show both columns switching together. Considered per-column switches, ruled out because they hide that one attribute serves a page. Canvas recoloring in the browser is checked only by the demo; D's unit test covers the logic | `gallery/index.html` | `tests/gallery.spec.js::palette switch recolors both themes` (O3, written skipped in #15) | #16, #18 |
 | [#11] reuse | Unskip O1, O2, O3. Changeset. README token note | forced (`workflow.md`, TDD). One changeset: minor for `@eleoptics/plots` (index order, palettes, `--series-k`, seg marker) and patch for `@eleoptics/plots-svelte`. `README.md:62` gains "except the field order: it is pinned per palette in `packages/plots/src/plots.css` and checked against the tokens, so a field token change reruns that check" | `.changeset/brand-fixes.md`, `README.md` | the acceptance tests, green | all above |
+| [#22] | README and plots-svelte description: canvases redraw on a palette change | review finding 2; edits the lines in place because `packages/plots-svelte/README.md:3` already says it and each fact has one owner per file; considered linking instead, ruled out for a one-word change | `README.md`, `packages/plots-svelte/package.json` (description) | none (docs; grep check in the issue) | #11 |
+| [#23] | Drop `renderers.test.js` | review finding 3; deletes the file because `field-order.test.js` O1 asserts a strict superset now that it is unskipped; considered importing shared helpers, ruled out since nothing would remain. #17's and #18's Test is now `tests/unit/field-order.test.js::standard order is rule R under normal vision` | `tests/unit/renderers.test.js` | `tests/unit/field-order.test.js::standard order is rule R under normal vision`, green | #11 |
+| [#24] | Drop the #10 gallery test | review finding 4; O2 repeats its assertion and adds the no-accent check; considered keeping both, ruled out as duplicate coverage | `tests/gallery.spec.js` | `tests/gallery.spec.js::segmented control marks in glass`, green | #11 |
+| [#25] | Gallery test covers `data-palette="standard"` | review finding 5; a step in the O3 test because the `standard` block is otherwise only checked as text; considered a separate test, ruled out since the setup is the same | `tests/gallery.spec.js` | `tests/gallery.spec.js::palette switch recolors both themes` | #24 |
 
 [#7], [#8] and [#9] close as superseded by this revision. Their scope moves to #16 to #18.
 
@@ -142,6 +146,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-05 round 2 (user): public name `--series-1..8` ([#13]); floor F (triple min ≥ 10) on every palette.
 - 2026-10-05 critique (plan critic, claude-fable-5-1, mechanism verified in Chromium, Ground truth reproduced): applied 1 (`layout3D` JS fallback), 2 (`curve` single-series through `idx`), 3 (`standard` declared), 4 (block order), 5 (`<html>`), 8 (Svelte test recipe), 9 (`spot` fill), 10 (fallback cross-check), 11 (#13 README line), 12 (roadmap at approval), 13 (canvas checked by demo, stated), 14 (oracle line), 15 (README drift lines), 16 (oracle line on new test), 17 (regex, reason stated). Rejected: none.
 - 2026-10-05 approval (user): revision approved. Work items #15 to #20 created, #11 revised, and #7, #8 and #9 closed as superseded. Roadmap U1, row A and the kill criterion updated.
+- 2026-10-05: M1 items #15 to #20 and #11 done. On #20, the gallery's pointer-events override was dropped, so the specimen behaves like the library, and O3's click became `getByRole('radio').check()` in #11 (orchestrator; oracle and assertions unchanged).
+- 2026-10-05: M1 review round 1: 0 blocking, 5 backlog. Findings 2 to 5 pulled into M1 as [#22] to [#25] (small, named, in files M1 changed). Finding 1 filed as [#21] (release config, a non-goal; it waits for the Layouts release).
 
 [#2]: https://github.com/ELEOptics/eleo-ui/issues/2
 [#3]: https://github.com/ELEOptics/eleo-ui/issues/3
@@ -162,3 +168,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#18]: https://github.com/ELEOptics/eleo-ui/issues/18
 [#19]: https://github.com/ELEOptics/eleo-ui/issues/19
 [#20]: https://github.com/ELEOptics/eleo-ui/issues/20
+[#21]: https://github.com/ELEOptics/eleo-ui/issues/21
+[#22]: https://github.com/ELEOptics/eleo-ui/issues/22
+[#23]: https://github.com/ELEOptics/eleo-ui/issues/23
+[#24]: https://github.com/ELEOptics/eleo-ui/issues/24
+[#25]: https://github.com/ELEOptics/eleo-ui/issues/25
