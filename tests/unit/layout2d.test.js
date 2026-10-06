@@ -256,3 +256,20 @@ test("STO label above the stop's edge", () => {
   const edge = ty - Math.abs(stop.profile[0][1]) * s;
   assert.ok(+sto[0].y < edge, `STO y ${sto[0].y} px is above the stop's profile edge ${edge.toFixed(1)} px`);
 });
+
+// Plan #30, #55: review round 2 findings 2-3. A bad chief and a layout with no rays are named.
+// oracle: spec the plan's `chief` is "one ray index per fan"
+test('out-of-range chief is named', () => {
+  const L = fixture('tolerance');
+  for (const chief of [[9, 9, 9], [-1, 0, 0], [1.5, 0, 0]]) {
+    assert.throws(() => ELEO.layout2D({ data: { ...L, chief } }),
+      { message: 'layout2D: chief[0] is not a ray of fan 0' }, `chief ${JSON.stringify(chief)}`);
+  }
+});
+
+test('no rays is named', () => {
+  const L = fixture('tolerance');
+  for (const rays of [[[], [], []], []]) {
+    assert.throws(() => ELEO.layout2D({ data: { ...L, rays } }), { message: 'layout2D: no rays' });
+  }
+});

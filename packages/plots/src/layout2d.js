@@ -4,7 +4,12 @@
 import { idx, svg, NS } from './common.js';
 
 // The fan's chief ray: `chief[k]` when recorded, else the middle ray (the site's rule; wrong for a vignetted fan).
-function chiefOf(L, k) { var c = L.chief && L.chief[k]; return c != null ? c : Math.floor(L.rays[k].length / 2); }
+function chiefOf(L, k) {
+  var c = L.chief && L.chief[k];
+  if (c == null) return Math.floor(L.rays[k].length / 2);
+  if (!Number.isInteger(c) || c < 0 || c >= L.rays[k].length) throw new Error("layout2D: chief[" + k + "] is not a ray of fan " + k);
+  return c;
+}
 // A stop with no glass on either side is drawn as two ticks, reaching sd + 2.5.
 function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i - 1].glass); }
 // A lens stop reaches its profile edge, |profile[0][1]| (layoutBounds' rule), so its label clears the glass.
@@ -35,6 +40,7 @@ export function recorded(D, colorBy) { return D.surfaces ? D : colorBy === "wave
 export function layout2D(o) {
   var D = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief", L = recorded(D, colorBy);
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
+  if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
   var S = L.surfaces;
   var B = o.box || layoutBounds([L]), W = o.width || 1000, s = W / (B.zmax - B.zmin), top = 3;
   var H = Math.round((B.yhi - B.ylo) * s) + 30, tx = -B.zmin * s, ty = top + B.yhi * s;
