@@ -39,7 +39,7 @@ colorbarEl.style.background = gradient('ember');
 - **Chief ray:** `chief[k]` for fan k; without `chief`, the fan's middle ray, `floor(n / 2)`. That is eleoptics.com's rule, and it can be wrong for a vignetted fan, so record `chief` when you know it. An index outside the fan throws an error naming the fan.
 - **`box`:** the `{zmin, zmax, ylo, yhi}` the drawing shows, in mm. It defaults to `layoutBounds([layout])`. Drawings given the same `box` and `width` share one scale, so they compare true to size.
 - **`layoutBounds(layouts)`:** the box that frames every layout given: z covers the rays, y covers 0, the rays and every surface edge but the image's, padded 4%.
-- **`labels`:** one text per fan, drawn at the image end of that fan's chief ray. A fan with no rays gets none.
+- **`labels`:** one text per fan, drawn at the image end of that fan's chief ray. A fan with no rays gets none. A `null` entry skips that fan; more labels than fans throws.
 - **`marks`:** `false` drops the STO and IMA labels. Default `true`.
 
 ```js
