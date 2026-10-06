@@ -20,6 +20,10 @@ function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : Math.abs(S[i].p
 /* A port of eleo-website@39d19e4 public/layout.js bounds(): z from the rays' ends; y from 0, the rays and every
    surface but the image (a standalone stop reaches sd + 2.5, a lens |profile[0][1]|), padded 4%. */
 export function layoutBounds(layouts) {
+  if (!Array.isArray(layouts) || !layouts.length) throw new Error("layoutBounds: no layouts");
+  layouts.forEach(function (L, k) {
+    if (!L || !Array.isArray(L.rays) || !Array.isArray(L.surfaces)) throw new Error("layoutBounds: layouts[" + k + "] is not a recorded layout");
+  });
   var zmin = Infinity, zmax = -Infinity, ylo = 0, yhi = 0;
   layouts.forEach(function (L) {
     L.rays.forEach(function (fan) { fan.forEach(function (r) {
@@ -43,8 +47,12 @@ export function layout2D(o) {
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
   L.rays.forEach(function (fan, k) { if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays"); });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
+  if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array of strings");
   var S = L.surfaces;
-  var B = o.box || layoutBounds([L]), W = o.width || 1000, s = W / (B.zmax - B.zmin);
+  var B = o.box || layoutBounds([L]);
+  // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
+  if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
+  var W = o.width || 1000, s = W / (B.zmax - B.zmin);
   // Room above the geometry for the labels, 15 px whatever the stops reach, so one box gives one transform.
   var top = 15;
   var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = -B.zmin * s, ty = top + B.yhi * s;

@@ -297,6 +297,38 @@ test('a fan that is not an array is named', () => {
   }
 });
 
+// Plan #30, #65: review M2 findings 2 and 4. A bad box, layoutBounds input or labels is named, like #52/#55/#58.
+// oracle: spec index.d.ts LayoutBox {zmin, zmax, ylo, yhi} (a drawable box: finite, zmax > zmin, yhi > ylo),
+// RecordedLayout {surfaces, rays} and Layout2DProps.labels: string[]
+test('a bad box is named', () => {
+  const L = fixture('tolerance'), good = layout2dModule.layoutBounds([L]);
+  const bad = [
+    { ...good, zmax: good.zmin }, { ...good, zmax: good.zmin - 1 }, { ...good, yhi: good.ylo },
+    { ...good, zmin: NaN }, { ...good, yhi: Infinity }, { zmin: 0, zmax: 10 }, 5,
+  ];
+  for (const box of bad) {
+    assert.throws(() => ELEO.layout2D({ data: L, box }),
+      { message: 'layout2D: box needs finite zmin < zmax and ylo < yhi' }, `box ${JSON.stringify(box)}`);
+  }
+});
+
+test('layoutBounds names a bad input', () => {
+  assert.throws(() => layout2dModule.layoutBounds([]), { message: 'layoutBounds: no layouts' });
+  const L = fixture('tolerance');
+  for (const bad of [null, {}, { surfaces: L.surfaces }, { rays: L.rays }, { surfaces: {}, rays: L.rays }]) {
+    assert.throws(() => layout2dModule.layoutBounds([L, bad]),
+      { message: 'layoutBounds: layouts[1] is not a recorded layout' }, `layout ${JSON.stringify(bad)?.slice(0, 40)}`);
+  }
+});
+
+test('labels must be an array', () => {
+  const L = fixture('tolerance');
+  for (const labels of ['0°', 3, { 0: 'a' }]) {
+    assert.throws(() => ELEO.layout2D({ data: L, labels }),
+      { message: 'layout2D: labels must be an array of strings' }, `labels ${JSON.stringify(labels)}`);
+  }
+});
+
 // oracle: spec the plan's Public API list (layout2D, layoutBounds).
 test('layout2d.js exports layout2D and layoutBounds only', () => {
   assert.deepEqual(Object.keys(layout2dModule).sort(), ['layout2D', 'layoutBounds']);
