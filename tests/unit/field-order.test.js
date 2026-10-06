@@ -116,7 +116,7 @@ function layout3DStrokes(read) {
 }
 const firstUse = (names) => [...new Set(names.filter((n) => /^--(series|field)-\d+$/.test(n)))];
 
-test('standard order is rule R under normal vision', { skip: '#15' }, (t) => {
+test('standard order is rule R under normal vision', (t) => {
   const { visions } = PALETTES.standard;
   const standard = mapping(PALETTES.standard.selector);
   assert.ok(standard, 'plots.css declares --series-1..8 on `:root, [data-theme]`');
@@ -161,7 +161,7 @@ test('standard order is rule R under normal vision', { skip: '#15' }, (t) => {
   );
 });
 
-test('each palette is rule R under its conditions', { skip: '#15' }, (t) => {
+test('each palette is rule R under its conditions', (t) => {
   for (const [name, { selector, visions }] of Object.entries(PALETTES)) {
     const declared = mapping(selector);
     assert.ok(declared, `plots.css declares --series-1..8 for ${name} (${selector})`);

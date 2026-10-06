@@ -51,7 +51,7 @@ test('checked segment uses glass-edge in both themes', async ({ page }) => {
 });
 
 // O2 (plan #4): the selected segment is marked in glass, not amber. oracle: user ELEO design system, one amber accent per view.
-test.skip('segmented control marks in glass', async ({ page }) => { // #5: unskipped by #11
+test('segmented control marks in glass', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
@@ -76,12 +76,12 @@ test.skip('segmented control marks in glass', async ({ page }) => { // #5: unski
 // O3 (plan #4): the header's palette switch sets <html data-palette>, and both theme columns recolor.
 // oracle: property, rule R per palette (tests/unit/field-order.test.js); the spot tile's index 1 and 2 are the
 // palette's first two fields, read in each column.
-test.skip('palette switch recolors both themes', async ({ page }) => { // #15: unskipped by #11
+test('palette switch recolors both themes', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const palettes = [['Red-green', 'red-green', [3, 4]], ['Blue-yellow', 'blue-yellow', [1, 4]], ['Standard', 'standard', [1, 7]]];
   for (const [label, value, fields] of palettes) {
-    await page.locator('header .eleo-seg').getByText(label, { exact: true }).click();
+    await page.getByRole('radio', { name: label }).check();
     if (value !== 'standard') await expect(page.locator('html')).toHaveAttribute('data-palette', value);
     for (const theme of ['light', 'dark']) {
       const col = page.locator(`.theme[data-theme="${theme}"]`);
