@@ -102,3 +102,61 @@ test('recorded layouts round-trip', { skip: '#31' }, async (t) => {
     });
   }
 });
+
+// Plan #30, #32: layout2D on the recorded format. Counts and positions read from the same mm group.
+function drawn(svg) {
+  const { M, body } = geometry(svg);
+  const tags = (tag, src) => [...src.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'g'))].map((m) => attrs(m[0]));
+  const outside = svg.replace(body, '');
+  return { M, body, polygons: tags('polygon', body), lines: tags('line', body), polylines: tags('polyline', body), dots: tags('circle', outside) };
+}
+const vertical = (a) => a.x1 === a.x2 && a.y1 !== a.y2;
+const image = (L) => L.surfaces.find((s) => s.image).z;
+// Dash arrays inside the mm group are written in px / s, so they look as they did in px.
+function dashesArePx({ M, body }) {
+  const s = M[0];
+  for (const m of body.matchAll(/stroke-dasharray="([^"]*)"/g)) {
+    const px = nums(m[1]).map((v) => v * s);
+    assert.ok(px.every((v) => Math.abs(v - Math.round(v)) < 1e-3), `dash array ${m[1]} is whole px over s=${s}`);
+  }
+}
+
+test('triplet draws 3 polygons, no stop ticks', () => {
+  const L = fixture('tolerance');
+  const d = drawn(ELEO.layout2D({ data: L }));
+  assert.equal(d.polygons.length, 3);
+  assert.equal(d.lines.filter((a) => vertical(a) && !at(+a.x1, image(L))).length, 0, 'no stop ticks');
+  dashesArePx(d);
+});
+
+test('singlet draws 1 polygon and 2 ticks', () => {
+  const L = fixture('merit-before');
+  const d = drawn(ELEO.layout2D({ data: L }));
+  assert.equal(d.polygons.length, 1);
+  const ticks = d.lines.filter((a) => vertical(a) && !at(+a.x1, image(L)));
+  assert.equal(ticks.length, 2, 'two stop ticks');
+  assert.ok(ticks.every((a) => at(+a.x1, 0)), 'ticks at the stop z');
+  dashesArePx(d);
+});
+
+test('chief index picks the dot', () => {
+  const ray = (y) => [[-12, y], [0, y], [50, y / 2], [100, -y / 4]];
+  const fan = [-2, -1, 0, 1, 2].map(ray);
+  const prof = (z) => Array.from({ length: 41 }, (_, i) => [z, -6 + (12 * i) / 40]);
+  const L = {
+    surfaces: [
+      { z: 0, sd: 6, stop: true, image: false, glass: 'crown', profile: prof(0) },
+      { z: 4, sd: 6, stop: false, image: false, glass: null, profile: prof(4) },
+      { z: 100, sd: 3, stop: false, image: true, glass: null, profile: prof(100) },
+    ],
+    rays: [fan],
+  };
+  const dotAt = (data) => {
+    const d = drawn(ELEO.layout2D({ data }));
+    assert.equal(d.dots.length, 1, 'one chief dot, outside the mm group');
+    const [s, , , ns, tx, ty] = d.M;
+    return [(+d.dots[0].cx - tx) / s, (+d.dots[0].cy - ty) / ns];
+  };
+  assert.ok(near(dotAt(L), [100, 0]), 'without chief, the middle ray');
+  assert.ok(near(dotAt({ ...L, chief: [1] }), [100, 0.25]), 'chief: [1] picks ray 1');
+});

@@ -1,6 +1,9 @@
 /* ELEO plot renderers. Plain functions, no framework. SVG renderers return markup that reads colors from
    tokens.css variables, so one drawing works in both themes. Canvas renderers read the variables at draw time:
-   call them again after a theme change. Sample data: a traced AC254-100-A style achromat (see ELEO.sample.note). */
+   call them again after a theme or palette change. Sample data: a traced AC254-100-A style achromat (see ELEO.sample.note). */
+import { STANDARD, NS, idx, svg } from "./common.js";
+import { layout2D as recordedLayout2D, recorded } from "./layout2d.js";
+
 const ELEO = (function () {
   "use strict";
   // Sample data is opt-in (import "@eleoptics/plots/sample"), so apps that draw their own systems
@@ -14,7 +17,6 @@ const ELEO = (function () {
   function useSample(sample) { S = sample; api.sample = sample; }
   var VIRIDIS = ["#440154","#482878","#3e4989","#31688e","#26828e","#1f9e89","#35b779","#6ece58","#b5de2b","#fde725"];
   var GRAY = ["#000000","#ffffff"];
-  var NS = 'vector-effect="non-scaling-stroke"';
 
   function fmt(v, n) { if (v === null || v === undefined || isNaN(v)) return "—"; return (v < 0 ? "−" : "") + Math.abs(v).toFixed(n == null ? 2 : n); }
   function css(el, name) { return getComputedStyle(el || document.documentElement).getPropertyValue("--" + name).trim(); }
@@ -32,18 +34,16 @@ const ELEO = (function () {
     var stops = map === "viridis" ? VIRIDIS : map === "gray" ? GRAY : Array.apply(null, Array(9)).map(function (_, i) { return "var(--map-" + (map === "wave" ? "wave-" : "ember-") + i + ")"; });
     return "linear-gradient(" + (dir || "to top") + "," + stops.join(",") + ")";
   }
-  /* The standard order: field token behind --series-k. Must match the `:root, [data-theme]` block in plots.css. */
-  var STANDARD = [1, 7, 8, 3, 4, 6, 2, 5];
-  /* Index color: 1..8 direct, 9..16 reuse with a hollow marker (see marker()). --series-k follows the palette;
-     the fallback is the standard order when plots.css is not loaded. */
-  function idx(i) { var k = i % 8; return "var(--series-" + (k + 1) + ", var(--field-" + STANDARD[k] + "))"; }
+  /* Index color (idx), STANDARD, NS and svg() live in common.js. */
   function hollow(i) { return i >= 8; }
   function marker(x, y, i) { return hollow(i) ? '<circle cx="' + x + '" cy="' + y + '" r="3.2" fill="var(--surface)" stroke="' + idx(i) + '" stroke-width="1.5"/>' : ""; }
-  function svg(w, h, body, label) { return '<svg viewBox="0 0 ' + w + " " + h + '" shape-rendering="geometricPrecision" role="img" aria-label="' + label + '">' + body + "</svg>"; }
 
   /* ---------------- Layout2D ---------------- */
   function layout2D(o) {
     o = o || {}; var D = data(o), colorBy = o.colorBy || "field", set = o.rays || "marginal-chief";
+    var L = recorded(D, colorBy);
+    if (L && L.surfaces) return recordedLayout2D(Object.assign({}, o, { data: D }));
+    // The sample's old shape, until it is converted to the recorded format (plan #30, #33).
     var zmin = -8, zmax = D.zimg + 4, W = o.width || 1000, s = W / (zmax - zmin), ym = 13.5, H = Math.round(2 * ym * s) + 30, cy = (H - 24) / 2;
     function X(z) { return ((z - zmin) * s).toFixed(2); } function Y(y) { return (cy - y * s).toFixed(2); }
     var pr = D.profiles;
