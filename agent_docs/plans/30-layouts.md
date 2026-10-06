@@ -146,7 +146,7 @@ Changed: the shape of `data.layout` and `data.layoutWl` (a breaking change; roun
 
 Demo:
 
-- `npm run gallery`: the two layout2D tiles, unchanged apart from U1's colors and a shorter image line with its labels (accepted 2026-10-06) and 5 px taller sample tiles (#57) (their framing is pinned with a `box`), in both themes and all three palettes. This is U3's design baseline.
+- `npm run gallery`: the two layout2D tiles, unchanged apart from U1's colors and a shorter image line with its labels (accepted 2026-10-06) and 12 px taller sample tiles (#57, #63) (their framing is pinned with a `box`), in both themes and all three palettes. This is U3's design baseline.
 - `npm run test:unit`: O1 round-trips 6 layouts, the 5 site fixtures and the sample.
 
 Proves: O1. The kill criterion is decided in the last item: converting the sample has to delete the old path, not add a special case.
@@ -240,6 +240,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: M1 review round 2, 0 blocking. Backlog #54, #55, #56 into M1 (row: milestone acceptance within the plan); finding 5 (stale demo image) re-captured at the demo.
 - 2026-10-06 headless: M1 review round 3, 0 blocking. Backlog #57, #58, #59 into M1 (row: milestone acceptance within the plan); #60 (glass fallback, two fixes) stays a plain issue; finding 2 is #38's. Round 4's findings stay plain issues.
 - 2026-10-06 headless: M1 review round 4, 0 blocking, nothing pulled in; #61 and #62 plain issues. M1 ticked; demo pending with the user.
-- 2026-10-06 (user): M1 demo go. The 5 px taller sample tiles (#57) join the exceptions to 'tiles unchanged'.
+- 2026-10-06 (user): M1 demo go. The 12 px taller sample tiles (#57, #63) join the exceptions to 'tiles unchanged'.
 - 2026-10-06 headless: plain issues #61 (STO at a box's left edge, fixed in #35) and #62 (SAMPLE_BOX, folded into #37) closed by this PR.
 - 2026-10-06 headless: M2 review round 1, 0 blocking. Backlog #63, #64, #65, #66 into M2 (row: milestone acceptance within the plan); finding 7 (roadmap commas) fixed here.
+- 2026-10-06 (user): #63's constant 15 px label room accepted; the sample tiles are 12 px taller than main (was 5 px).
