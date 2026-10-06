@@ -39,6 +39,10 @@ export interface Layout2DProps {
   rays?: "marginal-chief" | "fan" | "chief";
   /** viewBox width in px; the drawing is always true scale. Default 1000. */
   width?: number;
+  /** One text per fan, drawn at the image end of that fan's chief ray (an empty fan gets none). Default none. */
+  labels?: string[];
+  /** Draw the STO and IMA labels. Default true. */
+  marks?: boolean;
 }
 export interface Layout3DProps {
   data?: object;

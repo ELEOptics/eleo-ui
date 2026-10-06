@@ -325,6 +325,53 @@ test('box pins the transform', () => {
   assert.equal(sto['text-anchor'], 'start', 'STO at the left edge anchors at its start');
 });
 
+// Plan #30, #36: `labels[k]` is drawn once, near the image end of fan k's chief, inside the viewBox. Escaped as text.
+// oracle: spec the plan's `labels` (text at the image end of each fan's chief); property a label stays in the viewBox
+test('labels at the image', () => {
+  const texts = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+  const tol = fixture('tolerance');
+  const cases = [
+    { name: 'merit-before', L: fixture('merit-before'), labels: ['0°', '12°', '24°'] },
+    { name: 'tolerance, chief', L: { ...tol, chief: tol.rays.map((fan) => fan.length - 1) }, labels: ['a', 'b', 'c'] },
+    { name: 'empty fan', L: { ...tol, rays: tol.rays.map((fan, k) => (k === 1 ? [] : fan)) }, labels: ['a', 'b', 'c'] },
+  ];
+  for (const { name, L, labels } of cases) {
+    for (const W of [1000, 480]) {
+      const svg = ELEO.layout2D({ data: L, labels, width: W });
+      const view = nums(/<svg\b[^>]*\bviewBox="([^"]*)"/.exec(svg)[1]);
+      const [s, , , ns, tx, ty] = geometry(svg).M;
+      const T = texts(svg);
+      labels.forEach((label, k) => {
+        const got = T.filter((t) => t.text === label), fan = L.rays[k];
+        if (!fan.length) { assert.equal(got.length, 0, `${name}: no label for empty fan ${k}`); return; }
+        assert.equal(got.length, 1, `${name} w${W}: label ${label} drawn once`);
+        const ray = fan[L.chief?.[k] ?? Math.floor(fan.length / 2)], end = ray[ray.length - 1];
+        const px = [end[0] * s + tx, end[1] * ns + ty], x = +got[0].x, y = +got[0].y;
+        assert.ok(Math.hypot(x - px[0], y - px[1]) <= 16, `${name} w${W}: label ${label} (${x}, ${y}) within 16 px of the chief end (${px[0].toFixed(2)}, ${px[1].toFixed(2)})`);
+        assert.ok(x >= 0 && x <= view[2] && y > 0 && y <= view[3], `${name} w${W}: label ${label} anchor inside the viewBox`);
+        if (x > view[2] - 16) assert.equal(got[0]['text-anchor'], 'end', `${name} w${W}: label ${label} at the right edge anchors at its end`);
+      });
+    }
+  }
+  const esc = ELEO.layout2D({ data: fixture('merit-before'), labels: ['a<b&c'] });
+  assert.ok(esc.includes('>a&lt;b&amp;c</text>'), 'a label is escaped as text');
+  assert.ok(!texts(ELEO.layout2D({ data: fixture('merit-before') })).some((t) => /°/.test(t.text)), 'no labels by default');
+});
+
+// Plan #30, #36: `marks: false` drops the STO and IMA text; the drawing is otherwise unchanged.
+// oracle: spec the plan's `marks: false` (drops STO and IMA)
+test('marks off', () => {
+  for (const name of FIXTURES) {
+    const L = fixture(name);
+    const on = ELEO.layout2D({ data: L }), off = ELEO.layout2D({ data: L, marks: false });
+    assert.match(on, />STO<\/text>/, `${name}: STO by default`);
+    assert.match(on, />IMA<\/text>/, `${name}: IMA by default`);
+    assert.equal(ELEO.layout2D({ data: L, marks: true }), on, `${name}: marks: true is the default`);
+    assert.doesNotMatch(off, />(STO|IMA)<\/text>/, `${name}: no STO or IMA with marks: false`);
+    assert.equal(off, on.replace(/<text\b[^>]*>(STO|IMA)<\/text>/g, ''), `${name}: only the STO and IMA text differ`);
+  }
+});
+
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
 // oracle: property one box → one transform; metamorphic: a layout alone vs in a shared box differs only by the box
 test('shared box', { skip: '#34' }, () => {
