@@ -249,7 +249,7 @@ test('empty fan is skipped', () => {
 // Plan #30, #57: review round 3 finding 1. For every fixture, the sample, and the sample in the gallery's pinned box.
 // oracle: property a label sits outside the glass it names
 test("STO label above the stop's edge", () => {
-  const pinned = { zmin: -8, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // gallery/index.html sampleBox()
+  const pinned = { zmin: -8, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // gallery/index.html SAMPLE_BOX
   const cases = [
     ...FIXTURES.map((name) => ({ name, L: fixture(name), o: {} })),
     { name: 'sample', L: sample.layout, o: {} },
@@ -336,7 +336,8 @@ test('layout2d.js exports layout2D and layoutBounds only', () => {
 
 // Plan #30, #35: `box` is public. layoutBounds is on the ES entry and on ELEO (so eleo-plots.js has it), and a box
 // alone sets the scale and the z origin. #61: a label at the box's left edge anchors at its start, not half clipped.
-// oracle: spec the plan's transform matrix(s 0 0 -s tx ty), with s = width / (zmax - zmin) and tx = -zmin·s
+// oracle: spec the plan's transform matrix(s 0 0 -s tx ty), with s = width / (zmax - zmin), tx = -zmin·s and
+// ty = 15 + yhi·s (#63: the label room above the geometry is a constant 15 px)
 test('box pins the transform', () => {
   assert.equal(plots.layoutBounds, layoutBounds, 'the ES entry exports layoutBounds');
   assert.equal(plots.default.layoutBounds, layoutBounds, 'ELEO.layoutBounds, so eleo-plots.js has it');
@@ -348,8 +349,7 @@ test('box pins the transform', () => {
       const [a, , , d, tx, ty] = geometry(plots.layout2D({ data: L, box, width: W })).M;
       assert.ok(Math.abs(a - s) <= 1e-6 && Math.abs(d + s) <= 1e-6, `width ${W}: scale ${a} is width / box z span ${s}`);
       assert.ok(Math.abs(tx + box.zmin * s) <= 1e-3, `width ${W}: z = box.zmin sits at x = 0`);
-      const room = ty - box.yhi * s;
-      assert.ok(room >= 3 - 1e-3 && room <= 15 + 1e-3, `width ${W}: y = box.yhi sits ${room} px down, the label room`);
+      assert.ok(Math.abs(ty - (15 + box.yhi * s)) <= 1e-3, `width ${W}: y = box.yhi sits 15 px down, the label room`);
     }
   }
   const edge = { zmin: 0, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // the sample's stop is at z = 0
