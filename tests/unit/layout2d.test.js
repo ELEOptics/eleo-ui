@@ -373,6 +373,18 @@ test('marks off', () => {
 });
 
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
+// Plan #30, #63: review M2 finding 3. The label room above the geometry is the box's alone, so a pinned box
+// gives one transform whatever the layouts' stops reach.
+// oracle: property one box → one transform (O2)
+test('shared box, pinned: stop reach does not move the transform', () => {
+  const box = { zmin: -12, zmax: 130, ylo: -20, yhi: 7.5 };
+  const before = fixture('merit-before');
+  const small = structuredClone(before);
+  small.surfaces.find((x) => x.stop).sd = 3;
+  const [Mb, Ms] = [before, small].map((L) => geometry(ELEO.layout2D({ data: L, box })).M);
+  assert.deepEqual(Ms, Mb, 'one box → one transform');
+});
+
 // oracle: property one box → one transform; metamorphic: a layout alone vs in a shared box differs only by the box
 test('shared box', () => {
   const before = fixture('merit-before'), after = fixture('merit-after');
