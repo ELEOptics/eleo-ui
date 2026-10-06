@@ -32,8 +32,11 @@ const ELEO = (function () {
     var stops = map === "viridis" ? VIRIDIS : map === "gray" ? GRAY : Array.apply(null, Array(9)).map(function (_, i) { return "var(--map-" + (map === "wave" ? "wave-" : "ember-") + i + ")"; });
     return "linear-gradient(" + (dir || "to top") + "," + stops.join(",") + ")";
   }
-  /* Index color: 1..8 direct, 9..16 reuse with a hollow marker (see marker()). */
-  function idx(i) { return "var(--field-" + ((i % 8) + 1) + ")"; }
+  /* The standard order: field token behind --series-k. Must match the `:root, [data-theme]` block in plots.css. */
+  var STANDARD = [1, 7, 8, 3, 4, 6, 2, 5];
+  /* Index color: 1..8 direct, 9..16 reuse with a hollow marker (see marker()). --series-k follows the palette;
+     the fallback is the standard order when plots.css is not loaded. */
+  function idx(i) { var k = i % 8; return "var(--series-" + (k + 1) + ", var(--field-" + STANDARD[k] + "))"; }
   function hollow(i) { return i >= 8; }
   function marker(x, y, i) { return hollow(i) ? '<circle cx="' + x + '" cy="' + y + '" r="3.2" fill="var(--surface)" stroke="' + idx(i) + '" stroke-width="1.5"/>' : ""; }
   function svg(w, h, body, label) { return '<svg viewBox="0 0 ' + w + " " + h + '" shape-rendering="geometricPrecision" role="img" aria-label="' + label + '">' + body + "</svg>"; }
@@ -210,14 +213,14 @@ const ELEO = (function () {
       D.mtf.fields.forEach(function (f, i) { series.push({ pts: fx(f.T), col: idx(i) }); series.push({ pts: fx(f.S), col: idx(i), dash: "5 3" }); });
       xr = [0, 400]; yr = [0, 1]; xl = "Spatial frequency, cycles/mm"; yl = "Modulus"; xt = [0, 100, 200, 300, 400]; yt = [0, .2, .4, .6, .8, 1];
     } else if (kind === "fieldCurvature") {
-      series.push({ pts: D.fieldCurv.map(function (r) { return [r[1], r[0]]; }), col: "var(--field-1)" });
-      series.push({ pts: D.fieldCurv.map(function (r) { return [r[2], r[0]]; }), col: "var(--field-1)", dash: "5 3" });
+      series.push({ pts: D.fieldCurv.map(function (r) { return [r[1], r[0]]; }), col: idx(0) });
+      series.push({ pts: D.fieldCurv.map(function (r) { return [r[2], r[0]]; }), col: idx(0), dash: "5 3" });
       xr = [-0.2, 0.2]; yr = [0, 2]; xl = "Focus shift, mm"; yl = "Field, °"; xt = [-0.2, -0.1, 0, 0.1, 0.2]; yt = [0, 0.5, 1, 1.5, 2];
     } else if (kind === "distortion") {
-      series.push({ pts: D.distortion.map(function (r) { return [r[1], r[0]]; }), col: "var(--field-1)" });
+      series.push({ pts: D.distortion.map(function (r) { return [r[1], r[0]]; }), col: idx(0) });
       xr = [-0.2, 0.2]; yr = [0, 2]; xl = "Distortion, %"; yl = "Field, °"; xt = [-0.2, -0.1, 0, 0.1, 0.2]; yt = [0, 0.5, 1, 1.5, 2];
     } else {
-      series.push({ pts: D.chromFocus.map(function (r) { return [r[1], r[0]]; }), col: "var(--field-1)" });
+      series.push({ pts: D.chromFocus.map(function (r) { return [r[1], r[0]]; }), col: idx(0) });
       xr = [-50, 200]; yr = [450, 700]; xl = "Focus shift, µm"; yl = "Wavelength, nm"; xt = [-50, 0, 50, 100, 150, 200]; yt = [450, 500, 550, 600, 650, 700];
     }
     function X(v) { return (L + (v - xr[0]) / (xr[1] - xr[0]) * pw).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) / (yr[1] - yr[0]) * ph).toFixed(1); }
