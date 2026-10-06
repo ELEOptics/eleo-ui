@@ -1,118 +1,164 @@
-# Plan #4: Brand fixes: colour-blind-safe field colors, glass segmented control
+# Plan [#4]: Brand fixes: standard field order, vision palettes, glass segmented control
 
-Status: approved 2026-10-05, paused 2026-10-05 for re-plan (CR #14)
-Branch: `plan/4-brand-fixes` PR: #12 Depends on: none Roadmap: `agent_docs/roadmap.md`, row A
+Status: approved 2026-10-05 (revised after CR [#14])
+Branch: `plan/4-brand-fixes` PR: [#12] Depends on: none Roadmap: `agent_docs/roadmap.md`, row A
 
 ## Problem
 
-Every renderer colors fields `--field-1`, `-2`, `-3` in that order, and `--field-2` reads as amber, which the brand
-keeps for the one accent; the order has never been checked for colour blindness. eleoptics.com draws fields 1, 7, 8,
-recorded as passing, but measured here that trio fails too: fields 1 and 7 are ΔE2000 6.8 apart under dark-theme
-protanopia, and field 8 sits 7.9 from amber under light tritanopia. `.eleo-seg` marks its selected option with an
-amber underline, a second accent next to a page's amber button. The website's Switch row waits on both fixes.
+Every renderer colors fields `--field-1`, `-2`, `-3` in that order. `--field-2` reads as amber, and the brand keeps
+amber for the one accent. The first plan looked for one order (with field-7/8 retuned) that stays distinct under
+every colour-vision condition at once. Spike [#6] showed the dark theme can't get there. The user's direction ([#14]):
+pick the fields for standard vision, and add a setting that switches to on-brand palettes made for a vision
+condition. The palettes don't all have to work at once. `.eleo-seg` marks its selected option in amber, a second
+accent next to a page's amber button. The website's Switch row waits on both.
 
 ## Ground truth
 
-- `packages/plots/src/renderers.js:36` `idx(i)` returns `var(--field-<i%8+1>)`. It is the index color for fields
-  or wavelengths: `layout2D`, `spot` (default `colorBy: "wavelength"`, `:119`, `:128`), `throughFocus` (`:147`),
-  `rayFan` (wavelengths only, `:171`), `curve` (MTF fields, `:210`) and `legend` (`:235`, `:236`). `layout3D`
-  (`:101`) hard-codes `C("field-1")`, `-2`, `-3` and reads `window.devicePixelRatio` (`:72`). `curve`'s
-  single-series kinds use `var(--field-1)`, first in any order.
-- Field tokens live in `packages/tokens/src/tokens.json`, a copy of the design system's token file (`build.mjs`
-  header); each usage says "3:1 or more on surface in both themes". `README.md:62`: token changes mostly need no
-  renderer change.
-- `packages/plots/src/plots.css:36` `.eleo-seg input:checked + span { box-shadow: inset 0 -2px 0 var(--accent) }`.
-  `--glass-edge` is the lens-rim color, 5:1 on surface.
-- The gallery (`gallery/index.html`) stamps `<template id="tiles">` (`:36`) into each theme column; 15 tiles carry
-  `data-tile`, counted by `tests/gallery.spec.js:24`. It has no segmented control.
-- Unit tests: `node --test tests/unit/*.test.js`, the only tests `check.sh --fast` runs. `renderers.js` and
-  `sample.js` import in Node 24; SVG renderers run headless. New test files need an `oracle:` line (pre-commit hook).
-- culori 4.0.2 (approved dev dependency) exports `filterDeficiencyProt`, `Deuter`, `Trit`, `differenceCiede2000`,
-  `wcagContrast`. Not installed yet.
+- `packages/plots/src/renderers.js:36` `idx(i)` returns `var(--field-<i%8+1>)`, the index color for fields or
+  wavelengths in `layout2D`, `spot`, `throughFocus`, `rayFan`, `curve` (MTF) and `legend`. `layout3D` (`:101`)
+  hard-codes `C("field-1")`, `-2`, `-3` through `css(el, name)` (`:20`), which reads `getComputedStyle` at draw time.
+
+- Themes follow the same pattern: `tokens.css` sets every token on `:root` and on any `[data-theme]` element, and
+  SVG output is plain `var(--…)`, so one drawing serves both themes. Canvas renderers redraw on a change.
+  `plots-svelte/src/lib/theme.svelte.js:9` redraws on a `data-theme`/`class` change on `<html>` (a MutationObserver).
+
+- CSS gotcha: a custom property that holds `var(--field-1)` resolves where it is declared. A mapping declared only
+  on `:root` would carry the light hex into a `[data-theme="dark"]` column. It must be re-declared on every
+  `[data-theme]` and `[data-palette]` element.
+
+- Measured on today's tokens (no retune), culori, Machado 2009 severity 1, CIEDE2000, both themes. Each order is
+  the triple that maximizes the minimum ΔE2000 pairwise and to `--accent`, then a greedy fill for 4 to 8:
+
+  | Palette | Judged under | Order | Triple min ΔE | Steps 4–8 |
+  | -- | -- | -- | -- | -- |
+  | standard | normal vision | 1, 7, 8, 3, 4, 6, 2, 5 | 25.2 | 16.4 14.6 14.2 11.3 10.3 |
+  | red-green | protanopia and deuteranopia | 3, 4, 8, 7, 5, 1, 6, 2 | 15.0 | 10.3 6.4 6.1 5.4 3.9 |
+  | blue-yellow | tritanopia | 1, 4, 6, 7, 3, 2, 8, 5 | 19.7 | 19.3 9.1 8.5 5.6 2.7 |
+  | (one order for all four) | all | 3, 4, 7, 8, … | 9.1 | (why the first plan failed) |
+
+  The website's 1, 7, 8 is already the best standard triple. Protan alone gives 3, 4, 8 at 16.1, deutan alone
+  1, 3, 8 at 19.0.
+
+- Done and kept: [#5] (culori, skipped tests that this revision rewrites), [#6] (measurements; values not adopted),
+  [#10] (`.eleo-seg` in glass, gallery specimen, its test).
+
+- Unit tests: `node --test tests/unit/*.test.js`, the only tests `check.sh --fast` runs. New test files need an
+  `oracle:` line.
 
 ## Outcomes
 
-Conditions: light and dark themes × normal vision, protanopia, deuteranopia, tritanopia (Machado 2009, severity 1,
-culori), colors from `packages/tokens/src/tokens.json`, distances ΔE2000 (culori `differenceCiede2000`).
+Rule R (one rule, applied per palette): over both themes and the palette's vision conditions, indices 1 to 3 are
+the triple of field tokens with the largest minimum ΔE2000 (pairwise and to `--accent`). Each next index is the
+remaining field with the largest minimum ΔE2000 to those placed and to `--accent`. Ties go to the lower token number. Floor F: each palette's first three are at least 10 ΔE2000 apart and from `--accent` under its own conditions, in both themes (measured 25.2, 15.0, 19.7).
 
 | ID | Outcome | Acceptance test (given / when / then) | Oracle | Test |
 | -- | -- | -- | -- | -- |
-| O1 (U1) | Every renderer colors index 1 to 3 with fields 1, 7, 8, and those three stay distinguishable and away from amber in every condition | given the tokens and the sample; when `layout2D`, `spot`, `throughFocus`, `rayFan`, `curve` (MTF), `legend` and `layout3D` draw; then each uses fields 1, 7, 8 for its first three indices, and in every condition the three are pairwise at least as far apart as fields 1, 7, 8 measured at `cc675cf` in that condition and at least 10, each is at least 20 from `--accent`, and each is 3:1 or more on `--surface` | `paper Machado, Oliveira & Fernandes 2009, via culori's deficiency filters and CIEDE2000; property` as reworded 2026-10-05 (user); contrast `spec WCAG 2.2` via culori `wcagContrast` | `tests/unit/field-order.test.js::first three fields stay apart and away from amber` |
-| O2 (U2) | `.eleo-seg` marks the selected option in glass, not amber | given the gallery's segmented control in both theme columns; when an option is checked; then its marker color is `--glass-edge` (computed rgb), and no computed color of the control equals `--accent` | `user ELEO design system (claude.ai/artifact/JRXsjqrJmdRspmiPEtvEMt): one amber accent per view` | `tests/gallery.spec.js::segmented control marks in glass` |
-| O3 | Index 4 to 8 follow the same idea: each next field is the one least confusable with those placed and with amber | given fields 1, 7, 8 placed; when positions 4 to 8 are recomputed greedily (each next is the remaining field whose minimum ΔE2000 over all conditions to the placed fields and `--accent` is largest; ties to the lower token number); then the result equals the renderers' order | `paper Machado, Oliveira & Fernandes 2009, via culori; property: greedy max-min ΔE2000 with --accent placed` (user, round 2) | `tests/unit/field-order.test.js::index 4 to 8 are the greedy order` |
+| O1 (U1) | With no palette set, every renderer colors index 1 to 8 in the standard order, which starts 1, 7, 8 | given today's tokens and the sample; when `layout2D`, `spot`, `throughFocus`, `rayFan`, `curve` (MTF and the single-series kinds), `legend` and `layout3D` draw, with and without `plots.css`; then each resolves index k to field `standard[k]`, and `standard` equals rule R under normal vision and meets floor F | `paper CIEDE2000 via culori; property: rule R and floor F under normal vision` | `tests/unit/field-order.test.js::standard order is rule R under normal vision` |
+| O2 (U2) | `.eleo-seg` marks the selected option in glass, not amber | (unchanged) given the gallery's segmented control in both theme columns; when an option is checked; then its marker is `--glass-edge`, and no computed color of the control equals `--accent` | `user ELEO design system: one amber accent per view` | `tests/gallery.spec.js::segmented control marks in glass` |
+| O3 | Setting `data-palette="red-green"` or `"blue-yellow"` on any element recolors the plots inside it with that palette's order, in either theme | given the gallery; when its palette switch sets `<html data-palette="red-green">` (then blue-yellow); then in both theme columns the `spot` tile's index-1 and index-2 marker fills compute to that column's `--field-3`, `--field-4` (blue-yellow: `--field-1`, `--field-4`; standard again: `--field-1`, `--field-7`), and each palette's order equals rule R under its conditions and meets floor F | `paper Machado, Oliveira & Fernandes 2009 via culori's deficiency filters, CIEDE2000; property: rule R and floor F under the palette's conditions` | `tests/unit/field-order.test.js::each palette is rule R under its conditions`, `tests/gallery.spec.js::palette switch recolors both themes` |
 
 ## Non-goals
 
-- Exporting the order as public API (`fieldOrder`): the renderers and `legend` cover every use the website has; next plan if Phos needs it (#13).
-- Retuning fields 1 to 6: only 7 and 8 fail; field 2 and 5 stay amber-like but move late (O3).
-- Screenshot baselines for the gallery: the M1 demo in both themes is the visual check (round 2); the existing gallery test still checks every tile draws.
-- Updating the design system artifact: the user does it when signing off the spike's values; this repo copies them.
-- The release: it ships with the Layouts row (roadmap constraint); this plan adds its changeset only.
+- Retuning field tokens (spike [#6]'s values): standard vision needs none, since 1, 7, 8 is already the best triple at 25.2.
+- One order safe for every condition at once: measured best 9.1 ([#14]).
+- Persisting the user's choice and a settings UI: apps own their settings. The website's Switch row sets `data-palette` on `<html>`.
+- A per-call renderer option (`{ palette }`): the attribute covers a page and a single card alike.
+- Screenshot baselines: the M1 demo in both themes is the visual check.
+- Updating the design system artifact: the user does, if the palettes become brand data.
+- The release: it ships with the Layouts row; this plan adds its changeset only.
 
 ## Existing issues
 
-| Issue | Bucket (absorb / supersede / related) | Where or why |
+| Issue | Bucket | Where or why |
 | -- | -- | -- |
-| [#2] | absorb | the row's issue: this plan delivers it |
-| [#3] | related | Layouts row, next plan; waits on this one (both edit `renderers.js`) |
+| [#2] | absorb | the row's issue |
+| [#13] | absorb | the order becomes public as CSS variables `--series-1` to `--series-8`, which any app's chart can use. The name is this plan's choice |
+| [#3] | related | Layouts row, waits on this one (both edit `renderers.js`) |
+| [#7] | supersede | no token retune. Closes as moot, citing this revision |
+| [#14] | related | rejected CR. Its decision is this revision |
 
 ## Constraints and assumptions
 
-- Recorded baseline for O1's pairwise clause: fields 1, 7, 8 hex values in both themes at `cc675cf`, pinned in the
-  test as a fixture with that source (they change in #7, so the test must not read them from `tokens.json`).
-- Feasibility, measured before approval (scratchpad search over OKLCH, both themes): 1711 light and 614 dark
-  candidate colors meet O1's per-color clauses; the best 7/8 pairs clear the pairwise floors by 1.5×. The spike
-  picks among them.
-- Field index 9 to 16 keeps today's rule (reuse with a hollow marker), over the new order.
-- eleoptics.com keeps its own copies of field-7/8 until its Switch row; the new values reach it with the release.
+- Index 9 to 16 keeps today's rule (reuse with a hollow marker), over the active palette.
+- Without `plots.css`, SVG renderers fall back to the standard order (`var(--series-k, var(--field-<standard[k]>))`),
+  and `layout3D` falls back in JS (`C("series-k") || C("field-<standard[k]>")`). Verified by the critic: an empty
+  `--series-1` would leave the canvas `strokeStyle` unchanged.
+- The CSS mapping was verified in Chromium by the critic (scratchpad `css-check.mjs`, `nest.mjs`): correct hexes for a
+  palette on `<html>` or `<body>` with theme columns, a palette inside a dark column, both attributes on one
+  element, and OS dark with and without `html[data-theme=light]`. Limit: two different palettes nested, with a
+  `[data-theme]` inside the inner one, resolve by source order. One palette per page (on `<html>`) is the supported use.
+- Palette blocks beat `:root, [data-theme]` by source order only (equal specificity), so the standard block comes first.
+- eleoptics.com's field-7/8 copies stay valid: no token changes.
 
 ## Decisions
 
-No ADR: the order is pinned data checked by a test, the tokens are design-system values. Roadmap changes, approved
-here: U1's oracle reworded (accent clause → floor 20, contrast clause added) and row A's scope gains "field-7/8
-retuned". Core: none (`CLAUDE.md` lists no core paths yet). `package.json` and `package-lock.json` change (culori):
-a security trigger for `director/merge.sh`, so this PR merges by hand.
+No ADR: the orders are pinned data checked by a test. Roadmap changes, approved here and committed with the
+approval (`Plan #4: revise after #14`): U1 reworded to "with no palette set, renderers color in the standard
+order (rule R, normal vision); `data-palette` switches to the red-green or blue-yellow order (rule R under its
+conditions); every palette meets floor F". U1's oracle becomes rule R and floor F (the WCAG contrast clause is
+dropped, since the tokens' own 3:1 usage covers normal vision). Row A's scope drops "field-7/8 retuned" and gains
+the palettes and `--series-k`. The A/U1 kill criterion retires. Core: none.
 
 ## Milestones
 
-### M1: one CVD-safe field palette and a glass segmented control GitHub: `P4 M1: Brand fixes`
+### M1: standard order, two vision palettes, glass segmented control GitHub: `P4 M1: Brand fixes`
 
-Demo: `npm run gallery`, both theme columns: every plot's first three index colors are fields 1, 7, 8 with the new
-7 and 8, none amber; the segmented-control specimen marks its selection with a glass-edge underline; the spike's
-comment shows the measured margins. Proves: O1, O2, O3
+Demo: `npm run gallery`. Both theme columns draw in the standard order: index 1 to 3 are blue, violet and rose, with
+no amber. The palette switch in the gallery header (Standard / Red-green / Blue-yellow) sets
+`<html data-palette>`, and every tile in both columns recolors, the `layout3D` canvas and the single-series
+curves included. The segmented controls mark in glass. Proves: O1, O2, O3
 
 | Issue | Work item | Approach | Files | Test | After |
 | -- | -- | -- | -- | -- | -- |
-| #5 | O1, O2, O3 acceptance tests, skipped; culori added | forced (`workflow.md`, TDD: the first item writes them skipped); culori via `npm i -D culori@4.0.2` (lock updated for `npm ci`) because it implements Machado 2009, CIEDE2000 and WCAG contrast and is approved (roadmap Change log); considered hand-coding the matrices, ruled out by the approval and the prior-art rule. Records the O1 test's measured minimum (unskipped once, locally) in the issue comment | `package.json`, `package-lock.json` | `tests/unit/field-order.test.js` (2 tests, `{ skip: '#<i>' }`, `oracle:` line), `tests/gallery.spec.js::segmented control marks in glass` (`test.skip`) | none |
-| #6 | Spike (timebox 2 h): pick field-7 and field-8 values for both themes | output: an issue comment with a table (hex per theme, hue, each O1 clause measured with its margin, contrast) and swatches, from a culori search script kept out of the tree; same hue family across themes, near today's violet and rose; the user signs the values off and puts them in the design system. Spike because the values are a design choice the code can't settle; considered letting the token item pick them, ruled out because the design system owns them (Non-goals) | none (comment only) | none (spike: `workflow.md`, Work items) | #5 |
-| #7 | `field-7`, `field-8` take the signed-off values | forced (#6's signed-off values; `tokens.json` copies the design system) | `packages/tokens/src/tokens.json` | `tests/unit/tokens.test.js::field-7 and field-8 are the signed-off values` (`oracle: user` #6's sign-off comment; red until the values land); O1 covers their contrast | #6 |
-| #8 | SVG renderers color index colors in the new order | `var ORDER = [1, 7, 8, …]` read by `idx(i)` because every SVG renderer already colors through `idx`; positions 4 to 8 computed once with O3's rule on #7's tokens and pinned, so a later token change turns O3 red instead of reordering silently; considered computing `ORDER` in `build.mjs` from `tokens.json` (critic), ruled out by that silent reorder; considered reordering token values, ruled out (design system's file, website names `--field-7`). README gains: "Index colors (fields or wavelengths) run fields 1, 7, 8, then …, chosen for colour-vision safety" | `packages/plots/src/renderers.js`, `packages/plots/README.md` | `tests/unit/renderers.test.js::svg renderers share one index order starting 1, 7, 8` (`oracle: spec roadmap U1`): `spot({colorBy:'field'})`, `layout2D`, `rayFan`, `curve` (MTF) and `legend('field', 8)` emit `var(--field-1)`, `-7`, `-8` first, and the legend lists all 8 once | #7 |
-| #9 | `layout3D` draws rays in the new order | `C("field-" + ORDER[k])` because it is the one renderer not routed through `idx`; Node test with stubs (canvas context recording `strokeStyle`, with no-op `scale`, `setLineDash`, `fillText`, `fill`; `globalThis.window = { devicePixelRatio: 1 }`; `getComputedStyle` returning each token's name) because only unit tests run in `check.sh --fast`; considered a Playwright `addInitScript` spy on the gallery canvas (critic), ruled out because the fast gate never runs it | `packages/plots/src/renderers.js` | `tests/unit/renderers.test.js::layout3D strokes fields 1, 7, 8` | #8 |
-| #10 | `.eleo-seg` marks the selection in glass; the gallery shows one | forced (user, round 1: `box-shadow: inset 0 -2px 0 var(--glass-edge)`); the specimen goes inside `<template id="tiles">` without `data-tile`, so it renders in both theme columns and the count (15) stays; considered a new tile, which changes the count test for no demo gain | `packages/plots/src/plots.css`, `gallery/index.html` | `tests/gallery.spec.js::checked segment uses glass-edge in both themes`: each column's checked span's computed `box-shadow` rgb equals its `--glass-edge` | #5 |
-| #11 | Unskip O1, O2, O3 acceptance tests; changeset; README token note | forced (`workflow.md`, TDD: the last item unskips them); one changeset, minor for `@eleoptics/tokens` (field-7/8) and `@eleoptics/plots` (index order, seg marker), because the row ships in the Layouts release (roadmap constraint); `README.md:62` gains "except the field colors: their order is pinned in `renderers.js` and checked against the tokens, so a field token change reruns that check" | `.changeset/brand-fixes.md`, `README.md` | the acceptance tests above, green | #8, #9, #10 |
+| [#5] | done: culori, first acceptance tests | | | | |
+| [#6] | done: spike (measurements kept, values not adopted) | | | | |
+| [#10] | done: `.eleo-seg` in glass, gallery specimen | | | | |
+| [#15] | Acceptance tests rewritten for O1 and O3, skipped | forced (`workflow.md`, TDD). The unit tests parse `--series-k` per selector in `plots.css` and recompute rule R and floor F from `tokens.json`. The condition sets are the palette's own (standard: normal; red-green: protan and deutan; blue-yellow: tritan), with ties to the lower number in both the triple search (ascending scan, strict >) and the greedy tail. O1 also asserts that `idx`'s fallback fields equal the parsed `:root` mapping, and its drawn set adds `curve` `fieldCurvature`, `distortion` and `chromaticFocus`. The oracle line drops the WCAG clause. Regex parsing because the format is fixed and written by this plan; considered `postcss`/`css-tree`, ruled out because each is a new dependency. The gallery test is `test.skip`, reads computed `fill` of `spot`'s `circle[fill^="var(--series-1"]` and `-2` | | `tests/unit/field-order.test.js`, `tests/gallery.spec.js` | none |
+| [#16] | `plots.css` maps `--series-1..8` to fields per palette, theme-safe | Three blocks in this order: `:root, [data-theme]` (standard), then `[data-palette="standard"], [data-palette="standard"] [data-theme]`, then `red-green` and `blue-yellow` in the same form. A mapping resolves where it is declared, and palettes win by source order (Constraints). Considered generating it in `tokens/build.mjs`, ruled out because `tokens.json` is the design system's file and the order is plots' concern. README gains a "Palettes" section: `<html data-palette="red-green">`, the three values, one palette per page, canvas plots redraw as on a theme change, and "`--series-1` to `--series-8` are the index colors for any chart on the page. They follow the palette and theme. The token number is not the index" (delivers [#13]) | `packages/plots/src/plots.css`, `packages/plots/README.md` | `tests/unit/palettes.test.js::each palette maps all 8 fields once, standard block first` | #15 |
+| [#17] | SVG renderers color through `--series-k` | `idx(i)` returns `var(--series-k, var(--field-<standard[k]>))`, and `curve`'s single-series kinds (`renderers.js:213`, `:214`, `:217`, `:220`) use `idx(0)` instead of `var(--field-1)`, because every SVG color then goes through one function. Considered a JS `ELEO.palette()` state, ruled out because SVG would need a redraw and per-element scope is lost | `packages/plots/src/renderers.js` | `tests/unit/renderers.test.js::svg renderers emit series variables in order` | #16 |
+| [#18] | `layout3D` strokes `--series-1..3` | `C("series-" + (k+1)) \|\| C("field-" + STANDARD[k])` because it reads tokens through `css()` at draw time, so it follows the palette and still draws without `plots.css`. Node stubs as in [#5]'s O1 test, plus a case where `--series-*` reads `""`. Considered routing it through `idx` and parsing the var string, ruled out because canvas needs a hex | `packages/plots/src/renderers.js` | `tests/unit/renderers.test.js::layout3D strokes series 1 to 3, falls back to fields` | #17 |
+| [#19] | Svelte canvases redraw on a palette change | add `'data-palette'` to `theme.svelte.js`'s `attributeFilter` (it watches `<html>`) because that is how theme redraws work, and `plots-svelte/README.md:3` gains "or the palette". Considered a separate store, ruled out by duplication. Test recipe (critic, verified): `compileModule(src, { generate: 'client' })` from `svelte/compiler`, write the output under the repo so `svelte/internal/client` resolves, stub `window`, `document.documentElement`, `MutationObserver` (capture options and callback) and `matchMedia`; assert `attributeFilter` includes `data-palette` and two callbacks bump `themeTick()` by 2. `oracle: spec DOM MutationObserver attributeFilter` | `packages/plots-svelte/src/lib/theme.svelte.js`, `packages/plots-svelte/README.md` | `tests/unit/theme-tick.test.js::a data-palette change bumps the tick` | none |
+| [#20] | Gallery palette switch | an `.eleo-seg` in the page header (Standard / Red-green / Blue-yellow) sets `data-palette` on `<html>` (where apps and the Svelte observer put it) and redraws the canvas tiles, because the demo has to show both columns switching together. Considered per-column switches, ruled out because they hide that one attribute serves a page. Canvas recoloring in the browser is checked only by the demo; D's unit test covers the logic | `gallery/index.html` | `tests/gallery.spec.js::palette switch recolors both themes` (O3, written skipped in #15) | #16, #18 |
+| [#11] reuse | Unskip O1, O2, O3. Changeset. README token note | forced (`workflow.md`, TDD). One changeset: minor for `@eleoptics/plots` (index order, palettes, `--series-k`, seg marker) and patch for `@eleoptics/plots-svelte`. `README.md:62` gains "except the field order: it is pinned per palette in `packages/plots/src/plots.css` and checked against the tokens, so a field token change reruns that check" | `.changeset/brand-fixes.md`, `README.md` | the acceptance tests, green | all above |
+
+[#7], [#8] and [#9] close as superseded by this revision. Their scope moves to #16 to #18.
 
 ## Risks and spikes
 
 | Risk | Impact | Spike or mitigation |
 | -- | -- | -- |
-| The user rejects every spike candidate | #7 blocks | the spike shows at least three pairs per theme; a further miss is a CR |
-| O3's greedy rule ties two candidates | the pinned order is ambiguous | ties break by lower token number, stated in the test |
-| New 7/8 shift other tiles' look (wavelength plots use them too) | demo surprise | the demo covers every tile in both themes |
+| The `--series` mapping resolves in the wrong theme | a dark column shows light hexes | verified in Chromium (Constraints). The gallery test checks both columns, and B's test checks the block order |
+| Red-green's 3, 4, 8 reads off-brand to standard viewers | user surprise at the demo | it is opt-in. The demo shows it |
+| A token change reorders or degrades a palette | silent drift | the orders are pinned in CSS. A's tests recompute rule R and floor F and go red |
 
 ## Change log
 
 One bullet per entry (bare lines render as one paragraph).
 
-- 2026-10-05: drafted from roadmap row A and [#2].
-- 2026-10-05 round 1 (user): buckets confirmed ([#2] absorb, [#3] related); positions 4–8 ranked by CVD distance; `.eleo-seg` marker `inset 0 -2px 0 var(--glass-edge)`; one milestone.
-- 2026-10-05 round 2 (user): O3's rule is greedy max-min ΔE2000 with `--accent` counted as placed; the visual check is the M1 demo only, no screenshot baselines.
-- 2026-10-05 critique (plan critic, claude-fable-5-1) finding 1, re-measured: the A / U1 kill criterion fires (fields 1–7 at 6.8, dark protan); no reorder meets U1's accent clause.
-- 2026-10-05 kill ask (user): pivot, tune field tokens.
-- 2026-10-05 round 3 (user): U1's oracle reworded: pairwise ≥ today's 1, 7, 8 per condition and ≥ 10, each ≥ 20 from `--accent`, each 3:1 on surface; field-7/8 retuned through a spike. The approved clause "as far from `--accent` as field 1" admits only blues (measured), so no palette meets it.
-- 2026-10-05 critique applied: findings 2 (idx colors wavelengths too), 3 (layout3D stubs), 4 (After as item numbers), 5 (specimen in the template, both themes, rgb), 6 (README note), 7 (oracle lines), 8 (`npm i -D`), 11 (`forced (user)`). Rejected: 9 (Playwright spy; the fast gate runs unit tests only), 10 (build-time order; it would reorder silently on a token change).
+- 2026-10-05: plan [#4] approved and published (see `4-brand-fixes.md` history). [#5], [#6] and [#10] done.
+- 2026-10-05 [#14] (user): re-scope. "Choose the field colors based on what is best for standard vision. Then, have a setting to allow users to choose color palettes that account for their visual conditions … They don't all have to work simultaneously."
+- 2026-10-05: revision drafted. Measured orders per palette on today's tokens (Ground truth).
+- 2026-10-05 round 1 (user): buckets confirmed ([#2], [#13] absorb; [#3] related; [#7], [#8], [#9] superseded); palettes standard, red-green, blue-yellow; mechanism `data-palette` attribute; best triple wins (field-1 not forced first).
+- 2026-10-05 round 2 (user): public name `--series-1..8` ([#13]); floor F (triple min ≥ 10) on every palette.
+- 2026-10-05 critique (plan critic, claude-fable-5-1, mechanism verified in Chromium, Ground truth reproduced): applied 1 (`layout3D` JS fallback), 2 (`curve` single-series through `idx`), 3 (`standard` declared), 4 (block order), 5 (`<html>`), 8 (Svelte test recipe), 9 (`spot` fill), 10 (fallback cross-check), 11 (#13 README line), 12 (roadmap at approval), 13 (canvas checked by demo, stated), 14 (oracle line), 15 (README drift lines), 16 (oracle line on new test), 17 (regex, reason stated). Rejected: none.
+- 2026-10-05 approval (user): revision approved. Work items #15 to #20 created, #11 revised, and #7, #8 and #9 closed as superseded. Roadmap U1, row A and the kill criterion updated.
 
 [#2]: https://github.com/ELEOptics/eleo-ui/issues/2
 [#3]: https://github.com/ELEOptics/eleo-ui/issues/3
-- 2026-10-05 approval (user): plan approved; published as #4 with work items #5 to #11.
-- 2026-10-05 spike #6: no dark field-8 meets O1 as worded (best −1.6 ΔE2000; orchestrator re-sweep −1.85). CR #14 filed.
-- 2026-10-05 #14 (user): re-scope. "Choose the field colors based on what is best for standard vision. Then add a setting that lets users choose color palettes that account for their visual conditions … They don't all have to work simultaneously." Plan paused for `/plan` revision; #5, #6 and #10 are done; #6's values are not signed off.
+[#4]: https://github.com/ELEOptics/eleo-ui/issues/4
+[#5]: https://github.com/ELEOptics/eleo-ui/issues/5
+[#6]: https://github.com/ELEOptics/eleo-ui/issues/6
+[#7]: https://github.com/ELEOptics/eleo-ui/issues/7
+[#8]: https://github.com/ELEOptics/eleo-ui/issues/8
+[#9]: https://github.com/ELEOptics/eleo-ui/issues/9
+[#10]: https://github.com/ELEOptics/eleo-ui/issues/10
+[#11]: https://github.com/ELEOptics/eleo-ui/issues/11
+[#12]: https://github.com/ELEOptics/eleo-ui/issues/12
+[#13]: https://github.com/ELEOptics/eleo-ui/issues/13
+[#14]: https://github.com/ELEOptics/eleo-ui/issues/14
+[#15]: https://github.com/ELEOptics/eleo-ui/issues/15
+[#16]: https://github.com/ELEOptics/eleo-ui/issues/16
+[#17]: https://github.com/ELEOptics/eleo-ui/issues/17
+[#18]: https://github.com/ELEOptics/eleo-ui/issues/18
+[#19]: https://github.com/ELEOptics/eleo-ui/issues/19
+[#20]: https://github.com/ELEOptics/eleo-ui/issues/20
