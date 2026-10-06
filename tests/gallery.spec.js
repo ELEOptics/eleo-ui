@@ -1,6 +1,18 @@
 // Every renderer draws, in both themes, without errors. Run after `npm run build`.
 import { test, expect } from '@playwright/test';
 
+// Per tile in one theme column: its SVG mark count and inked canvas pixels.
+const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
+  const svg = el.querySelector('.eleo-plot__body svg');
+  const canvas = el.querySelector('canvas');
+  let inked = 0;
+  if (canvas) {
+    const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    for (let i = 3; i < data.length; i += 4) if (data[i]) inked++;
+  }
+  return { tile: el.dataset.tile, svgMarks: svg ? svg.querySelectorAll('path, line, circle, rect, polyline').length : 0, inked };
+}));
+
 test('gallery renders every tile in both themes', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -10,19 +22,28 @@ test('gallery renders every tile in both themes', async ({ page }) => {
   expect(errors).toEqual([]);
 
   for (const theme of ['light', 'dark']) {
-    const col = page.locator(`.theme[data-theme="${theme}"]`);
-    const tiles = await col.locator('[data-tile]').evaluateAll((els) => els.map((el) => {
-      const svg = el.querySelector('.eleo-plot__body svg');
-      const canvas = el.querySelector('canvas');
-      let inked = 0;
-      if (canvas) {
-        const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-        for (let i = 3; i < data.length; i += 4) if (data[i]) inked++;
-      }
-      return { tile: el.dataset.tile, svgMarks: svg ? svg.querySelectorAll('path, line, circle, rect, polyline').length : 0, inked };
-    }));
+    const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(16);
     for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+  }
+});
+
+// #69: a missing merit fixture fails its one tile, not the page. oracle: property, one broken tile doesn't
+// blank the other 15. The 404 and the gallery's own report of it are the expected console errors.
+test('a missing merit fixture blanks only its tile', async ({ page }) => {
+  const thrown = [];
+  page.on('pageerror', (e) => thrown.push(e.message));
+  await page.route('**/merit-before.json', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(thrown).toEqual([]);
+  for (const theme of ['light', 'dark']) {
+    const tiles = await inkByTile(page, theme);
+    expect(tiles.length).toBe(16);
+    for (const t of tiles) {
+      if (t.tile === 'layout2D-shared') expect(t.svgMarks + t.inked, `${theme} merit tile drew`).toBe(0);
+      else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+    }
   }
 });
 

@@ -72,9 +72,10 @@
     // (window.ELEO.sample stays null in the classic build: iife.js copies the API before useSample sets it).
     var ZIMG = 103.62614866262808;
     var SAMPLE_BOX = { zmin: -8, zmax: ZIMG + 4, ylo: -13.5, yhi: 13.5 };
-    // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below.
+    // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below;
+    // if either fixture fails, MERIT_BOX stays unset and the tile draws nothing while the rest of the page draws.
     var MERIT = {}, MERIT_BOX;
-    function meritTile(k) { return ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
+    function meritTile(k) { return MERIT_BOX ? ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }) : ''; }
     var SVG = {
       'layout2D': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX }); },
       'layout2D-fan': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX, colorBy: 'wavelength', rays: 'fan' }); },
@@ -131,6 +132,9 @@
       }).then(function (d) { MERIT[k] = d; });
     })).then(function () {
       MERIT_BOX = ELEO.layoutBounds([MERIT.before, MERIT.after]);
+    }).catch(function (e) {
+      console.error('gallery: merit tile skipped:', e);
+    }).then(function () {
       draw();
       document.body.dataset.ready = 'true';
     });
