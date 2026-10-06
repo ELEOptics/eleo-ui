@@ -42,8 +42,11 @@ export function layout2D(o) {
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
   var S = L.surfaces;
-  var B = o.box || layoutBounds([L]), W = o.width || 1000, s = W / (B.zmax - B.zmin), top = 3;
-  var H = Math.round((B.yhi - B.ylo) * s) + 30, tx = -B.zmin * s, ty = top + B.yhi * s;
+  var B = o.box || layoutBounds([L]), W = o.width || 1000, s = W / (B.zmax - B.zmin);
+  // Room above the geometry for each STO label: its baseline sits 5 px above its stop's reach and at least 10 px down.
+  var tallest = Math.max.apply(null, S.map(function (x, i) { return x.stop ? reach(S, i) : -Infinity; }));
+  var top = Math.max(3, 15 - (B.yhi - tallest) * s);
+  var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = -B.zmin * s, ty = top + B.yhi * s;
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }

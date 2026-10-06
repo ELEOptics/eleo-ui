@@ -245,17 +245,28 @@ test('empty fan is skipped', () => {
 });
 
 // Plan #30, #54: review round 2 finding 1. A stop on a lens is labelled above its glass, not above its sd.
+// Plan #30, #57: review round 3 finding 1. For every fixture, the sample, and the sample in the gallery's pinned box.
 // oracle: property a label sits outside the glass it names
 test("STO label above the stop's edge", () => {
-  const L = fixture('tolerance');
-  const svg = ELEO.layout2D({ data: L });
-  const [, , , , , ty] = geometry(svg).M, s = geometry(svg).M[0];
-  const stop = L.surfaces.find((x) => x.stop);
-  assert.ok(stop.glass || L.surfaces[L.surfaces.indexOf(stop) - 1]?.glass, 'the fixture stop sits on a lens');
-  const sto = [...svg.matchAll(/<text\b[^>]*>STO<\/text>/g)].map((m) => attrs(m[0]));
-  assert.equal(sto.length, 1, 'one STO label');
-  const edge = ty - Math.abs(stop.profile[0][1]) * s;
-  assert.ok(+sto[0].y < edge, `STO y ${sto[0].y} px is above the stop's profile edge ${edge.toFixed(1)} px`);
+  const pinned = { zmin: -8, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // gallery/index.html sampleBox()
+  const cases = [
+    ...FIXTURES.map((name) => ({ name, L: fixture(name), o: {} })),
+    { name: 'sample', L: sample.layout, o: {} },
+    { name: 'sample, pinned box', L: sample.layout, o: { box: pinned } },
+  ];
+  for (const { name, L, o } of cases) {
+    const svg = ELEO.layout2D({ data: L, ...o });
+    const [s, , , , , ty] = geometry(svg).M;
+    const sto = [...svg.matchAll(/<text\b[^>]*>STO<\/text>/g)].map((m) => attrs(m[0]));
+    const stops = L.surfaces.filter((x) => x.stop);
+    assert.equal(sto.length, stops.length, `${name}: one STO label per stop`);
+    stops.forEach((stop, j) => {
+      const i = L.surfaces.indexOf(stop);
+      const onLens = stop.glass || L.surfaces[i - 1]?.glass;
+      const edge = ty - (onLens ? Math.abs(stop.profile[0][1]) : stop.sd + 2.5) * s;
+      assert.ok(+sto[j].y < edge, `${name}: STO y ${sto[j].y} px is above the stop's edge ${edge.toFixed(2)} px`);
+    });
+  }
 });
 
 // Plan #30, #55: review round 2 findings 2-3. A bad chief and a layout with no rays are named.
