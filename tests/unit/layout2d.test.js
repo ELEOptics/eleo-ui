@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
+import { layoutBounds } from '../../packages/plots/src/layout2d.js';
 
 const TOL = 0.01; // mm
 const FIXTURES = ['analysis', 'merit-before', 'merit-after', 'focus', 'tolerance'];
@@ -188,5 +189,33 @@ test('sample surfaces equal its profiles', () => {
     assert.ok(img.profile.every((q) => q[0] === sample.zimg), `${key}: image profile lies at zimg`);
     assert.ok(!('chief' in L), `${key}: no chief`);
     assert.ok(L.rays.every((fan) => fan.length === 7), `${key}: 7-ray fans`);
+  }
+});
+
+// Plan #30, #51: layoutBounds ports the site's bounds().
+// oracle: reference the site's function, copied verbatim from eleo-website@39d19e4 public/layout.js:20-35
+function bounds(layouts) {
+    var zmin = Infinity, zmax = -Infinity, ylo = 0, yhi = 0;
+    layouts.forEach(function (L) {
+      L.rays.forEach(function (fan) { fan.forEach(function (r) {
+        zmin = Math.min(zmin, r[0][0]); zmax = Math.max(zmax, r[r.length - 1][0]);
+        r.forEach(function (p) { ylo = Math.min(ylo, p[1]); yhi = Math.max(yhi, p[1]); });
+      }); });
+      L.surfaces.forEach(function (s) {
+        if (s.image) return;
+        var e = s.stop && !s.glass ? s.sd + 2.5 : Math.abs(s.profile[0][1]);  // a lens reaches its edge
+        ylo = Math.min(ylo, -e); yhi = Math.max(yhi, e);
+      });
+    });
+    var pad = (yhi - ylo) * 0.04;
+    return { zmin: zmin, zmax: zmax, ylo: ylo - pad, yhi: yhi + pad };
+  }
+
+test('layoutBounds ports the site', async (t) => {
+  for (const name of FIXTURES) {
+    await t.test(name, () => {
+      const L = fixture(name);
+      assert.deepEqual(layoutBounds([L]), bounds([L]), `${name}: the site's box`);
+    });
   }
 });

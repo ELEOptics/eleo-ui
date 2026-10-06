@@ -9,16 +9,22 @@ function chiefOf(L, k) { var c = L.chief && L.chief[k]; return c != null ? c : M
 function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i - 1].glass); }
 function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : S[i].sd; }
 
-/* A port of the site's bounds(): z covers the rays; y covers the rays and every surface's reach, padded 4%. */
+/* A port of eleo-website@39d19e4 public/layout.js bounds(): z from the rays' ends; y from 0, the rays and every
+   surface but the image (a standalone stop reaches sd + 2.5, a lens |profile[0][1]|), padded 4%. */
 export function layoutBounds(layouts) {
-  var zmin = Infinity, zmax = -Infinity, ylo = Infinity, yhi = -Infinity;
+  var zmin = Infinity, zmax = -Infinity, ylo = 0, yhi = 0;
   layouts.forEach(function (L) {
-    L.rays.forEach(function (fan) { fan.forEach(function (r) { r.forEach(function (p) {
-      zmin = Math.min(zmin, p[0]); zmax = Math.max(zmax, p[0]); ylo = Math.min(ylo, p[1]); yhi = Math.max(yhi, p[1]);
-    }); }); });
-    L.surfaces.forEach(function (_, i) { var h = reach(L.surfaces, i); ylo = Math.min(ylo, -h); yhi = Math.max(yhi, h); });
+    L.rays.forEach(function (fan) { fan.forEach(function (r) {
+      zmin = Math.min(zmin, r[0][0]); zmax = Math.max(zmax, r[r.length - 1][0]);
+      r.forEach(function (p) { ylo = Math.min(ylo, p[1]); yhi = Math.max(yhi, p[1]); });
+    }); });
+    L.surfaces.forEach(function (s) {
+      if (s.image) return;
+      var e = s.stop && !s.glass ? s.sd + 2.5 : Math.abs(s.profile[0][1]);
+      ylo = Math.min(ylo, -e); yhi = Math.max(yhi, e);
+    });
   });
-  var pad = 0.04 * (yhi - ylo);
+  var pad = (yhi - ylo) * 0.04;
   return { zmin: zmin, zmax: zmax, ylo: ylo - pad, yhi: yhi + pad };
 }
 
@@ -49,7 +55,7 @@ export function layout2D(o) {
     var last = rays[c][rays[c].length - 1]; dots += '<circle cx="' + X(last[0]) + '" cy="' + Y(last[1]) + '" r="2.4" fill="' + idx(k) + '"/>';
   });
   var img = S.filter(function (x) { return x.image; })[0];
-  if (img) g += line(img.z, img.sd, img.z, -img.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
+  if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>" + dots;
   function label(z, y, t) { return '<text class="eleo-tick" x="' + X(z) + '" y="' + Math.max(10, Y(y) - 5).toFixed(2) + '" text-anchor="' + (X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
   S.forEach(function (x, i) { if (x.stop) g += label(x.z, reach(S, i), "STO"); });
