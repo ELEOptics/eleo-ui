@@ -21,7 +21,7 @@ test('gallery renders every tile in both themes', async ({ page }) => {
       }
       return { tile: el.dataset.tile, svgMarks: svg ? svg.querySelectorAll('path, line, circle, rect, polyline').length : 0, inked };
     }));
-    expect(tiles.length).toBe(15);
+    expect(tiles.length).toBe(16);
     for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
   }
 });
