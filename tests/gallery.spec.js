@@ -65,9 +65,7 @@ test('palette switch recolors both themes', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const palettes = [['Red-green', 'red-green', [3, 4]], ['Blue-yellow', 'blue-yellow', [1, 4]], ['Standard', 'standard', [1, 7]]];
-  for (const [label, value, fields] of palettes) {
-    await page.getByRole('radio', { name: label }).check();
-    if (value !== 'standard') await expect(page.locator('html')).toHaveAttribute('data-palette', value);
+  const checkColumns = async (label, fields) => {
     for (const theme of ['light', 'dark']) {
       const col = page.locator(`.theme[data-theme="${theme}"]`);
       const got = await col.evaluate((el, fields) => {
@@ -77,5 +75,14 @@ test('palette switch recolors both themes', async ({ page }) => {
       }, fields);
       expect(got.fills, `${label}, ${theme} column: spot index 1 and 2`).toEqual(got.expected);
     }
+  };
+  for (const [label, value, fields] of palettes) {
+    await page.getByRole('radio', { name: label }).check();
+    if (value !== 'standard') await expect(page.locator('html')).toHaveAttribute('data-palette', value);
+    await checkColumns(label, fields);
   }
+  // The gallery removes the attribute for Standard, so set it directly: the [data-palette="standard"] block
+  // must resolve the same as no attribute.
+  await page.evaluate(() => { document.documentElement.dataset.palette = 'standard'; });
+  await checkColumns('data-palette="standard"', [1, 7]);
 });
