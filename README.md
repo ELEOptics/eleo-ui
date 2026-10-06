@@ -6,7 +6,7 @@ The design tokens and optical plots behind ELEO's tools, including Phos and eleo
 | -- | -- |
 | [`@eleoptics/tokens`](packages/tokens) | Colors for light and dark themes, colormaps, type, spacing and line weights, as `tokens.css` and as data |
 | [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, RayFan, Map2D (PSF, wavefront), CurvePlot (MTF and more), icons and legends; plus small, exact physics helpers (`airy`, `j1`, `slabMode`, `colormap`) |
-| [`@eleoptics/plots-svelte`](packages/plots-svelte) | Svelte 5 components around `@eleoptics/plots`: PlotCard, Layout2D, Map2D and the rest, redrawn on theme change |
+| [`@eleoptics/plots-svelte`](packages/plots-svelte) | Svelte 5 components around `@eleoptics/plots`: PlotCard, Layout2D, Map2D and the rest, redrawn on a theme or palette change |
 
 ## Use it
 
@@ -20,7 +20,7 @@ import '@eleoptics/plots/plots.css';
 import { layout2D, map2D } from '@eleoptics/plots';
 
 el.innerHTML = layout2D({ data: mySystem });   // SVG; follows the theme by itself
-map2D(canvas, { data: mySystem, kind: 'psf' });  // canvas; call again after a theme change
+map2D(canvas, { data: mySystem, kind: 'psf' });  // canvas; call again after a theme or palette change
 ```
 
 - Pass your traced system as `data`, or `import '@eleoptics/plots/sample'` to draw the sample achromat (190 KB, so it is opt-in).
