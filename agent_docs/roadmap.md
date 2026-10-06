@@ -31,7 +31,7 @@ Row letters and the Plan column: `agent_docs/agents/workflow.md`, Artifacts (Roa
 
 | Row | Plan | Scope | Exit criterion | Status |
 | -- | -- | -- | -- | -- |
-| A | #4 | Brand fixes: standard field order and two vision palettes (red-green, blue-yellow) as `--series-k` in `plots.css`, selected by `data-palette`, used by every renderer (`layout2D`, `layout3D`, `spot`, `rayFan`, `curve`, `legend`), tested with culori; `.eleo-seg` marked in glass. | U1's tests pass; gallery checked in both themes and palettes, approved. | active |
+| A | #4 | Brand fixes: standard field order and two vision palettes (red-green, blue-yellow) as `--series-k` in `plots.css`, selected by `data-palette`, used by every renderer (`layout2D`, `layout3D`, `spot`, `rayFan`, `curve`, `legend`), tested with culori; `.eleo-seg` marked in glass. | U1's tests pass; gallery checked in both themes and palettes, approved. | done |
 | Layouts | #3 | `layout2D` on the recorded format, fixtures copied from the website, the sample converted, a `box` option, the standalone entry, Svelte wrapper and gallery tile updated. Then one minor release (`npx changeset`, the user merges the Version packages PR). | U3 and U4 pass; every gallery tile unchanged apart from U1's colors; the release is on npm. | later |
 
 Layouts waits on A (both edit `renderers.js`). Not here: a shared line chart, histogram and sensitivity bars
@@ -76,6 +76,7 @@ coverage table). Each row names the plan that delivers it.
 
 One bullet per entry (bare lines render as one paragraph).
 
+- 2026-10-05 plan #4 done (user: M1 go): row A done. Standard order 1, 7, 8, …, red-green and blue-yellow palettes as `--series-k` behind `data-palette`, `.eleo-seg` in glass. Follow-ups #21 (changesets would release plots-svelte as 1.0.0) and #27 (stale "theme change" comments).
 - 2026-10-05 plan #4 revised (user, CR #14): no single order is safe for every vision condition at once (dark theme, spike #6). U1 now covers a standard order for normal vision plus opt-in red-green and blue-yellow palettes (`data-palette`, `--series-k`) and drops the field-7/8 retune and the WCAG clause. The A / U1 kill criterion is retired.
 
 - 2026-10-05 plan #4 (user): A / U1 kill criterion fired before approval (fields 1–7 at ΔE2000 6.8, dark protan; the approved accent clause admits only blues); user chose to pivot: field-7/8 retuned through a spike, U1's oracle reworded (accent floor 20, contrast 3:1 added). Row A planned as #4, absorbing #2.

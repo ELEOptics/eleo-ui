@@ -1,6 +1,6 @@
 # Plan [#4]: Brand fixes: standard field order, vision palettes, glass segmented control
 
-Status: approved 2026-10-05 (revised after CR [#14])
+Status: done 2026-10-05
 Branch: `plan/4-brand-fixes` PR: [#12] Depends on: none Roadmap: `agent_docs/roadmap.md`, row A
 
 ## Problem
@@ -150,6 +150,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-05: M1 review round 1: 0 blocking, 5 backlog. Findings 2 to 5 pulled into M1 as [#22] to [#25] (small, named, in files M1 changed). Finding 1 filed as [#21] (release config, a non-goal; it waits for the Layouts release).
 - 2026-10-05: #23 hit a gap: two renderers.test.js assertions had no counterpart in field-order. CR [#26] accepted (orchestrator; keeps every invariant): they moved into field-order before the delete.
 - 2026-10-05: M1 review round 2: 0 blocking, 2 backlog. Finding 1 filed as [#27] (four files, more than one item). Finding 2 (stale Test cells for #17 and #18) fixed here. M1 done: every item done, O1 to O3 green, `scripts/check.sh` green on 0304e95.
+- 2026-10-05 M1 demo (user): go. `npm ci` showed audit warnings: 15 high and 4 moderate, from `braces` and `sprintf-js` under `@changesets/cli` (dev only, already on main). Outside this plan.
+- 2026-10-05: `CLAUDE.md` commands re-verified on 07fe796: `npm ci && npm run build`, `npm run test:unit` (10 pass), `npx playwright test` (4 pass), `npm run gallery` (200), `npx changeset status`, `scripts/check.sh --fast` and `scripts/check.sh` (green), `core.hooksPath` is `.githooks`. Plan done.
 
 [#2]: https://github.com/ELEOptics/eleo-ui/issues/2
 [#3]: https://github.com/ELEOptics/eleo-ui/issues/3
