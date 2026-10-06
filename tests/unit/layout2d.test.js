@@ -1,0 +1,104 @@
+// Acceptance tests for plan #30 (agent_docs/plans/30-layouts.md), outcome O1.
+// oracle: fixture the website's layouts recorded by its scripts/layout.py (eleo-website@39d19e4), plus the sample; inverting each SVG's transform recovers every surface profile and ray within 0.01 mm
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import ELEO from '../../packages/plots/src/renderers.js';
+import sample from '../../packages/plots/src/sample.js';
+
+const TOL = 0.01; // mm
+const FIXTURES = ['analysis', 'merit-before', 'merit-after', 'focus', 'tolerance'];
+const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/layouts/${name}.json`, import.meta.url)));
+
+// The SVG is our own renderer's output: flat elements with double-quoted attributes. Read just enough of it.
+const attrs = (tag) => Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+const nums = (s) => s.trim().split(/[\s,]+/).map(Number);
+const pairs = (s) => { const n = nums(s), out = []; for (let i = 0; i < n.length; i += 2) out.push([n[i], n[i + 1]]); return out; };
+
+// The geometry group: `<g transform="matrix(a b c d e f)">` up to its matching `</g>`.
+function geometry(svg) {
+  const open = /<g\b[^>]*\btransform="matrix\(([^)]*)\)"[^>]*>/.exec(svg);
+  assert.ok(open, 'the SVG has a <g transform="matrix(…)"> holding the geometry');
+  let depth = 1, i = open.index + open[0].length;
+  const tags = /<(\/?)g\b[^>]*>/g;
+  tags.lastIndex = i;
+  for (let m; (m = tags.exec(svg));) {
+    if (!m[1]) { assert.ok(!/\btransform=/.test(m[0]), 'no nested transform inside the geometry group'); depth++; }
+    else if (--depth === 0) return { M: nums(open[1]), body: svg.slice(i, m.index) };
+  }
+  assert.fail('the geometry group is closed');
+}
+
+// Invert the group's transform: viewBox px → mm. It must be a uniform scale with y flipped (matrix(s 0 0 -s tx ty)).
+function inverse(M) {
+  const [a, b, c, d, e, f] = M;
+  assert.equal(M.length, 6, 'matrix has 6 terms');
+  assert.ok(b === 0 && c === 0 && a > 0 && Math.abs(a + d) <= 1e-9 * a, `matrix(s 0 0 -s tx ty), got matrix(${M.join(' ')})`);
+  return ([x, y]) => [(x - e) / a, (y - f) / d];
+}
+
+const near = (p, q) => Math.abs(p[0] - q[0]) <= TOL && Math.abs(p[1] - q[1]) <= TOL;
+const samePath = (got, want) => got.length === want.length && got.every((p, i) => near(p, want[i]));
+const at = (x, z) => Math.abs(x - z) <= TOL;
+
+function roundTrip(L, svg) {
+  const { M, body } = geometry(svg);
+  const toMm = inverse(M);
+  const view = nums(/<svg\b[^>]*\bviewBox="([^"]*)"/.exec(svg)[1]);
+  // The part of the mm plane the viewBox shows.
+  const [z0, y1] = toMm([view[0], view[1]]), [z1, y0] = toMm([view[0] + view[2], view[1] + view[3]]);
+  const visible = (p) => p[0] >= z0 - TOL && p[0] <= z1 + TOL && p[1] >= y0 - TOL && p[1] <= y1 + TOL;
+
+  const elements = (tag) => [...body.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'g'))].map((m) => attrs(m[0]));
+  const polygons = elements('polygon').map((a) => pairs(a.points));
+  const polylines = elements('polyline').map((a) => pairs(a.points));
+  const lines = elements('line').map((a) => [[+a.x1, +a.y1], [+a.x2, +a.y2]]);
+  const S = L.surfaces;
+
+  // Glass: one polygon per lens, this profile then the next one reversed.
+  const glass = S.flatMap((s, i) => (s.glass && S[i + 1] ? [[...s.profile, ...S[i + 1].profile.slice().reverse()]] : []));
+  for (const [k, want] of glass.entries()) {
+    assert.ok(polygons.some((got) => samePath(got, want)), `glass polygon ${k} recovers its two profiles`);
+    assert.ok(want.every(visible), `glass polygon ${k} lies inside the viewBox`);
+  }
+  for (const got of polygons) assert.ok(glass.some((want) => samePath(got, want)), 'every polygon is a recorded lens');
+
+  // A standalone stop (no glass on either side): two ticks, from ±sd out to ±(sd + 2.5).
+  S.forEach((s, i) => {
+    if (!(s.stop && !s.glass && !(S[i - 1] && S[i - 1].glass))) return;
+    for (const k of [1, -1]) {
+      const ends = [[s.z, k * s.sd], [s.z, k * (s.sd + 2.5)]];
+      assert.ok(lines.some(([p, q]) => (near(p, ends[0]) && near(q, ends[1])) || (near(p, ends[1]) && near(q, ends[0]))),
+        `stop tick at z=${s.z} from ${k * s.sd} to ${k * (s.sd + 2.5)}`);
+      assert.ok(ends.every(visible), `stop tick at z=${s.z} lies inside the viewBox`);
+    }
+  });
+
+  // The image: a vertical line at its z.
+  const img = S.find((s) => s.image);
+  assert.ok(img, 'the layout has an image surface');
+  assert.ok(lines.some(([p, q]) => at(p[0], img.z) && at(q[0], img.z) && p[1] !== q[1]), `image line at z=${img.z}`);
+
+  // Rays: every recorded ray is a polyline, and every polyline is a recorded ray.
+  const rays = L.rays.flat();
+  L.rays.forEach((fan, k) => fan.forEach((want, i) => {
+    assert.ok(polylines.some((got) => samePath(got, want)), `field ${k} ray ${i} recovered`);
+    assert.ok(want.every(visible), `field ${k} ray ${i} lies inside the viewBox`);
+  }));
+  for (const got of polylines) assert.ok(rays.some((want) => samePath(got, want)), 'every polyline is a recorded ray');
+}
+
+test('recorded layouts round-trip', { skip: '#31' }, async (t) => {
+  const cases = [
+    ...FIXTURES.map((name) => { const L = fixture(name); return { name, data: L, layout: L }; }),
+    { name: 'sample', data: sample, layout: sample.layout },
+  ];
+  for (const { name, data, layout } of cases) {
+    await t.test(name, () => {
+      assert.ok(layout && Array.isArray(layout.surfaces), `${name}: a recorded layout ({surfaces, rays})`);
+      let svg;
+      assert.doesNotThrow(() => { svg = ELEO.layout2D({ data, rays: 'fan' }); }, `${name}: layout2D draws it`);
+      roundTrip(layout, svg);
+    });
+  }
+});
