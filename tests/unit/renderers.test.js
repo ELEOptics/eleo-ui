@@ -34,3 +34,30 @@ test('svg renderers emit series variables in order', () => {
   assert.deepEqual(series(legend), [1, 2, 3, 4, 5, 6, 7, 8], 'legend lists index 1 to 8');
   assert.deepEqual(Object.values(fallbacks(legend)).sort(), [1, 2, 3, 4, 5, 6, 7, 8], 'legend lists each field once');
 });
+
+// layout3D draws on a canvas: record the strokeStyle it sets. `read(name)` stands in for a computed custom property.
+function layout3DStrokes(read) {
+  const strokes = [];
+  const ctx = new Proxy({}, {
+    get: (_, k) => (k === 'createImageData' ? () => ({ data: [] }) : () => {}),
+    set: (_, k, v) => { if (k === 'strokeStyle') strokes.push(v); return true; },
+  });
+  const saved = { window: globalThis.window, getComputedStyle: globalThis.getComputedStyle };
+  globalThis.window = { devicePixelRatio: 1 };
+  globalThis.getComputedStyle = () => ({ getPropertyValue: read });
+  try {
+    ELEO.layout3D({ getContext: () => ctx });
+  } finally {
+    Object.assign(globalThis, saved);
+  }
+  return [...new Set(strokes.filter((n) => /^--(series|field)-\d+$/.test(n)))];
+}
+
+test('layout3D strokes series 1 to 3, falls back to fields', () => {
+  assert.deepEqual(layout3DStrokes((n) => n), ['--series-1', '--series-2', '--series-3'], 'with plots.css');
+  assert.deepEqual(
+    layout3DStrokes((n) => (n.startsWith('--series-') ? '' : n)),
+    ['--field-1', '--field-7', '--field-8'],
+    'without plots.css: the standard fields 1, 7, 8',
+  );
+});

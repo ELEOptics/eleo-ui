@@ -101,7 +101,7 @@ const ELEO = (function () {
     function line(pts, col, w, dash) { c.beginPath(); pts.forEach(function (p, i) { var q = S2(p); if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.strokeStyle = col; c.lineWidth = w; c.setLineDash(dash || []); c.stroke(); c.setLineDash([]); }
     c.lineCap = "round"; c.lineJoin = "round";
     line([[0, 0, -12], [0, 0, D.zimg + 4]], C("plot-axis"), .75, [3, 5]);
-    var fields = [C("field-1"), C("field-2"), C("field-3")];
+    var fields = [0, 1, 2].map(function (k) { return C("series-" + (k + 1)) || C("field-" + STANDARD[k]); });
     var rays = D.rays3d.map(function (rs, k) { return { k: k, rs: rs.filter(function (_, i) { return i % 2 === 0 || i === rs.length - 1; }) }; });
     function seg(which) { if (!showRays) return; rays.forEach(function (R) { R.rs.forEach(function (r, i) { var chief = i === R.rs.length - 1; line(which === "in" ? [r[0], r[1]] : [r[3], r[4]], fields[R.k], 1.1, chief ? [5, 4] : null); }); }); }
     if (!inFront) seg("in"); if (!outFront) seg("out");
