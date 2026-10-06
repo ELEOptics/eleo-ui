@@ -60,7 +60,7 @@ What the website does (ELEOptics/eleo-website, `public/layout.js`, 78 lines; `sc
 - `bounds(layouts)` returns the box `{zmin, zmax, ylo, yhi}`:
 
   - z comes from the rays only;
-  - y covers the rays and each surface's reach (a standalone stop reaches sd + 2.5);
+  - y covers 0, the rays and each surface but the image: a lens reaches |profile[0][1]|, a standalone stop sd + 2.5 (corrected by #51);
   - 4% padding in y.
 
 - `draw(L, labels, box)` draws, in order:
