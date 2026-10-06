@@ -146,7 +146,7 @@ Changed: the shape of `data.layout` and `data.layoutWl` (a breaking change; roun
 
 Demo:
 
-- `npm run gallery`: the two layout2D tiles, unchanged apart from U1's colors (their framing is pinned with a `box`), in both themes and all three palettes. This is U3's design baseline.
+- `npm run gallery`: the two layout2D tiles, unchanged apart from U1's colors and a shorter image line with its labels (accepted 2026-10-06) (their framing is pinned with a `box`), in both themes and all three palettes. This is U3's design baseline.
 - `npm run test:unit`: O1 round-trips 6 layouts, the 5 site fixtures and the sample.
 
 Proves: O1. The kill criterion is decided in the last item: converting the sample has to delete the old path, not add a special case.
@@ -226,3 +226,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: CR #45 accepted (stale doc, not Core; row: Split, CR triage, commit order, wave dispatch). New item #46 in M1.
 - 2026-10-06 headless: M1 review round 1, 1 blocking. CR #48 accepted (dash arrays in px; it restores the look the Constraints line asked for, so every invariant is kept; row: Split, CR triage, commit order, wave dispatch); the Constraints line is corrected. Item #49.
 - 2026-10-06 headless: backlog #50, #51, #52, #53 into M1 (row: milestone acceptance within the plan).
+- 2026-10-06 (user): review finding 4 accepted: the sample's image line is ± the rays' reach at zimg (shorter than main's ±5 mm), with STO/IMA labels moved; logged as the exception to 'tiles unchanged' in the M1 demo line and row B's exit.

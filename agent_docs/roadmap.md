@@ -54,7 +54,7 @@ Row letters and the Plan column: `agent_docs/agents/workflow.md`, Artifacts (Roa
 | Row | Plan | Scope | Exit criterion | Status |
 | -- | -- | -- | -- | -- |
 | A | [#4] | Brand fixes: standard field order and two vision palettes (red-green, blue-yellow) as `--series-k` in `plots.css`, selected by `data-palette`, used by every renderer (`layout2D`, `layout3D`, `spot`, `rayFan`, `curve`, `legend`), tested with culori; `.eleo-seg` marked in glass. | U1's tests pass; gallery checked in both themes and palettes, approved. | done |
-| B | #30 | Layouts: `layout2D` on the recorded format, fixtures copied from the website, the sample converted, a `box` option, the standalone entry, Svelte wrapper and gallery tile updated. Then one minor release (`npx changeset`, the user merges the Version packages PR), after fixing its setup: [#21] (a peer bump would release `plots-svelte` as 1.0.0) and [#28] (dev-only audit findings under `@changesets/cli`; `npm audit --omit=dev` documented). Absorbs [#27] (stale "theme change" comments: this row edits three of its four files). | U3 and U4 pass; every gallery tile unchanged apart from U1's colors; `npx changeset status` plans a patch of `plots-svelte` and `npm audit` reports 0; the release is on npm. | active |
+| B | #30 | Layouts: `layout2D` on the recorded format, fixtures copied from the website, the sample converted, a `box` option, the standalone entry, Svelte wrapper and gallery tile updated. Then one minor release (`npx changeset`, the user merges the Version packages PR), after fixing its setup: [#21] (a peer bump would release `plots-svelte` as 1.0.0) and [#28] (dev-only audit findings under `@changesets/cli`; `npm audit --omit=dev` documented). Absorbs [#27] (stale "theme change" comments: this row edits three of its four files). | U3 and U4 pass; every gallery tile unchanged apart from U1's colors and the sample's shorter image line (user, 2026-10-06); `npx changeset status` plans a patch of `plots-svelte` and `npm audit` reports 0; the release is on npm. | active |
 
 B waited on A (both edit `renderers.js`). Not here: `fmt` units.
 
@@ -130,6 +130,7 @@ coverage table). Each row names the plan that delivers it.
 
 One bullet per entry (bare lines render as one paragraph).
 
+- 2026-10-06 (user, plan #30 M1 review finding 4): row B's exit allows the sample's shorter image line (the recorded-format rule) as an exception to 'tiles unchanged'.
 - 2026-10-05 approval (user): outcomes U5–U10 and U12–U15 and their oracles approved, rows C–J, decision rights and kill criteria; releases on consumer pull (review finding 4). Upstream issue filed: ELEOptics/phos-core#223.
 - 2026-10-05: review (roadmap-reviewer, claude-fable-5-1)
   - 1: rejected: the second-consumer rule is for app components; hover, zoom and export are the plot shell, which the user asked for (round 3). U5 now says so. Finding 13's smaller tool taken.
