@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
+import * as layout2dModule from '../../packages/plots/src/layout2d.js';
 import { layoutBounds } from '../../packages/plots/src/layout2d.js';
 
 const TOL = 0.01; // mm
@@ -272,4 +273,9 @@ test('no rays is named', () => {
   for (const rays of [[[], [], []], []]) {
     assert.throws(() => ELEO.layout2D({ data: { ...L, rays } }), { message: 'layout2D: no rays' });
   }
+});
+
+// oracle: spec the plan's Public API list (layout2D, layoutBounds); recorded() stays internal.
+test('layout2d.js exports layout2D and layoutBounds only', () => {
+  assert.deepEqual(Object.keys(layout2dModule).sort(), ['layout2D', 'layoutBounds']);
 });

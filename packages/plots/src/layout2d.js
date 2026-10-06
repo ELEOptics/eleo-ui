@@ -35,7 +35,7 @@ export function layoutBounds(layouts) {
 }
 
 // `data` is a recorded layout, or a system carrying one in `layout` (by field) and `layoutWl` (by wavelength).
-export function recorded(D, colorBy) { return D.surfaces ? D : colorBy === "wavelength" ? D.layoutWl : D.layout; }
+function recorded(D, colorBy) { return D.surfaces ? D : colorBy === "wavelength" ? D.layoutWl : D.layout; }
 
 export function layout2D(o) {
   var D = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief", L = recorded(D, colorBy);
