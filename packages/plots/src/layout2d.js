@@ -23,6 +23,13 @@ export function layoutBounds(layouts) {
   if (!Array.isArray(layouts) || !layouts.length) throw new Error("layoutBounds: no layouts");
   layouts.forEach(function (L, k) {
     if (!L || !Array.isArray(L.rays) || !Array.isArray(L.surfaces)) throw new Error("layoutBounds: layouts[" + k + "] is not a recorded layout");
+    var n = 0;
+    L.rays.forEach(function (fan, j) {
+      if (!Array.isArray(fan)) throw new Error("layoutBounds: layouts[" + k + "].rays[" + j + "] is not an array");
+      fan.forEach(function (r, i) { if (!Array.isArray(r) || !r.length) throw new Error("layoutBounds: layouts[" + k + "].rays[" + j + "][" + i + "]: ray has no points"); });
+      n += fan.length;
+    });
+    if (!n) throw new Error("layoutBounds: layouts[" + k + "] has no rays");
   });
   var zmin = Infinity, zmax = -Infinity, ylo = 0, yhi = 0;
   layouts.forEach(function (L) {
@@ -45,11 +52,15 @@ export function layout2D(o) {
   // `data` is a recorded layout, or a system carrying one in `layout` (by field) and `layoutWl` (by wavelength).
   var L = D.surfaces ? D : colorBy === "wavelength" ? D.layoutWl : D.layout;
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
-  L.rays.forEach(function (fan, k) { if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays"); });
+  L.rays.forEach(function (fan, k) {
+    if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays");
+    fan.forEach(function (r, i) { if (!Array.isArray(r) || !r.length) throw new Error("layout2D: fan " + k + " ray " + i + " has no points"); });
+  });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array of strings");
+  if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
-  var B = o.box || layoutBounds([L]);
+  var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
   var W = o.width || 1000, s = W / (B.zmax - B.zmin);
@@ -82,9 +93,9 @@ export function layout2D(o) {
   // A text's baseline 5 px above y (mm), kept 10 px inside the top.
   function above(y) { return +Math.max(10, Y(y) - 5).toFixed(2); }
   function label(z, py, t) { return '<text class="eleo-tick" x="' + X(z) + '" y="' + py.toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
-  // Each field's label sits 5 px above its chief's image end; an empty fan has no end and no label.
+  // Each field's label sits 5 px above its chief's image end; an empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k]) tags.push({ z: ends[k][0], py: above(ends[k][1]), t: esc(t) }); });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ z: ends[k][0], py: above(ends[k][1]), t: esc(t) }); });
   if (o.marks !== false) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
     if (img) {

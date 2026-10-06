@@ -304,7 +304,7 @@ test('a bad box is named', () => {
   const L = fixture('tolerance'), good = layout2dModule.layoutBounds([L]);
   const bad = [
     { ...good, zmax: good.zmin }, { ...good, zmax: good.zmin - 1 }, { ...good, yhi: good.ylo },
-    { ...good, zmin: NaN }, { ...good, yhi: Infinity }, { zmin: 0, zmax: 10 }, 5,
+    { ...good, zmin: NaN }, { ...good, yhi: Infinity }, { zmin: 0, zmax: 10 }, 5, 0, '',
   ];
   for (const box of bad) {
     assert.throws(() => ELEO.layout2D({ data: L, box }),
@@ -318,6 +318,22 @@ test('layoutBounds names a bad input', () => {
   for (const bad of [null, {}, { surfaces: L.surfaces }, { rays: L.rays }, { surfaces: {}, rays: L.rays }]) {
     assert.throws(() => layout2dModule.layoutBounds([L, bad]),
       { message: 'layoutBounds: layouts[1] is not a recorded layout' }, `layout ${JSON.stringify(bad)?.slice(0, 40)}`);
+  }
+  // #67: a fan that isn't an array, a ray with no points and a layout with no rays are named, not a TypeError or an Infinity box.
+  for (const bad of [null, 3, {}]) {
+    assert.throws(() => layout2dModule.layoutBounds([L, { ...L, rays: [L.rays[0], bad] }]),
+      { message: 'layoutBounds: layouts[1].rays[1] is not an array' }, `fan ${JSON.stringify(bad)}`);
+  }
+  assert.throws(() => layout2dModule.layoutBounds([{ ...L, rays: [L.rays[0], [L.rays[1][0], []]] }]),
+    { message: 'layoutBounds: layouts[0].rays[1][1]: ray has no points' });
+  for (const rays of [[], [[], []]]) {
+    assert.throws(() => layout2dModule.layoutBounds([L, { ...L, rays }]),
+      { message: 'layoutBounds: layouts[1] has no rays' }, `rays ${JSON.stringify(rays)}`);
+  }
+  // layout2D names an empty ray too, with or without a box.
+  for (const box of [undefined, layout2dModule.layoutBounds([L])]) {
+    assert.throws(() => ELEO.layout2D({ data: { ...L, rays: [L.rays[0], [[], ...L.rays[1].slice(1)]] }, box }),
+      { message: 'layout2D: fan 1 ray 0 has no points' }, `box ${JSON.stringify(box)}`);
   }
 });
 
@@ -411,6 +427,14 @@ test('labels at the image', () => {
   const esc = ELEO.layout2D({ data: fixture('merit-before'), labels: ['a<b&c'] });
   assert.ok(esc.includes('>a&lt;b&amp;c</text>'), 'a label is escaped as text');
   assert.ok(!texts(ELEO.layout2D({ data: fixture('merit-before') })).some((t) => /°/.test(t.text)), 'no labels by default');
+  // #67: a null or undefined entry skips that fan's label; more labels than fans is named.
+  // oracle: spec index.d.ts Layout2DProps.labels (one label per fan of rays)
+  const mb = fixture('merit-before');
+  const skip = texts(ELEO.layout2D({ data: mb, labels: [null, 'b', undefined] })).map((t) => t.text);
+  assert.ok(!skip.includes('null') && !skip.includes('undefined'), 'a null label draws no text');
+  assert.equal(skip.filter((t) => t === 'b').length, 1, 'the other labels still draw');
+  assert.throws(() => ELEO.layout2D({ data: mb, labels: [...mb.rays.map((_, k) => `F${k}`), 'extra'] }),
+    { message: `layout2D: labels has ${mb.rays.length + 1} entries for ${mb.rays.length} fans` });
 });
 
 // Plan #30, #36: `marks: false` drops the STO and IMA text; the drawing is otherwise unchanged.
