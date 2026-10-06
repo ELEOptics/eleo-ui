@@ -7,7 +7,8 @@ import { idx, svg, NS } from './common.js';
 function chiefOf(L, k) { var c = L.chief && L.chief[k]; return c != null ? c : Math.floor(L.rays[k].length / 2); }
 // A stop with no glass on either side is drawn as two ticks, reaching sd + 2.5.
 function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i - 1].glass); }
-function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : S[i].sd; }
+// A lens stop reaches its profile edge, |profile[0][1]| (layoutBounds' rule), so its label clears the glass.
+function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : Math.abs(S[i].profile[0][1]); }
 
 /* A port of eleo-website@39d19e4 public/layout.js bounds(): z from the rays' ends; y from 0, the rays and every
    surface but the image (a standalone stop reaches sd + 2.5, a lens |profile[0][1]|), padded 4%. */

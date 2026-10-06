@@ -242,3 +242,17 @@ test('empty fan is skipped', () => {
   }
   roundTrip(E, ELEO.layout2D({ data: E, rays: 'fan' }));
 });
+
+// Plan #30, #54: review round 2 finding 1. A stop on a lens is labelled above its glass, not above its sd.
+// oracle: property a label sits outside the glass it names
+test("STO label above the stop's edge", () => {
+  const L = fixture('tolerance');
+  const svg = ELEO.layout2D({ data: L });
+  const [, , , , , ty] = geometry(svg).M, s = geometry(svg).M[0];
+  const stop = L.surfaces.find((x) => x.stop);
+  assert.ok(stop.glass || L.surfaces[L.surfaces.indexOf(stop) - 1]?.glass, 'the fixture stop sits on a lens');
+  const sto = [...svg.matchAll(/<text\b[^>]*>STO<\/text>/g)].map((m) => attrs(m[0]));
+  assert.equal(sto.length, 1, 'one STO label');
+  const edge = ty - Math.abs(stop.profile[0][1]) * s;
+  assert.ok(+sto[0].y < edge, `STO y ${sto[0].y} px is above the stop's profile edge ${edge.toFixed(1)} px`);
+});
