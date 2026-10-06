@@ -237,3 +237,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: M1 review round 3, 0 blocking. Backlog #57, #58, #59 into M1 (row: milestone acceptance within the plan); #60 (glass fallback, two fixes) stays a plain issue; finding 2 is #38's. Round 4's findings stay plain issues.
 - 2026-10-06 headless: M1 review round 4, 0 blocking, nothing pulled in; #61 and #62 plain issues. M1 ticked; demo pending with the user.
 - 2026-10-06 (user): M1 demo go. The 5 px taller sample tiles (#57) join the exceptions to 'tiles unchanged'.
+- 2026-10-06 headless: plain issues #61 (STO at a box's left edge, fixed in #35) and #62 (SAMPLE_BOX, folded into #37) closed by this PR.
