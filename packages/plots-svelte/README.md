@@ -1,6 +1,6 @@
 # @eleoptics/plots-svelte
 
-Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleoptics/plots): `PlotCard`, `Layout2D`, `Layout3D`, `SpotDiagram`, `RayFan`, `CurvePlot`, `Map2D`, `Icon`, `Legend` and `Colorbar`. Canvas plots redraw when their props or the theme change.
+Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleoptics/plots): `PlotCard`, `Layout2D`, `Layout3D`, `SpotDiagram`, `RayFan`, `CurvePlot`, `Map2D`, `Icon`, `Legend` and `Colorbar`. Canvas plots redraw when their props, the theme or the palette change.
 
 ```bash
 npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
