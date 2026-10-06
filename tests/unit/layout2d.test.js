@@ -112,13 +112,15 @@ function drawn(svg) {
 }
 const vertical = (a) => a.x1 === a.x2 && a.y1 !== a.y2;
 const image = (L) => L.surfaces.find((s) => s.image).z;
-// Dash arrays inside the mm group are written in px / s, so they look as they did in px.
-function dashesArePx({ M, body }) {
-  const s = M[0];
-  for (const m of body.matchAll(/stroke-dasharray="([^"]*)"/g)) {
-    const px = nums(m[1]).map((v) => v * s);
-    assert.ok(px.every((v) => Math.abs(v - Math.round(v)) < 1e-3), `dash array ${m[1]} is whole px over s=${s}`);
-  }
+// CR #48: dash arrays stay in px. Under non-scaling-stroke the browser applies them in screen space
+// (SVG 2 vector-effect), so the literals are the old renderer's: axis `4 6`, chief `6 4`.
+function dashesArePx({ lines, polylines }) {
+  const axis = lines.filter((a) => a.stroke === 'var(--plot-axis)');
+  assert.equal(axis.length, 1, 'one axis line');
+  assert.equal(axis[0]['stroke-dasharray'], '4 6', 'axis dashes 4 6 px');
+  const chief = polylines.filter((a) => a['stroke-dasharray'] !== undefined);
+  assert.ok(chief.length > 0, 'a dashed chief ray');
+  assert.ok(chief.every((a) => a['stroke-dasharray'] === '6 4'), 'chief dashes 6 4 px');
 }
 
 test('triplet draws 3 polygons, no stop ticks', () => {
