@@ -34,11 +34,10 @@ export function layoutBounds(layouts) {
   return { zmin: zmin, zmax: zmax, ylo: ylo - pad, yhi: yhi + pad };
 }
 
-// `data` is a recorded layout, or a system carrying one in `layout` (by field) and `layoutWl` (by wavelength).
-function recorded(D, colorBy) { return D.surfaces ? D : colorBy === "wavelength" ? D.layoutWl : D.layout; }
-
 export function layout2D(o) {
-  var D = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief", L = recorded(D, colorBy);
+  var D = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief";
+  // `data` is a recorded layout, or a system carrying one in `layout` (by field) and `layoutWl` (by wavelength).
+  var L = D.surfaces ? D : colorBy === "wavelength" ? D.layoutWl : D.layout;
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
   L.rays.forEach(function (fan, k) { if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays"); });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");

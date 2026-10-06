@@ -6,7 +6,6 @@ import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as layout2dModule from '../../packages/plots/src/layout2d.js';
-import { layoutBounds } from '../../packages/plots/src/layout2d.js';
 
 const TOL = 0.01; // mm
 const FIXTURES = ['analysis', 'merit-before', 'merit-after', 'focus', 'tolerance'];
@@ -216,7 +215,7 @@ test('layoutBounds ports the site', async (t) => {
   for (const name of FIXTURES) {
     await t.test(name, () => {
       const L = fixture(name);
-      assert.deepEqual(layoutBounds([L]), bounds([L]), `${name}: the site's box`);
+      assert.deepEqual(layout2dModule.layoutBounds([L]), bounds([L]), `${name}: the site's box`);
     });
   }
 });
@@ -232,7 +231,7 @@ test('old shape is named', () => {
 test('empty fan is skipped', () => {
   const L = fixture('merit-before');
   const E = { ...L, rays: L.rays.map((fan, k) => (k === 1 ? [] : fan)) };
-  assert.deepEqual(layoutBounds([E]), bounds([E]), "an empty fan leaves the site's box as the site computes it");
+  assert.deepEqual(layout2dModule.layoutBounds([E]), bounds([E]), "an empty fan leaves the site's box as the site computes it");
   for (const rays of ['fan', 'marginal-chief', 'chief']) {
     let svg;
     assert.doesNotThrow(() => { svg = ELEO.layout2D({ data: E, rays }); }, `${rays}: layout2D draws it`);
@@ -296,7 +295,7 @@ test('a fan that is not an array is named', () => {
   }
 });
 
-// oracle: spec the plan's Public API list (layout2D, layoutBounds); recorded() stays internal.
+// oracle: spec the plan's Public API list (layout2D, layoutBounds).
 test('layout2d.js exports layout2D and layoutBounds only', () => {
   assert.deepEqual(Object.keys(layout2dModule).sort(), ['layout2D', 'layoutBounds']);
 });
