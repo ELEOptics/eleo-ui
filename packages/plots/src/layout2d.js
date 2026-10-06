@@ -70,7 +70,7 @@ export function layout2D(o) {
   var img = S.filter(function (x) { return x.image; })[0];
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>" + dots;
-  function label(z, y, t) { return '<text class="eleo-tick" x="' + X(z) + '" y="' + Math.max(10, Y(y) - 5).toFixed(2) + '" text-anchor="' + (X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
+  function label(z, y, t) { return '<text class="eleo-tick" x="' + X(z) + '" y="' + Math.max(10, Y(y) - 5).toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
   S.forEach(function (x, i) { if (x.stop) g += label(x.z, reach(S, i), "STO"); });
   if (img) g += label(img.z, img.sd, "IMA");
   var sb = 10 * s, by = H - 8;

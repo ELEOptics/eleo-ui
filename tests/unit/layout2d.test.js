@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as layout2dModule from '../../packages/plots/src/layout2d.js';
+import * as plots from '../../packages/plots/src/index.js';
 const { layoutBounds } = layout2dModule;
 
 const TOL = 0.01; // mm
@@ -299,6 +300,29 @@ test('a fan that is not an array is named', () => {
 // oracle: spec the plan's Public API list (layout2D, layoutBounds).
 test('layout2d.js exports layout2D and layoutBounds only', () => {
   assert.deepEqual(Object.keys(layout2dModule).sort(), ['layout2D', 'layoutBounds']);
+});
+
+// Plan #30, #35: `box` is public. layoutBounds is on the ES entry and on ELEO (so eleo-plots.js has it), and a box
+// alone sets the scale and the z origin. #61: a label at the box's left edge anchors at its start, not half clipped.
+// oracle: spec the plan's transform matrix(s 0 0 -s tx ty), with s = width / (zmax - zmin) and tx = -zmin·s
+test('box pins the transform', () => {
+  assert.equal(plots.layoutBounds, layoutBounds, 'the ES entry exports layoutBounds');
+  assert.equal(plots.default.layoutBounds, layoutBounds, 'ELEO.layoutBounds, so eleo-plots.js has it');
+  const before = fixture('merit-before'), after = fixture('merit-after');
+  const box = plots.layoutBounds([before, after]);
+  for (const W of [1000, 480]) {
+    const s = W / (box.zmax - box.zmin);
+    for (const L of [before, after]) {
+      const [a, , , d, tx, ty] = geometry(plots.layout2D({ data: L, box, width: W })).M;
+      assert.ok(Math.abs(a - s) <= 1e-6 && Math.abs(d + s) <= 1e-6, `width ${W}: scale ${a} is width / box z span ${s}`);
+      assert.ok(Math.abs(tx + box.zmin * s) <= 1e-3, `width ${W}: z = box.zmin sits at x = 0`);
+      const room = ty - box.yhi * s;
+      assert.ok(room >= 3 - 1e-3 && room <= 15 + 1e-3, `width ${W}: y = box.yhi sits ${room} px down, the label room`);
+    }
+  }
+  const edge = { zmin: 0, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // the sample's stop is at z = 0
+  const sto = attrs(/<text\b[^>]*>STO<\/text>/.exec(plots.layout2D({ data: sample.layout, box: edge }))[0]);
+  assert.equal(sto['text-anchor'], 'start', 'STO at the left edge anchors at its start');
 });
 
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
