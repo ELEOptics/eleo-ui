@@ -135,7 +135,7 @@ Public API added:
 
 - `layoutBounds(layouts) → box`, on both the ES entry and `window.ELEO`;
 - the `layout2D` options `box`, `labels` and `marks`;
-- the types `RecordedLayout`, `RecordedSurface` and `LayoutBox`;
+- the types `RecordedLayout`, `RecordedSurface`, `LayoutBox` and `LayoutSystem`;
 - the `./eleo-layout.js` export.
 
 Changed: the shape of `data.layout` and `data.layoutWl` (a breaking change; round 2, user).
@@ -188,9 +188,12 @@ Proves: O2.
 | #37 | The `layout2D-shared` gallery tile fetches `/tests/fixtures/layouts/merit-*.json` before drawing; `data-ready` moves after the awaited draw; the gallery test counts 16 tiles | the demo for O2, because the eye checks the shared scale; considered relying on the unit test alone, ruled out because the M2 demo needs a picture | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js::gallery renders every tile` (16) | #36 |
 | #38 | READMEs: the recorded format, `box`, `labels`, `marks`, `layoutBounds`, the chief rule and the migration line; the plots-svelte example. Unskips O2 | forced (`workflow.md`, Docs: user-visible behaviour, documented by its owner; TDD: the last item unskips) | `packages/plots/README.md`, `packages/plots-svelte/README.md`; `tests/unit/layout2d.test.js` (unskip) | O2 green | #34 to #37 |
 | #63 | Review M2 finding 3: label room is a constant 15 px | because one box must give one transform (O2); considered stating the exception in the README, which keeps the property false | `packages/plots/src/layout2d.js` | `::shared box` pinned-box case | #38 |
-| #64 | Review M2 finding 1: IMA lifts one line when labels are drawn with marks on | because both texts land on the same anchor; considered documenting that labels pair with marks: false, which leaves the overlap | `packages/plots/src/layout2d.js` | `::labels at the image` marks-on case | #63 |
+| #64 | Review M2 finding 1: IMA sits below the image line's lower end, a line below the lowest label, when labels are drawn with marks on | because both texts land on the same anchor; considered documenting that labels pair with marks: false, which leaves the overlap | `packages/plots/src/layout2d.js` | `::labels at the image` marks-on case | #63 |
 | #65 | Review M2 findings 2 and 4: a bad box, layoutBounds input or labels is named | named errors like #52/#55/#58, because box is public since #35 | `packages/plots/src/layout2d.js` | `::a bad box is named`, `::layoutBounds names a bad input`, `::labels must be an array` | #64 |
 | #66 | Review M2 findings 5 and 6: test comments name SAMPLE_BOX and the label-room rule | forced (stale comment; an oracle line must cite its bound) | `tests/unit/layout2d.test.js` | comments only | #65 |
+| #67 | Review M2 round 2 findings 2-3: labels match fans; layoutBounds names a bad fan or ray; a falsy box is checked | named errors like #65, because layoutBounds is called directly on fetched JSON (the gallery) | `packages/plots/src/layout2d.js` | `::labels at the image`, `::layoutBounds names a bad input`, `::a bad box is named` cases | #66 |
+| #68 | Review M2 round 2 finding 5: IMA's 14 px gap names its source | forced (an oracle line cites its bound, #66's rule) | `packages/plots/src/layout2d.js` | existing marks-on assertion | #67 |
+| #69 | Review M2 round 2 finding 6: a missing merit fixture fails one gallery tile, not all | a catch before draw, because one fixture must not blank 15 other tiles; considered retrying the fetch | `gallery/index.html` | `gallery.spec.js` 404 case | #68 |
 
 ### M3: standalone entry and a release that plans right. GitHub: `P30 M3: eleo-layout.js and release`
 
@@ -211,7 +214,7 @@ Proves: O3, O4.
 | #28 reuse | Bump `@changesets/cli`; add root `overrides` only if `npm audit` still reports. Re-check #21's option against the new config validator. The root README says `npm audit --omit=dev` is what ships | bump first because it removes rather than pins (round 2, user); considered overrides only | `package.json`, `package-lock.json`, root README line | `npm audit` 0 (stop condition); `release.test.js` still green | #21 |
 | #41 | `.changeset/layouts.md`: plots minor, with the breaking `data.layout` shape and its migration; plots-svelte patch, naming the widened peer range. #27's last lines (`packages/plots/README.md:21`, `Layout3D.svelte:1`) | forced (`workflow.md`, TDD; the release needs a changeset). The #27 lines ride here because this item touches tests and the hook needs that | `.changeset/layouts.md`, `packages/plots/README.md`, `packages/plots-svelte/src/lib/Layout3D.svelte`; `tests/unit/release.test.js` (asserts the changeset's bump types) | O3, O4 green | #40, #21, #28 |
 
-30 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
+33 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
 
 ## Risks and spikes
 
@@ -244,3 +247,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: plain issues #61 (STO at a box's left edge, fixed in #35) and #62 (SAMPLE_BOX, folded into #37) closed by this PR.
 - 2026-10-06 headless: M2 review round 1, 0 blocking. Backlog #63, #64, #65, #66 into M2 (row: milestone acceptance within the plan); finding 7 (roadmap commas) fixed here.
 - 2026-10-06 (user): #63's constant 15 px label room accepted; the sample tiles are 12 px taller than main (was 5 px).
+- 2026-10-06 headless: M2 review round 2, 0 blocking. Backlog #67, #68, #69 into M2 (row: milestone acceptance within the plan); #70 plain issue; findings 1 and 7 (plan text) fixed here.
