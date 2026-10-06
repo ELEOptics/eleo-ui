@@ -67,9 +67,13 @@
   <script src="/packages/plots/dist/eleo-plots.js"></script>
   <script src="/packages/plots/dist/eleo-plots-sample.js"></script>
   <script>
+    // The sample tiles keep their framing: a pinned box, not the rays' bounds. ZIMG is sample.json's zimg
+    // (window.ELEO.sample stays null in the classic build: iife.js copies the API before useSample sets it).
+    var ZIMG = 103.62614866262808;
+    function sampleBox() { return { zmin: -8, zmax: ZIMG + 4, ylo: -13.5, yhi: 13.5 }; }
     var SVG = {
-      'layout2D': function () { return ELEO.layout2D({ width: 1000 }); },
-      'layout2D-fan': function () { return ELEO.layout2D({ width: 1000, colorBy: 'wavelength', rays: 'fan' }); },
+      'layout2D': function () { return ELEO.layout2D({ width: 1000, box: sampleBox() }); },
+      'layout2D-fan': function () { return ELEO.layout2D({ width: 1000, box: sampleBox(), colorBy: 'wavelength', rays: 'fan' }); },
       'spot': function () { return ELEO.spot(); },
       'throughFocus': function () { return ELEO.throughFocus(); },
       'rayFan': function () { return ELEO.rayFan(); },

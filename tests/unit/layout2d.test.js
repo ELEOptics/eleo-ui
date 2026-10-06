@@ -88,7 +88,7 @@ function roundTrip(L, svg) {
   for (const got of polylines) assert.ok(rays.some((want) => samePath(got, want)), 'every polyline is a recorded ray');
 }
 
-test('recorded layouts round-trip', { skip: '#31' }, async (t) => {
+test('recorded layouts round-trip', async (t) => {
   const cases = [
     ...FIXTURES.map((name) => { const L = fixture(name); return { name, data: L, layout: L }; }),
     { name: 'sample', data: sample, layout: sample.layout },
@@ -159,4 +159,32 @@ test('chief index picks the dot', () => {
   };
   assert.ok(near(dotAt(L), [100, 0]), 'without chief, the middle ray');
   assert.ok(near(dotAt({ ...L, chief: [1] }), [100, 0.25]), 'chief: [1] picks ray 1');
+});
+
+// Plan #30, #33: the sample's `layout` and `layoutWl` are recorded layouts.
+// oracle: the sample's own `profiles` (and its `zimg` and ray ends for the image).
+test('sample surfaces equal its profiles', () => {
+  for (const key of ['layout', 'layoutWl']) {
+    const L = sample[key];
+    assert.ok(L && Array.isArray(L.surfaces), `${key} is a recorded layout ({surfaces, rays})`);
+    const S = L.surfaces;
+    assert.equal(S.length, sample.profiles.length + 1, `${key}: one surface per profile, then the image`);
+    sample.profiles.forEach((p, i) => {
+      assert.equal(S[i].z, p.z, `${key} surface ${i} z`);
+      assert.equal(S[i].sd, p.sd, `${key} surface ${i} sd`);
+      assert.deepEqual(S[i].profile, p.zs.map((z, j) => [z, p.ys[j]]), `${key} surface ${i} profile is its zs, ys`);
+      assert.equal(S[i].image, false, `${key} surface ${i} is not the image`);
+    });
+    assert.deepEqual(S.map((s) => s.glass), ['crown', 'flint', null, null], `${key}: crown then flint`);
+    assert.deepEqual(S.map((s) => s.stop), [true, false, false, false], `${key}: the stop is surface 0`);
+    const img = S[S.length - 1];
+    assert.equal(img.image, true, `${key}: the last surface is the image`);
+    assert.equal(img.z, sample.zimg, `${key}: the image is at zimg`);
+    const sd = Math.max(...L.rays.flat().map((r) => Math.abs(r[r.length - 1][1])));
+    assert.equal(img.sd, sd, `${key}: image sd is the largest |y| of the rays there`);
+    assert.equal(img.profile.length, 41, `${key}: image profile has 41 points`);
+    assert.ok(img.profile.every((q) => q[0] === sample.zimg), `${key}: image profile lies at zimg`);
+    assert.ok(!('chief' in L), `${key}: no chief`);
+    assert.ok(L.rays.every((fan) => fan.length === 7), `${key}: 7-ray fans`);
+  }
 });

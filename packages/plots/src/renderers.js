@@ -2,7 +2,7 @@
    tokens.css variables, so one drawing works in both themes. Canvas renderers read the variables at draw time:
    call them again after a theme or palette change. Sample data: a traced AC254-100-A style achromat (see ELEO.sample.note). */
 import { STANDARD, NS, idx, svg } from "./common.js";
-import { layout2D as recordedLayout2D, recorded } from "./layout2d.js";
+import { layout2D as recordedLayout2D } from "./layout2d.js";
 
 const ELEO = (function () {
   "use strict";
@@ -39,35 +39,7 @@ const ELEO = (function () {
   function marker(x, y, i) { return hollow(i) ? '<circle cx="' + x + '" cy="' + y + '" r="3.2" fill="var(--surface)" stroke="' + idx(i) + '" stroke-width="1.5"/>' : ""; }
 
   /* ---------------- Layout2D ---------------- */
-  function layout2D(o) {
-    o = o || {}; var D = data(o), colorBy = o.colorBy || "field", set = o.rays || "marginal-chief";
-    var L = recorded(D, colorBy);
-    if (L && L.surfaces) return recordedLayout2D(Object.assign({}, o, { data: D }));
-    // The sample's old shape, until it is converted to the recorded format (plan #30, #33).
-    var zmin = -8, zmax = D.zimg + 4, W = o.width || 1000, s = W / (zmax - zmin), ym = 13.5, H = Math.round(2 * ym * s) + 30, cy = (H - 24) / 2;
-    function X(z) { return ((z - zmin) * s).toFixed(2); } function Y(y) { return (cy - y * s).toFixed(2); }
-    var pr = D.profiles;
-    function sag(p, y) { return p.R - Math.sign(p.R) * Math.sqrt(p.R * p.R - y * y); }
-    function arc(p, from, to) { var r = (Math.abs(p.R) * s).toFixed(2), sweep = (p.R > 0) === (from > to) ? 0 : 1; return "A" + r + "," + r + " 0 0 " + sweep + " " + X(p.z + sag(p, to)) + "," + Y(to); }
-    function el(a, b) { return "M" + X(a.z + sag(a, a.sd)) + "," + Y(a.sd) + " " + arc(a, a.sd, -a.sd) + " L" + X(b.z + sag(b, -b.sd)) + "," + Y(-b.sd) + " " + arc(b, -b.sd, b.sd) + " Z"; }
-    var g = '<line x1="' + X(zmin + 1) + '" y1="' + Y(0) + '" x2="' + X(zmax - 1) + '" y2="' + Y(0) + '" stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6" ' + NS + "/>";
-    g += '<path d="' + el(pr[0], pr[1]) + '" fill="var(--glass-crown)" stroke="var(--glass-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
-    g += '<path d="' + el(pr[1], pr[2]) + '" fill="var(--glass-flint)" stroke="var(--glass-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
-    var groups = colorBy === "wavelength" ? D.layoutWl.rays : D.layout;
-    groups.forEach(function (rays, k) {
-      var pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [3] : [0, 3, rays.length - 1];
-      pick.forEach(function (i) {
-        var r = rays[i], chief = i === 3;
-        g += '<polyline points="' + r.map(function (p) { return X(p[0]) + "," + Y(p[1]); }).join(" ") + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:var(--stroke-ray)" stroke-linecap="round" stroke-linejoin="round"' + (chief && set !== "chief" ? ' stroke-dasharray="6 4"' : "") + " " + NS + "/>";
-      });
-      var last = rays[3][rays[3].length - 1]; g += '<circle cx="' + X(last[0]) + '" cy="' + Y(last[1]) + '" r="2.4" fill="' + idx(k) + '"/>';
-    });
-    g += '<line x1="' + X(D.zimg) + '" y1="' + Y(5) + '" x2="' + X(D.zimg) + '" y2="' + Y(-5) + '" stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round" ' + NS + "/>";
-    g += '<text class="eleo-tick" x="' + X(0) + '" y="' + Y(13.1) + '" text-anchor="middle">STO</text><text class="eleo-tick" x="' + X(D.zimg) + '" y="' + Y(5.8) + '" text-anchor="middle">IMA</text>';
-    var sb = 10 * s, by = H - 8;
-    g += '<path d="M8,' + (by - 4) + " V" + (by + 4) + " M8," + by + " H" + (8 + sb).toFixed(1) + " M" + (8 + sb).toFixed(1) + "," + (by - 4) + " V" + (by + 4) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text class="eleo-tick" x="' + (16 + sb).toFixed(1) + '" y="' + (by + 3) + '">10 mm · true scale</text>';
-    return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
-  }
+  function layout2D(o) { o = o || {}; return recordedLayout2D(Object.assign({}, o, { data: data(o) })); }
 
   /* ---------------- Layout3D (canvas) ---------------- */
   function layout3D(canvas, o) {
