@@ -39,6 +39,7 @@
     <section class="eleo-plot" data-tile="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div><div class="eleo-plot__ft eleo-legend" data-legend="field"></div></section>
     <section class="eleo-plot" data-tile="layout2D-fan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
     <section class="eleo-plot" data-tile="layout2D-shared"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div></section>
     <div class="row">
       <section class="eleo-plot" data-tile="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
       <section class="eleo-plot" data-tile="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
@@ -75,12 +76,16 @@
     // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below;
     // if either fixture fails, MERIT_BOX stays unset and the tile draws nothing while the rest of the page draws.
     var MERIT = {}, MERIT_BOX;
+    // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
+    // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
+    var GLASSES;
     function meritTile(k) { return MERIT_BOX ? ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }) : ''; }
     var SVG = {
       'layout2D': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX }); },
       'layout2D-fan': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX, colorBy: 'wavelength', rays: 'fan' }); },
       'merit-before': function () { return meritTile('before'); },
       'merit-after': function () { return meritTile('after'); },
+      'layout2D-glasses': function () { return GLASSES ? ELEO.layout2D({ data: GLASSES, width: 1000, marks: false }) : ''; },
       'spot': function () { return ELEO.spot(); },
       'throughFocus': function () { return ELEO.throughFocus(); },
       'rayFan': function () { return ELEO.rayFan(); },
@@ -125,7 +130,13 @@
       else document.documentElement.dataset.palette = v;
       drawCanvases();
     });
-    Promise.all(['before', 'after'].map(function (k) {
+    var glasses = fetch('/tests/fixtures/layouts/analysis-glasses.json').then(function (r) {
+      if (!r.ok) throw new Error('analysis-glasses.json: ' + r.status);
+      return r.json();
+    }).then(function (d) { GLASSES = d; }).catch(function (e) {
+      console.error('gallery: glasses tile skipped:', e);
+    });
+    var merit = Promise.all(['before', 'after'].map(function (k) {
       return fetch('/tests/fixtures/layouts/merit-' + k + '.json').then(function (r) {
         if (!r.ok) throw new Error('merit-' + k + '.json: ' + r.status);
         return r.json();
@@ -134,7 +145,8 @@
       MERIT_BOX = ELEO.layoutBounds([MERIT.before, MERIT.after]);
     }).catch(function (e) {
       console.error('gallery: merit tile skipped:', e);
-    }).then(function () {
+    });
+    Promise.all([glasses, merit]).then(function () {
       draw();
       document.body.dataset.ready = 'true';
     });

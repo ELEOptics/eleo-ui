@@ -24,13 +24,13 @@ test('gallery renders every tile in both themes', async ({ page }) => {
 
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(16);
+    expect(tiles.length).toBe(17);
     for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
   }
 });
 
 // #69: a missing merit fixture fails its one tile, not the page. oracle: property, one broken tile doesn't
-// blank the other 15. The 404 and the gallery's own report of it are the expected console errors.
+// blank the other 16. The 404 and the gallery's own report of it are the expected console errors.
 test('a missing merit fixture blanks only its tile', async ({ page }) => {
   const thrown = [];
   page.on('pageerror', (e) => thrown.push(e.message));
@@ -40,7 +40,7 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
   expect(thrown).toEqual([]);
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(16);
+    expect(tiles.length).toBe(17);
     for (const t of tiles) {
       if (t.tile === 'layout2D-shared') expect(t.svgMarks + t.inked, `${theme} merit tile drew`).toBe(0);
       else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
