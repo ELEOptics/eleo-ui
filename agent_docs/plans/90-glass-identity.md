@@ -139,6 +139,7 @@ own blue, and the kill criterion gets its verdict. Proves: O1
 | #98 | Unskip O1 acceptance tests | forced (`workflow.md`, TDD: the last item unskips them) | `tests/glass-fills.spec.js` | O1 | #91, #92, #93, #94, #95, #96, #97 |
 | #116 | From CR #113: both READMEs drop the entry's gzipped size, keep the budget sentence | forced (CR #113: review M1 finding 1; a stated size goes stale as each row grows the entry) | `README.md`, `packages/plots/README.md` | `tests/unit/layout-size.test.js::README states no gzipped size for the entry` | none |
 | #115 | Test the more-than-8-glasses branch of `glassFill` | test only because the branch behaves as documented (review M1 finding 3); considered capping at 8 with an error (breaks a 9-glass design) | `tests/unit/glass.test.js` | `tests/unit/glass.test.js::more than 8 glasses stay distinct, in band and ordered` | none |
+| #118 | Both READMEs drop the entry's minified size too; the README test catches either figure | forced (review M1 round 2 finding 1: the same staleness as CR #113) | `README.md`, `packages/plots/README.md` | `tests/unit/layout-size.test.js::README states no gzipped size for the entry` | #116 |
 
 ### M2: Glass legend GitHub: `P90 M2: Glass legend`
 
@@ -201,3 +202,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: approved, 4 milestones and 24 work items, above the 15-item guideline because M4 runs in a second repo (row: Choose, add or reorder rows).
 - 2026-10-06 headless: #97's fixture uses N-SK16, not SK16 (obsolete in the allowed catalogs, #91) (row: Split, CR triage, commit order, wave dispatch).
 - 2026-10-06 review M1 round 1: CR #113 accepted (stale README size) as #116; headless: backlog #115 into M1 (row: milestone acceptance within the plan); #114 (U12 wording) asked with the M1 demo.
+- 2026-10-06 review M1 round 2: 0 blocking; headless: backlog #118 into M1 (row: milestone acceptance within the plan).
