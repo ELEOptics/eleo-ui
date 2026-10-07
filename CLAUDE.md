@@ -25,7 +25,7 @@ Parallel waves: off
 
 ## Core (change request required, see agent_docs/agents/workflow.md)
 
-`agent_docs/adr/`, this file, \<contract, schema, public API paths>.
+`agent_docs/adr/`, this file, `packages/plots/src/index.d.ts`, the `exports` of each `packages/*/package.json`.
 
 ## Gotchas
 

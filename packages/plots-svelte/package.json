@@ -25,7 +25,7 @@
   "peerDependencies": {
     "svelte": "^5.0.0",
     "@eleoptics/plots": ">=0.1.0 <1",
-    "@eleoptics/tokens": "^0.1.0"
+    "@eleoptics/tokens": ">=0.1.0 <1"
   },
   "scripts": {
     "build": "svelte-package -i src/lib -o dist",
