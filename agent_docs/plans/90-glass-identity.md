@@ -203,3 +203,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: #97's fixture uses N-SK16, not SK16 (obsolete in the allowed catalogs, #91) (row: Split, CR triage, commit order, wave dispatch).
 - 2026-10-06 review M1 round 1: CR #113 accepted (stale README size) as #116; headless: backlog #115 into M1 (row: milestone acceptance within the plan); #114 (U12 wording) asked with the M1 demo.
 - 2026-10-06 review M1 round 2: 0 blocking; headless: backlog #118 into M1 (row: milestone acceptance within the plan).
+- 2026-10-06 review M1 round 3: 0 blocking, nothing pulled in. M1 done; awaiting the user's demo (U12 baseline, kill-criterion verdict, #114).
