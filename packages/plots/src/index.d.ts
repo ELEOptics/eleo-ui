@@ -113,6 +113,8 @@ export interface ELEO {
   layout2D(props?: Layout2DProps): string;
   /** The box that frames every layout given (eleoptics.com's bounds()): pass it as `box` to draw them at one scale. */
   layoutBounds(layouts: RecordedLayout[]): LayoutBox;
+  /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. */
+  glassLegend(data: RecordedLayout | { layout: RecordedLayout }): string;
   layout3D(canvas: HTMLCanvasElement, props?: Layout3DProps): void;
   spot(props?: SpotDiagramProps): string;
   throughFocus(props?: { data?: object; half?: number }): string;
@@ -134,4 +136,5 @@ export default ELEO;
 export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spot: ELEO['spot'],
   throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
-  css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'];
+  css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
+  glassLegend: ELEO['glassLegend'];

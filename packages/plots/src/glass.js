@@ -27,3 +27,25 @@ export function glassFill(glasses) {
         : [Math.round(100 * i / (k - 1)), 0.07, i % 2 ? 20 : -20],
   )]));
 }
+
+/**
+ * The glasses a layout draws, in surface order with repeats: a {name, nd, vd} glass on a surface that has a next
+ * surface (layout2D's lens polygons). Shorthand "crown"/"flint" and null are left out.
+ * @param {{glass: *}[]} surfaces
+ */
+export function drawnGlasses(surfaces) {
+  return surfaces.filter((s, i) => s.glass && typeof s.glass === 'object' && surfaces[i + 1]).map((s) => s.glass);
+}
+
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+/**
+ * Legend keys for a layout's glasses: one swatch key per distinct drawn glass, in first-use order, filled as
+ * layout2D fills it. `data` is a recorded layout or a system carrying one in `layout`. "" when no named glass is drawn.
+ * @param {{surfaces?: object[], layout?: {surfaces: object[]}}} data
+ * @returns {string}
+ */
+export function glassLegend(data) {
+  const glasses = drawnGlasses((data.surfaces ? data : data.layout).surfaces), fills = glassFill(glasses);
+  return [...new Set(glasses.map((g) => g.name))].map((n) => `<span class="eleo-key eleo-key--swatch" style="--c:${fills.get(n)}">${esc(n)}</span>`).join('');
+}

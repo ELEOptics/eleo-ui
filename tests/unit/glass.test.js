@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { differenceCiede2000, oklch } from 'culori';
-import { glassFill } from '../../packages/plots/src/glass.js';
+import { glassFill, glassLegend } from '../../packages/plots/src/glass.js';
 
 const tokens = JSON.parse(readFileSync(new URL('../../packages/tokens/src/tokens.json', import.meta.url))).color.tokens;
 const band = (n, th) => oklch(tokens.find((t) => t.name === n).value[th]);
@@ -77,4 +77,23 @@ test('more than 8 glasses stay distinct, in band and ordered', () => {
       assert.ok(a.l <= b.l, `${th}: ${byVd[i - 1].name} (vd ${byVd[i - 1].vd}) L ${a.l} lighter than ${byVd[i].name} L ${b.l}`);
     }
   }
+});
+
+// Issue #100: glassLegend, the O2 markup contract in tests/glass-fills.spec.js (one swatch key per drawn glass).
+test('legend lists each glass once in first-use order', () => {
+  const fixture = JSON.parse(readFileSync(new URL('../fixtures/layouts/analysis-glasses.json', import.meta.url)));
+  const fills = glassFill(fixture.surfaces.filter((s, i) => s.glass && typeof s.glass === 'object' && fixture.surfaces[i + 1]).map((s) => s.glass));
+  const key = (n) => `<span class="eleo-key eleo-key--swatch" style="--c:${fills.get(n)}">${n}</span>`;
+  const want = key('N-SK16') + key('F2');
+  assert.equal(glassLegend(fixture), want, 'N-SK16 then F2, once each, fills from glassFill');
+  assert.equal(glassLegend({ layout: fixture }), want, 'a system carrying the layout gives the same legend');
+
+  // Only drawn glasses count (a glass on the last surface draws nothing), names are escaped as text,
+  // and shorthand glasses ("crown", "flint") have no entry.
+  const sv = (glass) => ({ z: 0, sd: 1, glass, profile: [] });
+  const odd = { name: 'A<b>&"', nd: 1.5, vd: 60 };
+  const L = { surfaces: [sv('crown'), sv(odd), sv('flint'), sv(null), sv(g('LAST', 1.6, 40))], rays: [] };
+  const only = glassFill([odd]).get(odd.name);
+  assert.equal(glassLegend(L), `<span class="eleo-key eleo-key--swatch" style="--c:${only}">A&lt;b&gt;&amp;&quot;</span>`);
+  assert.equal(glassLegend({ surfaces: [sv('crown'), sv('flint'), sv(null)], rays: [] }), '', 'shorthand only: empty');
 });
