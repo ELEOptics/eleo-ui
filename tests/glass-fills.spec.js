@@ -14,7 +14,7 @@ const BAND_TOL = 0.005, HUE_TOL = 1;
 // five recorded website layouts, with eleo-layout.js alone, in a light and a dark column, and reads each lens
 // polygon's computed fill, which must also lie in the glass-blue band.
 // oracle: property roadmap U12: pairwise ΔE2000 ≥ 8 between fills in both themes (culori); the same name gives the same fill; at equal nd, a lower vd never gives a lighter fill
-test.skip('glass fills are distinct, stable and ordered', { annotation: { type: 'issue', description: '#93: unskipped by #98' } }, async ({ page }) => {
+test('glass fills are distinct, stable and ordered', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
