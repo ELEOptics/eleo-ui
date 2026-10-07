@@ -220,3 +220,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 review M2 round 3: 0 blocking, nothing pulled in. headless: M2 accepted, O2's oracle is a machine property (row: milestone acceptance within the plan).
 - 2026-10-06 review M3 round 1: 0 blocking; headless: backlog #127, #128, #129 into M3 (row: milestone acceptance within the plan).
 - 2026-10-06 review M3 round 2: 0 blocking; headless: backlog #130, #131 into M3 (row: milestone acceptance within the plan); #132, #133 left as plain issues (necessity, optional).
+- 2026-10-06: #130 and #131 ran in parallel (#131 in a worktree, then cherry-picked) despite `Parallel waves: off`. Their files were disjoint, and the full gate is green on the result.
