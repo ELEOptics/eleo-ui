@@ -197,7 +197,7 @@ Proves: O2.
 | #69 | Review M2 round 2 finding 6: a missing merit fixture fails one gallery tile, not all | a catch before draw, because one fixture must not blank 15 other tiles; considered retrying the fetch | `gallery/index.html` | `gallery.spec.js` 404 case | #68 |
 | #73 | Review M2 round 3 finding 3: the labels error names the null entries the type allows | forced (the message must match `index.d.ts`) | `packages/plots/src/layout2d.js` | `::labels must be an array` | #72 |
 
-### M3: standalone entry and a release that plans right. GitHub: `P30 M3: eleo-layout.js and release`
+### M3 (done 2026-10-06): standalone entry and a release that plans right. GitHub: `P30 M3: eleo-layout.js and release`
 
 Demo:
 
@@ -267,3 +267,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 (user): O4 tightened (#83) and O3's failure reporting fixed (#84), both pulled into M3.
 - 2026-10-06 headless: M3 review round 2, 0 blocking. Backlog #85 into M3 (row: milestone acceptance within the plan); the github-token nit is a plain issue.
 - 2026-10-06 headless: M3 review round 3, 0 blocking. Backlog #87 into M3 (row: milestone acceptance within the plan). Round 4's findings stay plain issues.
+- 2026-10-06 headless: M3 review round 4, 0 blocking, no findings. M3 ticked.
+- 2026-10-06 headless: M3 accepted (row: milestone acceptance within the plan). O3 (property) and O4 (spec, semver) are machine-checked.
