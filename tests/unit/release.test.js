@@ -28,7 +28,7 @@ const run = (cwd, cmd, args) => {
 const minimal = ({ name, version, dependencies, peerDependencies }) =>
   JSON.stringify({ name, version, ...(dependencies && { dependencies }), ...(peerDependencies && { peerDependencies }) }, null, 2);
 
-test('a plots minor plans plots-svelte as a patch, not a major', { skip: '#39: unskipped by #21' }, () => {
+test('a plots minor plans plots-svelte as a patch, not a major', () => {
   const ws = mkdtempSync(join(tmpdir(), 'eleo-release-'));
   try {
     const git = (...args) => run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args]);
