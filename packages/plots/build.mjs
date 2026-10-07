@@ -9,7 +9,7 @@ await build({
   entryPoints: { index: 'src/index.js', sample: 'src/sample.js', physics: 'src/physics.js' },
   outdir: 'dist', bundle: true, format: 'esm', splitting: true, target: 'es2020', chunkNames: 'chunks/[name]-[hash]',
 });
-for (const [name, entry] of [['eleo-plots', 'src/iife.js'], ['eleo-plots-sample', 'src/iife-sample.js'], ['eleo-physics', 'src/iife-physics.js']]) {
+for (const [name, entry] of [['eleo-plots', 'src/iife.js'], ['eleo-plots-sample', 'src/iife-sample.js'], ['eleo-physics', 'src/iife-physics.js'], ['eleo-layout', 'src/iife-layout.js']]) {
   await build({ entryPoints: [entry], outfile: `dist/${name}.js`, bundle: true, format: 'iife', target: 'es2017', minify: true, legalComments: 'none' });
 }
 cpSync('src/plots.css', 'dist/plots.css');

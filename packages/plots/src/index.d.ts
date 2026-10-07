@@ -1,17 +1,48 @@
 /* @eleoptics/plots. All SVG output reads colors from tokens.css
-   variables; canvas renderers read them at draw time, so call them again after a theme change. */
+   variables; canvas renderers read them at draw time, so call them again after a theme or palette change. */
 
 export type IndexKey = "field" | "wavelength";
 
+/** The z and y extent a layout2D drawing shows, in mm. */
+export interface LayoutBox { zmin: number; zmax: number; ylo: number; yhi: number }
+/** One surface of a recorded layout, in mm. */
+export interface RecordedSurface {
+  z: number;
+  /** Semi-diameter. */
+  sd: number;
+  stop: boolean;
+  image: boolean;
+  /** The glass between this surface and the next, or null for air. */
+  glass: "crown" | "flint" | null;
+  /** The surface's section as [z, y] points (41 from eleoptics.com's layout.py). */
+  profile: [number, number][];
+}
+/** A layout as eleoptics.com's scripts/layout.py records it, in mm. */
+export interface RecordedLayout {
+  surfaces: RecordedSurface[];
+  /** rays[field][ray] is a polyline of [z, y] points. */
+  rays: [number, number][][][];
+  /** One ray index per fan; without it, the chief is the middle ray, floor(n / 2). */
+  chief?: number[];
+}
+/** A traced system carrying recorded layouts: `layout` by field, `layoutWl` by wavelength. */
+export interface LayoutSystem { layout?: RecordedLayout; layoutWl?: RecordedLayout; [key: string]: unknown }
+
 export interface Layout2DProps {
-  /** Traced system; defaults to ELEO.sample. */
-  data?: object;
+  /** A recorded layout, or a system carrying one; defaults to ELEO.sample. */
+  data?: RecordedLayout | LayoutSystem;
+  /** What the drawing shows, in mm; drawings with one box share a scale. Default layoutBounds([layout]). */
+  box?: LayoutBox;
   /** What the index colors mean. Default "field". */
   colorBy?: IndexKey;
   /** Ray set per group. Default "marginal-chief" (3 rays). */
   rays?: "marginal-chief" | "fan" | "chief";
   /** viewBox width in px; the drawing is always true scale. Default 1000. */
   width?: number;
+  /** One text per fan, drawn at the image end of that fan's chief ray (an empty fan gets none). A null or undefined entry skips that fan; more labels than fans throws. Default none. */
+  labels?: (string | null | undefined)[];
+  /** Draw the STO and IMA labels. Default true. */
+  marks?: boolean;
 }
 export interface Layout3DProps {
   data?: object;
@@ -78,6 +109,8 @@ export interface ELEO {
   /** CSS gradient for a colorbar: token maps follow the theme. */
   gradient(map: "ember" | "wave" | "viridis" | "gray", direction?: string): string;
   layout2D(props?: Layout2DProps): string;
+  /** The box that frames every layout given (eleoptics.com's bounds()): pass it as `box` to draw them at one scale. */
+  layoutBounds(layouts: RecordedLayout[]): LayoutBox;
   layout3D(canvas: HTMLCanvasElement, props?: Layout3DProps): void;
   spot(props?: SpotDiagramProps): string;
   throughFocus(props?: { data?: object; half?: number }): string;
@@ -99,4 +132,4 @@ export default ELEO;
 export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spot: ELEO['spot'],
   throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
-  css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'];
+  css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'];

@@ -23,9 +23,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run test:unit
-      - uses: changesets/action@v1
+      # v2 for changesets CLI 3 (v1 tags nothing under it). v2 reads the token only from github-token.
+      - uses: changesets/action@v2
         with:
-          version: npm run version
-          publish: npm run release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version-script: npm run version
+          publish-script: npm run release
+          github-token: ${{ secrets.GITHUB_TOKEN }}

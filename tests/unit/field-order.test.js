@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import {
   differenceCiede2000, filterDeficiencyDeuter, filterDeficiencyProt, filterDeficiencyTrit,
 } from 'culori';
+import { STANDARD } from '../../packages/plots/src/common.js';
 import ELEO from '../../packages/plots/src/renderers.js';
 import '../../packages/plots/src/sample.js';
 
@@ -124,6 +125,7 @@ test('standard order is rule R under normal vision', (t) => {
   t.diagnostic(`standard: rule R ${order.join(', ')}, triple min ΔE ${tripleMin.toFixed(1)}`);
   assert.deepEqual(standard, order, 'standard mapping is rule R under normal vision');
   assert.deepEqual(floorFailures(standard, visions), [], 'floor F');
+  assert.deepEqual(STANDARD, standard, "common.js's STANDARD, the renderers' one fallback order, is the plots.css mapping");
 
   // Every SVG renderer resolves index k to --series-k, with the standard field as its fallback (no plots.css).
   const drawn = {

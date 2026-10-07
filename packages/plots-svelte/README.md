@@ -26,6 +26,21 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 </PlotCard>
 ```
 
+`Layout2D` takes `layout2D`'s options: `data` is a recorded layout or a system carrying one (see the [plots README](https://www.npmjs.com/package/@eleoptics/plots) for the format and the migration from the old `data.layout`). To compare two designs at one scale, give both the same `box`:
+
+```svelte
+<script>
+  import { layoutBounds } from '@eleoptics/plots';
+  import { Layout2D } from '@eleoptics/plots-svelte';
+  let { before, after } = $props();
+  const box = $derived(layoutBounds([before, after]));
+  const labels = ['0°', '12°', '24°'];
+</script>
+
+<Layout2D data={before} {box} {labels} marks={false} label="Layout before optimization" />
+<Layout2D data={after} {box} {labels} marks={false} label="Layout after optimization" />
+```
+
 `PlotCard` takes `state` (`loading`, `empty`, `error`, `stale`) and `message` for the states between results, `paper` for a light figure inside the dark theme, and `compact` and `selected` for dashboards.
 
 Load Fira Sans and Fira Code in your app. MIT licensed. Part of [eleo-ui](https://github.com/ELEOptics/eleo-ui).

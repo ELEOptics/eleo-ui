@@ -26,7 +26,7 @@ map2D(canvas, { data: mySystem, kind: 'psf' });  // canvas; call again after a t
 - Pass your traced system as `data`, or `import '@eleoptics/plots/sample'` to draw the sample achromat (190 KB, so it is opt-in).
 - Themes: light by default, dark when the OS prefers it, or force either with `data-theme="light"` or `"dark"` on any element; plots inside follow it.
 - Fonts: the plots use Fira Sans and Fira Code. Load them yourself (Google Fonts on the web, bundled files in a desktop app).
-- Without a bundler: load `@eleoptics/plots/eleo-plots.js` (then `eleo-plots-sample.js` if you want the sample); both add to `window.ELEO`. `eleo-physics.js` is the 1 KB physics helpers alone.
+- Without a bundler: load `@eleoptics/plots/eleo-plots.js` (then `eleo-plots-sample.js` if you want the sample); both add to `window.ELEO`. `eleo-physics.js` is the 1 KB physics helpers alone. `eleo-layout.js` is `layout2D` and `layoutBounds` alone, with no sample (6 KB minified, 2.3 KB gzipped).
 
 In Svelte:
 
@@ -55,13 +55,15 @@ npm run check          # Svelte type check
 
 First time only: `npx playwright install chromium` for the gallery check.
 
+`npm audit --omit=dev` checks what ships to users; plain `npm audit` also covers dev tooling.
+
 To try an unpublished change in another project, link it: `npm link` in `packages/plots`, then `npm link @eleoptics/plots` in that project.
 
 ### Changing things
 
 - **A token:** edit `packages/tokens/src/tokens.json`, keeping every color in both themes and each text color at 4.5:1 on its ground. The renderers read tokens as CSS variables, so most token changes need no renderer change, except the field order: it is pinned per palette in `packages/plots/src/plots.css` and checked against the tokens, so a field token change reruns that check.
-- **A renderer:** edit `packages/plots/src/renderers.js` and check the gallery in both themes. A new renderer also gets a gallery tile, a type in `index.d.ts` and a Svelte wrapper.
-- **Every PR that changes a package** adds a changeset (`npx changeset`): patch for fixes, minor for new renderers, props or tokens, major for anything that breaks a consumer.
+- **A renderer:** edit `packages/plots/src/layout2d.js` for `layout2D`, `packages/plots/src/common.js` for the shared helpers (`STANDARD`, `NS`, `idx`, `svg`) and `packages/plots/src/renderers.js` for the rest, then check the gallery in both themes. A new renderer also gets a gallery tile, a type in `index.d.ts` and a Svelte wrapper.
+- **Every PR that changes a package** adds a changeset (`npx changeset`): patch for fixes, minor for new renderers, props or tokens, major for anything that breaks a consumer. While a package's major is 0, a breaking change is a minor instead, and its changeset starts with **Breaking:** and says how to migrate.
 
 ## Release
 
