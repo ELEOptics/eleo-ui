@@ -150,6 +150,7 @@ Svelte. Proves: O2
 | -- | -- | -- | -- | -- | -- |
 | #99 | O2 acceptance test, skipped | forced (`workflow.md`, TDD) | `tests/glass-fills.spec.js` | `::glass legend matches the drawing` | #98 |
 | #100 | `glassLegend(layout)`: swatch and name per distinct glass in first-use order, through `glassFill`; exported from `index.js` (both the named exports and `Object.assign(ELEO, …)`, `index.js:8`, so `eleo-plots.js` has it too), `iife-layout.js`, and the `ELEO` interface | in `glass.js` because the standalone entry needs it without `renderers.js`; considered `legend("glass", …)` in `renderers.js` (pulls the full bundle into the entry) | `packages/plots/src/glass.js`, `packages/plots/src/index.js` (+ `iife-layout.js`, `index.d.ts`) | `tests/unit/glass.test.js::legend lists each glass once in first-use order` | #99 |
+| #120 | From CR #119: READMEs name `glassLegend` in the entry and document it; `layout2d.js` uses `drawnGlasses` | forced (CR #119: stale docs reported by #100; one rule keeps legend and drawing in step) | `packages/plots/src/layout2d.js`, `packages/plots/README.md` (+ `README.md`) | `tests/unit/glass.test.js::legend and drawing use one glass rule` | #100 |
 | #101 | `Legend.svelte` takes `kind="glass"` with `data`; plots-svelte README | forced (U12's legend in the Svelte wrapper). `<Legend kind="glass" data={layout} />` renders one `.eleo-key` per glass | `packages/plots-svelte/src/lib/Legend.svelte`, `packages/plots-svelte/README.md` | `npm run check` types + `tests/unit/glass.test.js` | #100 |
 | #102 | Gallery footer legend on the Cooke-glasses tile: a `data-legend="glass"` hook that calls `ELEO.glassLegend(layout)` beside the existing `ELEO.legend(kind)` (`gallery/index.html:109`); unskip O2 | forced (`workflow.md`, TDD: the last item unskips) | `gallery/index.html`, `tests/glass-fills.spec.js` | O2 | #99, #100, #101 |
 
@@ -205,3 +206,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 review M1 round 2: 0 blocking; headless: backlog #118 into M1 (row: milestone acceptance within the plan).
 - 2026-10-06 review M1 round 3: 0 blocking, nothing pulled in. M1 done; awaiting the user's demo (U12 baseline, kill-criterion verdict, #114).
 - 2026-10-06 (user, M1 demo): go. #114 (user): reword U12 and O1 to the shipped rule; no code change.
+- 2026-10-06 CR #119 accepted (stale docs from #100, one drawn-glass rule): item #120 in M2.
