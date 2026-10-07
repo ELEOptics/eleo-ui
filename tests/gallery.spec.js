@@ -1,5 +1,5 @@
 // Every renderer draws, in both themes, without errors. Run after `npm run build`.
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
@@ -46,6 +46,41 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
       else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
     }
   }
+});
+
+// Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
+// labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
+// or the merit tile's other drawing. The gallery's own report of it is the expected console error.
+test.skip('a rejected merit fixture blanks only its tile', { annotation: { type: 'issue', description: '#103: unskipped by #76' } }, async ({ page }) => {
+  const thrown = [], logged = [];
+  page.on('pageerror', (e) => thrown.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && logged.push(m.text()));
+  await page.route('**/merit-before.json', async (route) => {
+    const L = await (await route.fetch()).json();
+    await route.fulfill({ json: { ...L, rays: L.rays.slice(0, 2) } });
+  });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(thrown).toEqual([]);
+  expect(logged.length, 'the gallery logs the rejected drawing').toBeGreaterThan(0);
+  for (const theme of ['light', 'dark']) {
+    const tiles = await inkByTile(page, theme);
+    expect(tiles.length).toBe(17);
+    for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+    const merit = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout2D-shared"] [data-svg]`).evaluateAll((els) =>
+      Object.fromEntries(els.map((el) => [el.dataset.svg, el.querySelectorAll('svg *').length])));
+    expect(merit['merit-before'], `${theme}: the rejected drawing is blank`).toBe(0);
+    expect(merit['merit-after'], `${theme}: the merit tile's other drawing still draws`).toBeGreaterThan(0);
+  }
+});
+
+// Plan #90, O3, #47: the classic build exposes the sample. Loading eleo-plots.js, then eleo-plots-sample.js, leaves
+// window.ELEO.sample set, so the gallery can read zimg from it. oracle: fixture packages/plots/src/sample.json's zimg
+test.skip('classic build exposes the sample', { annotation: { type: 'issue', description: '#103: unskipped by #47' } }, async ({ page }) => {
+  const { zimg } = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url)));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(await page.evaluate(() => window.ELEO.sample?.zimg)).toBe(zimg);
 });
 
 // O3 (plan #30): eleo-layout.js loads alone and draws. oracle: property: the entry loads in a page with no
