@@ -29,10 +29,11 @@ export function glassFill(glasses) {
   )]));
 }
 
-// A glass as JSON for the error message, safe for what JSON.stringify throws on: a BigInt shows as 1n, a cycle as String(g).
+// A glass as JSON for the error message, safe for what JSON.stringify throws on or turns into undefined: a BigInt shows
+// as 1n; a cycle, a function, a Symbol or a toJSON that returns undefined as String(g).
 function show(g) {
   if (typeof g === 'bigint') return `${g}n`;
-  try { return JSON.stringify(g, (_, v) => (typeof v === 'bigint' ? `${v}n` : v)); } catch { return String(g); }
+  try { return JSON.stringify(g, (_, v) => (typeof v === 'bigint' ? `${v}n` : v)) ?? String(g); } catch { return String(g); }
 }
 
 /**
@@ -47,7 +48,7 @@ export function drawnGlasses(surfaces, fn = 'layout2D') {
   surfaces.forEach((s, i) => {
     const g = s.glass;
     if (g == null || g === 'crown' || g === 'flint') return;
-    if (typeof g === 'object' && typeof g.name === 'string' && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
+    if (typeof g === 'object' && typeof g.name === 'string' && g.name && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
     throw new Error(`${fn}: surface ${i} glass ${show(g)} is not crown, flint, null or {name, nd, vd}`);
   });
   return surfaces.filter((s, i) => s.glass && typeof s.glass === 'object' && surfaces[i + 1]).map((s) => s.glass);

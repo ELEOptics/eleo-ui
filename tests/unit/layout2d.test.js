@@ -555,6 +555,18 @@ test('layoutBounds names a bad input: a non-finite point, a surface with no prof
         { message: `layout2D: surface ${i} has no profile` }, `layout2D, surface ${i}, profile ${JSON.stringify(profile)}`);
     }
   }
+  // #130 (review M3 round 2 finding 1): a profile point that is not a finite [z, y] pair is named, boxed and unboxed.
+  for (const i of new Set([lens, lens + 1, stop])) {
+    for (const profile of [[null], [[NaN, NaN]], [...L.surfaces[i].profile.slice(1), [0]]]) {
+      const S = L.surfaces.map((s, k) => (k === i ? { ...s, profile } : s));
+      assert.throws(() => layout2dModule.layoutBounds([L, { ...L, surfaces: S }]),
+        { message: `layoutBounds: layouts[1].surfaces[${i}] has a profile with a non-finite point` }, `surface ${i}, profile ${JSON.stringify(profile)}`);
+      for (const box of [undefined, layoutBounds([L])]) {
+        assert.throws(() => ELEO.layout2D({ data: { ...L, surfaces: S }, box }),
+          { message: `layout2D: surface ${i} has a profile with a non-finite point` }, `layout2D, surface ${i}, box ${JSON.stringify(box)}`);
+      }
+    }
+  }
   const noImageProfile = { ...L, surfaces: L.surfaces.map((s) => (s.image ? { ...s, profile: undefined } : s)) };
   assert.deepEqual(layoutBounds([noImageProfile]), layoutBounds([L]), 'an image surface needs no profile');
   assert.doesNotThrow(() => ELEO.layout2D({ data: noImageProfile }), 'layout2D draws an image surface with no profile');
@@ -587,6 +599,14 @@ test('unknown glass string throws', async () => {
     { message: `layout2D: surface ${lens} glass 1n is not crown, flint, null or {name, nd, vd}` });
   assert.throws(() => glassLegend(withGlass({ ...BK7, nd: 1n })),
     { message: `glassLegend: surface ${lens} glass {"name":"N-BK7","nd":"1n","vd":64.17} is not crown, flint, null or {name, nd, vd}` });
+  // #130 (review M3 round 2 findings 2-3): a glass JSON.stringify turns into undefined prints as String(glass), never
+  // "undefined"; an empty name is not a name.
+  for (const [glass, shown] of [[() => 1, '() => 1'], [Symbol('x'), 'Symbol(x)'], [{ toJSON() {} }, '[object Object]'], [{ ...BK7, name: '' }, JSON.stringify({ ...BK7, name: '' })]]) {
+    for (const fn of ['layout2D', 'glassLegend']) {
+      assert.throws(() => (fn === 'layout2D' ? ELEO.layout2D({ data: withGlass(glass) }) : glassLegend(withGlass(glass))),
+        { message: `${fn}: surface ${lens} glass ${shown} is not crown, flint, null or {name, nd, vd}` }, `${fn}, glass ${shown}`);
+    }
+  }
   for (const glass of [null, 'crown', 'flint', BK7]) {
     assert.doesNotThrow(() => ELEO.layout2D({ data: withGlass(glass) }), `layout2D draws glass ${JSON.stringify(glass)}`);
     assert.doesNotThrow(() => glassLegend(withGlass(glass)), `glassLegend keys glass ${JSON.stringify(glass)}`);

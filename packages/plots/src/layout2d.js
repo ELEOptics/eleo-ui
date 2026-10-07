@@ -13,8 +13,13 @@ function chiefOf(L, k) {
 }
 // A [z, y] pair of finite numbers.
 function finitePoint(p) { return Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]); }
-// Every surface but the image needs a profile: layoutBounds and reach() read profile[0], the glass polygon all of it.
-function hasProfile(s) { return s.image || (Array.isArray(s.profile) && s.profile.length > 0); }
+// Every surface but the image needs a profile of finite [z, y] pairs: layoutBounds and reach() read profile[0], the
+// glass polygon all of it. The error's tail, or "" for a drawable surface.
+function badProfile(s) {
+  if (s.image) return "";
+  if (!Array.isArray(s.profile) || !s.profile.length) return " has no profile";
+  return s.profile.every(finitePoint) ? "" : " has a profile with a non-finite point";
+}
 // A stop with no glass on either side is drawn as two ticks, reaching sd + 2.5.
 function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i - 1].glass); }
 // A lens stop reaches its profile edge, |profile[0][1]| (layoutBounds' rule), so its label clears the glass.
@@ -36,7 +41,7 @@ export function layoutBounds(layouts) {
       n += fan.length;
     });
     if (!n) throw new Error("layoutBounds: layouts[" + k + "] has no rays");
-    L.surfaces.forEach(function (s, i) { if (!hasProfile(s)) throw new Error("layoutBounds: layouts[" + k + "].surfaces[" + i + "] has no profile"); });
+    L.surfaces.forEach(function (s, i) { var e = badProfile(s); if (e) throw new Error("layoutBounds: layouts[" + k + "].surfaces[" + i + "]" + e); });
   });
   var zmin = Infinity, zmax = -Infinity, ylo = 0, yhi = 0;
   layouts.forEach(function (L) {
@@ -71,7 +76,7 @@ export function layout2D(o) {
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
-  S.forEach(function (x, i) { if (!hasProfile(x)) throw new Error("layout2D: surface " + i + " has no profile"); });
+  S.forEach(function (x, i) { var e = badProfile(x); if (e) throw new Error("layout2D: surface " + i + e); });
   var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
