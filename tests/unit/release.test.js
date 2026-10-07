@@ -1,8 +1,10 @@
-// O4 (plan #30): a plots minor plans plots-svelte as a patch, not a major.
+// O4 (plan #30): a plots minor leaves plots-svelte unplanned, with its peer range kept.
 // oracle: spec semver, reproduced as in #21: plots-svelte's peer range must still admit the new plots, so
-// changesets has no reason to major-bump it.
-// It runs `changeset status --output` in a temp git workspace, never on this repo: the live repo's status
-// needs `main` (absent in CI's shallow checkout) and fails once `.changeset/` is empty after a release.
+// changesets has no reason to release it or rewrite the range (#83: on changesets 3 a plots minor also plans
+// a caret-pinned plots-svelte as a patch, not a major, so "not a major" alone would pass on the old `^0.1.0`).
+// It runs `changeset status --output` and `changeset version` in a temp git workspace, never on this repo: the
+// live repo's status needs `main` (absent in CI's shallow checkout) and fails once `.changeset/` is empty after
+// a release.
 // The workspace holds the real names, versions and peer ranges, a copy of `.changeset/config.json`, one
 // `plots: minor` changeset and an empty root `package-lock.json`: changesets 3 recognises an npm workspace
 // only by its lock file (2.x does not need it), so without one 3.x finds no packages.
@@ -29,7 +31,7 @@ const run = (cwd, cmd, args) => {
 const minimal = ({ name, version, dependencies, peerDependencies }) =>
   JSON.stringify({ name, version, ...(dependencies && { dependencies }), ...(peerDependencies && { peerDependencies }) }, null, 2);
 
-test('a plots minor plans plots-svelte as a patch, not a major', () => {
+test('a plots minor leaves plots-svelte unplanned and its peer range kept', () => {
   const ws = mkdtempSync(join(tmpdir(), 'eleo-release-'));
   try {
     const git = (...args) => run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args]);
@@ -53,7 +55,13 @@ test('a plots minor plans plots-svelte as a patch, not a major', () => {
     const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
     const type = (name) => releases.find((r) => r.name === name)?.type;
     assert.equal(type('@eleoptics/plots'), 'minor');
-    assert.notEqual(type('@eleoptics/plots-svelte'), 'major', `plots-svelte would release as ${JSON.stringify(releases)}`);
+    assert.equal(type('@eleoptics/plots-svelte'), undefined, `plots-svelte is planned: ${JSON.stringify(releases)}`);
+
+    const peer = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
+    run(ws, process.execPath, [changeset, 'version']);
+    const versioned = JSON.parse(readFileSync(join(ws, 'packages/plots-svelte/package.json'), 'utf8'));
+    assert.equal(versioned.peerDependencies['@eleoptics/plots'], peer, 'version rewrote the plots-svelte peer range');
+    assert.equal(versioned.version, manifest('plots-svelte').version, 'version bumped plots-svelte');
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
@@ -80,8 +88,9 @@ test('release workflow uses changesets/action v2 inputs', () => {
   assert.match(step.find((l) => /^\s*github-token:/.test(l)), /\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/);
 });
 
-// #41: the branch's own changeset asks for exactly what O4 shows changesets will plan: plots minor (the
-// breaking data.layout shape, which plan #30 releases as a minor while the major is 0), plots-svelte patch.
+// #41: the branch's own changeset asks plots minor (the breaking data.layout shape, which plan #30 releases as
+// a minor while the major is 0) and an explicit plots-svelte patch, which ships the widened peer range: O4 shows
+// changesets would not plan plots-svelte from the plots minor alone.
 // oracle: plan #30's #41 row and O4 (spec semver).
 test('layouts changeset asks plots minor, plots-svelte patch', () => {
   const text = readFileSync(join(repo, '.changeset/layouts.md'), 'utf8');
