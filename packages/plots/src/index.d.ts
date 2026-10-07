@@ -5,6 +5,8 @@ export type IndexKey = "field" | "wavelength";
 
 /** The z and y extent a layout2D drawing shows, in mm. */
 export interface LayoutBox { zmin: number; zmax: number; ylo: number; yhi: number }
+/** A catalog glass: layout2D gives each distinct name its own fill in the glass-blue band. */
+export interface Glass { name: string; nd: number; vd: number }
 /** One surface of a recorded layout, in mm. */
 export interface RecordedSurface {
   z: number;
@@ -12,8 +14,8 @@ export interface RecordedSurface {
   sd: number;
   stop: boolean;
   image: boolean;
-  /** The glass between this surface and the next, or null for air. */
-  glass: "crown" | "flint" | null;
+  /** The glass between this surface and the next, or null for air. "crown" and "flint" draw the two glass tokens. */
+  glass: "crown" | "flint" | Glass | null;
   /** The surface's section as [z, y] points (41 from eleoptics.com's layout.py). */
   profile: [number, number][];
 }
@@ -111,6 +113,8 @@ export interface ELEO {
   layout2D(props?: Layout2DProps): string;
   /** The box that frames every layout given (eleoptics.com's bounds()): pass it as `box` to draw them at one scale. */
   layoutBounds(layouts: RecordedLayout[]): LayoutBox;
+  /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout (a system reads `layout`, else `layoutWl`). */
+  glassLegend(data: RecordedLayout | LayoutSystem): string;
   layout3D(canvas: HTMLCanvasElement, props?: Layout3DProps): void;
   spot(props?: SpotDiagramProps): string;
   throughFocus(props?: { data?: object; half?: number }): string;
@@ -132,4 +136,5 @@ export default ELEO;
 export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spot: ELEO['spot'],
   throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
-  css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'];
+  css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
+  glassLegend: ELEO['glassLegend'];

@@ -10,7 +10,7 @@
 </head>
 <body>
   <script>
-    var NAMES = ['analysis', 'focus', 'merit-after', 'merit-before', 'tolerance'];
+    var NAMES = ['analysis', 'analysis-glasses', 'focus', 'merit-after', 'merit-before', 'tolerance'];
     Promise.all(NAMES.map(function (name) {
       return fetch('/tests/fixtures/layouts/' + name + '.json').then(function (r) {
         if (!r.ok) throw new Error(name + '.json: ' + r.status);

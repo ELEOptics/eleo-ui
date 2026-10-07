@@ -1,5 +1,5 @@
 // Every renderer draws, in both themes, without errors. Run after `npm run build`.
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
@@ -24,13 +24,13 @@ test('gallery renders every tile in both themes', async ({ page }) => {
 
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(16);
+    expect(tiles.length).toBe(17);
     for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
   }
 });
 
 // #69: a missing merit fixture fails its one tile, not the page. oracle: property, one broken tile doesn't
-// blank the other 15. The 404 and the gallery's own report of it are the expected console errors.
+// blank the other 16. The 404 and the gallery's own report of it are the expected console errors.
 test('a missing merit fixture blanks only its tile', async ({ page }) => {
   const thrown = [];
   page.on('pageerror', (e) => thrown.push(e.message));
@@ -40,12 +40,83 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
   expect(thrown).toEqual([]);
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(16);
+    expect(tiles.length).toBe(17);
     for (const t of tiles) {
       if (t.tile === 'layout2D-shared') expect(t.svgMarks + t.inked, `${theme} merit tile drew`).toBe(0);
       else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
     }
   }
+});
+
+// Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
+// labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
+// or the merit tile's other drawing. The gallery's own report of it is the expected console error.
+test('a rejected merit fixture blanks only its tile', async ({ page }) => {
+  const thrown = [], logged = [];
+  page.on('pageerror', (e) => thrown.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && logged.push(m.text()));
+  await page.route('**/merit-before.json', async (route) => {
+    const L = await (await route.fetch()).json();
+    await route.fulfill({ json: { ...L, rays: L.rays.slice(0, 2) } });
+  });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(thrown).toEqual([]);
+  expect(logged.length, 'the gallery logs the rejected drawing').toBeGreaterThan(0);
+  for (const theme of ['light', 'dark']) {
+    const tiles = await inkByTile(page, theme);
+    expect(tiles.length).toBe(17);
+    for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+    const merit = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout2D-shared"] [data-svg]`).evaluateAll((els) =>
+      Object.fromEntries(els.map((el) => [el.dataset.svg, el.querySelectorAll('svg *').length])));
+    expect(merit['merit-before'], `${theme}: the rejected drawing is blank`).toBe(0);
+    expect(merit['merit-after'], `${theme}: the merit tile's other drawing still draws`).toBeGreaterThan(0);
+  }
+});
+
+// Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
+// the tiles that bring their own data (merit, glasses) or need none (airy, icons) still draw. The 404 is the expected
+// console error.
+test('a missing sample script blanks only the sample tiles', async ({ page }) => {
+  const thrown = [];
+  page.on('pageerror', (e) => thrown.push(e.message));
+  await page.route('**/eleo-plots-sample.js', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(thrown).toEqual([]);
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'airy', 'icons'];
+  for (const theme of ['light', 'dark']) {
+    const tiles = await inkByTile(page, theme);
+    expect(tiles.length).toBe(17);
+    for (const t of tiles) {
+      if (ownData.includes(t.tile)) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+      else expect(t.svgMarks + t.inked, `${theme} sample tile ${t.tile} drew`).toBe(0);
+    }
+  }
+});
+
+// Plan #90, O3, #47: the classic build exposes the sample. Loading eleo-plots.js, then eleo-plots-sample.js, leaves
+// window.ELEO.sample set, so the gallery can read zimg from it. oracle: fixture packages/plots/src/sample.json's zimg
+test('classic build exposes the sample', async ({ page }) => {
+  const { zimg } = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url)));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(await page.evaluate(() => window.ELEO.sample?.zimg)).toBe(zimg);
+});
+
+// Plan #90, #129: iife.js's merge branch. With eleo-layout.js loaded first, window.ELEO already exists, so
+// eleo-plots.js merges into it; eleo-plots-sample.js then leaves window.ELEO.sample set, read through the merged
+// object. oracle: fixture packages/plots/src/sample.json's zimg
+test('classic entries merge and expose the sample', async ({ page }) => {
+  const { zimg } = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url)));
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/tests/fixtures/classic-merge.html');
+  expect(errors).toEqual([]);
+  const scripts = await page.evaluate(() => [...document.scripts].map((s) => new URL(s.src).pathname));
+  expect(scripts).toEqual(['/packages/plots/dist/eleo-layout.js', '/packages/plots/dist/eleo-plots.js', '/packages/plots/dist/eleo-plots-sample.js']);
+  expect(await page.evaluate(() => ({ layout2D: typeof window.ELEO.layout2D, spot: typeof window.ELEO.spot }))).toEqual({ layout2D: 'function', spot: 'function' });
+  expect(await page.evaluate(() => window.ELEO.sample?.zimg)).toBe(zimg);
 });
 
 // O3 (plan #30): eleo-layout.js loads alone and draws. oracle: property: the entry loads in a page with no
@@ -67,11 +138,11 @@ test('standalone layout entry', async ({ page }) => {
   const assets = await page.evaluate(() => ({
     scripts: [...document.scripts].filter((s) => s.src).map((s) => new URL(s.src).pathname),
     styles: [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => new URL(l.href).pathname),
-    api: { layout2D: typeof window.ELEO?.layout2D, layoutBounds: typeof window.ELEO?.layoutBounds, sample: typeof window.ELEO?.sample },
+    api: { layout2D: typeof window.ELEO?.layout2D, layoutBounds: typeof window.ELEO?.layoutBounds, glassLegend: typeof window.ELEO?.glassLegend, sample: typeof window.ELEO?.sample },
   }));
   expect(assets.scripts).toEqual(['/packages/plots/dist/eleo-layout.js']);
   expect(assets.styles).toEqual(['/packages/tokens/dist/tokens.css']);
-  expect(assets.api).toEqual({ layout2D: 'function', layoutBounds: 'function', sample: 'undefined' });
+  expect(assets.api).toEqual({ layout2D: 'function', layoutBounds: 'function', glassLegend: 'function', sample: 'undefined' });
 
   const drawn = await page.locator('[data-fixture]').evaluateAll((els) => els.map((el) => ({
     fixture: el.dataset.fixture,

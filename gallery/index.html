@@ -39,6 +39,7 @@
     <section class="eleo-plot" data-tile="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div><div class="eleo-plot__ft eleo-legend" data-legend="field"></div></section>
     <section class="eleo-plot" data-tile="layout2D-fan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
     <section class="eleo-plot" data-tile="layout2D-shared"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
     <div class="row">
       <section class="eleo-plot" data-tile="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
       <section class="eleo-plot" data-tile="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
@@ -68,27 +69,35 @@
   <script src="/packages/plots/dist/eleo-plots.js"></script>
   <script src="/packages/plots/dist/eleo-plots-sample.js"></script>
   <script>
-    // The sample tiles keep their framing: a pinned box, not the rays' bounds. ZIMG is sample.json's zimg
-    // (window.ELEO.sample stays null in the classic build: iife.js copies the API before useSample sets it).
-    var ZIMG = 103.62614866262808;
-    var SAMPLE_BOX = { zmin: -8, zmax: ZIMG + 4, ylo: -13.5, yhi: 13.5 };
+    // The sample tiles keep their framing: a pinned box, not the rays' bounds. If eleo-plots-sample.js failed to load,
+    // ELEO.sample is null, SAMPLE_BOX stays null and the sample tiles draw nothing while the rest of the page draws.
+    var SAMPLE_BOX = ELEO.sample && { zmin: -8, zmax: ELEO.sample.zimg + 4, ylo: -13.5, yhi: 13.5 };
+    function sampleTile(f) { return function () { return SAMPLE_BOX ? f() : ''; }; }
     // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below;
     // if either fixture fails, MERIT_BOX stays unset and the tile draws nothing while the rest of the page draws.
     var MERIT = {}, MERIT_BOX;
-    function meritTile(k) { return MERIT_BOX ? ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }) : ''; }
+    // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
+    // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
+    var GLASSES;
+    function meritTile(k) {
+      if (!MERIT_BOX) return '';
+      try { return ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
+      catch (e) { console.error('merit-' + k + ':', e); return ''; }
+    }
     var SVG = {
-      'layout2D': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX }); },
-      'layout2D-fan': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX, colorBy: 'wavelength', rays: 'fan' }); },
+      'layout2D': sampleTile(function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX }); }),
+      'layout2D-fan': sampleTile(function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX, colorBy: 'wavelength', rays: 'fan' }); }),
       'merit-before': function () { return meritTile('before'); },
       'merit-after': function () { return meritTile('after'); },
-      'spot': function () { return ELEO.spot(); },
-      'throughFocus': function () { return ELEO.throughFocus(); },
-      'rayFan': function () { return ELEO.rayFan(); },
-      'rayFan-opd': function () { return ELEO.rayFan({ kind: 'opd' }); },
-      'mtf': function () { return ELEO.curve({ kind: 'mtf' }); },
-      'fieldCurvature': function () { return ELEO.curve({ kind: 'fieldCurvature' }); },
-      'distortion': function () { return ELEO.curve({ kind: 'distortion' }); },
-      'chromaticFocus': function () { return ELEO.curve({ kind: 'chromaticFocus' }); }
+      'layout2D-glasses': function () { return GLASSES ? ELEO.layout2D({ data: GLASSES, width: 1000, marks: false }) : ''; },
+      'spot': sampleTile(function () { return ELEO.spot(); }),
+      'throughFocus': sampleTile(function () { return ELEO.throughFocus(); }),
+      'rayFan': sampleTile(function () { return ELEO.rayFan(); }),
+      'rayFan-opd': sampleTile(function () { return ELEO.rayFan({ kind: 'opd' }); }),
+      'mtf': sampleTile(function () { return ELEO.curve({ kind: 'mtf' }); }),
+      'fieldCurvature': sampleTile(function () { return ELEO.curve({ kind: 'fieldCurvature' }); }),
+      'distortion': sampleTile(function () { return ELEO.curve({ kind: 'distortion' }); }),
+      'chromaticFocus': sampleTile(function () { return ELEO.curve({ kind: 'chromaticFocus' }); })
     };
     function airyTile(canvas) {
       var n = canvas.width, ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
@@ -102,8 +111,9 @@
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(function (el) {
         var k = el.dataset.canvas;
-        if (k === 'layout3D') ELEO.layout3D(el);
-        else if (k === 'airy') airyTile(el);
+        if (k === 'airy') airyTile(el);
+        else if (!SAMPLE_BOX) return;
+        else if (k === 'layout3D') ELEO.layout3D(el);
         else ELEO.map2D(el, { kind: k });
       });
     }
@@ -111,7 +121,12 @@
       document.querySelectorAll('.theme').forEach(function (theme) {
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
         theme.querySelectorAll('[data-svg]').forEach(function (el) { el.innerHTML = SVG[el.dataset.svg](); });
-        theme.querySelectorAll('[data-legend]').forEach(function (el) { el.innerHTML = ELEO.legend(el.dataset.legend); });
+        // The glass legend keys the Cooke tile's own layout; empty, like the tile, if its fixture failed.
+        // The field and wavelength legends key the sample; empty, like its tiles, without it.
+        theme.querySelectorAll('[data-legend]').forEach(function (el) {
+          var k = el.dataset.legend;
+          el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '') : k === 'ts' || SAMPLE_BOX ? ELEO.legend(k) : '';
+        });
         theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
           .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));
@@ -125,7 +140,13 @@
       else document.documentElement.dataset.palette = v;
       drawCanvases();
     });
-    Promise.all(['before', 'after'].map(function (k) {
+    var glasses = fetch('/tests/fixtures/layouts/analysis-glasses.json').then(function (r) {
+      if (!r.ok) throw new Error('analysis-glasses.json: ' + r.status);
+      return r.json();
+    }).then(function (d) { GLASSES = d; }).catch(function (e) {
+      console.error('gallery: glasses tile skipped:', e);
+    });
+    var merit = Promise.all(['before', 'after'].map(function (k) {
       return fetch('/tests/fixtures/layouts/merit-' + k + '.json').then(function (r) {
         if (!r.ok) throw new Error('merit-' + k + '.json: ' + r.status);
         return r.json();
@@ -134,7 +155,8 @@
       MERIT_BOX = ELEO.layoutBounds([MERIT.before, MERIT.after]);
     }).catch(function (e) {
       console.error('gallery: merit tile skipped:', e);
-    }).then(function () {
+    });
+    Promise.all([glasses, merit]).then(function () {
       draw();
       document.body.dataset.ready = 'true';
     });

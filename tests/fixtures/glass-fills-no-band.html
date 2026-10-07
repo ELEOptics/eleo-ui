@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- #135 (CR #134): tokens 0.1 had no --glass-band-hi/--glass-band-lo. tokens.css with both band tokens reset to
+     their initial (guaranteed-invalid) value inside each figure, so var() sees them undefined, as with tokens 0.1.
+     Draws the Cooke-glasses layout with eleo-layout.js in a light and a dark column, then reads each lens polygon's
+     computed fill and whether a band token resolved into window.NO_BAND, and sets body[data-ready]. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>glass fills without band tokens</title>
+  <link rel="stylesheet" href="/packages/tokens/dist/tokens.css">
+  <script src="/packages/plots/dist/eleo-layout.js"></script>
+  <style>
+    body { margin: 16px; } .theme { background: var(--bg); } figure { margin: 0 0 8px; }
+    figure { --glass-band-hi: initial; --glass-band-lo: initial; }
+  </style>
+</head>
+<body>
+  <div class="theme" data-theme="light"></div>
+  <div class="theme" data-theme="dark"></div>
+  <script>
+    fetch('/tests/fixtures/layouts/analysis-glasses.json').then(function (r) {
+      if (!r.ok) throw new Error('analysis-glasses.json: ' + r.status);
+      return r.json();
+    }).then(function (data) {
+      var out = {};
+      ['light', 'dark'].forEach(function (theme) {
+        var fig = document.createElement('figure');
+        fig.innerHTML = ELEO.layout2D({ data: data, width: 400 });
+        document.querySelector('.theme[data-theme="' + theme + '"]').append(fig);
+        var s = getComputedStyle(fig);
+        out[theme] = {
+          band: s.getPropertyValue('--glass-band-hi').trim() + s.getPropertyValue('--glass-band-lo').trim(),
+          fills: [].map.call(fig.querySelectorAll('polygon[stroke="var(--glass-edge)"]'), function (p) { return getComputedStyle(p).fill; }),
+        };
+      });
+      window.NO_BAND = out;
+      document.body.dataset.ready = 'true';
+    }).catch(function (e) {
+      console.error('glass-fills-no-band:', e);
+      document.body.dataset.ready = 'error';
+    });
+  </script>
+</body>
+</html>

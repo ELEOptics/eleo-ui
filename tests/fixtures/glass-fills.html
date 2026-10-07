@@ -1,0 +1,98 @@
+<!doctype html>
+<!-- O1 (plan #90): per-glass fills, drawn by eleo-layout.js on its own. Only tokens.css and the entry.
+     Draws 200 seeded designs of 2 to 8 distinct glasses from glasses.json, each lens's glass a {name, nd, vd}
+     object (a name may repeat across lenses), and the five recorded website layouts, each in a light and a dark
+     column. Then reads every lens polygon's computed fill into window.GLASS_FILLS and sets body[data-ready]:
+     "true", or "error" after logging the failure. tests/glass-fills.spec.js checks the fills. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>glass fills</title>
+  <link rel="stylesheet" href="/packages/tokens/dist/tokens.css">
+  <script src="/packages/plots/dist/eleo-layout.js"></script>
+  <style>body { margin: 16px; } .theme { background: var(--bg); } figure { margin: 0 0 8px; }</style>
+</head>
+<body>
+  <div class="theme" data-theme="light"></div>
+  <div class="theme" data-theme="dark"></div>
+  <script>
+    var SEED = 90, DESIGNS = 200, THEMES = ['light', 'dark'];
+    var WEBSITE = ['analysis', 'focus', 'merit-after', 'merit-before', 'tolerance'];
+
+    // mulberry32: a small seeded PRNG, so every run draws the same designs.
+    function rng(a) {
+      return function () {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        var t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    // A design: k distinct glasses (2 to 8), every one used, plus up to 2 lenses reusing one of them, shuffled.
+    function designs(table) {
+      var r = rng(SEED), out = [];
+      function pick(n) { return Math.floor(r() * n); }
+      for (var d = 0; d < DESIGNS; d++) {
+        var pool = table.slice(), k = 2 + pick(7), chosen = [];
+        for (var i = 0; i < k; i++) chosen.push(pool.splice(pick(pool.length), 1)[0]);
+        var lenses = chosen.slice(), extra = pick(3);
+        for (var e = 0; e < extra; e++) lenses.push(chosen[pick(k)]);
+        for (var j = lenses.length - 1; j > 0; j--) { var m = pick(j + 1), t = lenses[j]; lenses[j] = lenses[m]; lenses[m] = t; }
+        // A fresh object per lens, so a shared fill comes from the name, not from object identity.
+        out.push(lenses.map(function (g) { return { name: g.name, nd: g.nd, vd: g.vd }; }));
+      }
+      return out;
+    }
+
+    // A simple recorded layout: lens i is flat, 4 mm thick, at z = 10 i; then an image surface; one fan of 3 rays.
+    function layout(glasses) {
+      var surfaces = [], end = glasses.length * 10 + 10;
+      function flat(z, glass, extra) {
+        return Object.assign({ z: z, sd: 5, stop: false, image: false, glass: glass, profile: [[z, -5], [z, 0], [z, 5]] }, extra || {});
+      }
+      glasses.forEach(function (g, i) { surfaces.push(flat(i * 10, g), flat(i * 10 + 4, null)); });
+      surfaces.push(flat(end, null, { image: true }));
+      var rays = [[-2, 0, 2].map(function (y) { return [[-5, y], [end, -y]]; })];
+      return { surfaces: surfaces, rays: rays };
+    }
+
+    function fillsOf(fig) {
+      return [].map.call(fig.querySelectorAll('svg polygon'), function (p) { return getComputedStyle(p).fill; });
+    }
+    function draw(col, data, attrs) {
+      var fig = document.createElement('figure');
+      Object.assign(fig.dataset, attrs);
+      fig.innerHTML = ELEO.layout2D({ data: data, width: 400 });
+      col.append(fig);
+      return fillsOf(fig);
+    }
+    function probe(col, v) {
+      var p = document.createElement('i'); p.style.color = 'var(' + v + ')'; col.append(p);
+      var c = getComputedStyle(p).color; p.remove(); return c;
+    }
+    function json(path) {
+      return fetch(path).then(function (r) { if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); });
+    }
+
+    Promise.all([json('/tests/fixtures/glasses.json')].concat(WEBSITE.map(function (n) {
+      return json('/tests/fixtures/layouts/' + n + '.json');
+    }))).then(function (got) {
+      var set = designs(got[0]), result = { designs: [], website: {}, tokens: {} };
+      set.forEach(function (glasses) { result.designs.push({ glasses: glasses, fills: {} }); });
+      WEBSITE.forEach(function (n) { result.website[n] = {}; });
+      THEMES.forEach(function (theme) {
+        var col = document.querySelector('.theme[data-theme="' + theme + '"]');
+        result.tokens[theme] = { crown: probe(col, '--glass-crown'), flint: probe(col, '--glass-flint') };
+        set.forEach(function (glasses, d) { result.designs[d].fills[theme] = draw(col, layout(glasses), { design: d }); });
+        WEBSITE.forEach(function (n, w) { result.website[n][theme] = draw(col, got[w + 1], { fixture: n }); });
+      });
+      window.GLASS_FILLS = result;
+      document.body.dataset.ready = 'true';
+    }).catch(function (e) {
+      console.error('glass-fills:', e);
+      document.body.dataset.ready = 'error';
+    });
+  </script>
+</body>
+</html>

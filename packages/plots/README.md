@@ -28,7 +28,7 @@ colorbarEl.style.background = gradient('ember');
 
 ```js
 {
-  surfaces: [{ z, sd, stop, image, glass, profile }],  // glass: null | 'crown' | 'flint', the material after the surface
+  surfaces: [{ z, sd, stop, image, glass, profile }],  // glass: null | 'crown' | 'flint' | { name, nd, vd }, the material after the surface
   rays: [[[[z, y], ...], ...], ...],                    // rays[fan][ray] is a polyline
   chief: [3, 3, 2],                                     // optional: one ray index per fan
 }
@@ -36,9 +36,11 @@ colorbarEl.style.background = gradient('ember');
 
 `profile` is the surface's section as `[z, y]` points. `data` is a recorded layout, or a system whose `layout` (colored by field) and `layoutWl` (colored by wavelength) are recorded layouts; `colorBy` picks which one.
 
+- **`glass`:** `'crown'` and `'flint'` fill with `--glass-crown` and `--glass-flint`. A `{ name, nd, vd }` glass gets its own fill inside the glass-blue band (`--glass-band-hi` to `--glass-band-lo`): lower `vd` sits toward flint, the same name gets the same fill within a drawing, and up to 8 distinct glasses stay distinct. A fill depends on the drawing's whole glass set, so one glass can fill differently in designs with different glasses. The fill is a CSS color function on `style`, resolved per theme with no redraw.
 - **Chief ray:** `chief[k]` for fan k; without `chief`, the fan's middle ray, `floor(n / 2)`. That is eleoptics.com's rule, and it can be wrong for a vignetted fan, so record `chief` when you know it. An index outside the fan throws an error naming the fan.
 - **`box`:** the `{zmin, zmax, ylo, yhi}` the drawing shows, in mm. It defaults to `layoutBounds([layout])`. Drawings given the same `box` and `width` share one scale, so they compare true to size.
 - **`layoutBounds(layouts)`:** the box that frames every layout given: z covers the rays, y covers 0, the rays and every surface edge but the image's, padded 4%.
+- **`glassLegend(data)`:** legend keys for a layout's `{ name, nd, vd }` glasses: one `eleo-key eleo-key--swatch` span per distinct glass the drawing fills, by name, in order of first use, its swatch in that glass's polygon fill. `data` is a recorded layout or a system carrying one in `layout`, else `layoutWl`. Shorthand `'crown'`/`'flint'` and a glass on the last surface (which draws nothing) get no key; with no named glass it returns `''`.
 - **`labels`:** one text per fan, drawn at the image end of that fan's chief ray. A fan with no rays gets none. A `null` entry skips that fan; more labels than fans throws.
 - **`marks`:** `false` drops the STO and IMA labels. Default `true`.
 
@@ -87,6 +89,6 @@ colormap('ember');       // 256 [r, g, b] entries in the current theme
 <script src="eleo-plots-sample.js"></script>  <!-- optional: the sample system -->
 ```
 
-`eleo-physics.js` is the physics helpers alone (1 KB). `eleo-layout.js` is `layout2D` and `layoutBounds` alone, with no sample, for drawing recorded layouts with only `tokens.css` (6 KB minified, 2.3 KB gzipped).
+`eleo-physics.js` is the physics helpers alone (1 KB). `eleo-layout.js` is `layout2D`, `layoutBounds` and `glassLegend` alone, with no sample, for drawing recorded layouts with only `tokens.css` (a size test caps its growth at 2 KB gzipped per roadmap row).
 
 For Svelte, see [`@eleoptics/plots-svelte`](https://www.npmjs.com/package/@eleoptics/plots-svelte). MIT licensed. Part of [eleo-ui](https://github.com/ELEOptics/eleo-ui).

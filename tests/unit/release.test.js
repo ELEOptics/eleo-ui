@@ -5,8 +5,8 @@
 // It runs `changeset status --output` and `changeset version` in a temp git workspace, never on this repo: the
 // live repo's status needs `main` (absent in CI's shallow checkout) and fails once `.changeset/` is empty after
 // a release.
-// The workspace holds the real names, versions and peer ranges, a copy of `.changeset/config.json`, one
-// `plots: minor` changeset and an empty root `package-lock.json`: changesets 3 recognises an npm workspace
+// The workspace holds the three packages' real names, versions and peer ranges, a copy of `.changeset/config.json`, one
+// changeset per test and an empty root `package-lock.json`: changesets 3 recognises an npm workspace
 // only by its lock file (2.x does not need it), so without one 3.x finds no packages.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,17 +27,19 @@ const run = (cwd, cmd, args) => {
   return r;
 };
 
-// Only what changesets reads: name, version, and the dependency fields that link the two packages.
+// Only what changesets reads: name, version, and the dependency fields that link the packages.
 const minimal = ({ name, version, dependencies, peerDependencies }) =>
   JSON.stringify({ name, version, ...(dependencies && { dependencies }), ...(peerDependencies && { peerDependencies }) }, null, 2);
 
-test('a plots minor leaves plots-svelte unplanned and its peer range kept', () => {
+// A temp git workspace with the three packages' real names, versions and peer ranges, on branch `release`, whose
+// one commit off `main` adds `bumps` as one changeset. `fn` gets the workspace path and runs changesets in it.
+const withWorkspace = (bumps, fn) => {
   const ws = mkdtempSync(join(tmpdir(), 'eleo-release-'));
   try {
     const git = (...args) => run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args]);
     writeFileSync(join(ws, 'package.json'), JSON.stringify({ name: 'ws', private: true, workspaces: ['packages/*'] }));
     writeFileSync(join(ws, 'package-lock.json'), '{}');
-    for (const dir of ['plots', 'plots-svelte']) {
+    for (const dir of ['plots', 'plots-svelte', 'tokens']) {
       mkdirSync(join(ws, 'packages', dir), { recursive: true });
       writeFileSync(join(ws, 'packages', dir, 'package.json'), minimal(manifest(dir)));
     }
@@ -47,10 +49,19 @@ test('a plots minor leaves plots-svelte unplanned and its peer range kept', () =
     git('add', '-A');
     git('commit', '-q', '-m', 'base');
     git('checkout', '-q', '-b', 'release');
-    writeFileSync(join(ws, '.changeset/plots-minor.md'), '---\n"@eleoptics/plots": minor\n---\n\nA minor.\n');
+    const front = Object.entries(bumps).map(([name, type]) => `"${name}": ${type}`).join('\n');
+    writeFileSync(join(ws, '.changeset/bumps.md'), `---\n${front}\n---\n\nBumps.\n`);
     git('add', '-A');
-    git('commit', '-q', '-m', 'plots minor');
+    git('commit', '-q', '-m', 'bumps');
+    fn(ws);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+  }
+};
+const versioned = (ws, dir) => JSON.parse(readFileSync(join(ws, 'packages', dir, 'package.json'), 'utf8'));
 
+test('a plots minor leaves plots-svelte unplanned and its peer range kept', () => {
+  withWorkspace({ '@eleoptics/plots': 'minor' }, (ws) => {
     run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
     const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
     const type = (name) => releases.find((r) => r.name === name)?.type;
@@ -59,12 +70,28 @@ test('a plots minor leaves plots-svelte unplanned and its peer range kept', () =
 
     const peer = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
     run(ws, process.execPath, [changeset, 'version']);
-    const versioned = JSON.parse(readFileSync(join(ws, 'packages/plots-svelte/package.json'), 'utf8'));
-    assert.equal(versioned.peerDependencies['@eleoptics/plots'], peer, 'version rewrote the plots-svelte peer range');
-    assert.equal(versioned.version, manifest('plots-svelte').version, 'version bumped plots-svelte');
-  } finally {
-    rmSync(ws, { recursive: true, force: true });
-  }
+    const svelte = versioned(ws, 'plots-svelte');
+    assert.equal(svelte.peerDependencies['@eleoptics/plots'], peer, 'version rewrote the plots-svelte peer range');
+    assert.equal(svelte.version, manifest('plots-svelte').version, 'version bumped plots-svelte');
+  });
+});
+
+// #104 (plan #90): the release asks plots, plots-svelte and tokens minors. A tokens minor falls outside a
+// `^0.1.0` peer, so changesets would rewrite it to `^0.2.0` and bump its dependents (the #21 lesson); widened to
+// `>=0.1.0 <1`, both tokens peers survive `changeset version` and every package goes exactly one minor.
+// oracle: spec semver (a 0.x minor stays inside `<1`), plan #90 Constraints.
+test('tokens peers survive version', () => {
+  const minor = (v) => v.replace(/^(\d+)\.(\d+)\.\d+$/, (_, M, m) => `${M}.${Number(m) + 1}.0`);
+  // the helper itself, past 0.x (review M3 finding 5): a 1.x minor is 1.(m+1).0, not the version unchanged
+  assert.deepEqual(['0.1.4', '1.2.3'].map(minor), ['0.2.0', '1.3.0']);
+  const dirs = ['plots', 'plots-svelte', 'tokens'];
+  withWorkspace(Object.fromEntries(dirs.map((d) => [manifest(d).name, 'minor'])), (ws) => {
+    run(ws, process.execPath, [changeset, 'version']);
+    for (const dir of dirs) assert.equal(versioned(ws, dir).version, minor(manifest(dir).version), `${dir} is not one minor up`);
+    for (const dir of ['plots', 'plots-svelte']) {
+      assert.equal(versioned(ws, dir).peerDependencies['@eleoptics/tokens'], '>=0.1.0 <1', `${dir}'s tokens peer`);
+    }
+  });
 });
 
 // #80 (CR #79): changesets/action v1 doesn't support CLI 3 (it finds published packages by `New tag:` in

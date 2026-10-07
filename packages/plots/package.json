@@ -49,7 +49,7 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@eleoptics/tokens": "^0.1.0"
+    "@eleoptics/tokens": ">=0.1.0 <1"
   },
   "scripts": {
     "build": "node build.mjs",

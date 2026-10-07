@@ -1,16 +1,24 @@
 // layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus an optional `chief`):
 // {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41]}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
 // Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text, the chief dot and the scale bar in px.
-import { idx, svg, NS } from './common.js';
+import { idx, svg, NS, esc } from './common.js';
+import { glassFill, drawnGlasses } from './glass.js';
 
-// A caller's label, as SVG text.
-function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 // The fan's chief ray: `chief[k]` when recorded, else the middle ray (the site's rule; wrong for a vignetted fan).
 function chiefOf(L, k) {
   var c = L.chief && L.chief[k];
   if (c == null) return Math.floor(L.rays[k].length / 2);
   if (!Number.isInteger(c) || c < 0 || c >= L.rays[k].length) throw new Error("layout2D: chief[" + k + "] is not a ray of fan " + k);
   return c;
+}
+// A [z, y] pair of finite numbers.
+function finitePoint(p) { return Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]); }
+// Every surface but the image needs a profile of finite [z, y] pairs: layoutBounds and reach() read profile[0], the
+// glass polygon all of it. The error's tail, or "" for a drawable surface.
+function badProfile(s) {
+  if (s.image) return "";
+  if (!Array.isArray(s.profile) || !s.profile.length) return " has no profile";
+  return s.profile.every(finitePoint) ? "" : " has a profile with a non-finite point";
 }
 // A stop with no glass on either side is drawn as two ticks, reaching sd + 2.5.
 function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i - 1].glass); }
@@ -26,10 +34,14 @@ export function layoutBounds(layouts) {
     var n = 0;
     L.rays.forEach(function (fan, j) {
       if (!Array.isArray(fan)) throw new Error("layoutBounds: layouts[" + k + "].rays[" + j + "] is not an array");
-      fan.forEach(function (r, i) { if (!Array.isArray(r) || !r.length) throw new Error("layoutBounds: layouts[" + k + "].rays[" + j + "][" + i + "]: ray has no points"); });
+      fan.forEach(function (r, i) {
+        if (!Array.isArray(r) || !r.length) throw new Error("layoutBounds: layouts[" + k + "].rays[" + j + "][" + i + "]: ray has no points");
+        if (!r.every(finitePoint)) throw new Error("layoutBounds: layouts[" + k + "].rays[" + j + "][" + i + "] has a non-finite point");
+      });
       n += fan.length;
     });
     if (!n) throw new Error("layoutBounds: layouts[" + k + "] has no rays");
+    L.surfaces.forEach(function (s, i) { var e = badProfile(s); if (e) throw new Error("layoutBounds: layouts[" + k + "].surfaces[" + i + "]" + e); });
   });
   var zmin = Infinity, zmax = -Infinity, ylo = 0, yhi = 0;
   layouts.forEach(function (L) {
@@ -54,12 +66,17 @@ export function layout2D(o) {
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
   L.rays.forEach(function (fan, k) {
     if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays");
-    fan.forEach(function (r, i) { if (!Array.isArray(r) || !r.length) throw new Error("layout2D: fan " + k + " ray " + i + " has no points"); });
+    fan.forEach(function (r, i) {
+      if (!Array.isArray(r) || !r.length) throw new Error("layout2D: fan " + k + " ray " + i + " has no points");
+      // A box skips layoutBounds, which names a non-finite point; without one, layoutBounds names it first.
+      if (o.box != null && !r.every(finitePoint)) throw new Error("layout2D: fan " + k + " ray " + i + " has a non-finite point");
+    });
   });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
+  S.forEach(function (x, i) { var e = badProfile(x); if (e) throw new Error("layout2D: surface " + i + e); });
   var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
@@ -73,9 +90,13 @@ export function layout2D(o) {
   function line(z1, y1, z2, y2, rest) { return '<line x1="' + n(z1) + '" y1="' + n(y1) + '" x2="' + n(z2) + '" y2="' + n(y2) + '" ' + rest + " " + NS + "/>"; }
   var M = +s.toFixed(6), g = '<g transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')">';
   g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"');
+  // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
+  // in a presentation attribute is not safe. A style with var() is never dropped, so the fill attribute never applies to these;
+  // glassFill falls back from the band tokens to crown and flint itself. "crown" and "flint" draw as before.
+  var fills = glassFill(drawnGlasses(S));
   S.forEach(function (a, i) {
-    var b = S[i + 1];
-    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
+    var b = S[i + 1], obj = a.glass && typeof a.glass === "object";
+    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var dots = "", ends = [];
