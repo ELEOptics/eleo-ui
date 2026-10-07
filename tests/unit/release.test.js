@@ -88,14 +88,24 @@ test('release workflow uses changesets/action v2 inputs', () => {
   assert.match(step.find((l) => /^\s*github-token:/.test(l)), /\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/);
 });
 
-// #41: the branch's own changeset asks plots minor (the breaking data.layout shape, which plan #30 releases as
+// #41: the branch's changesets ask plots minor (the breaking data.layout shape, which plan #30 releases as
 // a minor while the major is 0) and an explicit plots-svelte patch, which ships the widened peer range: O4 shows
 // changesets would not plan plots-svelte from the plots minor alone.
-// oracle: plan #30's #41 row and O4 (spec semver).
+// #85: two files, because changesets writes a changeset's one body into every package it bumps: the plots-svelte
+// patch has its own file, so its changelog entry does not say "Breaking".
+// oracle: plan #30's #41 and #85 rows and O4 (spec semver: a patch isn't breaking).
 test('layouts changeset asks plots minor, plots-svelte patch', () => {
-  const text = readFileSync(join(repo, '.changeset/layouts.md'), 'utf8');
-  const front = text.match(/^---\n([\s\S]*?)\n---/)?.[1];
-  assert.ok(front, '.changeset/layouts.md has no front matter');
-  const bumps = Object.fromEntries(front.split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((m) => [m[1], m[2]]));
-  assert.deepEqual(bumps, { '@eleoptics/plots': 'minor', '@eleoptics/plots-svelte': 'patch' });
+  const parse = (file) => {
+    const text = readFileSync(join(repo, '.changeset', file), 'utf8');
+    const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    assert.ok(m, `.changeset/${file} has no front matter`);
+    const bumps = Object.fromEntries(m[1].split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((r) => [r[1], r[2]]));
+    return { bumps, body: m[2] };
+  };
+  const plots = parse('layouts.md');
+  const svelte = parse('layouts-svelte-peer.md');
+  assert.deepEqual({ ...plots.bumps, ...svelte.bumps }, { '@eleoptics/plots': 'minor', '@eleoptics/plots-svelte': 'patch' });
+  assert.deepEqual(Object.keys(svelte.bumps), ['@eleoptics/plots-svelte'], 'the plots-svelte file bumps another package');
+  assert.doesNotMatch(svelte.body, /breaking/i);
+  assert.match(svelte.body, />=0\.1\.0 <1/);
 });
