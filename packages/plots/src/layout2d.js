@@ -91,7 +91,8 @@ export function layout2D(o) {
   var M = +s.toFixed(6), g = '<g transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')">';
   g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"');
   // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
-  // in a presentation attribute is not safe. The token fill stays as its fallback; "crown" and "flint" draw as before.
+  // in a presentation attribute is not safe. A style with var() is never dropped, so the fill attribute never applies to these;
+  // glassFill falls back from the band tokens to crown and flint itself. "crown" and "flint" draw as before.
   var fills = glassFill(drawnGlasses(S));
   S.forEach(function (a, i) {
     var b = S[i + 1], obj = a.glass && typeof a.glass === "object";

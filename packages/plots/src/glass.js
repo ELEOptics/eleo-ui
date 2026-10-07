@@ -1,5 +1,7 @@
 // Per-glass fills (plan #90, O1). Each fill is a CSS color built from the band tokens --glass-band-hi and
-// --glass-band-lo, so the browser resolves it per theme and a theme switch needs no redraw.
+// --glass-band-lo, so the browser resolves it per theme and a theme switch needs no redraw. Without the band tokens
+// (tokens 0.1) each end falls back to --glass-crown and --glass-flint: an undefined var() would make the style fill
+// invalid at computed-value time, and the polygon would inherit black (CR #134).
 import { esc } from './common.js';
 
 // Eight slots [mix % of --glass-band-hi, oklch chroma, hue shift in degrees], darkest first. L rises with the slot
@@ -8,7 +10,7 @@ import { esc } from './common.js';
 const SLOTS = [[0, 0.061, -12], [2, 0.089, 22], [30, 0.04, 20], [44, 0.04, -22], [46, 0.098, 1], [75, 0.089, -22], [77, 0.06, 22], [100, 0.04, -6]];
 
 const css = ([p, c, d]) =>
-  `oklch(from color-mix(in oklch, var(--glass-band-hi) ${p}%, var(--glass-band-lo)) l ${c} calc(h ${d < 0 ? '-' : '+'} ${Math.abs(d)}))`;
+  `oklch(from color-mix(in oklch, var(--glass-band-hi, var(--glass-crown)) ${p}%, var(--glass-band-lo, var(--glass-flint))) l ${c} calc(h ${d < 0 ? '-' : '+'} ${Math.abs(d)}))`;
 
 /**
  * A fill per distinct glass name: `glasses` is a layout's `{name, nd, vd}` glasses (names may repeat; the first
@@ -48,7 +50,7 @@ export function drawnGlasses(surfaces, fn = 'layout2D') {
   surfaces.forEach((s, i) => {
     const g = s.glass;
     if (g == null || g === 'crown' || g === 'flint') return;
-    if (typeof g === 'object' && typeof g.name === 'string' && g.name && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
+    if (typeof g === 'object' && typeof g.name === 'string' && g.name.trim() && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
     throw new Error(`${fn}: surface ${i} glass ${show(g)} is not crown, flint, null or {name, nd, vd}`);
   });
   return surfaces.filter((s, i) => s.glass && typeof s.glass === 'object' && surfaces[i + 1]).map((s) => s.glass);

@@ -13,7 +13,8 @@ const deltaE = differenceCiede2000();
 
 // Resolve one fill as a browser would: color-mix(in oklch, hi P%, lo) gives L and h by linear interpolation (the
 // ends' hues are close, so the shorter arc is the linear one), then the relative color sets chroma and shifts hue.
-const FILL = /^oklch\(from color-mix\(in oklch, var\(--glass-band-hi\) (\d+(?:\.\d+)?)%, var\(--glass-band-lo\)\) l ([\d.]+) calc\(h ([+-]) ([\d.]+)\)\)$/;
+// The band ends fall back to the crown and flint tokens (#135), which tokens 0.2 never reaches: it defines both ends.
+const FILL = /^oklch\(from color-mix\(in oklch, var\(--glass-band-hi, var\(--glass-crown\)\) (\d+(?:\.\d+)?)%, var\(--glass-band-lo, var\(--glass-flint\)\)\) l ([\d.]+) calc\(h ([+-]) ([\d.]+)\)\)$/;
 function resolve(fill, th) {
   const m = FILL.exec(fill);
   assert.ok(m, `fill ${fill} has the expected form`);
@@ -150,5 +151,17 @@ test('Legend kind="glass" renders one key per glass', async () => {
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Issue #135 (CR #134): with tokens 0.1 (no band tokens) an undefined var() made the style fill invalid at
+// computed-value time, so the polygon inherited black. Each band end falls back to its shorthand token.
+test('fills fall back to the crown and flint tokens', () => {
+  const twelve = Array.from({ length: 12 }, (_, i) => g(`G${i}`, 1.5 + i / 100, 20 + 5 * i));
+  for (const k of [1, 2, 5, 8, 12]) {
+    for (const [n, f] of glassFill(twelve.slice(0, k))) {
+      assert.ok(f.includes('var(--glass-band-hi, var(--glass-crown))'), `${k} glasses, ${n}: ${f} falls back to crown`);
+      assert.ok(f.includes('var(--glass-band-lo, var(--glass-flint))'), `${k} glasses, ${n}: ${f} falls back to flint`);
+    }
   }
 });

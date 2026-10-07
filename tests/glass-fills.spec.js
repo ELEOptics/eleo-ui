@@ -127,3 +127,35 @@ test('glass legend matches the drawing', async ({ page }) => {
     }
   }
 });
+
+// #135 (CR #134): with tokens 0.1 (no band tokens) a named glass drew black, the inherited fill of an invalid style.
+// tests/fixtures/glass-fills-no-band.html draws the Cooke-glasses layout with both band tokens undefined.
+// oracle: the glass-blue band above (O1); with the band ends falling back to --glass-crown and --glass-flint the fill
+// still lies in it, and it is never black
+test('named glasses without band tokens still fill in band', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await page.goto('/tests/fixtures/glass-fills-no-band.html');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  expect(errors).toEqual([]);
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+
+  const got = await page.evaluate(() => window.NO_BAND);
+  for (const theme of ['light', 'dark']) {
+    const { band, fills } = got[theme];
+    expect(band, `${theme}: the band tokens are undefined`).toBe('');
+    expect(fills, `${theme}: one polygon per lens of the Cooke triplet`).toHaveLength(3);
+    for (const fill of fills) {
+      const at = `${theme}: ${fill}`;
+      expect(fill, `${at} is not black`).not.toBe('rgb(0, 0, 0)');
+      const { l, c, h } = oklch(parse(fill));
+      const [lMin, lMax] = BAND_L[theme];
+      expect(l, `${at} oklch L`).toBeGreaterThanOrEqual(lMin - BAND_TOL);
+      expect(l, `${at} oklch L`).toBeLessThanOrEqual(lMax + BAND_TOL);
+      expect(c, `${at} oklch chroma`).toBeLessThanOrEqual(0.10 + BAND_TOL);
+      expect(h, `${at} oklch hue`).toBeGreaterThanOrEqual(225 - HUE_TOL);
+      expect(h, `${at} oklch hue`).toBeLessThanOrEqual(275 + HUE_TOL);
+    }
+  }
+});

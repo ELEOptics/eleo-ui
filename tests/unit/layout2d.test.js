@@ -601,7 +601,9 @@ test('unknown glass string throws', async () => {
     { message: `glassLegend: surface ${lens} glass {"name":"N-BK7","nd":"1n","vd":64.17} is not crown, flint, null or {name, nd, vd}` });
   // #130 (review M3 round 2 findings 2-3): a glass JSON.stringify turns into undefined prints as String(glass), never
   // "undefined"; an empty name is not a name.
-  for (const [glass, shown] of [[() => 1, '() => 1'], [Symbol('x'), 'Symbol(x)'], [{ toJSON() {} }, '[object Object]'], [{ ...BK7, name: '' }, JSON.stringify({ ...BK7, name: '' })]]) {
+  for (const [glass, shown] of [[() => 1, '() => 1'], [Symbol('x'), 'Symbol(x)'], [{ toJSON() {} }, '[object Object]'], [{ ...BK7, name: '' }, JSON.stringify({ ...BK7, name: '' })],
+    // #135 (review M3 round 3 finding 3): a whitespace-only name is not a name either.
+    [{ ...BK7, name: ' ' }, JSON.stringify({ ...BK7, name: ' ' })]]) {
     for (const fn of ['layout2D', 'glassLegend']) {
       assert.throws(() => (fn === 'layout2D' ? ELEO.layout2D({ data: withGlass(glass) }) : glassLegend(withGlass(glass))),
         { message: `${fn}: surface ${lens} glass ${shown} is not crown, flint, null or {name, nd, vd}` }, `${fn}, glass ${shown}`);
