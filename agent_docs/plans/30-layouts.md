@@ -176,7 +176,7 @@ Demo:
 
 - A new gallery tile, `layout2D-shared`, draws the merit singlet before and after at one scale, with the fields labelled 0°, 12° and 24° at the image.
 - The invocation: `layout2D({ data: before, box: layoutBounds([before, after]), labels: ['0°','12°','24°'], marks: false })` returns one `<svg>` whose `<g transform="matrix(s 0 0 -s tx ty)">` is identical for both drawings.
-- `npm run check` type-checks the new props.
+- `npm run test:unit` type-checks `labels` under `tsc --strict` (`types.test.js`); `npm run check` type-checks the Svelte wrapper.
 
 Proves: O2.
 
@@ -192,9 +192,10 @@ Proves: O2.
 | #65 | Review M2 findings 2 and 4: a bad box, layoutBounds input or labels is named | named errors like #52/#55/#58, because box is public since #35 | `packages/plots/src/layout2d.js` | `::a bad box is named`, `::layoutBounds names a bad input`, `::labels must be an array` | #64 |
 | #66 | Review M2 findings 5 and 6: test comments name SAMPLE_BOX and the label-room rule | forced (stale comment; an oracle line must cite its bound) | `tests/unit/layout2d.test.js` | comments only | #65 |
 | #67 | Review M2 round 2 findings 2-3: labels match fans; layoutBounds names a bad fan or ray; a falsy box is checked | named errors like #65, because layoutBounds is called directly on fetched JSON (the gallery) | `packages/plots/src/layout2d.js` | `::labels at the image`, `::layoutBounds names a bad input`, `::a bad box is named` cases | #66 |
-| #72 | From CR #71: `labels`' type and README name the null-skip and too-many rules | forced (CR #71: type and doc stale after #67) | `packages/plots/src/index.d.ts`, `packages/plots/README.md` | `npm run check` on a null label | #67 |
+| #72 | From CR #71: `labels`' type and README name the null-skip and too-many rules | forced (CR #71: type and doc stale after #67) | `packages/plots/src/index.d.ts`, `packages/plots/README.md`, `tests/types/layout2d-labels.ts`, `tests/unit/types.test.js` | `types.test.js::layout2D labels type-checks null entries under --strict` | #67 |
 | #68 | Review M2 round 2 finding 5: IMA's 14 px gap names its source | forced (an oracle line cites its bound, #66's rule) | `packages/plots/src/layout2d.js` | existing marks-on assertion | #67 |
 | #69 | Review M2 round 2 finding 6: a missing merit fixture fails one gallery tile, not all | a catch before draw, because one fixture must not blank 15 other tiles; considered retrying the fetch | `gallery/index.html` | `gallery.spec.js` 404 case | #68 |
+| #73 | Review M2 round 3 finding 3: the labels error names the null entries the type allows | forced (the message must match `index.d.ts`) | `packages/plots/src/layout2d.js` | `::labels must be an array` | #72 |
 
 ### M3: standalone entry and a release that plans right. GitHub: `P30 M3: eleo-layout.js and release`
 
@@ -215,7 +216,7 @@ Proves: O3, O4.
 | #28 reuse | Bump `@changesets/cli`; add root `overrides` only if `npm audit` still reports. Re-check #21's option against the new config validator. The root README says `npm audit --omit=dev` is what ships | bump first because it removes rather than pins (round 2, user); considered overrides only | `package.json`, `package-lock.json`, root README line | `npm audit` 0 (stop condition); `release.test.js` still green | #21 |
 | #41 | `.changeset/layouts.md`: plots minor, with the breaking `data.layout` shape and its migration; plots-svelte patch, naming the widened peer range. #27's last lines (`packages/plots/README.md:21`, `Layout3D.svelte:1`) | forced (`workflow.md`, TDD; the release needs a changeset). The #27 lines ride here because this item touches tests and the hook needs that | `.changeset/layouts.md`, `packages/plots/README.md`, `packages/plots-svelte/src/lib/Layout3D.svelte`; `tests/unit/release.test.js` (asserts the changeset's bump types) | O3, O4 green | #40, #21, #28 |
 
-34 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
+35 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
 
 ## Risks and spikes
 
@@ -250,3 +251,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 (user): #63's constant 15 px label room accepted; the sample tiles are 12 px taller than main (was 5 px).
 - 2026-10-06 headless: M2 review round 2, 0 blocking. Backlog #67, #68, #69 into M2 (row: milestone acceptance within the plan); #70 plain issue; findings 1 and 7 (plan text) fixed here.
 - 2026-10-06 headless: CR #71 accepted (stale type and doc after #67; row: Split, CR triage, commit order, wave dispatch). New item #72 in M2.
+- 2026-10-06 headless: M2 review round 3, 0 blocking. Backlog #73 into M2 (row: milestone acceptance within the plan); the bad-point finding is a plain issue (two fixes); finding 1 (plan text) fixed here. Round 4's findings stay plain issues.
