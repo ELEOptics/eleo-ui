@@ -1,4 +1,5 @@
 // Per-glass fills in layout2D (plan #90). Run after `npm run build`.
+import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { differenceCiede2000, oklch, parse } from 'culori';
 
@@ -77,6 +78,52 @@ test('glass fills are distinct, stable and ordered', async ({ page }) => {
       const allowed = [tokens[theme].crown, tokens[theme].flint];
       expect(byTheme[theme].length, `${name} ${theme}: lenses drawn`).toBeGreaterThan(0);
       for (const f of byTheme[theme]) expect(allowed, `${name} ${theme}: fill ${f} is a glass token`).toContain(f);
+    }
+  }
+});
+
+// O2 (plan #90): the gallery's Cooke-glasses tile (data-tile="layout2D-glasses", fixture
+// tests/fixtures/layouts/analysis-glasses.json) gets a footer legend from ELEO.glassLegend(layout) (#100), hooked up
+// by #102 as `<div class="eleo-plot__ft eleo-legend" data-legend="glass">`, like the other tiles' ELEO.legend(kind).
+// Markup contract for glassLegend (#100 follows it), in the shape of legend()'s keys in renderers.js:
+//   one `<span class="eleo-key eleo-key--swatch" style="--c:<fill>"><name></span>` per distinct glass, in order of
+//   first use, nothing else in the legend. The swatch is the key's ::before (plots.css .eleo-key--swatch, background
+//   var(--c)); the key's trimmed text is the glass name.
+// Lens polygons are the tile's polygon[stroke="var(--glass-edge)"], one per glass surface in surface order.
+// oracle: property roadmap U12: legend swatch fills equal the polygon fills of the same glass; names once each, in first-use order
+test.skip('glass legend matches the drawing', { annotation: { type: 'issue', description: '#99: unskipped by #102' } }, async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(errors).toEqual([]);
+
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/layouts/analysis-glasses.json', import.meta.url), 'utf8'));
+  const lensNames = fixture.surfaces.filter((s) => s.glass && typeof s.glass === 'object').map((s) => s.glass.name);
+  const firstUse = [...new Set(lensNames)];
+  expect(firstUse, 'the fixture is the Cooke triplet').toEqual(['N-SK16', 'F2']);
+
+  for (const theme of ['light', 'dark']) {
+    const tile = page.locator(`.theme[data-theme="${theme}"] [data-tile="layout2D-glasses"]`);
+    await expect(tile, `${theme}: one Cooke-glasses tile`).toHaveCount(1);
+    const legend = tile.locator('[data-legend="glass"]');
+    await expect(legend, `${theme}: glass legend`).toHaveCount(1);
+
+    const polyFills = await tile.locator('polygon[stroke="var(--glass-edge)"]').evaluateAll((els) => els.map((el) => getComputedStyle(el).fill));
+    expect(polyFills, `${theme}: one polygon per lens`).toHaveLength(lensNames.length);
+    const fillOf = new Map();
+    lensNames.forEach((n, i) => { if (!fillOf.has(n)) fillOf.set(n, polyFills[i]); });
+
+    const keys = await legend.locator('.eleo-key').evaluateAll((els) => els.map((el) => ({
+      name: el.textContent.trim(),
+      swatch: el.classList.contains('eleo-key--swatch'),
+      fill: getComputedStyle(el, '::before').backgroundColor,
+    })));
+    expect(keys.map((k) => k.name), `${theme}: names once each, in first-use order`).toEqual(firstUse);
+    for (const k of keys) {
+      expect(k.swatch, `${theme}: ${k.name} key is a swatch`).toBe(true);
+      expect(k.fill, `${theme}: ${k.name} swatch fill equals its lenses' polygon fill`).toBe(fillOf.get(k.name));
     }
   }
 });
