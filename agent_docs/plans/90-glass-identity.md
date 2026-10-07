@@ -223,3 +223,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 review M3 round 2: 0 blocking; headless: backlog #130, #131 into M3 (row: milestone acceptance within the plan); #132, #133 left as plain issues (necessity, optional).
 - 2026-10-06: #130 and #131 ran in parallel (#131 in a worktree, then cherry-picked) despite `Parallel waves: off`. Their files were disjoint, and the full gate is green on the result.
 - 2026-10-06 review M3 round 3: 1 blocking, filed as CR #134 (fills render black with tokens 0.1; my release note was wrong), accepted as #135 with findings 2 and 3; #136, #137 plain issues.
+- 2026-10-06 review M3 round 4: 0 blocking; findings stay plain issues (#138, #139, #140; 4 and 5 duplicate #132, #133). headless: M3 accepted, O3's oracles are spec and fixture (row: milestone acceptance within the plan).
