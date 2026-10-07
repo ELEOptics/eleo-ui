@@ -83,6 +83,21 @@ test('classic build exposes the sample', async ({ page }) => {
   expect(await page.evaluate(() => window.ELEO.sample?.zimg)).toBe(zimg);
 });
 
+// Plan #90, #129: iife.js's merge branch. With eleo-layout.js loaded first, window.ELEO already exists, so
+// eleo-plots.js merges into it; eleo-plots-sample.js then leaves window.ELEO.sample set, read through the merged
+// object. oracle: fixture packages/plots/src/sample.json's zimg
+test('classic entries merge and expose the sample', async ({ page }) => {
+  const { zimg } = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url)));
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/tests/fixtures/classic-merge.html');
+  expect(errors).toEqual([]);
+  const scripts = await page.evaluate(() => [...document.scripts].map((s) => new URL(s.src).pathname));
+  expect(scripts).toEqual(['/packages/plots/dist/eleo-layout.js', '/packages/plots/dist/eleo-plots.js', '/packages/plots/dist/eleo-plots-sample.js']);
+  expect(await page.evaluate(() => ({ layout2D: typeof window.ELEO.layout2D, spot: typeof window.ELEO.spot }))).toEqual({ layout2D: 'function', spot: 'function' });
+  expect(await page.evaluate(() => window.ELEO.sample?.zimg)).toBe(zimg);
+});
+
 // O3 (plan #30): eleo-layout.js loads alone and draws. oracle: property: the entry loads in a page with no
 // other ELEO script and draws U3's fixtures. The page loads only tokens.css and the entry, draws each
 // tests/fixtures/layouts/*.json into an element marked data-fixture="<name>", then sets body[data-ready]:

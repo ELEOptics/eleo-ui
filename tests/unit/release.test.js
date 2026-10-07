@@ -81,7 +81,9 @@ test('a plots minor leaves plots-svelte unplanned and its peer range kept', () =
 // `>=0.1.0 <1`, both tokens peers survive `changeset version` and every package goes exactly one minor.
 // oracle: spec semver (a 0.x minor stays inside `<1`), plan #90 Constraints.
 test('tokens peers survive version', () => {
-  const minor = (v) => v.replace(/^0\.(\d+)\.\d+$/, (_, m) => `0.${Number(m) + 1}.0`);
+  const minor = (v) => v.replace(/^(\d+)\.(\d+)\.\d+$/, (_, M, m) => `${M}.${Number(m) + 1}.0`);
+  // the helper itself, past 0.x (review M3 finding 5): a 1.x minor is 1.(m+1).0, not the version unchanged
+  assert.deepEqual(['0.1.4', '1.2.3'].map(minor), ['0.2.0', '1.3.0']);
   const dirs = ['plots', 'plots-svelte', 'tokens'];
   withWorkspace(Object.fromEntries(dirs.map((d) => [manifest(d).name, 'minor'])), (ws) => {
     run(ws, process.execPath, [changeset, 'version']);
