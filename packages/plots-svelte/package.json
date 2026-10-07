@@ -1,6 +1,6 @@
 {
   "name": "@eleoptics/plots-svelte",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Svelte 5 components for @eleoptics/plots: PlotCard, Layout2D, Map2D, SpotDiagram and more, redrawn on a theme or palette change.",
   "type": "module",
   "license": "MIT",
