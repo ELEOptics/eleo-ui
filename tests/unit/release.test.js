@@ -180,7 +180,8 @@ const entry = (dir, re) => {
 
 test('layouts changeset became a plots minor and a plots-svelte patch', { skip: !consumed && 'changesets not yet versioned' }, () => {
   const plots = entry('plots', /data\.layout/);
-  const svelte = entry('plots-svelte', />=0\.1\.0 <1/);
+  // The plots peer by name: later entries widen other peers to the same range (tokens, in 0.2.0).
+  const svelte = entry('plots-svelte', /`@eleoptics\/plots` peer range to `>=0\.1\.0 <1`/);
   assert.equal(plots.kind, 'Minor');
   assert.equal(svelte.kind, 'Patch');
   assert.doesNotMatch(svelte.text, /breaking/i);
