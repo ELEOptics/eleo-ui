@@ -72,20 +72,55 @@ test('a plots minor leaves plots-svelte unplanned and its peer range kept', () =
 // token only from its `github-token` input, not the GITHUB_TOKEN env.
 // oracle: url https://github.com/changesets/action/tree/v2#api (the v2 README's inputs table; action.yml at
 // tag v2 lists the same names).
-// Read as text: no YAML parser is a direct dependency, and the step's block is all this needs.
-test('release workflow uses changesets/action v2 inputs', () => {
-  const lines = readFileSync(join(repo, '.github/workflows/release.yml'), 'utf8').split('\n');
-  const start = lines.findIndex((l) => /^\s*- uses: changesets\/action@/.test(l));
-  assert.notEqual(start, -1, 'release.yml has no changesets/action step');
-  const indent = lines[start].indexOf('-');
-  const end = lines.findIndex((l, i) => i > start && l.trim() && l.search(/\S/) <= indent);
-  const step = lines.slice(start, end === -1 ? undefined : end);
-  const keys = step.slice(1).map((l) => l.match(/^\s*([\w-]+):/)?.[1]).filter(Boolean);
+// Read as text: no YAML parser is a direct dependency, and the jobs' and steps' blocks are all this needs.
+const workflow = () => readFileSync(join(repo, '.github/workflows/release.yml'), 'utf8').split('\n');
 
-  assert.match(step[0], /changesets\/action@v2\s*$/);
-  for (const input of ['version-script', 'publish-script', 'github-token']) assert.ok(keys.includes(input), `no ${input} input`);
-  for (const old of ['version', 'publish']) assert.ok(!keys.includes(old), `v1 input ${old}: is still set`);
-  assert.match(step.find((l) => /^\s*github-token:/.test(l)), /\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/);
+// The lines from `start` up to the next non-blank line indented no deeper than it.
+const block = (lines, start) => {
+  const indent = lines[start].search(/\S/);
+  const end = lines.findIndex((l, i) => i > start && l.trim() && l.search(/\S/) <= indent);
+  return lines.slice(start, end === -1 ? undefined : end);
+};
+const keysOf = (lines) => lines.slice(1).map((l) => l.match(/^\s*([\w-]+):/)?.[1]).filter(Boolean);
+const job = (lines, name) => {
+  const start = lines.findIndex((l) => new RegExp(`^  ${name}:\\s*$`).test(l));
+  assert.notEqual(start, -1, `release.yml has no ${name} job`);
+  return block(lines, start).filter((l) => !/^\s*#/.test(l));
+};
+
+test('release workflow uses changesets/action v2 inputs', () => {
+  const lines = workflow();
+  const steps = lines.flatMap((l, i) => (/^\s*- uses: changesets\/action@/.test(l) ? [block(lines, i)] : []));
+  assert.notEqual(steps.length, 0, 'release.yml has no changesets/action step');
+  for (const step of steps) {
+    const keys = keysOf(step);
+    assert.match(step[0], /changesets\/action@v2\s*$/);
+    for (const old of ['version', 'publish']) assert.ok(!keys.includes(old), `v1 input ${old}: is still set`);
+    assert.match(step.find((l) => /^\s*github-token:/.test(l)) ?? '', /\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/);
+  }
+  const keys = steps.flatMap(keysOf);
+  for (const input of ['version-script', 'publish-script']) assert.ok(keys.includes(input), `no ${input} input`);
+});
+
+// Only the publish job may mint an OIDC token, and it runs in the `npm` environment, whose required reviewer
+// gates every publish; npm's trusted publisher for each package names that environment, so a publish from
+// any other job or environment is refused. The version job's step finds an unpublished version.
+// oracle: url https://docs.npmjs.com/trusted-publishers/ (the environment field) and
+// https://docs.github.com/actions/reference/workflows-and-actions/workflow-syntax (jobs.<id>.environment,
+// jobs.<id>.if, jobs.<id>.outputs).
+test('release workflow publishes only from the npm environment', () => {
+  const lines = workflow();
+  const version = job(lines, 'version');
+  const publish = job(lines, 'publish');
+  const top = lines.slice(0, lines.findIndex((l) => /^jobs:/.test(l)));
+  assert.ok(!top.some((l) => /id-token/.test(l)), 'id-token is granted to every job');
+  assert.ok(!version.some((l) => /id-token|environment:/.test(l)), 'the version job can mint an OIDC token');
+  assert.ok(!version.some((l) => /publish-script:/.test(l)), 'the version job publishes');
+  assert.ok(publish.some((l) => /^\s+environment:\s*npm\s*$/.test(l)), 'the publish job is not in the npm environment');
+  assert.ok(publish.some((l) => /^\s+id-token:\s*write\s*$/.test(l)), 'the publish job has no id-token: write');
+  assert.ok(publish.some((l) => /^\s+needs:\s*version\s*$/.test(l)));
+  assert.ok(publish.some((l) => /^\s+if:\s*needs\.version\.outputs\.publish == 'true'\s*$/.test(l)), 'the publish job runs on every push');
+  assert.ok(version.some((l) => /publish:\s*\$\{\{\s*steps\.unpublished\.outputs\.publish\s*\}\}/.test(l)));
 });
 
 // #41: the branch's changesets ask plots minor (the breaking data.layout shape, which plan #30 releases as

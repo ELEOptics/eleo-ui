@@ -67,7 +67,7 @@ To try an unpublished change in another project, link it: `npm link` in `package
 
 ## Release
 
-Releases run from GitHub Actions (`.github/workflows/release.yml`). Merging to main opens a "Version packages" PR from the pending changesets; merging that PR publishes the new versions to npm through trusted publishing, with provenance and no stored token.
+Releases run from GitHub Actions (`.github/workflows/release.yml`). Merging to main opens a "Version packages" PR from the pending changesets; merging that PR starts a publish that waits for a required reviewer's approval in the `npm` environment, then publishes the new versions to npm through trusted publishing, with provenance and no stored token. Each package's trusted publisher on npmjs.com names `release.yml` and the `npm` environment; a new one expires unless it publishes within 48 hours, so add it on the day that package's release merges.
 
 ## License
 
