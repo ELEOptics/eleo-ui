@@ -341,7 +341,7 @@ test('labels must be an array', () => {
   const L = fixture('tolerance');
   for (const labels of ['0°', 3, { 0: 'a' }]) {
     assert.throws(() => ELEO.layout2D({ data: L, labels }),
-      { message: 'layout2D: labels must be an array of strings' }, `labels ${JSON.stringify(labels)}`);
+      { message: 'layout2D: labels must be an array (a string or null per fan)' }, `labels ${JSON.stringify(labels)}`);
   }
 });
 

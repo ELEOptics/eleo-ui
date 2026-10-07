@@ -57,7 +57,7 @@ export function layout2D(o) {
     fan.forEach(function (r, i) { if (!Array.isArray(r) || !r.length) throw new Error("layout2D: fan " + k + " ray " + i + " has no points"); });
   });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
-  if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array of strings");
+  if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
   var B = o.box != null ? o.box : layoutBounds([L]);
