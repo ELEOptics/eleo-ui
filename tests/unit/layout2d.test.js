@@ -559,7 +559,7 @@ test('layoutBounds names a bad input: a non-finite point, a surface with no prof
 // Plan #90, O3, #60: a glass is null, "crown", "flint" or {name, nd, vd} (a string name, finite nd and vd). Anything
 // else is named, in the drawing and in the legend (drawnGlasses holds the object check both share; review M2 finding 3).
 // oracle: spec the recorded format's glass domain null | "crown" | "flint", plus plan #90's {name, nd, vd}
-test('unknown glass string throws', { skip: '#103: unskipped by #60' }, async () => {
+test('unknown glass string throws', async () => {
   const { glassLegend } = await import('../../packages/plots/src/glass.js');
   const L = fixture('tolerance');
   const lens = L.surfaces.findIndex((s) => s.glass);

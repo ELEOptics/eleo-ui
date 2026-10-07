@@ -1,5 +1,6 @@
 // Per-glass fills (plan #90, O1). Each fill is a CSS color built from the band tokens --glass-band-hi and
 // --glass-band-lo, so the browser resolves it per theme and a theme switch needs no redraw.
+import { esc } from './common.js';
 
 // Eight slots [mix % of --glass-band-hi, oklch chroma, hue shift in degrees], darkest first. L rises with the slot
 // (it is the mix's L), and hue and chroma alternate so that any two slots are ΔE2000 ≥ 10 apart in both themes
@@ -30,14 +31,21 @@ export function glassFill(glasses) {
 
 /**
  * The glasses a layout draws, in surface order with repeats: a {name, nd, vd} glass on a surface that has a next
- * surface (layout2D's lens polygons). Shorthand "crown"/"flint" and null are left out.
+ * surface (layout2D's lens polygons). Shorthand "crown"/"flint" and null are left out. Any other glass, on any surface,
+ * throws `<fn>: surface i glass <json> is not crown, flint, null or {name, nd, vd}`; `fn` names the caller
+ * (layout2D, the drawing, unless told otherwise).
  * @param {{glass: *}[]} surfaces
+ * @param {string} [fn]
  */
-export function drawnGlasses(surfaces) {
+export function drawnGlasses(surfaces, fn = 'layout2D') {
+  surfaces.forEach((s, i) => {
+    const g = s.glass;
+    if (g == null || g === 'crown' || g === 'flint') return;
+    if (typeof g === 'object' && typeof g.name === 'string' && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
+    throw new Error(`${fn}: surface ${i} glass ${JSON.stringify(g)} is not crown, flint, null or {name, nd, vd}`);
+  });
   return surfaces.filter((s, i) => s.glass && typeof s.glass === 'object' && surfaces[i + 1]).map((s) => s.glass);
 }
-
-const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 /**
  * Legend keys for a layout's glasses: one swatch key per distinct drawn glass, in first-use order, filled as
@@ -51,6 +59,6 @@ export function glassLegend(data) {
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) {
     throw new Error('glassLegend: data is not a recorded layout ({surfaces, rays}) or a system carrying one in layout or layoutWl');
   }
-  const glasses = drawnGlasses(L.surfaces), fills = glassFill(glasses);
+  const glasses = drawnGlasses(L.surfaces, 'glassLegend'), fills = glassFill(glasses);
   return [...new Set(glasses.map((g) => g.name))].map((n) => `<span class="eleo-key eleo-key--swatch" style="--c:${fills.get(n)}">${esc(n)}</span>`).join('');
 }

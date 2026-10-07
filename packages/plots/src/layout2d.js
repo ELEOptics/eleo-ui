@@ -1,11 +1,9 @@
 // layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus an optional `chief`):
 // {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41]}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
 // Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text, the chief dot and the scale bar in px.
-import { idx, svg, NS } from './common.js';
+import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
 
-// A caller's label, as SVG text.
-function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 // The fan's chief ray: `chief[k]` when recorded, else the middle ray (the site's rule; wrong for a vignetted fan).
 function chiefOf(L, k) {
   var c = L.chief && L.chief[k];
