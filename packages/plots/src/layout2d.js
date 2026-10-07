@@ -61,7 +61,11 @@ export function layout2D(o) {
   if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
   L.rays.forEach(function (fan, k) {
     if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays");
-    fan.forEach(function (r, i) { if (!Array.isArray(r) || !r.length) throw new Error("layout2D: fan " + k + " ray " + i + " has no points"); });
+    fan.forEach(function (r, i) {
+      if (!Array.isArray(r) || !r.length) throw new Error("layout2D: fan " + k + " ray " + i + " has no points");
+      // A box skips layoutBounds, which names a non-finite point; without one, layoutBounds names it first.
+      if (o.box != null && !r.every(finitePoint)) throw new Error("layout2D: fan " + k + " ray " + i + " has a non-finite point");
+    });
   });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");

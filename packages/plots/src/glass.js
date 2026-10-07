@@ -29,6 +29,12 @@ export function glassFill(glasses) {
   )]));
 }
 
+// A glass as JSON for the error message, safe for what JSON.stringify throws on: a BigInt shows as 1n, a cycle as String(g).
+function show(g) {
+  if (typeof g === 'bigint') return `${g}n`;
+  try { return JSON.stringify(g, (_, v) => (typeof v === 'bigint' ? `${v}n` : v)); } catch { return String(g); }
+}
+
 /**
  * The glasses a layout draws, in surface order with repeats: a {name, nd, vd} glass on a surface that has a next
  * surface (layout2D's lens polygons). Shorthand "crown"/"flint" and null are left out. Any other glass, on any surface,
@@ -42,7 +48,7 @@ export function drawnGlasses(surfaces, fn = 'layout2D') {
     const g = s.glass;
     if (g == null || g === 'crown' || g === 'flint') return;
     if (typeof g === 'object' && typeof g.name === 'string' && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
-    throw new Error(`${fn}: surface ${i} glass ${JSON.stringify(g)} is not crown, flint, null or {name, nd, vd}`);
+    throw new Error(`${fn}: surface ${i} glass ${show(g)} is not crown, flint, null or {name, nd, vd}`);
   });
   return surfaces.filter((s, i) => s.glass && typeof s.glass === 'object' && surfaces[i + 1]).map((s) => s.glass);
 }

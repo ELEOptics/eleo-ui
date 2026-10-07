@@ -335,6 +335,10 @@ test('layoutBounds names a bad input', () => {
     assert.throws(() => ELEO.layout2D({ data: { ...L, rays: [L.rays[0], [[], ...L.rays[1].slice(1)]] }, box }),
       { message: 'layout2D: fan 1 ray 0 has no points' }, `box ${JSON.stringify(box)}`);
   }
+  // #127 (review M3 finding 1): a box skips layoutBounds, so layout2D names a non-finite point itself instead of drawing NaN.
+  const nanRay = [...L.rays[1][0].slice(0, -1), [NaN, 0]];
+  assert.throws(() => ELEO.layout2D({ data: { ...L, rays: [L.rays[0], [nanRay, ...L.rays[1].slice(1)]] }, box: layout2dModule.layoutBounds([L]) }),
+    { message: 'layout2D: fan 1 ray 0 has a non-finite point' });
 });
 
 test('labels must be an array', () => {
@@ -578,6 +582,11 @@ test('unknown glass string throws', async () => {
     assert.throws(() => ELEO.layout2D({ data: withGlass(glass) }), { message: named('layout2D', glass) }, `layout2D, glass ${JSON.stringify(glass)}`);
     assert.throws(() => glassLegend(withGlass(glass)), { message: named('glassLegend', glass) }, `glassLegend, glass ${JSON.stringify(glass)}`);
   }
+  // #127 (review M3 finding 4): a glass JSON.stringify can't serialize still gets the named error, not its TypeError.
+  assert.throws(() => ELEO.layout2D({ data: withGlass(1n) }),
+    { message: `layout2D: surface ${lens} glass 1n is not crown, flint, null or {name, nd, vd}` });
+  assert.throws(() => glassLegend(withGlass({ ...BK7, nd: 1n })),
+    { message: `glassLegend: surface ${lens} glass {"name":"N-BK7","nd":"1n","vd":64.17} is not crown, flint, null or {name, nd, vd}` });
   for (const glass of [null, 'crown', 'flint', BK7]) {
     assert.doesNotThrow(() => ELEO.layout2D({ data: withGlass(glass) }), `layout2D draws glass ${JSON.stringify(glass)}`);
     assert.doesNotThrow(() => glassLegend(withGlass(glass)), `glassLegend keys glass ${JSON.stringify(glass)}`);
