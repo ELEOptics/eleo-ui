@@ -50,7 +50,8 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 
 // O3 (plan #30): eleo-layout.js loads alone and draws. oracle: property: the entry loads in a page with no
 // other ELEO script and draws U3's fixtures. The page loads only tokens.css and the entry, draws each
-// tests/fixtures/layouts/*.json into an element marked data-fixture="<name>", then sets body[data-ready].
+// tests/fixtures/layouts/*.json into an element marked data-fixture="<name>", then sets body[data-ready]:
+// "true", or "error" after logging a failed fixture. Errors are asserted first so a failure prints its text.
 const layoutFixtures = readdirSync(new URL('./fixtures/layouts/', import.meta.url))
   .filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')).sort();
 
@@ -59,8 +60,9 @@ test('standalone layout entry', async ({ page }) => {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.goto('/tests/fixtures/standalone-layout.html');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
   expect(errors).toEqual([]);
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
 
   const assets = await page.evaluate(() => ({
     scripts: [...document.scripts].filter((s) => s.src).map((s) => new URL(s.src).pathname),

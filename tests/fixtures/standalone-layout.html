@@ -25,6 +25,7 @@
       document.body.dataset.ready = 'true';
     }).catch(function (e) {
       console.error('standalone-layout:', e);
+      document.body.dataset.ready = 'error';
     });
   </script>
 </body>
