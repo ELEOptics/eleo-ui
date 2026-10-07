@@ -175,6 +175,7 @@ plans plots and plots-svelte minors and a tokens minor. Proves: O3
 | #129 | Tests: `iife.js` merge branch; release `minor` helper for 1.x | tests only (review M3 findings 3 and 5) | none | `tests/gallery.spec.js::classic entries merge and expose the sample`, `tests/unit/release.test.js::tokens peers survive version` | #104 |
 | #130 | Named errors for profile points, unprintable glasses, empty names | extend the existing guards because they are the same family one level down (review M3 round 2 findings 1-3); considered leaving them to row D's recorder (no producer validates) | `packages/plots/src/layout2d.js`, `packages/plots/src/glass.js` | `tests/unit/layout2d.test.js::layoutBounds names a bad input`, `::unknown glass string throws` | #129 |
 | #131 | Gallery survives a missing sample script | null `SAMPLE_BOX` because the merit and glasses tiles already guard their data that way (finding 4); considered pinning `ZIMG` again (#47 removed it) | `gallery/index.html` | `tests/gallery.spec.js::a missing sample script blanks only the sample tiles` | #129 |
+| #135 | From CR #134: band tokens fall back to crown and flint; the changeset lists every named error; whitespace names rejected | `var()` fallbacks because they keep tokens 0.2 output byte-identical and give tokens 0.1 a real fill; considered a 0.2 peer floor (npm ci conflicts before the version) | `packages/plots/src/glass.js`, `.changeset/glass-identity.md` | `tests/unit/glass.test.js::fills fall back to the crown and flint tokens` | #131 |
 
 ### M4: phos on layout2D GitHub: `P90 M4: phos on layout2D`
 
@@ -221,3 +222,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 review M3 round 1: 0 blocking; headless: backlog #127, #128, #129 into M3 (row: milestone acceptance within the plan).
 - 2026-10-06 review M3 round 2: 0 blocking; headless: backlog #130, #131 into M3 (row: milestone acceptance within the plan); #132, #133 left as plain issues (necessity, optional).
 - 2026-10-06: #130 and #131 ran in parallel (#131 in a worktree, then cherry-picked) despite `Parallel waves: off`. Their files were disjoint, and the full gate is green on the result.
+- 2026-10-06 review M3 round 3: 1 blocking, filed as CR #134 (fills render black with tokens 0.1; my release note was wrong), accepted as #135 with findings 2 and 3; #136, #137 plain issues.
