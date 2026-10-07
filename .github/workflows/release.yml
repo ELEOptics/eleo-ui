@@ -42,8 +42,8 @@ jobs:
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
       # v2 for changesets CLI 3 (v1 tags nothing under it). v2 reads the token only from github-token.
       # No publish-script: publishing is the `publish` job's.
-      - id: changesets
-        uses: changesets/action@v2
+      - uses: changesets/action@v2
+        id: changesets
         with:
           version-script: npm run version
           github-token: ${{ secrets.GITHUB_TOKEN }}
