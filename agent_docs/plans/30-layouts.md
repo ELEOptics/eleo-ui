@@ -221,8 +221,9 @@ Proves: O3, O4.
 | #83 | M3 review finding 2: O4 proves the peer range (plots-svelte unplanned, range kept) | the user approved tightening O4, because on changesets 3 "not a major" passes on the old caret too | `tests/unit/release.test.js` | O4 red on a caret variant | #82 |
 | #84 | M3 review finding 3: the standalone page reports a failed fixture; O3 prints it | the user approved, because a timeout hides the error | `tests/fixtures/standalone-layout.html`, `tests/gallery.spec.js` | O3 on a 404 variant | #83 |
 | #85 | M3 review round 2 finding 1: one changeset per package, so plots-svelte's patch isn't called breaking | two files because changesets writes one body into every package's changelog; considered one file with neutral wording, which hides the breaking change from plots | `.changeset/layouts.md`, `.changeset/layouts-svelte-peer.md`, `tests/unit/release.test.js` | `::layouts changeset asks plots minor, plots-svelte patch` | #84 |
+| #87 | M3 review round 3 finding 1: the #85 test fails if layouts.md bumps plots-svelte again | forced (the test didn't enforce #85's invariant) | `tests/unit/release.test.js` | red on a temp copy re-adding the bump | #85 |
 
-41 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
+42 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
 
 ## Risks and spikes
 
@@ -265,3 +266,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: M3 review round 1, 1 blocking: CR #81 accepted (documents the user's 0.x rule; row: Split, CR triage, commit order, wave dispatch), item #82.
 - 2026-10-06 (user): O4 tightened (#83) and O3's failure reporting fixed (#84), both pulled into M3.
 - 2026-10-06 headless: M3 review round 2, 0 blocking. Backlog #85 into M3 (row: milestone acceptance within the plan); the github-token nit is a plain issue.
+- 2026-10-06 headless: M3 review round 3, 0 blocking. Backlog #87 into M3 (row: milestone acceptance within the plan). Round 4's findings stay plain issues.
