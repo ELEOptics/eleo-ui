@@ -68,7 +68,7 @@ renderers and are independent of each other after D; H and I follow them (they t
 
 | Row | Plan | Scope | Exit criterion | Status |
 | -- | -- | -- | -- | -- |
-| C | | Glass identity: `glass` takes `{name, nd, vd}`, a fill per glass on the glass-map rule, a glass legend, a committed table of public catalog glasses, in `layout2D` and its Svelte wrapper. Then phos switches its 2D layout to `layout2D` (adapter in phos). | U12 passes; the website's crown and flint layouts unchanged; phos's `render2d.ts` deleted. | later |
+| C | | Glass identity: `glass` takes `{name, nd, vd}`, a fill per glass on the glass-map rule, a glass legend, a committed table of public catalog glasses, in `layout2D` and its Svelte wrapper. Absorbs the recorded-data validation B deferred ([#60], [#74], [#75]: this row replaces the glass string and edits their checks in `layout2d.js`), [#76] (gallery merit tile blanks on a rejected fixture) and [#47] (classic build's `ELEO.sample` stays null; the gallery pins `ZIMG` because of it). Then phos switches its 2D layout to `layout2D` (adapter in phos). | U12 passes; the website's crown and flint layouts unchanged; phos's `render2d.ts` deleted. | next |
 | D | | First item: split `renderers.js` into one module per renderer plus a typed data module, and capture the gallery's Playwright screenshots as the baseline. Then `scripts/record-phos-core.py` (phos-core's Python client; the legacy REST client for results the uniffi client lacks), the ADR (boundary, styling rule, why not Observable Plot), the source lint, and `curve` generic; the gallery builds MTF, field curvature and distortion from recorded results. | U5 passes; U6 passes for MTF, field curvature, distortion. | later |
 | E | | Fans as paneled curves (`rayFan` a thin wrapper), the cumulative probability curve, `spot` on typed points (spot, footprint). | U6 and U7 pass. | later |
 | F | | `map2D` on typed grids (masks, log, diverging); wavefront, PSF, irradiance tiles. | U8 passes. | later |
@@ -130,6 +130,7 @@ coverage table). Each row names the plan that delivers it.
 
 One bullet per entry (bare lines render as one paragraph).
 
+- 2026-10-06 next (director): C (glass identity) next, the order as written; row B and its release (plots 0.2.0 on npm) are done. Absorbs [#60], [#74], [#75] (validating recorded data, deferred by plan #30 for one later row; C rewrites the glass field they check), [#76] and [#47] (gallery fixes in files C touches). Runner-up: D (module split and `curve`), independent of C but the roadmap orders C first so phos can drop `render2d.ts`. 2 issues deferred: [#70], [#86]. Plan #30 proposes making `packages/plots/src/index.d.ts` and the `exports` in `package.json` Core: a CLAUDE.md change, the user's.
 - 2026-10-06: row B done (plan #30, PR #42 ready): layout2D on the recorded format, shared box and labels, `eleo-layout.js`, and a release that plans plots 0.2.0 and plots-svelte 0.1.1 on changesets 3 with `npm audit` 0. The release itself (merging the Version Packages PR) is the user's, after #42 merges.
 - 2026-10-06 (user, plan #30 M2 review): row B's exit allows 12 px taller sample tiles (constant label room, #63).
 - 2026-10-06 (user, plan #30 M1 demo): go; row B's exit also allows the sample tiles' 5 px of STO label room (#57).
@@ -179,3 +180,9 @@ One bullet per entry (bare lines render as one paragraph).
 [#3]: https://github.com/ELEOptics/eleo-ui/issues/3
 [#4]: https://github.com/ELEOptics/eleo-ui/issues/4
 [#6]: https://github.com/ELEOptics/eleo-ui/issues/6
+[#47]: https://github.com/ELEOptics/eleo-ui/issues/47
+[#60]: https://github.com/ELEOptics/eleo-ui/issues/60
+[#70]: https://github.com/ELEOptics/eleo-ui/issues/70
+[#74]: https://github.com/ELEOptics/eleo-ui/issues/74
+[#76]: https://github.com/ELEOptics/eleo-ui/issues/76
+[#86]: https://github.com/ELEOptics/eleo-ui/issues/86
