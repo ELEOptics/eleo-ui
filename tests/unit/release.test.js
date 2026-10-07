@@ -105,6 +105,8 @@ test('layouts changeset asks plots minor, plots-svelte patch', () => {
   const plots = parse('layouts.md');
   const svelte = parse('layouts-svelte-peer.md');
   assert.deepEqual({ ...plots.bumps, ...svelte.bumps }, { '@eleoptics/plots': 'minor', '@eleoptics/plots-svelte': 'patch' });
+  // each file bumps only its own package: changesets writes a file's body into every package it bumps (#85, #87)
+  assert.deepEqual(Object.keys(plots.bumps), ['@eleoptics/plots'], 'the plots file bumps another package');
   assert.deepEqual(Object.keys(svelte.bumps), ['@eleoptics/plots-svelte'], 'the plots-svelte file bumps another package');
   assert.doesNotMatch(svelte.body, /breaking/i);
   assert.match(svelte.body, />=0\.1\.0 <1/);
