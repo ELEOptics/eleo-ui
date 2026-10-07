@@ -79,7 +79,11 @@
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
-    function meritTile(k) { return MERIT_BOX ? ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }) : ''; }
+    function meritTile(k) {
+      if (!MERIT_BOX) return '';
+      try { return ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
+      catch (e) { console.error('merit-' + k + ':', e); return ''; }
+    }
     var SVG = {
       'layout2D': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX }); },
       'layout2D-fan': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX, colorBy: 'wavelength', rays: 'fan' }); },

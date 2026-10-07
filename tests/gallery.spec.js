@@ -51,7 +51,7 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 // Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
 // labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
 // or the merit tile's other drawing. The gallery's own report of it is the expected console error.
-test.skip('a rejected merit fixture blanks only its tile', { annotation: { type: 'issue', description: '#103: unskipped by #76' } }, async ({ page }) => {
+test('a rejected merit fixture blanks only its tile', async ({ page }) => {
   const thrown = [], logged = [];
   page.on('pageerror', (e) => thrown.push(e.message));
   page.on('console', (m) => m.type() === 'error' && logged.push(m.text()));
