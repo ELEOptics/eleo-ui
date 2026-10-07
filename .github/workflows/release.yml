@@ -1,18 +1,57 @@
 # On main: opens or updates the "Version packages" PR from pending changesets; when that PR is
 # merged (or a version isn't on npm yet), publishes it. npm trusted publishing authenticates the
 # publish through GitHub's OIDC token: no npm token is stored anywhere, and npm adds provenance.
+# Two jobs, so only a publish waits on the `npm` environment's required reviewer: `version` runs on
+# every push and finds whether any package version is missing from npm; `publish` runs only then.
+# Each package's trusted publisher on npmjs.com names this file and the `npm` environment.
 name: Release
 on:
   push:
     branches: [main]
 concurrency: release-${{ github.ref }}
-permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
 jobs:
-  release:
+  version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      publish: ${{ steps.unpublished.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:unit
+      # v2 for changesets CLI 3 (v1 tags nothing under it). v2 reads the token only from github-token.
+      # No publish-script: publishing is the `publish` job's.
+      - uses: changesets/action@v2
+        with:
+          version-script: npm run version
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # A version npm doesn't have yet: the Version packages PR was merged, or a publish failed.
+      - id: unpublished
+        run: |
+          publish=false
+          for manifest in packages/*/package.json; do
+            [ "$(jq -r '.private // false' "$manifest")" = true ] && continue
+            spec="$(jq -r '.name + "@" + .version' "$manifest")"
+            if [ -z "$(npm view "$spec" version 2>/dev/null)" ]; then
+              echo "$spec is not on npm"
+              publish=true
+            fi
+          done
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: version
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v5
       # No registry-url: setup-node would write an .npmrc expecting a token.
@@ -21,11 +60,9 @@ jobs:
       # Trusted publishing needs npm 11.5.1 or later.
       - run: npm install -g npm@^11.5.1
       - run: npm ci
-      - run: npm run build
-      - run: npm run test:unit
-      # v2 for changesets CLI 3 (v1 tags nothing under it). v2 reads the token only from github-token.
+      # With no changesets left, the action runs the publish script, then pushes the tags and creates
+      # GitHub releases.
       - uses: changesets/action@v2
         with:
-          version-script: npm run version
           publish-script: npm run release
           github-token: ${{ secrets.GITHUB_TOKEN }}
