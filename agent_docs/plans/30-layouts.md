@@ -1,6 +1,6 @@
 # Plan #30: General layout2D, standalone entry, release
 
-Status: approved 2026-10-05
+Status: done 2026-10-06
 Branch: `plan/30-layouts` PR: #42 Depends on: plan #4 (done) Roadmap: `agent_docs/roadmap.md`, row B
 
 ## Problem
@@ -269,3 +269,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: M3 review round 3, 0 blocking. Backlog #87 into M3 (row: milestone acceptance within the plan). Round 4's findings stay plain issues.
 - 2026-10-06 headless: M3 review round 4, 0 blocking, no findings. M3 ticked.
 - 2026-10-06 headless: M3 accepted (row: milestone acceptance within the plan). O3 (property) and O4 (spec, semver) are machine-checked.
+- 2026-10-06 headless: CLAUDE.md commands re-verified (setup, test:unit 46/46, playwright 6/6, gallery serves, changeset v3.0.3, check.sh and --fast, hooksPath). Status: done.
+- 2026-10-06 headless: merge through merge.sh (row: Merge a plan PR that `director/merge.sh` accepts). Expected refusal: package.json, package-lock.json and .github/workflows/release.yml are security triggers, so the PR stays ready for the user.
