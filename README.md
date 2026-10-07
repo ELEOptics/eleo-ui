@@ -55,6 +55,8 @@ npm run check          # Svelte type check
 
 First time only: `npx playwright install chromium` for the gallery check.
 
+`npm audit --omit=dev` checks what ships to users; plain `npm audit` also covers dev tooling.
+
 To try an unpublished change in another project, link it: `npm link` in `packages/plots`, then `npm link @eleoptics/plots` in that project.
 
 ### Changing things
