@@ -41,6 +41,15 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 <Layout2D data={after} {box} {labels} marks={false} label="Layout after optimization" />
 ```
 
+`Legend` takes `kind` (`field`, `wavelength`, `ts`, `rays`) and `n`, or `kind="glass"` with `data`, a recorded layout or a system carrying one: one swatch key per drawn glass, by name, in order of first use, in the fill `Layout2D` gives its lenses (`glassLegend` in `@eleoptics/plots`):
+
+```svelte
+<PlotCard title="Layout">
+  <Layout2D data={layout} label="Lens layout" />
+  {#snippet footer()}<Legend kind="glass" data={layout} />{/snippet}
+</PlotCard>
+```
+
 `PlotCard` takes `state` (`loading`, `empty`, `error`, `stale`) and `message` for the states between results, `paper` for a light figure inside the dark theme, and `compact` and `selected` for dashboards.
 
 Load Fira Sans and Fira Code in your app. MIT licensed. Part of [eleo-ui](https://github.com/ELEOptics/eleo-ui).

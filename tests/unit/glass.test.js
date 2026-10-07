@@ -116,3 +116,29 @@ test('legend and drawing use one glass rule', async () => {
   const src = readFileSync(new URL('../../packages/plots/src/layout2d.js', import.meta.url), 'utf8');
   assert.ok(src.includes('glassFill(drawnGlasses(S))'), 'layout2d.js picks its glasses with drawnGlasses');
 });
+
+// Issue #101: <Legend kind="glass" data={layout} /> renders glassLegend(data), one .eleo-key per glass.
+test('Legend kind="glass" renders one key per glass', async () => {
+  const { compile } = await import('svelte/compiler');
+  const { render } = await import('svelte/server');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { fileURLToPath, pathToFileURL } = await import('node:url');
+  const root = fileURLToPath(new URL('../../', import.meta.url));
+  const src = readFileSync(join(root, 'packages/plots-svelte/src/lib/Legend.svelte'), 'utf8');
+  // Under node_modules so the compiled output resolves svelte/internal/server and @eleoptics/plots.
+  const dir = mkdtempSync(join(root, 'node_modules', '.legend-'));
+  try {
+    const file = join(dir, 'Legend.js');
+    writeFileSync(file, compile(src, { generate: 'server', filename: 'Legend.svelte' }).js.code);
+    const { default: Legend } = await import(pathToFileURL(file).href);
+    const fixture = JSON.parse(readFileSync(new URL('../fixtures/layouts/analysis-glasses.json', import.meta.url)));
+    for (const data of [fixture, { layout: fixture }]) {
+      const { body } = render(Legend, { props: { kind: 'glass', data } });
+      assert.ok(body.includes(glassLegend(fixture)), `body carries glassLegend(data): ${body}`);
+      assert.equal(body.match(/class="eleo-key /g)?.length, 2, 'one .eleo-key per glass');
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
