@@ -170,7 +170,7 @@ Proves: O1. The kill criterion is decided in the last item: converting the sampl
 | #59 | Review round 3 finding 5: `recorded()` inlined; the test imports the module once | forced (one caller; refactor under the existing tests) | `packages/plots/src/layout2d.js` | existing tests stay green | #58 |
 | #53 | Review finding 6: README lists `NS` among common.js's helpers | forced (stale doc) | `README.md` | the list matches common.js's exports | #46 |
 
-### M2: shared box and labels, typed and documented. GitHub: `P30 M2: shared box, labels, types`
+### M2 (done 2026-10-06): shared box and labels, typed and documented. GitHub: `P30 M2: shared box, labels, types`
 
 Demo:
 
@@ -252,3 +252,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: M2 review round 2, 0 blocking. Backlog #67, #68, #69 into M2 (row: milestone acceptance within the plan); #70 plain issue; findings 1 and 7 (plan text) fixed here.
 - 2026-10-06 headless: CR #71 accepted (stale type and doc after #67; row: Split, CR triage, commit order, wave dispatch). New item #72 in M2.
 - 2026-10-06 headless: M2 review round 3, 0 blocking. Backlog #73 into M2 (row: milestone acceptance within the plan); the bad-point finding is a plain issue (two fixes); finding 1 (plan text) fixed here. Round 4's findings stay plain issues.
+- 2026-10-06 headless: M2 review round 4, 0 blocking, nothing pulled in; #75 and #76 plain issues. M2 ticked.
+- 2026-10-06 headless: M2 accepted (row: milestone acceptance within the plan). O2's oracles are a property and a metamorphic test, both machine-checked.
