@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -94,7 +94,30 @@ test('release workflow uses changesets/action v2 inputs', () => {
 // #85: two files, because changesets writes a changeset's one body into every package it bumps: the plots-svelte
 // patch has its own file, so its changelog entry does not say "Breaking".
 // oracle: plan #30's #41 and #85 rows and O4 (spec semver: a patch isn't breaking).
-test('layouts changeset asks plots minor, plots-svelte patch', () => {
+// `changeset version` deletes both files (the Version Packages PR and every release after it), so then the test
+// reads the CHANGELOG entries they became instead. One file without the other still fails.
+const consumed = ['layouts.md', 'layouts-svelte-peer.md'].every((f) => !existsSync(join(repo, '.changeset', f)));
+
+// The changelog entry whose text matches `re`, with the `### <kind> Changes` heading it sits under.
+const entry = (dir, re) => {
+  let kind;
+  for (const line of readFileSync(join(repo, 'packages', dir, 'CHANGELOG.md'), 'utf8').split('\n')) {
+    kind = line.match(/^### (\w+) Changes/)?.[1] ?? kind;
+    if (line.startsWith('- ') && re.test(line)) return { kind, text: line };
+  }
+  assert.fail(`packages/${dir}/CHANGELOG.md has no entry matching ${re}`);
+};
+
+test('layouts changeset became a plots minor and a plots-svelte patch', { skip: !consumed && 'changesets not yet versioned' }, () => {
+  const plots = entry('plots', /data\.layout/);
+  const svelte = entry('plots-svelte', />=0\.1\.0 <1/);
+  assert.equal(plots.kind, 'Minor');
+  assert.equal(svelte.kind, 'Patch');
+  assert.doesNotMatch(svelte.text, /breaking/i);
+  assert.ok(!/data\.layout/.test(readFileSync(join(repo, 'packages/plots-svelte/CHANGELOG.md'), 'utf8')), 'the plots-svelte changelog carries the layouts body');
+});
+
+test('layouts changeset asks plots minor, plots-svelte patch', { skip: consumed && 'consumed by changeset version' }, () => {
   const parse = (file) => {
     const text = readFileSync(join(repo, '.changeset', file), 'utf8');
     const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
