@@ -530,7 +530,7 @@ test('object glasses fill per name, shorthand unchanged', async () => {
 // #74: a non-finite ray point is named at its ray, layouts[k].rays[j][i], not blamed on a box the caller never passed.
 // #75: a non-image surface with no profile is named, not a TypeError from profile[0]; an image surface needs none.
 // oracle: spec the recorded format: rays [field][ray][[z, y]…] of finite mm; every surface but the image has a profile
-test('layoutBounds names a bad input: a non-finite point, a surface with no profile', { skip: '#103: unskipped by #74' }, () => {
+test('layoutBounds names a bad input: a non-finite point, a surface with no profile', () => {
   const L = fixture('tolerance');
   const withPoint = (p) => ({ ...L, rays: L.rays.map((fan, j) => (j === 2 ? fan.map((r, i) => (i === 1 ? [...r.slice(0, -1), p] : r)) : fan)) });
   for (const p of [[null, 'x'], [NaN, 0], [0, Infinity], [0], 'p', null]) {
