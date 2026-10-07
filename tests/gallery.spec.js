@@ -74,6 +74,27 @@ test('a rejected merit fixture blanks only its tile', async ({ page }) => {
   }
 });
 
+// Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
+// the tiles that bring their own data (merit, glasses) or need none (airy, icons) still draw. The 404 is the expected
+// console error.
+test('a missing sample script blanks only the sample tiles', async ({ page }) => {
+  const thrown = [];
+  page.on('pageerror', (e) => thrown.push(e.message));
+  await page.route('**/eleo-plots-sample.js', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(thrown).toEqual([]);
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'airy', 'icons'];
+  for (const theme of ['light', 'dark']) {
+    const tiles = await inkByTile(page, theme);
+    expect(tiles.length).toBe(17);
+    for (const t of tiles) {
+      if (ownData.includes(t.tile)) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+      else expect(t.svgMarks + t.inked, `${theme} sample tile ${t.tile} drew`).toBe(0);
+    }
+  }
+});
+
 // Plan #90, O3, #47: the classic build exposes the sample. Loading eleo-plots.js, then eleo-plots-sample.js, leaves
 // window.ELEO.sample set, so the gallery can read zimg from it. oracle: fixture packages/plots/src/sample.json's zimg
 test('classic build exposes the sample', async ({ page }) => {

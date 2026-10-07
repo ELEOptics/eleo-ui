@@ -69,8 +69,10 @@
   <script src="/packages/plots/dist/eleo-plots.js"></script>
   <script src="/packages/plots/dist/eleo-plots-sample.js"></script>
   <script>
-    // The sample tiles keep their framing: a pinned box, not the rays' bounds.
-    var SAMPLE_BOX = { zmin: -8, zmax: ELEO.sample.zimg + 4, ylo: -13.5, yhi: 13.5 };
+    // The sample tiles keep their framing: a pinned box, not the rays' bounds. If eleo-plots-sample.js failed to load,
+    // ELEO.sample is null, SAMPLE_BOX stays null and the sample tiles draw nothing while the rest of the page draws.
+    var SAMPLE_BOX = ELEO.sample && { zmin: -8, zmax: ELEO.sample.zimg + 4, ylo: -13.5, yhi: 13.5 };
+    function sampleTile(f) { return function () { return SAMPLE_BOX ? f() : ''; }; }
     // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below;
     // if either fixture fails, MERIT_BOX stays unset and the tile draws nothing while the rest of the page draws.
     var MERIT = {}, MERIT_BOX;
@@ -83,19 +85,19 @@
       catch (e) { console.error('merit-' + k + ':', e); return ''; }
     }
     var SVG = {
-      'layout2D': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX }); },
-      'layout2D-fan': function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX, colorBy: 'wavelength', rays: 'fan' }); },
+      'layout2D': sampleTile(function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX }); }),
+      'layout2D-fan': sampleTile(function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX, colorBy: 'wavelength', rays: 'fan' }); }),
       'merit-before': function () { return meritTile('before'); },
       'merit-after': function () { return meritTile('after'); },
       'layout2D-glasses': function () { return GLASSES ? ELEO.layout2D({ data: GLASSES, width: 1000, marks: false }) : ''; },
-      'spot': function () { return ELEO.spot(); },
-      'throughFocus': function () { return ELEO.throughFocus(); },
-      'rayFan': function () { return ELEO.rayFan(); },
-      'rayFan-opd': function () { return ELEO.rayFan({ kind: 'opd' }); },
-      'mtf': function () { return ELEO.curve({ kind: 'mtf' }); },
-      'fieldCurvature': function () { return ELEO.curve({ kind: 'fieldCurvature' }); },
-      'distortion': function () { return ELEO.curve({ kind: 'distortion' }); },
-      'chromaticFocus': function () { return ELEO.curve({ kind: 'chromaticFocus' }); }
+      'spot': sampleTile(function () { return ELEO.spot(); }),
+      'throughFocus': sampleTile(function () { return ELEO.throughFocus(); }),
+      'rayFan': sampleTile(function () { return ELEO.rayFan(); }),
+      'rayFan-opd': sampleTile(function () { return ELEO.rayFan({ kind: 'opd' }); }),
+      'mtf': sampleTile(function () { return ELEO.curve({ kind: 'mtf' }); }),
+      'fieldCurvature': sampleTile(function () { return ELEO.curve({ kind: 'fieldCurvature' }); }),
+      'distortion': sampleTile(function () { return ELEO.curve({ kind: 'distortion' }); }),
+      'chromaticFocus': sampleTile(function () { return ELEO.curve({ kind: 'chromaticFocus' }); })
     };
     function airyTile(canvas) {
       var n = canvas.width, ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
@@ -109,8 +111,9 @@
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(function (el) {
         var k = el.dataset.canvas;
-        if (k === 'layout3D') ELEO.layout3D(el);
-        else if (k === 'airy') airyTile(el);
+        if (k === 'airy') airyTile(el);
+        else if (!SAMPLE_BOX) return;
+        else if (k === 'layout3D') ELEO.layout3D(el);
         else ELEO.map2D(el, { kind: k });
       });
     }
@@ -119,9 +122,10 @@
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
         theme.querySelectorAll('[data-svg]').forEach(function (el) { el.innerHTML = SVG[el.dataset.svg](); });
         // The glass legend keys the Cooke tile's own layout; empty, like the tile, if its fixture failed.
+        // The field and wavelength legends key the sample; empty, like its tiles, without it.
         theme.querySelectorAll('[data-legend]').forEach(function (el) {
           var k = el.dataset.legend;
-          el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '') : ELEO.legend(k);
+          el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '') : k === 'ts' || SAMPLE_BOX ? ELEO.legend(k) : '';
         });
         theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
