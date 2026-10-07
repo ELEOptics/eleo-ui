@@ -55,3 +55,26 @@ test('same name same fill, parameters ordered by vd', () => {
     }
   }
 });
+
+test('more than 8 glasses stay distinct, in band and ordered', () => {
+  // Beyond 8 the slots run out: fills spread evenly over the mix, ordered by vd, spacing not guaranteed.
+  const more = [...SET, g('N-LAK9', 1.691, 54.71), g('N-BAF10', 1.67003, 47.11), g('N-SF11', 1.78472, 25.68),
+    g('N-PK52A', 1.497, 81.61)];
+  assert.equal(more.length, 12);
+  const fills = glassFill(more);
+  assert.equal(fills.size, 12, 'a fill per glass');
+  assert.equal(new Set(fills.values()).size, 12, '12 distinct fills');
+  const byVd = [...more].sort((a, b) => a.vd - b.vd);
+  for (const th of ['light', 'dark']) {
+    const [lMin, lMax] = th === 'light' ? [0.66, 0.93] : [0.26, 0.52];
+    const col = new Map([...fills].map(([n, f]) => [n, resolve(f, th)]));
+    for (const [n, c] of col) {
+      assert.ok(c.l >= lMin && c.l <= lMax, `${th} ${n}: L ${c.l} in the band`);
+      assert.ok(c.c <= 0.1 && c.h >= 225 && c.h <= 275, `${th} ${n}: chroma ${c.c}, hue ${c.h} in the band`);
+    }
+    for (let i = 1; i < byVd.length; i++) {
+      const a = col.get(byVd[i - 1].name), b = col.get(byVd[i].name);
+      assert.ok(a.l <= b.l, `${th}: ${byVd[i - 1].name} (vd ${byVd[i - 1].vd}) L ${a.l} lighter than ${byVd[i].name} L ${b.l}`);
+    }
+  }
+});
