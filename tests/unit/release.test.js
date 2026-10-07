@@ -3,8 +3,9 @@
 // changesets has no reason to major-bump it.
 // It runs `changeset status --output` in a temp git workspace, never on this repo: the live repo's status
 // needs `main` (absent in CI's shallow checkout) and fails once `.changeset/` is empty after a release.
-// The workspace holds the real names, versions and peer ranges, a copy of `.changeset/config.json` and one
-// `plots: minor` changeset.
+// The workspace holds the real names, versions and peer ranges, a copy of `.changeset/config.json`, one
+// `plots: minor` changeset and an empty root `package-lock.json`: changesets 3 recognises an npm workspace
+// only by its lock file (2.x does not need it), so without one 3.x finds no packages.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -33,6 +34,7 @@ test('a plots minor plans plots-svelte as a patch, not a major', () => {
   try {
     const git = (...args) => run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args]);
     writeFileSync(join(ws, 'package.json'), JSON.stringify({ name: 'ws', private: true, workspaces: ['packages/*'] }));
+    writeFileSync(join(ws, 'package-lock.json'), '{}');
     for (const dir of ['plots', 'plots-svelte']) {
       mkdirSync(join(ws, 'packages', dir), { recursive: true });
       writeFileSync(join(ws, 'packages', dir, 'package.json'), minimal(manifest(dir)));
