@@ -212,3 +212,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 CR #119 accepted (stale docs from #100, one drawn-glass rule): item #120 in M2.
 - 2026-10-06 review M2 round 1: 0 blocking; headless: backlog #122 and #123 into M2 (row: milestone acceptance within the plan); finding 3 moves #60's object check into `drawnGlasses`.
 - 2026-10-06 review M2 round 2: 0 blocking; headless: backlog #124 into M2 (row: milestone acceptance within the plan); finding 2 folded into #60.
+- 2026-10-06 review M2 round 3: 0 blocking, nothing pulled in. headless: M2 accepted, O2's oracle is a machine property (row: milestone acceptance within the plan).
