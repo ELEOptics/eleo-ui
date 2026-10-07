@@ -41,7 +41,8 @@
     "./plots.css": "./dist/plots.css",
     "./eleo-plots.js": "./dist/eleo-plots.js",
     "./eleo-plots-sample.js": "./dist/eleo-plots-sample.js",
-    "./eleo-physics.js": "./dist/eleo-physics.js"
+    "./eleo-physics.js": "./dist/eleo-physics.js",
+    "./eleo-layout.js": "./dist/eleo-layout.js"
   },
   "files": [
     "dist",

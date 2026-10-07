@@ -54,7 +54,7 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 const layoutFixtures = readdirSync(new URL('./fixtures/layouts/', import.meta.url))
   .filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, '')).sort();
 
-test.skip('standalone layout entry', { annotation: { type: 'issue', description: '#39: unskipped by #40' } }, async ({ page }) => {
+test('standalone layout entry', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));

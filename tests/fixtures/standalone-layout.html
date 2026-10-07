@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- O3 (plan #30): eleo-layout.js on its own. Only tokens.css and the entry; each recorded layout drawn by name. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>eleo-layout.js standalone</title>
+  <link rel="stylesheet" href="/packages/tokens/dist/tokens.css">
+  <script src="/packages/plots/dist/eleo-layout.js"></script>
+  <style>body { background: var(--bg, #fff); margin: 16px; } figure { margin: 0 0 24px; }</style>
+</head>
+<body>
+  <script>
+    var NAMES = ['analysis', 'focus', 'merit-after', 'merit-before', 'tolerance'];
+    Promise.all(NAMES.map(function (name) {
+      return fetch('/tests/fixtures/layouts/' + name + '.json').then(function (r) {
+        if (!r.ok) throw new Error(name + '.json: ' + r.status);
+        return r.json();
+      }).then(function (data) {
+        var fig = document.createElement('figure');
+        fig.dataset.fixture = name;
+        fig.innerHTML = ELEO.layout2D({ data: data, width: 1000 });
+        document.body.append(fig);
+      });
+    })).then(function () {
+      document.body.dataset.ready = 'true';
+    }).catch(function (e) {
+      console.error('standalone-layout:', e);
+    });
+  </script>
+</body>
+</html>
