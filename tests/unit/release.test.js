@@ -58,3 +58,24 @@ test('a plots minor plans plots-svelte as a patch, not a major', () => {
     rmSync(ws, { recursive: true, force: true });
   }
 });
+
+// #80 (CR #79): changesets/action v1 doesn't support CLI 3 (it finds published packages by `New tag:` in
+// stdout, which CLI 3 doesn't print), so a release would tag nothing. v2 renames the inputs and reads the
+// token only from its `github-token` input, not the GITHUB_TOKEN env.
+// oracle: url https://github.com/changesets/action/tree/v2#api (the v2 README's inputs table; action.yml at
+// tag v2 lists the same names).
+// Read as text: no YAML parser is a direct dependency, and the step's block is all this needs.
+test('release workflow uses changesets/action v2 inputs', () => {
+  const lines = readFileSync(join(repo, '.github/workflows/release.yml'), 'utf8').split('\n');
+  const start = lines.findIndex((l) => /^\s*- uses: changesets\/action@/.test(l));
+  assert.notEqual(start, -1, 'release.yml has no changesets/action step');
+  const indent = lines[start].indexOf('-');
+  const end = lines.findIndex((l, i) => i > start && l.trim() && l.search(/\S/) <= indent);
+  const step = lines.slice(start, end === -1 ? undefined : end);
+  const keys = step.slice(1).map((l) => l.match(/^\s*([\w-]+):/)?.[1]).filter(Boolean);
+
+  assert.match(step[0], /changesets\/action@v2\s*$/);
+  for (const input of ['version-script', 'publish-script', 'github-token']) assert.ok(keys.includes(input), `no ${input} input`);
+  for (const old of ['version', 'publish']) assert.ok(!keys.includes(old), `v1 input ${old}: is still set`);
+  assert.match(step.find((l) => /^\s*github-token:/.test(l)), /\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/);
+});
