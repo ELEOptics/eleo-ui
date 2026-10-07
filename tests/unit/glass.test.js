@@ -119,9 +119,12 @@ test('legend and drawing use one glass rule', async () => {
 
 // Issue #122: a bad input names itself, as layout2D's does (#65/#67), instead of a bare TypeError.
 test('glassLegend names a bad input', () => {
-  const msg = 'glassLegend: data is not a recorded layout ({surfaces, rays}) or a system carrying one in layout';
-  const L = { surfaces: [], rays: [] };
-  for (const bad of [{}, { layoutWl: L }, { layout: {} }, null]) assert.throws(() => glassLegend(bad), { message: msg }, JSON.stringify(bad));
+  const msg = 'glassLegend: data is not a recorded layout ({surfaces, rays}) or a system carrying one in layout or layoutWl';
+  for (const bad of [{}, { layout: {} }, { layoutWl: {} }, null]) assert.throws(() => glassLegend(bad), { message: msg }, JSON.stringify(bad));
+  // Issue #124: layoutWl carries the same glasses as layout, so a layoutWl-only system gets its legend.
+  const L = JSON.parse(readFileSync(new URL('../fixtures/layouts/analysis-glasses.json', import.meta.url)));
+  assert.ok(glassLegend(L), 'fixture draws named glasses');
+  assert.equal(glassLegend({ layoutWl: L }), glassLegend(L));
 });
 
 // Issue #101: <Legend kind="glass" data={layout} /> renders glassLegend(data), one .eleo-key per glass.
