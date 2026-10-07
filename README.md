@@ -26,7 +26,7 @@ map2D(canvas, { data: mySystem, kind: 'psf' });  // canvas; call again after a t
 - Pass your traced system as `data`, or `import '@eleoptics/plots/sample'` to draw the sample achromat (190 KB, so it is opt-in).
 - Themes: light by default, dark when the OS prefers it, or force either with `data-theme="light"` or `"dark"` on any element; plots inside follow it.
 - Fonts: the plots use Fira Sans and Fira Code. Load them yourself (Google Fonts on the web, bundled files in a desktop app).
-- Without a bundler: load `@eleoptics/plots/eleo-plots.js` (then `eleo-plots-sample.js` if you want the sample); both add to `window.ELEO`. `eleo-physics.js` is the 1 KB physics helpers alone. `eleo-layout.js` is `layout2D` and `layoutBounds` alone, with no sample (6 KB minified; `tests/unit/layout-size.test.js` lets it grow at most 2 KB gzipped per roadmap row).
+- Without a bundler: load `@eleoptics/plots/eleo-plots.js` (then `eleo-plots-sample.js` if you want the sample); both add to `window.ELEO`. `eleo-physics.js` is the 1 KB physics helpers alone. `eleo-layout.js` is `layout2D` and `layoutBounds` alone, with no sample (`tests/unit/layout-size.test.js` lets it grow at most 2 KB gzipped per roadmap row).
 
 In Svelte:
 
