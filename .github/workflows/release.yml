@@ -16,7 +16,9 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      publish: ${{ steps.unpublished.outputs.publish }}
+      # With changesets pending, changesets/action versions rather than publishes, which the publish
+      # job has no permission for. The next merged Version packages PR publishes what is missing.
+      publish: ${{ steps.unpublished.outputs.publish == 'true' && steps.changesets.outputs['has-changesets'] == 'false' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -24,13 +26,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run test:unit
-      # v2 for changesets CLI 3 (v1 tags nothing under it). v2 reads the token only from github-token.
-      # No publish-script: publishing is the `publish` job's.
-      - uses: changesets/action@v2
-        with:
-          version-script: npm run version
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       # A version npm doesn't have yet: the Version packages PR was merged, or a publish failed.
+      # Before changesets/action, which leaves the bumped manifests of pending changesets checked out.
       - id: unpublished
         run: |
           publish=false
@@ -43,6 +40,13 @@ jobs:
             fi
           done
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
+      # v2 for changesets CLI 3 (v1 tags nothing under it). v2 reads the token only from github-token.
+      # No publish-script: publishing is the `publish` job's.
+      - uses: changesets/action@v2
+        id: changesets
+        with:
+          version-script: npm run version
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
     needs: version

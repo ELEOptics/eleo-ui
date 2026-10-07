@@ -131,7 +131,8 @@ test('release workflow uses changesets/action v2 inputs', () => {
 
 // Only the publish job may mint an OIDC token, and it runs in the `npm` environment, whose required reviewer
 // gates every publish; npm's trusted publisher for each package names that environment, so a publish from
-// any other job or environment is refused. The version job's step finds an unpublished version.
+// any other job or environment is refused. The version job's step finds an unpublished version, before
+// changesets/action bumps anything, and the publish job runs only when no changesets are pending (PR #142).
 // oracle: url https://docs.npmjs.com/trusted-publishers/ (the environment field) and
 // https://docs.github.com/actions/reference/workflows-and-actions/workflow-syntax (jobs.<id>.environment,
 // jobs.<id>.if, jobs.<id>.outputs).
@@ -147,7 +148,14 @@ test('release workflow publishes only from the npm environment', () => {
   assert.ok(publish.some((l) => /^\s+id-token:\s*write\s*$/.test(l)), 'the publish job has no id-token: write');
   assert.ok(publish.some((l) => /^\s+needs:\s*version\s*$/.test(l)));
   assert.ok(publish.some((l) => /^\s+if:\s*needs\.version\.outputs\.publish == 'true'\s*$/.test(l)), 'the publish job runs on every push');
-  assert.ok(version.some((l) => /publish:\s*\$\{\{\s*steps\.unpublished\.outputs\.publish\s*\}\}/.test(l)));
+  // With changesets pending, changesets/action versions instead of publishing, which the publish job may not do.
+  assert.ok(version.some((l) => /publish:\s*\$\{\{\s*steps\.unpublished\.outputs\.publish == 'true' && steps\.changesets\.outputs\['has-changesets'\] == 'false'\s*\}\}/.test(l)), 'the publish job runs with changesets pending');
+  // changesets/action leaves the bumped manifests of pending changesets checked out: the check must read main's.
+  const unpublished = version.findIndex((l) => /^\s*- id: unpublished\s*$/.test(l));
+  const action = version.findIndex((l) => /^\s*- uses: changesets\/action@/.test(l));
+  assert.notEqual(unpublished, -1, 'the version job has no unpublished step');
+  assert.ok(unpublished < action, 'the unpublished check reads the manifests changesets/action bumped');
+  assert.ok(version.slice(action, action + 2).some((l) => /^\s+id: changesets\s*$/.test(l)), 'the changesets/action step has no id: changesets');
 });
 
 // #41: the branch's changesets ask plots minor (the breaking data.layout shape, which plan #30 releases as
