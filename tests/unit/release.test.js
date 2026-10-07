@@ -79,3 +79,14 @@ test('release workflow uses changesets/action v2 inputs', () => {
   for (const old of ['version', 'publish']) assert.ok(!keys.includes(old), `v1 input ${old}: is still set`);
   assert.match(step.find((l) => /^\s*github-token:/.test(l)), /\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/);
 });
+
+// #41: the branch's own changeset asks for exactly what O4 shows changesets will plan: plots minor (the
+// breaking data.layout shape, which plan #30 releases as a minor while the major is 0), plots-svelte patch.
+// oracle: plan #30's #41 row and O4 (spec semver).
+test('layouts changeset asks plots minor, plots-svelte patch', () => {
+  const text = readFileSync(join(repo, '.changeset/layouts.md'), 'utf8');
+  const front = text.match(/^---\n([\s\S]*?)\n---/)?.[1];
+  assert.ok(front, '.changeset/layouts.md has no front matter');
+  const bumps = Object.fromEntries(front.split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((m) => [m[1], m[2]]));
+  assert.deepEqual(bumps, { '@eleoptics/plots': 'minor', '@eleoptics/plots-svelte': 'patch' });
+});
