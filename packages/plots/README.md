@@ -28,7 +28,7 @@ colorbarEl.style.background = gradient('ember');
 
 ```js
 {
-  surfaces: [{ z, sd, stop, image, glass, profile }],  // glass: null | 'crown' | 'flint', the material after the surface
+  surfaces: [{ z, sd, stop, image, glass, profile }],  // glass: null | 'crown' | 'flint' | { name, nd, vd }, the material after the surface
   rays: [[[[z, y], ...], ...], ...],                    // rays[fan][ray] is a polyline
   chief: [3, 3, 2],                                     // optional: one ray index per fan
 }
@@ -36,6 +36,7 @@ colorbarEl.style.background = gradient('ember');
 
 `profile` is the surface's section as `[z, y]` points. `data` is a recorded layout, or a system whose `layout` (colored by field) and `layoutWl` (colored by wavelength) are recorded layouts; `colorBy` picks which one.
 
+- **`glass`:** `'crown'` and `'flint'` fill with `--glass-crown` and `--glass-flint`. A `{ name, nd, vd }` glass gets its own fill inside the glass-blue band (`--glass-band-hi` to `--glass-band-lo`): lower `vd` sits toward flint, the same name gets the same fill within a drawing, and up to 8 distinct glasses stay distinct. A fill depends on the drawing's whole glass set, so one glass can fill differently in designs with different glasses. The fill is a CSS color function on `style`, resolved per theme with no redraw.
 - **Chief ray:** `chief[k]` for fan k; without `chief`, the fan's middle ray, `floor(n / 2)`. That is eleoptics.com's rule, and it can be wrong for a vignetted fan, so record `chief` when you know it. An index outside the fan throws an error naming the fan.
 - **`box`:** the `{zmin, zmax, ylo, yhi}` the drawing shows, in mm. It defaults to `layoutBounds([layout])`. Drawings given the same `box` and `width` share one scale, so they compare true to size.
 - **`layoutBounds(layouts)`:** the box that frames every layout given: z covers the rays, y covers 0, the rays and every surface edge but the image's, padded 4%.

@@ -5,6 +5,8 @@ export type IndexKey = "field" | "wavelength";
 
 /** The z and y extent a layout2D drawing shows, in mm. */
 export interface LayoutBox { zmin: number; zmax: number; ylo: number; yhi: number }
+/** A catalog glass: layout2D gives each distinct name its own fill in the glass-blue band. */
+export interface Glass { name: string; nd: number; vd: number }
 /** One surface of a recorded layout, in mm. */
 export interface RecordedSurface {
   z: number;
@@ -12,8 +14,8 @@ export interface RecordedSurface {
   sd: number;
   stop: boolean;
   image: boolean;
-  /** The glass between this surface and the next, or null for air. */
-  glass: "crown" | "flint" | null;
+  /** The glass between this surface and the next, or null for air. "crown" and "flint" draw the two glass tokens. */
+  glass: "crown" | "flint" | Glass | null;
   /** The surface's section as [z, y] points (41 from eleoptics.com's layout.py). */
   profile: [number, number][];
 }

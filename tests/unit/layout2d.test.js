@@ -495,3 +495,33 @@ test('shared box', () => {
     });
   }
 });
+
+// Plan #90, #96: a `{name, nd, vd}` glass fills through glassFill; "crown" and "flint" draw exactly as before.
+// oracle: fixture the five website layouts keep the token fill attribute byte for byte (the shipped template); object fills equal glassFill's map
+test('object glasses fill per name, shorthand unchanged', async () => {
+  const { glassFill } = await import('../../packages/plots/src/glass.js');
+  const polys = (svg) => [...svg.matchAll(/<polygon\b[^>]*>/g)].map((m) => m[0]);
+  for (const name of FIXTURES) {
+    const L = fixture(name);
+    for (const tag of polys(ELEO.layout2D({ data: L }))) {
+      assert.match(tag, /^<polygon points="[^"]*" fill="var\(--glass-(crown|flint)\)" stroke="var\(--glass-edge\)" style="stroke-width:var\(--stroke-edge\)" stroke-linejoin="round" /, `${name}: shorthand polygon unchanged`);
+    }
+  }
+  const prof = (z) => Array.from({ length: 41 }, (_, i) => [z, -6 + (12 * i) / 40]);
+  const BK7 = { name: 'N-BK7', nd: 1.5168, vd: 64.17 }, F2 = { name: 'F2', nd: 1.62004, vd: 36.37 };
+  const glasses = [BK7, F2, { ...BK7 }];
+  const L = {
+    surfaces: [
+      ...glasses.flatMap((g, k) => [
+        { z: 10 * k, sd: 6, stop: k === 0, image: false, glass: g, profile: prof(10 * k) },
+        { z: 10 * k + 4, sd: 6, stop: false, image: false, glass: null, profile: prof(10 * k + 4) },
+      ]),
+      { z: 100, sd: 3, stop: false, image: true, glass: null, profile: prof(100) },
+    ],
+    rays: [[[[-12, 1], [100, 0]], [[-12, 0], [100, 0]], [[-12, -1], [100, 0]]]],
+  };
+  const want = glassFill(glasses);
+  const fills = polys(ELEO.layout2D({ data: L })).map((t) => /style="fill:([^;"]*);/.exec(t)?.[1]);
+  assert.deepEqual(fills, [want.get('N-BK7'), want.get('F2'), want.get('N-BK7')], 'each lens fills with its glass name\'s glassFill');
+  assert.notEqual(fills[0], fills[1], 'two glasses, two fills');
+});

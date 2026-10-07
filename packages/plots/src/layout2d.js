@@ -2,6 +2,7 @@
 // {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41]}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
 // Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text, the chief dot and the scale bar in px.
 import { idx, svg, NS } from './common.js';
+import { glassFill } from './glass.js';
 
 // A caller's label, as SVG text.
 function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
@@ -73,9 +74,12 @@ export function layout2D(o) {
   function line(z1, y1, z2, y2, rest) { return '<line x1="' + n(z1) + '" y1="' + n(y1) + '" x2="' + n(z2) + '" y2="' + n(y2) + '" ' + rest + " " + NS + "/>"; }
   var M = +s.toFixed(6), g = '<g transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')">';
   g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"');
+  // A {name, nd, vd} glass fills per name (glassFill over this drawing's lenses), through style: a CSS color function
+  // in a presentation attribute is not safe. The token fill stays as its fallback; "crown" and "flint" draw as before.
+  var fills = glassFill(S.filter(function (a, i) { return a.glass && typeof a.glass === "object" && S[i + 1]; }).map(function (a) { return a.glass; }));
   S.forEach(function (a, i) {
-    var b = S[i + 1];
-    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
+    var b = S[i + 1], obj = a.glass && typeof a.glass === "object";
+    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var dots = "", ends = [];
