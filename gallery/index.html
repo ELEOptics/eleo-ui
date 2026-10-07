@@ -39,7 +39,7 @@
     <section class="eleo-plot" data-tile="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div><div class="eleo-plot__ft eleo-legend" data-legend="field"></div></section>
     <section class="eleo-plot" data-tile="layout2D-fan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
     <section class="eleo-plot" data-tile="layout2D-shared"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
     <div class="row">
       <section class="eleo-plot" data-tile="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
       <section class="eleo-plot" data-tile="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
@@ -116,7 +116,11 @@
       document.querySelectorAll('.theme').forEach(function (theme) {
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
         theme.querySelectorAll('[data-svg]').forEach(function (el) { el.innerHTML = SVG[el.dataset.svg](); });
-        theme.querySelectorAll('[data-legend]').forEach(function (el) { el.innerHTML = ELEO.legend(el.dataset.legend); });
+        // The glass legend keys the Cooke tile's own layout; empty, like the tile, if its fixture failed.
+        theme.querySelectorAll('[data-legend]').forEach(function (el) {
+          var k = el.dataset.legend;
+          el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '') : ELEO.legend(k);
+        });
         theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
           .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));

@@ -91,7 +91,7 @@ test('glass fills are distinct, stable and ordered', async ({ page }) => {
 //   var(--c)); the key's trimmed text is the glass name.
 // Lens polygons are the tile's polygon[stroke="var(--glass-edge)"], one per glass surface in surface order.
 // oracle: property roadmap U12: legend swatch fills equal the polygon fills of the same glass; names once each, in first-use order
-test.skip('glass legend matches the drawing', { annotation: { type: 'issue', description: '#99: unskipped by #102' } }, async ({ page }) => {
+test('glass legend matches the drawing', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
