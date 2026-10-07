@@ -76,7 +76,7 @@ test('a rejected merit fixture blanks only its tile', async ({ page }) => {
 
 // Plan #90, O3, #47: the classic build exposes the sample. Loading eleo-plots.js, then eleo-plots-sample.js, leaves
 // window.ELEO.sample set, so the gallery can read zimg from it. oracle: fixture packages/plots/src/sample.json's zimg
-test.skip('classic build exposes the sample', { annotation: { type: 'issue', description: '#103: unskipped by #47' } }, async ({ page }) => {
+test('classic build exposes the sample', async ({ page }) => {
   const { zimg } = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url)));
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');

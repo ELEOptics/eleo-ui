@@ -69,10 +69,8 @@
   <script src="/packages/plots/dist/eleo-plots.js"></script>
   <script src="/packages/plots/dist/eleo-plots-sample.js"></script>
   <script>
-    // The sample tiles keep their framing: a pinned box, not the rays' bounds. ZIMG is sample.json's zimg
-    // (window.ELEO.sample stays null in the classic build: iife.js copies the API before useSample sets it).
-    var ZIMG = 103.62614866262808;
-    var SAMPLE_BOX = { zmin: -8, zmax: ZIMG + 4, ylo: -13.5, yhi: 13.5 };
+    // The sample tiles keep their framing: a pinned box, not the rays' bounds.
+    var SAMPLE_BOX = { zmin: -8, zmax: ELEO.sample.zimg + 4, ylo: -13.5, yhi: 13.5 };
     // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below;
     // if either fixture fails, MERIT_BOX stays unset and the tile draws nothing while the rest of the page draws.
     var MERIT = {}, MERIT_BOX;
