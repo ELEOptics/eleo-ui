@@ -1,7 +1,7 @@
 # Plan #90: Glass identity in layout2D, and phos on layout2D
 
 Status: approved 2026-10-06
-Branch: `plan/90-glass-identity` PR: #<pr> Depends on: plan #30 (done) Roadmap: `agent_docs/roadmap.md`, row C
+Branch: `plan/90-glass-identity` PR: #111 Depends on: plan #30 (done) Roadmap: `agent_docs/roadmap.md`, row C
 
 ## Problem
 
