@@ -215,9 +215,10 @@ Proves: O3, O4.
 | #21 reuse | Peers no longer force a major: `onlyUpdatePeerDependentsWhenOutOfRange` is set (on changesets 3 it only keeps the peer range text from being rewritten; 3.x no longer majors an in-range peer dependent, #28), and the plots-svelte peer becomes `>=0.1.0 <1` | forced (#21's verified fix) | `.changeset/config.json`, `packages/plots-svelte/package.json` | `release.test.js` (unskipped here) | #39 |
 | #78 | From CR #77: O4's temp workspace writes a package-lock.json | forced (CR #77: changesets 3 finds npm workspaces only with a lock file) | `tests/unit/release.test.js` | O4 green on 2.31.1 and 3.0.3 | #21 |
 | #28 reuse | Bump `@changesets/cli`; add root `overrides` only if `npm audit` still reports. Re-check #21's option against the new config validator. The root README says `npm audit --omit=dev` is what ships | bump first because it removes rather than pins (round 2, user); considered overrides only | `package.json`, `package-lock.json`, root README line | `npm audit` 0 (stop condition); `release.test.js` still green | #21, #78 |
-| #41 | `.changeset/layouts.md`: plots minor, with the breaking `data.layout` shape and its migration; plots-svelte patch, naming the widened peer range. #27's last lines (`packages/plots/README.md:21`, `Layout3D.svelte:1`) | forced (`workflow.md`, TDD; the release needs a changeset). The #27 lines ride here because this item touches tests and the hook needs that | `.changeset/layouts.md`, `packages/plots/README.md`, `packages/plots-svelte/src/lib/Layout3D.svelte`; `tests/unit/release.test.js` (asserts the changeset's bump types) | O3, O4 green | #40, #21, #28 |
+| #80 | From CR #79: release.yml runs changesets/action@v2 | forced (CR #79, user: action v1 doesn't support CLI 3, so a release would tag nothing) | `.github/workflows/release.yml` | `release.test.js::release workflow uses changesets/action v2 inputs` | #28 |
+| #41 | `.changeset/layouts.md`: plots minor, with the breaking `data.layout` shape and its migration; plots-svelte patch, naming the widened peer range. #27's last lines (`packages/plots/README.md:21`, `Layout3D.svelte:1`) | forced (`workflow.md`, TDD; the release needs a changeset). The #27 lines ride here because this item touches tests and the hook needs that | `.changeset/layouts.md`, `packages/plots/README.md`, `packages/plots-svelte/src/lib/Layout3D.svelte`; `tests/unit/release.test.js` (asserts the changeset's bump types) | O3, O4 green | #40, #21, #28, #80 |
 
-36 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
+37 items in 3 milestones. The milestones are sequential. No other plan runs alongside this one.
 
 ## Risks and spikes
 
@@ -256,3 +257,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 headless: M2 review round 4, 0 blocking, nothing pulled in; #75 and #76 plain issues. M2 ticked.
 - 2026-10-06 headless: M2 accepted (row: milestone acceptance within the plan). O2's oracles are a property and a metamorphic test, both machine-checked.
 - 2026-10-06 (user): CR #77 accepted: O4's temp workspace writes a package-lock.json so changesets 3 sees it. New item #78 in M3; #28 runs after it.
+- 2026-10-06 (user): #28 landed on changesets 3.0.3; CR #79 accepted: release.yml moves to changesets/action@v2. New item #80 in M3; #41 runs after it.
