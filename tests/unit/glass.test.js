@@ -117,6 +117,13 @@ test('legend and drawing use one glass rule', async () => {
   assert.ok(src.includes('glassFill(drawnGlasses(S))'), 'layout2d.js picks its glasses with drawnGlasses');
 });
 
+// Issue #122: a bad input names itself, as layout2D's does (#65/#67), instead of a bare TypeError.
+test('glassLegend names a bad input', () => {
+  const msg = 'glassLegend: data is not a recorded layout ({surfaces, rays}) or a system carrying one in layout';
+  const L = { surfaces: [], rays: [] };
+  for (const bad of [{}, { layoutWl: L }, { layout: {} }, null]) assert.throws(() => glassLegend(bad), { message: msg }, JSON.stringify(bad));
+});
+
 // Issue #101: <Legend kind="glass" data={layout} /> renders glassLegend(data), one .eleo-key per glass.
 test('Legend kind="glass" renders one key per glass', async () => {
   const { compile } = await import('svelte/compiler');

@@ -42,10 +42,15 @@ const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 /**
  * Legend keys for a layout's glasses: one swatch key per distinct drawn glass, in first-use order, filled as
  * layout2D fills it. `data` is a recorded layout or a system carrying one in `layout`. "" when no named glass is drawn.
+ * Throws a named error for anything else.
  * @param {{surfaces?: object[], layout?: {surfaces: object[]}}} data
  * @returns {string}
  */
 export function glassLegend(data) {
-  const glasses = drawnGlasses((data.surfaces ? data : data.layout).surfaces), fills = glassFill(glasses);
+  const L = data && (data.surfaces ? data : data.layout);
+  if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) {
+    throw new Error('glassLegend: data is not a recorded layout ({surfaces, rays}) or a system carrying one in layout');
+  }
+  const glasses = drawnGlasses(L.surfaces), fills = glassFill(glasses);
   return [...new Set(glasses.map((g) => g.name))].map((n) => `<span class="eleo-key eleo-key--swatch" style="--c:${fills.get(n)}">${esc(n)}</span>`).join('');
 }
