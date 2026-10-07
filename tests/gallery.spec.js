@@ -67,11 +67,11 @@ test('standalone layout entry', async ({ page }) => {
   const assets = await page.evaluate(() => ({
     scripts: [...document.scripts].filter((s) => s.src).map((s) => new URL(s.src).pathname),
     styles: [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => new URL(l.href).pathname),
-    api: { layout2D: typeof window.ELEO?.layout2D, layoutBounds: typeof window.ELEO?.layoutBounds, sample: typeof window.ELEO?.sample },
+    api: { layout2D: typeof window.ELEO?.layout2D, layoutBounds: typeof window.ELEO?.layoutBounds, glassLegend: typeof window.ELEO?.glassLegend, sample: typeof window.ELEO?.sample },
   }));
   expect(assets.scripts).toEqual(['/packages/plots/dist/eleo-layout.js']);
   expect(assets.styles).toEqual(['/packages/tokens/dist/tokens.css']);
-  expect(assets.api).toEqual({ layout2D: 'function', layoutBounds: 'function', sample: 'undefined' });
+  expect(assets.api).toEqual({ layout2D: 'function', layoutBounds: 'function', glassLegend: 'function', sample: 'undefined' });
 
   const drawn = await page.locator('[data-fixture]').evaluateAll((els) => els.map((el) => ({
     fixture: el.dataset.fixture,
