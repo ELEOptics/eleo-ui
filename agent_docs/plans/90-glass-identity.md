@@ -173,6 +173,8 @@ plans plots and plots-svelte minors and a tokens minor. Proves: O3
 | #127 | Boxed `layout2D` names a non-finite point; an unserializable glass still gets the named error | the guard in layout2D's ray loop because a box skips layoutBounds (review M3 finding 1); considered requiring layoutBounds always (a cost on every boxed draw) | `packages/plots/src/layout2d.js`, `packages/plots/src/glass.js` | `tests/unit/layout2d.test.js::layoutBounds names a bad input`, `::unknown glass string throws` | #104 |
 | #128 | `package-lock.json` matches the widened peers | forced (review M3 finding 2: the next install rewrites it) | `package-lock.json` | `npm ci --dry-run`; no diff after `npm install --package-lock-only` | #104 |
 | #129 | Tests: `iife.js` merge branch; release `minor` helper for 1.x | tests only (review M3 findings 3 and 5) | none | `tests/gallery.spec.js::classic entries merge and expose the sample`, `tests/unit/release.test.js::tokens peers survive version` | #104 |
+| #130 | Named errors for profile points, unprintable glasses, empty names | extend the existing guards because they are the same family one level down (review M3 round 2 findings 1-3); considered leaving them to row D's recorder (no producer validates) | `packages/plots/src/layout2d.js`, `packages/plots/src/glass.js` | `tests/unit/layout2d.test.js::layoutBounds names a bad input`, `::unknown glass string throws` | #129 |
+| #131 | Gallery survives a missing sample script | null `SAMPLE_BOX` because the merit and glasses tiles already guard their data that way (finding 4); considered pinning `ZIMG` again (#47 removed it) | `gallery/index.html` | `tests/gallery.spec.js::a missing sample script blanks only the sample tiles` | #129 |
 
 ### M4: phos on layout2D GitHub: `P90 M4: phos on layout2D`
 
@@ -217,3 +219,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-06 review M2 round 2: 0 blocking; headless: backlog #124 into M2 (row: milestone acceptance within the plan); finding 2 folded into #60.
 - 2026-10-06 review M2 round 3: 0 blocking, nothing pulled in. headless: M2 accepted, O2's oracle is a machine property (row: milestone acceptance within the plan).
 - 2026-10-06 review M3 round 1: 0 blocking; headless: backlog #127, #128, #129 into M3 (row: milestone acceptance within the plan).
+- 2026-10-06 review M3 round 2: 0 blocking; headless: backlog #130, #131 into M3 (row: milestone acceptance within the plan); #132, #133 left as plain issues (necessity, optional).
