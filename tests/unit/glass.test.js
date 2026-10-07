@@ -97,3 +97,22 @@ test('legend lists each glass once in first-use order', () => {
   assert.equal(glassLegend(L), `<span class="eleo-key eleo-key--swatch" style="--c:${only}">A&lt;b&gt;&amp;&quot;</span>`);
   assert.equal(glassLegend({ surfaces: [sv('crown'), sv('flint'), sv(null)], rays: [] }), '', 'shorthand only: empty');
 });
+
+// Issue #120 (CR #119): layout2D picks its glasses with drawnGlasses, so its polygon fills and glassLegend's swatches
+// come from one rule. A glass on the last surface draws nothing; a repeated glass draws one fill.
+test('legend and drawing use one glass rule', async () => {
+  const { layout2D } = await import('../../packages/plots/src/layout2d.js');
+  const prof = (z, h) => Array.from({ length: 41 }, (_, i) => [z, -h + (2 * h * i) / 40]);
+  const sv = (z, glass, extra = {}) => ({ z, sd: 5, glass, profile: prof(z, 5), ...extra });
+  const A = g('N-BK7', 1.5168, 64.17), B = g('F2', 1.62004, 36.37), C = g('N-SF6', 1.80518, 25.36);
+  const L = { surfaces: [sv(0, { ...A }), sv(2, { ...B }), sv(4, null), sv(6, { ...A }), sv(8, null), sv(10, { ...C }, { image: true })],
+    rays: [[[[-2, 1], [10, 0]], [[-2, 0], [10, 0]], [[-2, -1], [10, 0]]]] };
+  const drawn = [...layout2D({ data: L }).matchAll(/<polygon [^>]*style="fill:([^;"]+);/g)].map((m) => m[1]);
+  const keys = [...glassLegend(L).matchAll(/style="--c:([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(drawn.length, 3, 'three named-glass polygons, none for the last surface');
+  assert.deepEqual([...new Set(drawn)].sort(), [...keys].sort(), 'polygon fills and legend swatches are one set');
+  assert.equal(keys.length, 2, 'the last-surface glass gets no swatch');
+  // The rule lives once: layout2d.js calls glass.js's drawnGlasses instead of its own filter.
+  const src = readFileSync(new URL('../../packages/plots/src/layout2d.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('glassFill(drawnGlasses(S))'), 'layout2d.js picks its glasses with drawnGlasses');
+});

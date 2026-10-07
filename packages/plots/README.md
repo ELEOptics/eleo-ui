@@ -40,6 +40,7 @@ colorbarEl.style.background = gradient('ember');
 - **Chief ray:** `chief[k]` for fan k; without `chief`, the fan's middle ray, `floor(n / 2)`. That is eleoptics.com's rule, and it can be wrong for a vignetted fan, so record `chief` when you know it. An index outside the fan throws an error naming the fan.
 - **`box`:** the `{zmin, zmax, ylo, yhi}` the drawing shows, in mm. It defaults to `layoutBounds([layout])`. Drawings given the same `box` and `width` share one scale, so they compare true to size.
 - **`layoutBounds(layouts)`:** the box that frames every layout given: z covers the rays, y covers 0, the rays and every surface edge but the image's, padded 4%.
+- **`glassLegend(data)`:** legend keys for a layout's `{ name, nd, vd }` glasses: one `eleo-key eleo-key--swatch` span per distinct glass the drawing fills, by name, in order of first use, its swatch in that glass's polygon fill. `data` is a recorded layout or a system carrying one in `layout`. Shorthand `'crown'`/`'flint'` and a glass on the last surface (which draws nothing) get no key; with no named glass it returns `''`.
 - **`labels`:** one text per fan, drawn at the image end of that fan's chief ray. A fan with no rays gets none. A `null` entry skips that fan; more labels than fans throws.
 - **`marks`:** `false` drops the STO and IMA labels. Default `true`.
 
@@ -88,6 +89,6 @@ colormap('ember');       // 256 [r, g, b] entries in the current theme
 <script src="eleo-plots-sample.js"></script>  <!-- optional: the sample system -->
 ```
 
-`eleo-physics.js` is the physics helpers alone (1 KB). `eleo-layout.js` is `layout2D` and `layoutBounds` alone, with no sample, for drawing recorded layouts with only `tokens.css` (a size test caps its growth at 2 KB gzipped per roadmap row).
+`eleo-physics.js` is the physics helpers alone (1 KB). `eleo-layout.js` is `layout2D`, `layoutBounds` and `glassLegend` alone, with no sample, for drawing recorded layouts with only `tokens.css` (a size test caps its growth at 2 KB gzipped per roadmap row).
 
 For Svelte, see [`@eleoptics/plots-svelte`](https://www.npmjs.com/package/@eleoptics/plots-svelte). MIT licensed. Part of [eleo-ui](https://github.com/ELEOptics/eleo-ui).
