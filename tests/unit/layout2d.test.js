@@ -359,25 +359,43 @@ test('layout2d.js exports layout2D and layoutBounds only', () => {
 
 // Plan #30, #35: `box` is public. layoutBounds is on the ES entry and on ELEO (so eleo-plots.js has it), and a box
 // alone sets the scale and the z origin. #61: a label at the box's left edge anchors at its start, not half clipped.
-// oracle: spec the plan's transform matrix(s 0 0 -s tx ty), with s = width / (zmax - zmin), tx = -zmin·s and
-// ty = 15 + yhi·s (#63: the label room above the geometry is a constant 15 px)
+// oracle: spec the plan's transform matrix(s 0 0 -s tx ty), with s = (width - 4) / (zmax - zmin), tx = 2 - zmin·s and
+// ty = 15 + yhi·s (#63: the label room above the geometry is a constant 15 px). The z pad of 2 px at each end is
+// plan #144 (agent_docs/plans/144-layout-defaults.md) issue #117, and the user's decision of 2026-10-07 (plan Change log).
 test('box pins the transform', () => {
   assert.equal(plots.layoutBounds, layoutBounds, 'the ES entry exports layoutBounds');
   assert.equal(plots.default.layoutBounds, layoutBounds, 'ELEO.layoutBounds, so eleo-plots.js has it');
   const before = fixture('merit-before'), after = fixture('merit-after');
   const box = plots.layoutBounds([before, after]);
   for (const W of [1000, 480]) {
-    const s = W / (box.zmax - box.zmin);
+    const s = (W - 4) / (box.zmax - box.zmin);
     for (const L of [before, after]) {
       const [a, , , d, tx, ty] = geometry(plots.layout2D({ data: L, box, width: W })).M;
-      assert.ok(Math.abs(a - s) <= 1e-6 && Math.abs(d + s) <= 1e-6, `width ${W}: scale ${a} is width / box z span ${s}`);
-      assert.ok(Math.abs(tx + box.zmin * s) <= 1e-3, `width ${W}: z = box.zmin sits at x = 0`);
+      assert.ok(Math.abs(a - s) <= 1e-6 && Math.abs(d + s) <= 1e-6, `width ${W}: scale ${a} is (width - 4) / box z span ${s}`);
+      assert.ok(Math.abs(tx - (2 - box.zmin * s)) <= 1e-3, `width ${W}: z = box.zmin sits at x = 2`);
       assert.ok(Math.abs(ty - (15 + box.yhi * s)) <= 1e-3, `width ${W}: y = box.yhi sits 15 px down, the label room`);
     }
   }
   const edge = { zmin: 0, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // the sample's stop is at z = 0
   const sto = attrs(/<text\b[^>]*>STO<\/text>/.exec(plots.layout2D({ data: sample.layout, box: edge }))[0]);
   assert.equal(sto['text-anchor'], 'start', 'STO at the left edge anchors at its start');
+});
+
+// Plan #144, O2, issue #117: the drawing is padded 2 px in z at each end, so the image line and the ray caps sit inside the viewBox.
+// oracle: spec issue #117: s = (W - 4) / (zmax - zmin), tx = 2 - zmin·s; the image line's x and every ray point's x lie in [2, W - 2] (to 0.01 px), read through the drawn group's own transform
+test('the image line clears the right edge', () => {
+  for (const [name, L] of [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]]) {
+    for (const W of [1000, 480]) {
+      const svg = ELEO.layout2D({ data: L, width: W });
+      const where = `${name} w${W}`, { M, lines, polylines } = drawn(svg), [s, , , , tx] = M;
+      const px = (z) => z * s + tx, ok = (x) => x >= 2 - 0.01 && x <= W - 2 + 0.01;
+      const img = lines.filter(vertical).find((a) => at(+a.x1, image(L)));
+      assert.ok(img, `${where}: an image line is drawn`);
+      assert.ok(ok(px(+img.x1)), `${where}: the image line at x=${px(+img.x1).toFixed(2)} is at least 2 px inside the viewBox (0..${W})`);
+      for (const a of polylines) for (const [z] of pairs(a.points)) assert.ok(ok(px(z)), `${where}: a ray point at x=${px(z).toFixed(2)} is at least 2 px inside the viewBox`);
+      assert.ok(Math.abs(px(image(L)) - (W - 2)) <= 0.01, `${where}: the image plane sits 2 px from the right edge`);
+    }
+  }
 });
 
 // Plan #30, #36: `labels[k]` is drawn once, near the image end of fan k's chief, inside the viewBox. Escaped as text.

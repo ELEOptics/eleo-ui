@@ -83,10 +83,11 @@ export function layout2D(o) {
   var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
-  var W = o.width || 1000, s = W / (B.zmax - B.zmin);
+  // The drawing is padded 2 px in z at each end (more than half the widest stroke, --stroke-curve), so the image line and the ray caps sit inside the viewBox.
+  var W = o.width || 1000, PAD = 2, s = (W - 2 * PAD) / (B.zmax - B.zmin);
   // Room above the geometry for the labels, 15 px whatever the stops reach, so one box gives one transform.
   var top = 15;
-  var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = -B.zmin * s, ty = top + B.yhi * s;
+  var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = PAD - B.zmin * s, ty = top + B.yhi * s;
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
