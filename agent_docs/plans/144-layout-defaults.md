@@ -1,7 +1,7 @@
 # Plan #144: Layout defaults for the website
 
 Status: approved 2026-10-07
-Branch: `plan/144-layout-defaults` PR: #<pr> Depends on: plan #90 (done) Roadmap: `agent_docs/roadmap.md`, row L
+Branch: `plan/144-layout-defaults` PR: #152 Depends on: plan #90 (done) Roadmap: `agent_docs/roadmap.md`, row L
 
 ## Problem
 
@@ -167,3 +167,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-07 headless: backlog #157 into M1, both round 2 findings (row: Choose, add or reorder rows (`/roadmap next`), milestone acceptance within the plan).
 - 2026-10-07: review M1 round 3 (code-reviewer): 0 blocking, 2 backlog. Finding 1 is plain issue #158 (a tokens text, for row J).
 - 2026-10-07 headless: backlog #159 into M1 (row: Choose, add or reorder rows (`/roadmap next`), milestone acceptance within the plan).
+- 2026-10-07: review M1 round 4 (code-reviewer): 0 blocking, 2 backlog, none pulled in (after round 3). Finding 1 is plain issue #160; finding 2 (this header's PR number) fixed here.
+- 2026-10-07: M1 done: every item done, the four acceptance tests green, the last review 0 blocking with nothing pulled in. Demo pending (O1's oracle is the user's).
