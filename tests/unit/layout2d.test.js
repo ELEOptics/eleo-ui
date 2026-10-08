@@ -462,8 +462,8 @@ test('labels at the image', () => {
         assert.ok(Math.abs(x - wantX) <= 0.01, `${name} w${W}: label ${label} x ${x} is 6 px right of the image plane (${wantX.toFixed(2)})`);
         assert.ok(Math.abs(y - wantY) <= 0.01, `${name} w${W}: label ${label} baseline ${y} is 4 px below its chief end (${wantY.toFixed(2)})`);
         assert.ok(x >= 0 && x <= view[2] && y > 0 && y <= view[3], `${name} w${W}: label ${label} anchor inside the viewBox`);
-        // #149: room is kept on the right for the longest drawn label, 6 px a character, so the text ends inside the 2 px pad.
-        const room = 6 + 6 * Math.max(...labels.filter((t, j) => t != null && L.rays[j].length).map((t) => t.length));
+        // #149: room is kept on the right for the longest label, 6 px a character, so the text ends inside the 2 px pad.
+        const room = 6 + 6 * Math.max(...labels.filter((t) => t != null).map((t) => t.length));
         assert.ok(x + 6 * label.length <= view[2] - 2 + 0.01, `${name} w${W}: label ${label} (${label.length} chars) ends inside the 2 px pad; room ${room}`);
       });
     }
