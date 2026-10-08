@@ -377,7 +377,8 @@ test('box pins the transform', () => {
     }
   }
   // #149: with labels the drawing keeps room = 6 + 6 × the longest drawn label's raw length px on the right, inside the pad:
-  // s = (W - 4 - room) / span, tx unchanged. A label that is null, or of an empty fan, is not drawn and costs nothing.
+  // s = (W - 4 - room) / span, tx unchanged. A null label costs nothing; a label of an empty fan still counts (CR #153), so
+  // one box, width and labels give one scale whatever the fans hold.
   const labels = ['0°', '12°', '24.5°']; // the longest is 5 characters
   for (const W of [1000, 480]) {
     const room = 6 + 6 * 5, s = (W - 4 - room) / (box.zmax - box.zmin);
@@ -386,6 +387,11 @@ test('box pins the transform', () => {
       assert.ok(Math.abs(a - s) <= 1e-6 && Math.abs(d + s) <= 1e-6, `width ${W}, labels: scale ${a} is (width - 4 - room) / box z span ${s}`);
       assert.ok(Math.abs(tx - (2 - box.zmin * s)) <= 1e-3, `width ${W}, labels: z = box.zmin still sits at x = 2`);
     }
+    const emptied = { ...before, rays: before.rays.map((f, k) => (k === 1 ? [] : f)) }; // fan 1 vignetted away; its label '12°' still counts
+    const [ae] = geometry(plots.layout2D({ data: emptied, box, width: W, labels })).M;
+    assert.ok(Math.abs(ae - s) <= 1e-6, `width ${W}, labels: an emptied fan gives the same scale ${ae} as the full one ${s}`);
+    const [ae2] = geometry(plots.layout2D({ data: { ...before, rays: before.rays.map((f, k) => (k === 2 ? [] : f)) }, box, width: W, labels })).M;
+    assert.ok(Math.abs(ae2 - s) <= 1e-6, `width ${W}, labels: emptying the fan of the longest label keeps the scale ${ae2} (${s})`);
     const [a0] = geometry(plots.layout2D({ data: before, box, width: W, labels: [null, null, null] })).M;
     assert.ok(Math.abs(a0 - (W - 4) / (box.zmax - box.zmin)) <= 1e-6, `width ${W}: no drawn label, no room`);
     const [a1] = geometry(plots.layout2D({ data: before, box, width: W, labels: ['ab', null, 'xyz'] })).M;

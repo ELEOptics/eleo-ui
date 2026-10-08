@@ -84,9 +84,9 @@ export function layout2D(o) {
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
   // The drawing is padded 2 px in z at each end (more than half the widest stroke, --stroke-curve), so the image line and the ray caps sit inside the viewBox.
-  // Drawn labels start 6 px past the image plane, so the right end keeps room = 6 + 6 px a character of the longest one
-  // (0 without): the same box, width and labels give one scale. An empty fan or a null entry draws no label.
-  var drawn = (o.labels || []).map(function (t, k) { return L.rays[k].length && t != null ? String(t).length : 0; }).filter(Boolean);
+  // Labels start 6 px past the image plane, so the right end keeps room = 6 + 6 px a character of the longest non-null one
+  // (0 without), whatever its fan holds: the same box, width and labels give one scale. A null entry draws no label.
+  var drawn = (o.labels || []).map(function (t) { return t != null ? String(t).length : 0; }).filter(Boolean);
   var W = o.width || 1000, PAD = 2, room = drawn.length ? 6 + 6 * Math.max.apply(null, drawn) : 0, s = (W - 2 * PAD - room) / (B.zmax - B.zmin);
   // Room above the geometry for the labels, 15 px whatever the stops reach, so one box gives one transform.
   var top = 15;
