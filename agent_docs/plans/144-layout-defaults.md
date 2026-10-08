@@ -86,7 +86,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
   padding changes `s` and `tx`.
 - The roadmap allows `eleo-layout.js` to grow by 2 kB gzipped in this row.
 - Assumption: in `--font-mono` at 10 px, a label is at most 6 px wide per character. O2 checks it in Chromium.
-- The room for labels depends on the longest drawn label (raw text, non-null, on a non-empty fan), so drawings that
+- The room for labels depends on the longest non-null label (raw text, whatever its fan holds: CR #153), so drawings that
   share a scale need the same `box`, `width` and labels. The website passes the same labels to every drawing it
   compares.
 - A layout with no image surface puts each label 6 px past its own chief end's z.
