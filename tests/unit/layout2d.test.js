@@ -376,6 +376,21 @@ test('box pins the transform', () => {
       assert.ok(Math.abs(ty - (15 + box.yhi * s)) <= 1e-3, `width ${W}: y = box.yhi sits 15 px down, the label room`);
     }
   }
+  // #149: with labels the drawing keeps room = 6 + 6 × the longest drawn label's raw length px on the right, inside the pad:
+  // s = (W - 4 - room) / span, tx unchanged. A label that is null, or of an empty fan, is not drawn and costs nothing.
+  const labels = ['0°', '12°', '24.5°']; // the longest is 5 characters
+  for (const W of [1000, 480]) {
+    const room = 6 + 6 * 5, s = (W - 4 - room) / (box.zmax - box.zmin);
+    for (const L of [before, after]) {
+      const [a, , , d, tx] = geometry(plots.layout2D({ data: L, box, width: W, labels })).M;
+      assert.ok(Math.abs(a - s) <= 1e-6 && Math.abs(d + s) <= 1e-6, `width ${W}, labels: scale ${a} is (width - 4 - room) / box z span ${s}`);
+      assert.ok(Math.abs(tx - (2 - box.zmin * s)) <= 1e-3, `width ${W}, labels: z = box.zmin still sits at x = 2`);
+    }
+    const [a0] = geometry(plots.layout2D({ data: before, box, width: W, labels: [null, null, null] })).M;
+    assert.ok(Math.abs(a0 - (W - 4) / (box.zmax - box.zmin)) <= 1e-6, `width ${W}: no drawn label, no room`);
+    const [a1] = geometry(plots.layout2D({ data: before, box, width: W, labels: ['ab', null, 'xyz'] })).M;
+    assert.ok(Math.abs(a1 - (W - 4 - 24) / (box.zmax - box.zmin)) <= 1e-6, `width ${W}: room follows the longest drawn label (3 chars)`);
+  }
   const edge = { zmin: 0, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // the sample's stop is at z = 0
   const sto = attrs(/<text\b[^>]*>STO<\/text>/.exec(plots.layout2D({ data: sample.layout, box: edge }))[0]);
   assert.equal(sto['text-anchor'], 'start', 'STO at the left edge anchors at its start');
@@ -398,8 +413,9 @@ test('the image line clears the right edge', () => {
   }
 });
 
-// Plan #30, #36: `labels[k]` is drawn once, near the image end of fan k's chief, inside the viewBox. Escaped as text.
-// oracle: spec the plan's `labels` (text at the image end of each fan's chief); property a label stays in the viewBox
+// Plan #30, #36: `labels[k]` is drawn once, beside the image end of fan k's chief, inside the viewBox. Escaped as text.
+// Plan #144, #149: it starts 6 px past the image plane, its baseline 4 px below the chief's end (#126, user).
+// oracle: spec #126 (the label's anchor and offsets); property a label stays in the viewBox
 test('labels at the image', () => {
   const texts = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
   const tol = fixture('tolerance');
@@ -419,10 +435,15 @@ test('labels at the image', () => {
         if (!fan.length) { assert.equal(got.length, 0, `${name}: no label for empty fan ${k}`); return; }
         assert.equal(got.length, 1, `${name} w${W}: label ${label} drawn once`);
         const ray = fan[L.chief?.[k] ?? Math.floor(fan.length / 2)], end = ray[ray.length - 1];
-        const px = [end[0] * s + tx, end[1] * ns + ty], x = +got[0].x, y = +got[0].y;
-        assert.ok(Math.hypot(x - px[0], y - px[1]) <= 16, `${name} w${W}: label ${label} (${x}, ${y}) within 16 px of the chief end (${px[0].toFixed(2)}, ${px[1].toFixed(2)})`);
+        const img = L.surfaces.find((x) => x.image), x = +got[0].x, y = +got[0].y;
+        const wantX = (img ? img.z : end[0]) * s + tx + 6, wantY = end[1] * ns + ty + 4;
+        assert.equal(got[0]['text-anchor'], 'start', `${name} w${W}: label ${label} is start-anchored`);
+        assert.ok(Math.abs(x - wantX) <= 0.01, `${name} w${W}: label ${label} x ${x} is 6 px right of the image plane (${wantX.toFixed(2)})`);
+        assert.ok(Math.abs(y - wantY) <= 0.01, `${name} w${W}: label ${label} baseline ${y} is 4 px below its chief end (${wantY.toFixed(2)})`);
         assert.ok(x >= 0 && x <= view[2] && y > 0 && y <= view[3], `${name} w${W}: label ${label} anchor inside the viewBox`);
-        if (x > view[2] - 16) assert.equal(got[0]['text-anchor'], 'end', `${name} w${W}: label ${label} at the right edge anchors at its end`);
+        // #149: room is kept on the right for the longest drawn label, 6 px a character, so the text ends inside the 2 px pad.
+        const room = 6 + 6 * Math.max(...labels.filter((t, j) => t != null && L.rays[j].length).map((t) => t.length));
+        assert.ok(x + 6 * label.length <= view[2] - 2 + 0.01, `${name} w${W}: label ${label} (${label.length} chars) ends inside the 2 px pad; room ${room}`);
       });
     }
   }
@@ -507,7 +528,7 @@ test('shared box', () => {
     assert.deepEqual(shared.polygons, alone.polygons, 'glass is the same in mm');
     assert.deepEqual(shared.polylines, alone.polylines, 'rays are the same in mm');
 
-    // Each labels[k] sits at the image end of fan k's chief (the middle ray: merit records no chief), in viewBox px.
+    // Each labels[k] sits beside the image end of fan k's chief (the middle ray: merit records no chief), in viewBox px.
     const [s, , , ns, tx, ty] = geometry(svg).M;
     const texts = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
     labels.forEach((label, k) => {

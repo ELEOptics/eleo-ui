@@ -84,7 +84,10 @@ export function layout2D(o) {
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
   // The drawing is padded 2 px in z at each end (more than half the widest stroke, --stroke-curve), so the image line and the ray caps sit inside the viewBox.
-  var W = o.width || 1000, PAD = 2, s = (W - 2 * PAD) / (B.zmax - B.zmin);
+  // Drawn labels start 6 px past the image plane, so the right end keeps room = 6 + 6 px a character of the longest one
+  // (0 without): the same box, width and labels give one scale. An empty fan or a null entry draws no label.
+  var drawn = (o.labels || []).map(function (t, k) { return L.rays[k].length && t != null ? String(t).length : 0; }).filter(Boolean);
+  var W = o.width || 1000, PAD = 2, room = drawn.length ? 6 + 6 * Math.max.apply(null, drawn) : 0, s = (W - 2 * PAD - room) / (B.zmax - B.zmin);
   // Room above the geometry for the labels, 15 px whatever the stops reach, so one box gives one transform.
   var top = 15;
   var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = PAD - B.zmin * s, ty = top + B.yhi * s;
@@ -103,7 +106,7 @@ export function layout2D(o) {
     if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
-  var ends = [];
+  var ends = [], img = S.filter(function (x) { return x.image; })[0];
   // One group holds every ray, so its opacity does not darken where rays cross (a per-polyline stroke-opacity would).
   g += '<g opacity=".85">';
   L.rays.forEach(function (rays, k) {
@@ -115,15 +118,15 @@ export function layout2D(o) {
     ends[k] = rays[c][rays[c].length - 1];
   });
   g += "</g>";
-  var img = S.filter(function (x) { return x.image; })[0];
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>";
   // A text's baseline 5 px above y (mm), kept 10 px inside the top.
   function above(y) { return +Math.max(10, Y(y) - 5).toFixed(2); }
-  function label(z, py, t) { return '<text ' + TICK + ' x="' + X(z) + '" y="' + py.toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
-  // Each field's label sits 5 px above its chief's image end; an empty fan or a null label draws none.
+  function label(z, py, t, anchor) { return '<text ' + TICK + ' x="' + (anchor ? z.toFixed(2) : X(z)) + '" y="' + py.toFixed(2) + '" text-anchor="' + (anchor || (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle")) + '">' + t + "</text>"; }
+  // Each field's label starts 6 px past the image plane (its own chief end's z with no image surface), its baseline 4 px
+  // below its chief's end; the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ z: ends[k][0], py: above(ends[k][1]), t: esc(t) }); });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6, py: +Y(ends[k][1]) + 4, t: esc(t) }); });
   if (o.marks !== false) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
     if (img) {
@@ -133,7 +136,7 @@ export function layout2D(o) {
       g += label(img.z, ys.length ? Math.max(+Y(Math.max(-img.sd, B.ylo)) + IMA_DROP, Math.max.apply(null, ys) + 12) : above(img.sd), "IMA");
     }
   }
-  tags.forEach(function (a) { g += label(a.z, a.py, a.t); });
+  tags.forEach(function (a) { g += label(a.x, a.py, a.t, "start"); });
   var sb = 10 * s, by = H - 8;
   g += '<path d="M8,' + (by - 4) + " V" + (by + 4) + " M8," + by + " H" + (8 + sb).toFixed(1) + " M" + (8 + sb).toFixed(1) + "," + (by - 4) + " V" + (by + 4) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + (16 + sb).toFixed(1) + '" y="' + (by + 3) + '">10 mm</text>';
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
