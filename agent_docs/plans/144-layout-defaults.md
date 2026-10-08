@@ -127,6 +127,7 @@ user's go, the orchestrator records U3's new baseline in the roadmap's Design re
 | #154 | Label room counts every non-null label, whatever its fan holds (CR #153, review M1 round 1 finding 1) | count every non-null label because `index.d.ts:36` (user) promises one box, width and labels give one scale; considered amending the docs to exclude empty fans, which leaves the comparison trap | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::box pins the transform` (empty-fan case) | #151 |
 | #155 | Name a width too narrow for the labels (review M1 round 1 finding 2) | throw `layout2D: width too narrow for the labels` because a non-positive scale mirrors the drawing silently; considered clamping room, which clips labels without telling | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js` width-40 case | #154 |
 | #157 | The narrow-width error names the pad, and the README lists it (review M1 round 2 findings 1, 2) | name the pad in the message because widths 1 to 4 throw with no labels; considered choosing the message by `room`, two messages for one rule. Doc: plots README `labels` bullet | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js`, `packages/plots/README.md` | `layout2d.test.js::a width too narrow for the labels is named` | #155 |
+| #159 | `labels at the image`'s message counts room as `layout2D` does (review M1 round 3 finding 2) | drop the empty-fan filter because the code counts every non-null label since CR #153; considered removing `room` from the message, which loses the reason a failure reports | `tests/unit/layout2d.test.js` | `layout2d.test.js::labels at the image` | #157 |
 
 ## Risks and spikes
 
@@ -164,3 +165,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-07 headless: backlog #155 into M1 (row: Choose, add or reorder rows (`/roadmap next`), milestone acceptance within the plan).
 - 2026-10-07: review M1 round 2 (code-reviewer): 0 blocking, 2 backlog.
 - 2026-10-07 headless: backlog #157 into M1, both round 2 findings (row: Choose, add or reorder rows (`/roadmap next`), milestone acceptance within the plan).
+- 2026-10-07: review M1 round 3 (code-reviewer): 0 blocking, 2 backlog. Finding 1 is plain issue #158 (a tokens text, for row J).
+- 2026-10-07 headless: backlog #159 into M1 (row: Choose, add or reorder rows (`/roadmap next`), milestone acceptance within the plan).
