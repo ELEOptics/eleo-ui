@@ -423,7 +423,7 @@ test('labels at the image', () => {
       const low = Math.max(-img.sd, layoutBounds([L]).ylo) * ns + ty;
       assert.ok(iy >= low + 14 - 0.005, `${name} w${W}: IMA (${iy}) at least 14 px below the image line's lower end (${low.toFixed(2)})`);
       const span = (t) => { const x = +t.x, w = 8 * t.text.length, a = t['text-anchor'] || 'start'; return a === 'end' ? [x - w, x] : a === 'middle' ? [x - w / 2, x + w / 2] : [x, x + w]; };
-      const bar = span(T.find((t) => /true scale/.test(t.text))), im = span(ima[0]);
+      const bar = span(T.find((t) => t.text === '10 mm')), im = span(ima[0]);
       assert.ok(im[0] > bar[1] || im[1] < bar[0], `${name} w${W}: IMA x ${im.map((v) => v.toFixed(1))} clear of the scale text x ${bar.map((v) => v.toFixed(1))}`);
       T.filter((t) => labels.includes(t.text)).forEach((t) => {
         const d = Math.hypot(+t.x - ix, +t.y - iy);
