@@ -8,7 +8,7 @@ type that takes typed data and a role per series, covering every result shape ph
 (phos, the website, the gallery) build their analyses from those types; eleo-ui keeps the look on the
 design system by default.
 ADRs: none yet (row D writes the first).
-Constraints: group "Plots the website can share" ships one minor release at its end, carrying rows A and B;
+Constraints: group "Plots the website can share" releases when the website pulls (one minor carried rows A and B; L ships the next);
 the sample and every gallery tile keep working through every row. Group "Plot types for phos": each row adds its typed API alongside the old one; a release ships when a
 consumer pulls (after C for phos, then whenever phos adopts the next converted renderer), and J removes
 `kind` and the sample-shaped `data` in one major release. Recorded phos-core fixtures cover public lenses
@@ -55,8 +55,9 @@ Row letters and the Plan column: `agent_docs/agents/workflow.md`, Artifacts (Roa
 | -- | -- | -- | -- | -- |
 | A | [#4] | Brand fixes: standard field order and two vision palettes (red-green, blue-yellow) as `--series-k` in `plots.css`, selected by `data-palette`, used by every renderer (`layout2D`, `layout3D`, `spot`, `rayFan`, `curve`, `legend`), tested with culori; `.eleo-seg` marked in glass. | U1's tests pass; gallery checked in both themes and palettes, approved. | done |
 | B | #30 | Layouts: `layout2D` on the recorded format, fixtures copied from the website, the sample converted, a `box` option, the standalone entry, Svelte wrapper and gallery tile updated. Then one minor release (`npx changeset`, the user merges the Version packages PR), after fixing its setup: [#21] (a peer bump would release `plots-svelte` as 1.0.0) and [#28] (dev-only audit findings under `@changesets/cli`; `npm audit --omit=dev` documented). Absorbs [#27] (stale "theme change" comments: this row edits three of its four files). | U3 and U4 pass; every gallery tile unchanged apart from U1's colors, the sample's shorter image line and 12 px taller sample tiles (user, 2026-10-06); `npx changeset status` plans a patch of `plots-svelte` and `npm audit` reports 0; the release is on npm. | done |
+| L | | Layout defaults for the website, from the user's review of eleoptics.com's switch to `layout2D` ([#126], ELEOptics/eleo-website#45 M1 demo no-go): no end dot; field labels just past the image plane beside each chief ray's end, with room for them in the drawing; rays at 1 px and opacity .85, both set in `layout2D` (not `--stroke-ray`, so the website bumps one package); scale bar "10 mm". Then one minor release. Absorbs [#117] (the image line and end dots straddle the viewBox: the labels' right-hand room is the same fix) and [#112] (the scale label styled inline, so the standalone entry needs only `tokens.css`), both named by [#126]. | U3 and U4 still pass; the layout tiles change only as [#126] lists, approved at M1's demo in both themes; the scale label draws in the tick style on a page with only `tokens.css`; each U3 fixture draws the same pixels with the SVG's `overflow` hidden and visible (Playwright); the release is on npm (the user merges Version Packages). | next |
 
-B waited on A (both edit `renderers.js`). Not here: `fmt` units.
+B waited on A (both edit `renderers.js`). L, added after C, is the website's pull: eleoptics.com bumps to its release. It edits `layout2d.js` and no file D splits, so it is independent of D. D to J keep the letters they got at seeding; rows added later take the next free letter when they become next, so those letters follow execution order. Not here: `fmt` units.
 
 ### Plot types for phos
 
@@ -104,7 +105,7 @@ outcome names the baseline the user approves; that baseline is its oracle (`user
 | Outcome | Reference | Baseline |
 | -- | -- | -- |
 | U1, U2 | The gallery in both themes and palettes before row A | approved 2026-10-05 (plan [#4] M1 demo) |
-| U3 | The gallery in both themes and palettes before row B | pending: approved at B's M1 demo |
+| U3 | The gallery's layout tiles in both themes after row L's defaults ([#126]) | approved 2026-10-06 at B's M1 demo; replaced at L's M1 demo |
 | U2 | ELEO design system, claude.ai/artifact/JRXsjqrJmdRspmiPEtvEMt | approved (brand book) |
 | U12 | The gallery's Cooke-glasses tile, both themes | approved 2026-10-06 (plan #90 M1 demo) |
 | U5–U10, U13, U15 | The gallery's Playwright screenshots at each row's start (both themes and palettes); the ELEO design system | the diff approved at each row's M1 demo |
@@ -131,6 +132,17 @@ coverage table). Each row names the plan that delivers it.
 
 One bullet per entry (bare lines render as one paragraph).
 
+- 2026-10-07 next (director): new row L (layout defaults, [#126]) next, ahead of D. The user filed [#126] after the no-go at eleoptics.com's M1 demo, so the website's plan waits on this release. Row C and its release (plots 0.3.0 on npm) are done. L absorbs [#117] and [#112], which [#126] names. Runner-up: D (module split and `curve`), the order as written; it has no consumer waiting. 10 issues deferred: [#70], [#86], [#121], [#125], [#132], [#133], [#136], [#137], [#138], [#139].
+- 2026-10-07: review (roadmap-reviewer, claude-opus-5-5)
+  - 1: accepted: [#70] stays deferred; moving labels shifts every one by the same offset, so their spacing is unchanged.
+  - 2: accepted: [#139] and [#125] deferred; no part of [#126] edits `glass.js`.
+  - 3: accepted: [#136] and [#138] deferred; L keeps to [#126], [#117] and [#112].
+  - 4: accepted (a): U3's baseline updated. Rejected (b): U11's cut row keeps its id from being reused.
+  - 5: accepted: the group's release constraint now follows the website's pull.
+  - 6: accepted: the viewBox check is a Playwright overflow hidden-vs-visible comparison.
+  - 7: accepted: D to J keep their seeded letters, an exception noted under the group.
+  - 8: accepted: ray width and opacity live in `layout2D`, one package to bump.
+  - 9: accepted: L's exit ends with the release on npm.
 - 2026-10-07: row C done (plan #90, PR #111 ready): per-glass fills in an 8-slot glass-blue band (min ΔE2000 10.3, both themes), `glassLegend` and `<Legend kind="glass">`, named errors for bad recorded data, the classic `ELEO.sample`, and changesets for minors of plots, plots-svelte and tokens. The phos half is ELEOptics/phos#31. Releasing (merging the Version Packages PR) is the user's.
 - 2026-10-07 (user, plan #90): row C's phos half handed off as ELEOptics/phos#31. phos adopted the workflow mid-plan; its plan #2 and roadmap keep the legacy 2D view until its `ui` row. Row C's exit drops "render2d.ts deleted", and the release now waits on phos pulling (or another consumer).
 - 2026-10-06 (user, plan #90 M1 demo, #114): go; U12 reworded to the shipped rule (fixed slots by rank in vd, nd breaks ties); U12 baseline approved.
@@ -191,3 +203,14 @@ One bullet per entry (bare lines render as one paragraph).
 [#74]: https://github.com/ELEOptics/eleo-ui/issues/74
 [#76]: https://github.com/ELEOptics/eleo-ui/issues/76
 [#86]: https://github.com/ELEOptics/eleo-ui/issues/86
+[#112]: https://github.com/ELEOptics/eleo-ui/issues/112
+[#117]: https://github.com/ELEOptics/eleo-ui/issues/117
+[#121]: https://github.com/ELEOptics/eleo-ui/issues/121
+[#125]: https://github.com/ELEOptics/eleo-ui/issues/125
+[#126]: https://github.com/ELEOptics/eleo-ui/issues/126
+[#132]: https://github.com/ELEOptics/eleo-ui/issues/132
+[#133]: https://github.com/ELEOptics/eleo-ui/issues/133
+[#136]: https://github.com/ELEOptics/eleo-ui/issues/136
+[#137]: https://github.com/ELEOptics/eleo-ui/issues/137
+[#138]: https://github.com/ELEOptics/eleo-ui/issues/138
+[#139]: https://github.com/ELEOptics/eleo-ui/issues/139
