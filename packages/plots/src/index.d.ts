@@ -33,7 +33,7 @@ export interface LayoutSystem { layout?: RecordedLayout; layoutWl?: RecordedLayo
 export interface Layout2DProps {
   /** A recorded layout, or a system carrying one; defaults to ELEO.sample. */
   data?: RecordedLayout | LayoutSystem;
-  /** What the drawing shows, in mm; drawings with one box share a scale. Default layoutBounds([layout]). */
+  /** What the drawing shows, in mm; drawings with one box, width and labels share a scale. Default layoutBounds([layout]). */
   box?: LayoutBox;
   /** What the index colors mean. Default "field". */
   colorBy?: IndexKey;
@@ -41,7 +41,7 @@ export interface Layout2DProps {
   rays?: "marginal-chief" | "fan" | "chief";
   /** viewBox width in px; the drawing is always true scale. Default 1000. */
   width?: number;
-  /** One text per fan, drawn at the image end of that fan's chief ray (an empty fan gets none). A null or undefined entry skips that fan; more labels than fans throws. Default none. */
+  /** One text per fan, drawn 6 px past the image plane, beside the end of that fan's chief ray, with room kept for them (an empty fan gets none). A null or undefined entry skips that fan; more labels than fans throws. Default none. */
   labels?: (string | null | undefined)[];
   /** Draw the STO and IMA labels. Default true. */
   marks?: boolean;

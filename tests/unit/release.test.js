@@ -205,3 +205,23 @@ test('layouts changeset asks plots minor, plots-svelte patch', { skip: consumed 
   assert.doesNotMatch(svelte.body, /breaking/i);
   assert.match(svelte.body, />=0\.1\.0 <1/);
 });
+
+// Plan #144 (agent_docs/plans/144-layout-defaults.md), O4, issue #145: the branch's changeset asks a plots minor only.
+// oracle: spec roadmap row L exit (the release is planned); semver 0.x: a minor carries a look change (the #41
+// precedent, above). `changeset version` deletes the file, so then the twin reads the CHANGELOG entry it became.
+// The file is consumed once it is gone and the entry is there; gone with no entry means it was never written.
+const LAYOUT_ENTRY = /field labels 6 px past the image plane/;
+const layoutDefaultsConsumed = !existsSync(join(repo, '.changeset', 'layout-defaults.md'))
+  && LAYOUT_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'));
+
+test('layout defaults changeset asks a plots minor', { skip: layoutDefaultsConsumed && 'consumed by changeset version' }, () => {
+  const text = readFileSync(join(repo, '.changeset', 'layout-defaults.md'), 'utf8');
+  const m = text.match(/^---\n([\s\S]*?)\n---\n/);
+  assert.ok(m, '.changeset/layout-defaults.md has no front matter');
+  const bumps = Object.fromEntries(m[1].split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((r) => [r[1], r[2]]));
+  assert.deepEqual(bumps, { '@eleoptics/plots': 'minor' });
+});
+
+test('layout defaults changeset became a plots minor', { skip: !layoutDefaultsConsumed && 'changesets not yet versioned' }, () => {
+  assert.equal(entry('plots', LAYOUT_ENTRY).kind, 'Minor');
+});

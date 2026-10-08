@@ -1,8 +1,11 @@
 // layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus an optional `chief`):
 // {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41]}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
-// Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text, the chief dot and the scale bar in px.
+// Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text and the scale bar in px.
 import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
+
+// plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
+var TICK = 'class="eleo-tick" fill="var(--ink-muted)" font-family="var(--font-mono)" font-size="10" font-weight="400"';
 
 // The fan's chief ray: `chief[k]` when recorded, else the middle ray (the site's rule; wrong for a vignetted fan).
 function chiefOf(L, k) {
@@ -80,10 +83,16 @@ export function layout2D(o) {
   var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
-  var W = o.width || 1000, s = W / (B.zmax - B.zmin);
+  // The drawing is padded 2 px in z at each end (more than half the widest stroke, --stroke-curve), so the image line and the ray caps sit inside the viewBox.
+  // Labels start 6 px past the image plane, so the right end keeps room = 6 + 6 px a character of the longest non-null one
+  // (0 without), whatever its fan holds: the same box, width and labels give one scale. A null entry draws no label.
+  var drawn = (o.labels || []).map(function (t) { return t != null ? String(t).length : 0; }).filter(Boolean);
+  var W = o.width || 1000, PAD = 2, room = drawn.length ? 6 + 6 * Math.max.apply(null, drawn) : 0, s = (W - 2 * PAD - room) / (B.zmax - B.zmin);
+  // A width the pad and the label room fill leaves no scale (a negative one mirrors the drawing); `!(a > 0)` also catches NaN.
+  if (!(W - 2 * PAD - room > 0)) throw new Error("layout2D: width too narrow for the 4 px pad and the labels");
   // Room above the geometry for the labels, 15 px whatever the stops reach, so one box gives one transform.
   var top = 15;
-  var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = -B.zmin * s, ty = top + B.yhi * s;
+  var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = PAD - B.zmin * s, ty = top + B.yhi * s;
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
@@ -99,24 +108,27 @@ export function layout2D(o) {
     if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
-  var dots = "", ends = [];
+  var ends = [], img = S.filter(function (x) { return x.image; })[0];
+  // One group holds every ray, so its opacity does not darken where rays cross (a per-polyline stroke-opacity would).
+  g += '<g opacity=".85">';
   L.rays.forEach(function (rays, k) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
-      g += '<polyline points="' + pts(rays[i]) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:var(--stroke-ray)" stroke-linecap="round" stroke-linejoin="round"' + (i === c && set !== "chief" ? ' stroke-dasharray="6 4"' : "") + " " + NS + "/>";
+      g += '<polyline points="' + pts(rays[i]) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:1px" stroke-linecap="round" stroke-linejoin="round"' + (i === c && set !== "chief" ? ' stroke-dasharray="6 4"' : "") + " " + NS + "/>";
     });
-    var last = rays[c][rays[c].length - 1]; ends[k] = last; dots += '<circle cx="' + X(last[0]) + '" cy="' + Y(last[1]) + '" r="2.4" fill="' + idx(k) + '"/>';
+    ends[k] = rays[c][rays[c].length - 1];
   });
-  var img = S.filter(function (x) { return x.image; })[0];
+  g += "</g>";
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
-  g += "</g>" + dots;
+  g += "</g>";
   // A text's baseline 5 px above y (mm), kept 10 px inside the top.
   function above(y) { return +Math.max(10, Y(y) - 5).toFixed(2); }
-  function label(z, py, t) { return '<text class="eleo-tick" x="' + X(z) + '" y="' + py.toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
-  // Each field's label sits 5 px above its chief's image end; an empty fan or a null label draws none.
+  function label(z, py, t, anchor) { return '<text ' + TICK + ' x="' + (anchor ? z.toFixed(2) : X(z)) + '" y="' + py.toFixed(2) + '" text-anchor="' + (anchor || (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle")) + '">' + t + "</text>"; }
+  // Each field's label starts 6 px past the image plane (its own chief end's z with no image surface), its baseline 4 px
+  // below its chief's end; the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ z: ends[k][0], py: above(ends[k][1]), t: esc(t) }); });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6, py: +Y(ends[k][1]) + 4, t: esc(t) }); });
   if (o.marks !== false) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
     if (img) {
@@ -126,8 +138,8 @@ export function layout2D(o) {
       g += label(img.z, ys.length ? Math.max(+Y(Math.max(-img.sd, B.ylo)) + IMA_DROP, Math.max.apply(null, ys) + 12) : above(img.sd), "IMA");
     }
   }
-  tags.forEach(function (a) { g += label(a.z, a.py, a.t); });
+  tags.forEach(function (a) { g += label(a.x, a.py, a.t, "start"); });
   var sb = 10 * s, by = H - 8;
-  g += '<path d="M8,' + (by - 4) + " V" + (by + 4) + " M8," + by + " H" + (8 + sb).toFixed(1) + " M" + (8 + sb).toFixed(1) + "," + (by - 4) + " V" + (by + 4) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text class="eleo-tick" x="' + (16 + sb).toFixed(1) + '" y="' + (by + 3) + '">10 mm · true scale</text>';
+  g += '<path d="M8,' + (by - 4) + " V" + (by + 4) + " M8," + by + " H" + (8 + sb).toFixed(1) + " M" + (8 + sb).toFixed(1) + "," + (by - 4) + " V" + (by + 4) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + (16 + sb).toFixed(1) + '" y="' + (by + 3) + '">10 mm</text>';
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
 }
