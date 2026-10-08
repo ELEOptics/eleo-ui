@@ -144,7 +144,7 @@ test('singlet draws 1 polygon and 2 ticks', () => {
   dashesArePx(d);
 });
 
-test('chief index picks the dot', () => {
+test('chief index picks the dashed ray', () => {
   const ray = (y) => [[-12, y], [0, y], [50, y / 2], [100, -y / 4]];
   const fan = [-2, -1, 0, 1, 2].map(ray);
   const prof = (z) => Array.from({ length: 41 }, (_, i) => [z, -6 + (12 * i) / 40]);
@@ -156,14 +156,17 @@ test('chief index picks the dot', () => {
     ],
     rays: [fan],
   };
-  const dotAt = (data) => {
+  // The chief is the one dashed polyline (marginal-chief); its last point, in mm, is the chief's end.
+  const chiefEnd = (data) => {
     const d = drawn(ELEO.layout2D({ data }));
-    assert.equal(d.dots.length, 1, 'one chief dot, outside the mm group');
-    const [s, , , ns, tx, ty] = d.M;
-    return [(+d.dots[0].cx - tx) / s, (+d.dots[0].cy - ty) / ns];
+    assert.equal(d.dots.length, 0, 'no chief dot');
+    const dashed = d.polylines.filter((a) => a['stroke-dasharray'] !== undefined);
+    assert.equal(dashed.length, 1, 'one dashed chief polyline');
+    const pts = dashed[0].points.trim().split(/\s+/);
+    return pts[pts.length - 1].split(',').map(Number);
   };
-  assert.ok(near(dotAt(L), [100, 0]), 'without chief, the middle ray');
-  assert.ok(near(dotAt({ ...L, chief: [1] }), [100, 0.25]), 'chief: [1] picks ray 1');
+  assert.ok(near(chiefEnd(L), [100, 0]), 'without chief, the middle ray');
+  assert.ok(near(chiefEnd({ ...L, chief: [1] }), [100, 0.25]), 'chief: [1] picks ray 1');
 });
 
 // Plan #30, #33: the sample's `layout` and `layoutWl` are recorded layouts.
@@ -240,7 +243,7 @@ test('empty fan is skipped', () => {
     const d = drawn(svg);
     const want = rays === 'fan' ? 14 : rays === 'chief' ? 2 : 6;
     assert.equal(d.polylines.length, want, `${rays}: the other fans' polylines`);
-    assert.equal(d.dots.length, 2, `${rays}: a chief dot per drawn fan`);
+    assert.ok(!svg.includes('<circle'), `${rays}: no end dot`);
   }
   roundTrip(E, ELEO.layout2D({ data: E, rays: 'fan' }));
 });

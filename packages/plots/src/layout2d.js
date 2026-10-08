@@ -1,6 +1,6 @@
 // layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus an optional `chief`):
 // {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41]}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
-// Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text, the chief dot and the scale bar in px.
+// Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text and the scale bar in px.
 import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
 
@@ -102,18 +102,18 @@ export function layout2D(o) {
     if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
-  var dots = "", ends = [];
+  var ends = [];
   L.rays.forEach(function (rays, k) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
       g += '<polyline points="' + pts(rays[i]) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:var(--stroke-ray)" stroke-linecap="round" stroke-linejoin="round"' + (i === c && set !== "chief" ? ' stroke-dasharray="6 4"' : "") + " " + NS + "/>";
     });
-    var last = rays[c][rays[c].length - 1]; ends[k] = last; dots += '<circle cx="' + X(last[0]) + '" cy="' + Y(last[1]) + '" r="2.4" fill="' + idx(k) + '"/>';
+    ends[k] = rays[c][rays[c].length - 1];
   });
   var img = S.filter(function (x) { return x.image; })[0];
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
-  g += "</g>" + dots;
+  g += "</g>";
   // A text's baseline 5 px above y (mm), kept 10 px inside the top.
   function above(y) { return +Math.max(10, Y(y) - 5).toFixed(2); }
   function label(z, py, t) { return '<text ' + TICK + ' x="' + X(z) + '" y="' + py.toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
