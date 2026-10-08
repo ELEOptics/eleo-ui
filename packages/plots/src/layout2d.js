@@ -103,14 +103,17 @@ export function layout2D(o) {
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var ends = [];
+  // One group holds every ray, so its opacity does not darken where rays cross (a per-polyline stroke-opacity would).
+  g += '<g opacity=".85">';
   L.rays.forEach(function (rays, k) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
-      g += '<polyline points="' + pts(rays[i]) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:var(--stroke-ray)" stroke-linecap="round" stroke-linejoin="round"' + (i === c && set !== "chief" ? ' stroke-dasharray="6 4"' : "") + " " + NS + "/>";
+      g += '<polyline points="' + pts(rays[i]) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:1px" stroke-linecap="round" stroke-linejoin="round"' + (i === c && set !== "chief" ? ' stroke-dasharray="6 4"' : "") + " " + NS + "/>";
     });
     ends[k] = rays[c][rays[c].length - 1];
   });
+  g += "</g>";
   var img = S.filter(function (x) { return x.image; })[0];
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>";

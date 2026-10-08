@@ -653,6 +653,27 @@ test('new defaults (#126)', { skip: '#145: unskipped by the last item of plan #1
   }
 });
 
+// Plan #144, O1, issue #147: the rays are 1 px, in one group at opacity .85 (crossings don't darken, unlike per-polyline stroke-opacity).
+// oracle: spec #126 (user): rays 1 px in a group at opacity .85; read from the drawn SVG's own tags
+test('rays are 1 px at .85', () => {
+  for (const [name, L] of [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]]) {
+    for (const rays of [undefined, 'chief', 'fan']) {
+      const svg = ELEO.layout2D({ data: L, rays });
+      const { body, polylines } = drawn(svg);
+      const where = `${name} rays ${rays}`;
+      const groups = [...body.matchAll(/<g opacity="\.85">([\s\S]*?)<\/g>/g)];
+      assert.equal(groups.length, 1, `${where}: one <g opacity=".85">`);
+      assert.ok(!/<g\b/.test(groups[0][1]), `${where}: no nested <g> inside it`);
+      const inside = [...groups[0][1].matchAll(/<polyline\b[^>]*>/g)].map((m) => m[0]);
+      assert.equal(inside.length, polylines.length, `${where}: all ${polylines.length} ray polylines are inside it`);
+      for (const tag of inside) {
+        assert.match(tag, /\bstroke-width(="1(px)?"|:\s*1(px)?\s*[;"])/, `${where}: 1px wide: ${tag}`);
+        assert.ok(!/stroke-ray|stroke-opacity/.test(tag), `${where}: no --stroke-ray or per-polyline opacity: ${tag}`);
+      }
+    }
+  }
+});
+
 // #112: eleo-layout.js is used with only tokens.css, so every text layout2D draws carries `.eleo-tick`'s declarations itself.
 // oracle: spec plots.css `.eleo-tick` (plots.css:127), parsed from the file
 test('texts carry the tick style', () => {
