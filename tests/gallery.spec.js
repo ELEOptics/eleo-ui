@@ -212,3 +212,60 @@ test('palette switch recolors both themes', async ({ page }) => {
   await page.evaluate(() => { document.documentElement.dataset.palette = 'standard'; });
   await checkColumns('data-palette="standard"', [1, 7]);
 });
+
+// Plan #144 (agent_docs/plans/144-layout-defaults.md), O2, issue #145: everything layout2D draws lies inside its
+// viewBox, labels included. oracle: property, overflow hidden and visible draw the same pixels around the SVG
+// (roadmap row L exit; #117's measurement). Each fixture is drawn on the standalone page (tokens only) with
+// labels at the fans' fields, at 1000 and 480 px; the screenshot clip is the SVG's box grown 12 px on every side.
+test.skip('layouts stay inside the viewBox (#117)', async ({ page }) => {
+  await page.goto('/tests/fixtures/standalone-layout.html');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const fields = ['0°', '12.5°', '24°'];
+  for (const name of layoutFixtures) {
+    const data = JSON.parse(readFileSync(new URL(`./fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));
+    for (const width of [1000, 480]) {
+      const svgBox = await page.evaluate(({ data, width, fields }) => {
+        document.body.innerHTML = '<div id="probe" style="margin:24px"></div>';
+        const labels = data.rays.map((_, k) => fields[k]);
+        document.getElementById('probe').innerHTML = window.ELEO.layout2D({ data, labels, width });
+        const svg = document.querySelector('#probe svg');
+        svg.style.cssText = `display:block;width:${width}px`;
+        const r = svg.getBoundingClientRect();
+        return { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height };
+      }, { data, width, fields });
+      const clip = { x: svgBox.x - 12, y: svgBox.y - 12, width: svgBox.width + 24, height: svgBox.height + 24 };
+      const shot = async (overflow) => {
+        await page.evaluate((o) => { document.querySelector('#probe svg').style.overflow = o; }, overflow);
+        return page.screenshot({ clip, fullPage: true });
+      };
+      const hidden = await shot('hidden'), visible = await shot('visible');
+      expect(visible.equals(hidden), `${name} at ${width} px draws outside its viewBox`).toBe(true);
+    }
+  }
+});
+
+// Plan #144, O3, issue #145: on a page with only tokens.css, layout2D's texts look as `.eleo-tick` does under
+// plots.css. oracle: spec plots.css .eleo-tick (plots.css:127), through a bare <svg><text class="eleo-tick"> that
+// layout2D didn't draw, on a page loading tokens.css and plots.css.
+test.skip('standalone label style (#112)', async ({ page }) => {
+  const props = (el) => { const c = getComputedStyle(el); return { fontFamily: c.fontFamily, fontSize: c.fontSize, fontWeight: c.fontWeight, fill: c.fill }; };
+  await page.goto('/tests/fixtures/standalone-layout.html');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const drawn = await page.locator('[data-fixture="merit-before"] svg text', { hasText: '10 mm' }).first().evaluate(props);
+  // The same page, plus plots.css and a bare text layout2D didn't draw.
+  const ref = await page.context().newPage();
+  try {
+    await ref.goto('/tests/fixtures/standalone-layout.html');
+    await expect(ref.locator('body')).toHaveAttribute('data-ready', 'true');
+    await ref.evaluate(() => new Promise((resolve, reject) => {
+      const link = document.createElement('link');
+      Object.assign(link, { rel: 'stylesheet', href: '/packages/plots/dist/plots.css', onload: resolve, onerror: () => reject(new Error('plots.css did not load')) });
+      document.head.append(link);
+      document.body.insertAdjacentHTML('beforeend', '<svg id="bare"><text class="eleo-tick">10 mm</text></svg>');
+    }));
+    const bare = await ref.locator('#bare text').evaluate(props);
+    expect(drawn).toEqual(bare);
+  } finally {
+    await ref.close();
+  }
+});

@@ -614,3 +614,38 @@ test('unknown glass string throws', async () => {
     assert.doesNotThrow(() => glassLegend(withGlass(glass)), `glassLegend keys glass ${JSON.stringify(glass)}`);
   }
 });
+
+// Plan #144 (agent_docs/plans/144-layout-defaults.md), O1, issue #145: layout2D's default look is #126's.
+// oracle: spec #126 (user): no end dot; each field label starts 6 px right of the image plane, its baseline 4 px
+// below its chief end; rays 1 px in a group at opacity .85; scale text "10 mm". Positions are read from the drawn SVG
+// through the mm group's own transform, so the oracle is the issue's geometry, not the code's label layout.
+test('new defaults (#126)', { skip: '#145: unskipped by the last item of plan #144 M1' }, () => {
+  const texts = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+  const cases = [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]];
+  for (const [name, L] of cases) {
+    for (const W of [1000, 480]) {
+      const labels = L.rays.map((_, k) => `F${k}`);
+      const svg = ELEO.layout2D({ data: L, labels, width: W });
+      const where = `${name} w${W}`;
+      assert.ok(!svg.includes('<circle'), `${where}: no end dot`);
+      const [s, , , ns, tx, ty] = geometry(svg).M, img = L.surfaces.find((x) => x.image);
+      const T = texts(svg);
+      L.rays.forEach((fan, k) => {
+        const got = T.filter((t) => t.text === labels[k]);
+        if (!fan.length) { assert.equal(got.length, 0, `${where}: no label for empty fan ${k}`); return; }
+        assert.equal(got.length, 1, `${where}: label ${labels[k]} drawn once`);
+        const ray = fan[L.chief?.[k] ?? Math.floor(fan.length / 2)], end = ray[ray.length - 1];
+        assert.equal(got[0]['text-anchor'], 'start', `${where}: label ${labels[k]} is start-anchored`);
+        assert.ok(Math.abs(+got[0].x - (img.z * s + tx + 6)) <= 0.01, `${where}: label ${labels[k]} x ${got[0].x} is 6 px right of the image plane ${(img.z * s + tx).toFixed(2)}`);
+        assert.ok(Math.abs(+got[0].y - (end[1] * ns + ty + 4)) <= 0.01, `${where}: label ${labels[k]} baseline ${got[0].y} is 4 px below its chief end ${(end[1] * ns + ty).toFixed(2)}`);
+      });
+      // Every ray polyline (dashed chief included) is 1 px wide, inside one <g opacity=".85">.
+      const { body, polylines } = drawn(svg);
+      const grouped = [...body.matchAll(/<g opacity="\.85">([\s\S]*?)<\/g>/g)].flatMap((m) => [...m[1].matchAll(/<polyline\b[^>]*>/g)].map((p) => p[0]));
+      assert.equal(grouped.length, polylines.length, `${where}: all ${polylines.length} ray polylines are inside <g opacity=".85">`);
+      for (const tag of grouped) assert.match(tag, /\bstroke-width(="1(px)?"|:\s*1(px)?\s*[;"])/, `${where}: ray is 1px wide: ${tag}`);
+      const bar = T.filter((t) => /mm/.test(t.text));
+      assert.deepEqual(bar.map((t) => t.text), ['10 mm'], `${where}: the scale text is exactly 10 mm`);
+    }
+  }
+});
