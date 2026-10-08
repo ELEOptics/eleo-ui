@@ -344,6 +344,18 @@ test('layoutBounds names a bad input', () => {
     { message: 'layout2D: fan 1 ray 0 has a non-finite point' });
 });
 
+// #155 (review M1 round 1 finding 2): a width the labels fill leaves a zero or negative scale, a mirrored drawing, so it is named.
+// oracle: spec #155 (the width W - 2*PAD - room must be positive; PAD 2 px, room 6 + 6 px per character of the longest label)
+test('a width too narrow for the labels is named', () => {
+  const L = fixture('merit-before'), label = 'a long field label';
+  assert.throws(() => ELEO.layout2D({ data: L, width: 40, labels: [label] }),
+    { message: 'layout2D: width too narrow for the labels' });
+  // The boundary: room = 6 + 6 * 18 = 114, so 118 leaves nothing, 119 leaves 1 px.
+  assert.throws(() => ELEO.layout2D({ data: L, width: 118, labels: [label] }),
+    { message: 'layout2D: width too narrow for the labels' });
+  assert.doesNotThrow(() => ELEO.layout2D({ data: L, width: 119, labels: [label] }));
+});
+
 test('labels must be an array', () => {
   const L = fixture('tolerance');
   for (const labels of ['0°', 3, { 0: 'a' }]) {

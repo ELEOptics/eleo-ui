@@ -88,6 +88,8 @@ export function layout2D(o) {
   // (0 without), whatever its fan holds: the same box, width and labels give one scale. A null entry draws no label.
   var drawn = (o.labels || []).map(function (t) { return t != null ? String(t).length : 0; }).filter(Boolean);
   var W = o.width || 1000, PAD = 2, room = drawn.length ? 6 + 6 * Math.max.apply(null, drawn) : 0, s = (W - 2 * PAD - room) / (B.zmax - B.zmin);
+  // A width the pad and the label room fill leaves no scale (a negative one mirrors the drawing); `!(a > 0)` also catches NaN.
+  if (!(W - 2 * PAD - room > 0)) throw new Error("layout2D: width too narrow for the labels");
   // Room above the geometry for the labels, 15 px whatever the stops reach, so one box gives one transform.
   var top = 15;
   var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = PAD - B.zmin * s, ty = top + B.yhi * s;
