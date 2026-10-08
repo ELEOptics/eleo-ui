@@ -661,7 +661,7 @@ test('unknown glass string throws', async () => {
 // oracle: spec #126 (user): no end dot; each field label starts 6 px right of the image plane, its baseline 4 px
 // below its chief end; rays 1 px in a group at opacity .85; scale text "10 mm". Positions are read from the drawn SVG
 // through the mm group's own transform, so the oracle is the issue's geometry, not the code's label layout.
-test('new defaults (#126)', { skip: '#145: unskipped by the last item of plan #144 M1' }, () => {
+test('new defaults (#126)', () => {
   const texts = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
   const cases = [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]];
   for (const [name, L] of cases) {

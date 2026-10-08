@@ -217,7 +217,7 @@ test('palette switch recolors both themes', async ({ page }) => {
 // viewBox, labels included. oracle: property, overflow hidden and visible draw the same pixels around the SVG
 // (roadmap row L exit; #117's measurement). Each fixture is drawn on the standalone page (tokens only) with
 // labels at the fans' fields, at 1000 and 480 px; the screenshot clip is the SVG's box grown 12 px on every side.
-test.skip('layouts stay inside the viewBox (#117)', async ({ page }) => {
+test('layouts stay inside the viewBox (#117)', async ({ page }) => {
   await page.goto('/tests/fixtures/standalone-layout.html');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const fields = ['0°', '12.5°', '24°'];
@@ -247,7 +247,7 @@ test.skip('layouts stay inside the viewBox (#117)', async ({ page }) => {
 // Plan #144, O3, issue #145: on a page with only tokens.css, layout2D's texts look as `.eleo-tick` does under
 // plots.css. oracle: spec plots.css .eleo-tick (plots.css:127), through a bare <svg><text class="eleo-tick"> that
 // layout2D didn't draw, on a page loading tokens.css and plots.css.
-test.skip('standalone label style (#112)', async ({ page }) => {
+test('standalone label style (#112)', async ({ page }) => {
   const props = (el) => { const c = getComputedStyle(el); return { fontFamily: c.fontFamily, fontSize: c.fontSize, fontWeight: c.fontWeight, fill: c.fill }; };
   await page.goto('/tests/fixtures/standalone-layout.html');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');

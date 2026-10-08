@@ -213,9 +213,8 @@ test('layouts changeset asks plots minor, plots-svelte patch', { skip: consumed 
 const LAYOUT_ENTRY = /field labels 6 px past the image plane/;
 const layoutDefaultsConsumed = !existsSync(join(repo, '.changeset', 'layout-defaults.md'))
   && LAYOUT_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'));
-const NOT_YET = 'unskipped by the last item of plan #144 M1'; // delete this line and its two uses to unskip
 
-test('layout defaults changeset asks a plots minor', { skip: NOT_YET || (layoutDefaultsConsumed && 'consumed by changeset version') }, () => {
+test('layout defaults changeset asks a plots minor', { skip: layoutDefaultsConsumed && 'consumed by changeset version' }, () => {
   const text = readFileSync(join(repo, '.changeset', 'layout-defaults.md'), 'utf8');
   const m = text.match(/^---\n([\s\S]*?)\n---\n/);
   assert.ok(m, '.changeset/layout-defaults.md has no front matter');
@@ -223,6 +222,6 @@ test('layout defaults changeset asks a plots minor', { skip: NOT_YET || (layoutD
   assert.deepEqual(bumps, { '@eleoptics/plots': 'minor' });
 });
 
-test('layout defaults changeset became a plots minor', { skip: NOT_YET || (!layoutDefaultsConsumed && 'changesets not yet versioned') }, () => {
+test('layout defaults changeset became a plots minor', { skip: !layoutDefaultsConsumed && 'changesets not yet versioned' }, () => {
   assert.equal(entry('plots', LAYOUT_ENTRY).kind, 'Minor');
 });
