@@ -41,7 +41,7 @@ colorbarEl.style.background = gradient('ember');
 - **`box`:** the `{zmin, zmax, ylo, yhi}` the drawing shows, in mm. It defaults to `layoutBounds([layout])`. Drawings with the same `box`, `width` and labels share one scale, so they compare true to size.
 - **`layoutBounds(layouts)`:** the box that frames every layout given: z covers the rays, y covers 0, the rays and every surface edge but the image's, padded 4%.
 - **`glassLegend(data)`:** legend keys for a layout's `{ name, nd, vd }` glasses: one `eleo-key eleo-key--swatch` span per distinct glass the drawing fills, by name, in order of first use, its swatch in that glass's polygon fill. `data` is a recorded layout or a system carrying one in `layout`, else `layoutWl`. Shorthand `'crown'`/`'flint'` and a glass on the last surface (which draws nothing) get no key; with no named glass it returns `''`.
-- **`labels`:** one text per fan, drawn 6 px past the image plane, beside the end of that fan's chief ray, with room kept for them (6 px and 6 px a character of the longest, on the right). A fan with no rays gets none. A `null` entry skips that fan; more labels than fans throws.
+- **`labels`:** one text per fan, drawn 6 px past the image plane, beside the end of that fan's chief ray, with room kept for them (6 px and 6 px a character of the longest, on the right). A fan with no rays gets none. A `null` entry skips that fan; more labels than fans throws. A `width` that the 4 px pad and the label room fill throws.
 - **`marks`:** `false` drops the STO and IMA labels. Default `true`.
 
 ```js

@@ -349,11 +349,14 @@ test('layoutBounds names a bad input', () => {
 test('a width too narrow for the labels is named', () => {
   const L = fixture('merit-before'), label = 'a long field label';
   assert.throws(() => ELEO.layout2D({ data: L, width: 40, labels: [label] }),
-    { message: 'layout2D: width too narrow for the labels' });
+    { message: 'layout2D: width too narrow for the 4 px pad and the labels' });
   // The boundary: room = 6 + 6 * 18 = 114, so 118 leaves nothing, 119 leaves 1 px.
   assert.throws(() => ELEO.layout2D({ data: L, width: 118, labels: [label] }),
-    { message: 'layout2D: width too narrow for the labels' });
+    { message: 'layout2D: width too narrow for the 4 px pad and the labels' });
   assert.doesNotThrow(() => ELEO.layout2D({ data: L, width: 119, labels: [label] }));
+  // No labels: the 4 px pad alone fills width 4.
+  assert.throws(() => ELEO.layout2D({ data: L, width: 4 }),
+    { message: 'layout2D: width too narrow for the 4 px pad and the labels' });
 });
 
 test('labels must be an array', () => {
