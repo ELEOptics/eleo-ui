@@ -1,6 +1,6 @@
 # Plan #144: Layout defaults for the website
 
-Status: approved 2026-10-07
+Status: done 2026-10-07
 Branch: `plan/144-layout-defaults` PR: #152 Depends on: plan #90 (done) Roadmap: `agent_docs/roadmap.md`, row L
 
 ## Problem
@@ -169,3 +169,6 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-07 headless: backlog #159 into M1 (row: Choose, add or reorder rows (`/roadmap next`), milestone acceptance within the plan).
 - 2026-10-07: review M1 round 4 (code-reviewer): 0 blocking, 2 backlog, none pulled in (after round 3). Finding 1 is plain issue #160; finding 2 (this header's PR number) fixed here.
 - 2026-10-07: M1 done: every item done, the four acceptance tests green, the last review 0 blocking with nothing pulled in. Demo pending (O1's oracle is the user's).
+- 2026-10-07 (user, M1 demo): go; M1 accepted, U3's baseline is M1's layout tiles in both themes.
+- 2026-10-07: `CLAUDE.md` commands re-verified: `scripts/check.sh` (runs `npm ci`, `npm run build`, `npm run test:unit`, `npx playwright test`), `scripts/check.sh --fast`, `npm run gallery`, `npx changeset status`; `core.hooksPath` is `.githooks`.
+- 2026-10-07 headless: merge through merge.sh (row: Merge a plan PR that `director/merge.sh` accepts).
