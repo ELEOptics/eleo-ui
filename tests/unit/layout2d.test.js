@@ -649,3 +649,24 @@ test('new defaults (#126)', { skip: '#145: unskipped by the last item of plan #1
     }
   }
 });
+
+// #112: eleo-layout.js is used with only tokens.css, so every text layout2D draws carries `.eleo-tick`'s declarations itself.
+// oracle: spec plots.css `.eleo-tick` (plots.css:127), parsed from the file
+test('texts carry the tick style', () => {
+  const css = readFileSync(new URL('../../packages/plots/src/plots.css', import.meta.url), 'utf8');
+  const rule = /\.eleo-tick\s*\{([^}]*)\}/.exec(css);
+  assert.ok(rule, 'plots.css defines .eleo-tick');
+  const decl = Object.fromEntries(rule[1].split(';').map((d) => d.trim()).filter(Boolean).map((d) => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()]));
+  const font = /^(\d+)\s+(\d+)px\s+(.+)$/.exec(decl.font);
+  assert.ok(font, `plots.css .eleo-tick has a font shorthand "weight size family", got "${decl.font}"`);
+  const want = { fill: decl.fill, 'font-family': font[3], 'font-size': font[2], 'font-weight': font[1] };
+  for (const [name, L] of [['merit-before', fixture('merit-before')], ['sample', sample.layout]]) {
+    const svg = ELEO.layout2D({ data: L, labels: L.rays.map((_, k) => `F${k}`) });
+    const tags = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+    for (const want_ of ['STO', 'IMA', 'F0', '10 mm']) assert.ok(tags.some((t) => t.text.startsWith(want_)), `${name}: a "${want_}" text is drawn`);
+    for (const t of tags) {
+      assert.equal(t.class, 'eleo-tick', `${name}: "${t.text}" keeps class eleo-tick`);
+      for (const [a, v] of Object.entries(want)) assert.equal(t[a], v, `${name}: "${t.text}" ${a}`);
+    }
+  }
+});

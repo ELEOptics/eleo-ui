@@ -4,6 +4,9 @@
 import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
 
+// plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
+var TICK = 'class="eleo-tick" fill="var(--ink-muted)" font-family="var(--font-mono)" font-size="10" font-weight="400"';
+
 // The fan's chief ray: `chief[k]` when recorded, else the middle ray (the site's rule; wrong for a vignetted fan).
 function chiefOf(L, k) {
   var c = L.chief && L.chief[k];
@@ -113,7 +116,7 @@ export function layout2D(o) {
   g += "</g>" + dots;
   // A text's baseline 5 px above y (mm), kept 10 px inside the top.
   function above(y) { return +Math.max(10, Y(y) - 5).toFixed(2); }
-  function label(z, py, t) { return '<text class="eleo-tick" x="' + X(z) + '" y="' + py.toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
+  function label(z, py, t) { return '<text ' + TICK + ' x="' + X(z) + '" y="' + py.toFixed(2) + '" text-anchor="' + (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle") + '">' + t + "</text>"; }
   // Each field's label sits 5 px above its chief's image end; an empty fan or a null label draws none.
   var tags = [];
   (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ z: ends[k][0], py: above(ends[k][1]), t: esc(t) }); });
@@ -128,6 +131,6 @@ export function layout2D(o) {
   }
   tags.forEach(function (a) { g += label(a.z, a.py, a.t); });
   var sb = 10 * s, by = H - 8;
-  g += '<path d="M8,' + (by - 4) + " V" + (by + 4) + " M8," + by + " H" + (8 + sb).toFixed(1) + " M" + (8 + sb).toFixed(1) + "," + (by - 4) + " V" + (by + 4) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text class="eleo-tick" x="' + (16 + sb).toFixed(1) + '" y="' + (by + 3) + '">10 mm · true scale</text>';
+  g += '<path d="M8,' + (by - 4) + " V" + (by + 4) + " M8," + by + " H" + (8 + sb).toFixed(1) + " M" + (8 + sb).toFixed(1) + "," + (by - 4) + " V" + (by + 4) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + (16 + sb).toFixed(1) + '" y="' + (by + 3) + '">10 mm · true scale</text>';
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
 }
