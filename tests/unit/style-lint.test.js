@@ -46,7 +46,8 @@ const strip = (s) => {
 
 const LITERALS = [
   /#[0-9a-fA-F]{3,8}\b/,
-  /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(\s*(?:[-+.\d]|['"`]\s*\+)/,
+  /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(\s*(?:[-+.\d]|\$\{|['"`]\s*\+)/,
+  /['"`]#['"`]\s*\+/,
   /\b(?:monospace|sans-serif|serif|system-ui|ui-monospace|cursive|fantasy)\b/,
   /\bfont-family\s*:\s*(?!var\(|inherit|initial|unset)[A-Za-z'"]/,
   /\bfontFamily\s*[:=]\s*['"`](?!var\()/,
@@ -83,6 +84,8 @@ test('the scanner flags planted literals', () => {
     'el.style.fontFamily = "Inter";',
     '{ fontFamily: "Fira Sans" }',
     'const x = "a // b"; const c = "#ff8800";',
+    'const c = `rgb(${r},0,0)`;',
+    "const c = '#' + hex;",
   ];
   for (const line of planted) {
     assert.equal(scanSource('plant.js', line).length, 1, `flagged: ${line}`);
@@ -92,7 +95,7 @@ test('the scanner flags planted literals', () => {
     'const b = "oklch(from var(--ink) l c h)";',
     '// color #ff8800 is a hex in a comment',
     '/* rgb(1,2,3) and font-family: Inter */',
-    'const s = "a://b #x";',
+    'const s = "a://b"; // #ff8800',
   ];
   for (const line of allowed) {
     assert.deepEqual(scanSource('allow.js', line), [], `not flagged: ${line}`);
