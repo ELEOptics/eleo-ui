@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/index.js';
 import { niceRange } from '../../packages/plots/src/axis.js';
 
-// adapters.js reads ELEO from globalThis when it loads.
+// adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
 const TOL_PX = 0.5;
@@ -87,7 +87,7 @@ test('recorded MTF round trip (U6)', async () => {
 //  - fieldCurvature(rec): at the reference wavelength (the result whose wavelengthNm is nearest rec.referenceWavelengthNm; the
 //    recorded 656.272 vs 656.273 shows names are not exact) two series in source order, [tangential, sagittal], each
 //    { points: [[focus shift mm, rec.sources[i].fieldAngleDeg], …] (one point per source, in order), index: 0, role }. x is
-//    { label, unit: 'mm', range }, y is { label, unit: '°', range }. Both ranges cover every point (the Cooke's 24° tangential focus is -3.9 mm).
+//    { label, unit: 'mm' } (curve picks the nice range) and y is { label, unit: '°', range }.
 //  - distortion(rec): one series at the reference wavelength, index 0 and no role (distortion is not a tangential quantity; drawn solid by default), points [[percent, fieldAngleDeg], …];
 //    x unit '%', y as above, ranges covering every point.
 //  - mtf(rec, { diffraction: true }): the series of mtf(rec) plus a last series, role 'reference', whose points are
@@ -106,7 +106,7 @@ test('recorded field curvature and distortion round trip (U6)', async () => {
     // The adapters leave x.range to curve (#213): the oracle is the nice range of the recorded values, from axis.js.
     const xs = series.flatMap((s) => s.points.map((p) => p[0]));
     const nr = niceRange(Math.min(...xs), Math.max(...xs), 6);
-    const xr = { ...x, range: x.range ?? [nr.lo, nr.hi] }, yr = { ...y, range: y.range ?? [0, 1] };
+    const xr = { ...x, range: x.range ?? [nr.lo, nr.hi] }, yr = y;
     for (const [width, height] of SIZES) {
       const svg = ELEO.curve({ series, x, y, width, height });
       const { M, paths } = seriesGroup(svg);
