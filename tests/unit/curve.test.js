@@ -167,3 +167,25 @@ test('caller ticks print exactly at a shared precision', () => {
   const texts = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
   assert.deepEqual(texts, ['0.0', '1.5', '3.0']);
 });
+
+// Plan #162, issue #197: points and matrix keep their precision at tiny and huge ranges.
+// oracle: the caller's ranges and the plot frame; a point at fraction f of x.range lands at f * pw, one at fraction g of y.range at ph * (1 - g). Not read back from the emitted matrix.
+test('tiny and huge ranges round-trip within 0.5 px', () => {
+  const y = { label: 'b', range: [0, 1] };
+  for (const range of [[-1e-4, 1e-4], [0, 1e7]]) {
+    const x = { label: 'a', range };
+    const fr = [0, 0.1234567, 0.5, 0.7654321, 1];
+    const points = fr.map((f, i) => [range[0] + f * (range[1] - range[0]), 0.1 + 0.2 * i]);
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.curve({ series: [{ points, index: 0 }], x, y, width, height });
+      const { M, paths } = seriesGroup(svg);
+      const { pw, ph } = frame(svg);
+      assert.equal(paths[0].length, points.length, 'every point drawn');
+      fr.forEach((f, i) => {
+        const [gx, gy] = toPx(M, paths[0][i]);
+        const ex = f * pw, ey = ph * (1 - points[i][1]);
+        assert.ok(Math.hypot(gx - ex, gy - ey) <= TOL_PX, `x range ${range} ${width}px point ${i}: expected [${ex}, ${ey}], got [${gx}, ${gy}]`);
+      });
+    }
+  }
+});
