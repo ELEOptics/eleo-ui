@@ -177,6 +177,10 @@ Proves: O1, O2
 | #196 | Backlog finding 5: caller ticks print exactly at a shared precision | the smallest d with every tick exact at `toFixed(d)`, because the finding's step rule mislabels 0, 1.5, 3 as 0, 2, 3 (sent back); considered parsing `e-` (misses 0.30000000000000004) | `packages/plots/src/curve.js` | `curve.test.js::caller ticks in exponent notation keep their decimals` | #195 |
 | #197 | Backlog finding 8: points and M to 9 significant digits | `toPrecision(9)`; considered unrounded floats (longer markup, no gain) | `packages/plots/src/curve.js` | `curve.test.js::tiny and huge ranges round-trip within 0.5 px` | #196 |
 | #198 | Backlog finding 11: comments name the split modules | as the finding names | `packages/plots/src/common.js`, `tests/glass-fills.spec.js` | none: comments only | #175 |
+| #200 | Review M1 round 2 findings 1 and 4: caller ticks coerced with `Number`, a purely relative tolerance | as the findings name; considered typing ticks as numbers only (#178 types them; JSON callers still send strings) | `packages/plots/src/curve.js` | `curve.test.js`: sub-1e-9 sets and string ticks | #198 |
+| #201 | Round 2 finding 2: coordinates rounded as offsets from the range start | offsets keep 9 significant digits of what is drawn; considered the larger of toFixed(6) and toPrecision(9) (still fails offsets beyond 1e9) | `packages/plots/src/curve.js` | `curve.test.js`: [1e6, 1e6+1] within 0.5 px | #200 |
+| #202 | Round 2 finding 3: `hasOwnProperty.call` instead of `Object.hasOwn` | forced (`packages/plots/build.mjs`: es2017 target, no polyfills) | `packages/plots/src/curve.js` | `curve.test.js`: no `Object.hasOwn(` in the built bundle | #201 |
+| #203 | Round 2 finding 6: fixtures record parsed args with paths replaced | as the finding names | `scripts/record-phos-core.py` | re-run with `--phos=<path>` is byte-identical | #198 |
 
 ### M2: Field curvature, distortion and the typed API GitHub: `P162 M2: Field curvature, distortion and the typed API`
 
@@ -226,3 +230,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-08 headless: plan approved (row: Choose, add or reorder rows).
 - 2026-10-08 CR #187 (accepted, orchestrator: a non-Core doc): `README.md:65` names `renderers.js` for "the rest"; work item #188 rewrites it after #168.
 - 2026-10-08 review M1 round 1: 3 blocking (CRs #189, #190, #191, accepted by the orchestrator: none changes an invariant, outcome or oracle; #189 strengthens O1's assertion to its stated oracle). Backlog into M1: #192–#198 (headless: backlog into M1, row: milestone acceptance within the plan). #199 stays a plain issue (`idx` is in `common.js`, which ships in `eleo-layout.js`).
+- 2026-10-08 review M1 round 2: 0 blocking. Backlog into M1: #200 (findings 1, 4), #201, #202, #203 (headless: backlog into M1, row: milestone acceptance within the plan). Finding 5 (the `kind` tiles' uniform tick decimals) is named at the M1 demo.
