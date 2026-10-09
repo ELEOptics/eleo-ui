@@ -77,6 +77,83 @@ test('recorded MTF round trip (U6)', async () => {
   }
 });
 
+// Plan #162, outcome O3 (issue #176; #179 adds the adapters, #180 unskips).
+// oracle: fixture phos-core FieldCurvature and Distortion recorded by scripts/record-phos-core.py (roadmap U6); closed-form Goodman, Introduction to Fourier Optics, incoherent MTF of a circular pupil
+// What #179's adapters (tests/fixtures/phos-core/adapters.js) must return, each { series, x, y } with y = the recorded field angle:
+//  - fieldCurvature(rec): at the reference wavelength (the result whose wavelengthNm is nearest rec.referenceWavelengthNm; the
+//    recorded 656.272 vs 656.273 shows names are not exact) two series in source order, [tangential, sagittal], each
+//    { points: [[focus shift mm, rec.sources[i].fieldAngleDeg], …] (one point per source, in order), index: 0, role }. x is
+//    { label, unit: 'mm', range }, y is { label, unit: '°', range }. Both ranges cover every point (the Cooke's 24° tangential focus is -3.9 mm).
+//  - distortion(rec): one series at the reference wavelength, index 0 and no role (distortion is not a tangential quantity; drawn solid by default), points [[percent, fieldAngleDeg], …];
+//    x unit '%', y as above, ranges covering every point.
+//  - mtf(rec, { diffraction: true }): the series of mtf(rec) plus a last series, role 'reference', whose points are
+//    [nu, ELEO.mtfDiffraction(nu, λ, N)] with λ = rec.referenceWavelengthNm * 1e-6 mm and N = rec.firstOrder.workingFNumber (or fNumber),
+//    on the grid nu = 0 … the cutoff 1/(λN); without the option mtf(rec) is unchanged.
+test('recorded field curvature and distortion round trip (U6)', { skip: '#176: written ahead of #177 and #179; #180 unskips it' }, async () => {
+  await import('../fixtures/phos-core/adapters.js');
+  const { ELEOAdapters } = globalThis;
+  assert.ok(ELEOAdapters && typeof ELEOAdapters.fieldCurvature === 'function' && typeof ELEOAdapters.distortion === 'function', 'adapters.js assigns fieldCurvature and distortion');
+  const atRef = (rec, key) => {
+    const src = rec.sources.map((s) => s.results.reduce((a, r) => Math.abs(r.wavelengthNm - rec.referenceWavelengthNm) < Math.abs(a.wavelengthNm - rec.referenceWavelengthNm) ? r : a));
+    return src.map((r, i) => [r[key], rec.sources[i].fieldAngleDeg]);
+  };
+  const roundTrip = (label, { series, x, y }, expected) => {
+    assert.equal(series.length, expected.length, `${label}: series count`);
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.curve({ series, x, y, width, height });
+      const { M, paths } = seriesGroup(svg);
+      assertPinned(M, svg, x, y, `${label} ${width}px`);
+      assert.equal(paths.length, series.length, `${label} ${width}px: one path per series`);
+      series.forEach((s, k) => {
+        assert.equal(s.points.length, expected[k].length, `${label} series ${k}: one point per source`);
+        s.points.forEach(([px, py], i) => {
+          assert.ok(Math.abs(px - expected[k][i][0]) < 1e-9 && Math.abs(py - expected[k][i][1]) < 1e-9, `${label} series ${k} point ${i} is the recorded value, y the field angle`);
+          assert.ok(px >= x.range[0] && px <= x.range[1] && py >= y.range[0] && py <= y.range[1], `${label} series ${k} point ${i} in range`);
+        });
+        assert.equal(paths[k].length, s.points.length, `${label} ${width}px series ${k}: every point drawn`);
+        s.points.forEach((pt, i) => {
+          const back = toData(M, toPx(M, paths[k][i]));
+          const [ex, ey] = toPx(M, pt), [gx, gy] = toPx(M, back);
+          assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${label} ${width}px series ${k} point ${i} within ${TOL_PX} px`);
+        });
+      });
+    }
+  };
+  for (const lens of ['achromat', 'cooke']) {
+    const fc = fixture(`${lens}-field-curvature`), dist = fixture(`${lens}-distortion`);
+    const r = ELEOAdapters.fieldCurvature(fc);
+    assert.deepEqual(r.series.map((s) => s.role), ['tangential', 'sagittal'], `${lens} field curvature: roles`);
+    roundTrip(`${lens} field curvature`, r, [atRef(fc, 'tangential'), atRef(fc, 'sagittal')]);
+    const d = ELEOAdapters.distortion(dist);
+    assert.equal(d.series.length, 1, `${lens} distortion: one series`);
+    assert.equal(d.series[0].role, undefined, `${lens} distortion: no role`);
+    assert.equal(d.series[0].index, 0, `${lens} distortion: index 0`);
+    roundTrip(`${lens} distortion`, d, [atRef(dist, 'percent')]);
+
+    // MTF's diffraction limit, from the closed form 2/π (φ − cos φ sin φ), φ = acos(ν/ν_c), ν_c = 1/(λN).
+    const rec = fixture(`${lens}-mtf`);
+    const plain = ELEOAdapters.mtf(rec), withRef = ELEOAdapters.mtf(rec, { diffraction: true });
+    assert.equal(withRef.series.length, plain.series.length + 1, `${lens} mtf: one reference series added`);
+    const ref = withRef.series[withRef.series.length - 1];
+    assert.equal(ref.role, 'reference', `${lens} mtf: the last series is the reference`);
+    const lambda = rec.referenceWavelengthNm * 1e-6, N = rec.firstOrder.workingFNumber ?? rec.firstOrder.fNumber, nuc = 1 / (lambda * N);
+    const limit = (nu) => { if (nu >= nuc) return 0; const phi = Math.acos(nu / nuc); return (2 / Math.PI) * (phi - Math.cos(phi) * Math.sin(phi)); };
+    assert.ok(ref.points.length >= 2 && ref.points[0][0] === 0 && ref.points[0][1] === 1, `${lens} mtf: reference starts at (0, 1)`);
+    ref.points.forEach(([nu, m], i) => assert.ok(Math.abs(m - limit(nu)) < 1e-9, `${lens} mtf: reference point ${i} is the closed form`));
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.curve({ ...withRef, width, height });
+      const { M, paths } = seriesGroup(svg);
+      assertPinned(M, svg, withRef.x, withRef.y, `${lens} mtf+ref ${width}px`);
+      assert.equal(paths.length, withRef.series.length, `${lens} mtf+ref ${width}px: one path per series`);
+      const k = paths.length - 1;
+      ref.points.forEach((pt, i) => {
+        const [ex, ey] = toPx(M, pt), [gx, gy] = toPx(M, paths[k][i]);
+        assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${lens} mtf+ref ${width}px reference point ${i} within ${TOL_PX} px`);
+      });
+    }
+  }
+});
+
 // Plan #162, issue #172: the typed call. Synthetic points, no fixture.
 // oracle: the points handed in (data space); the series group's transform is inverted and the drawn points must land within 0.5 px of them.
 test('series round trip', () => {
