@@ -3,40 +3,11 @@
    call them again after a theme or palette change. Sample data: a traced AC254-100-A style achromat (see ELEO.sample.note). */
 import { STANDARD, NS, idx, svg } from "./common.js";
 import { layout2D as recordedLayout2D } from "./layout2d.js";
+import { state, data, useSample } from "./data.js";
+import { VIRIDIS, GRAY, fmt, css, rgb, ramp, mapStops, gradient, hollow, marker } from "./color.js";
 
 const ELEO = (function () {
   "use strict";
-  // Sample data is opt-in (import "@eleoptics/plots/sample"), so apps that draw their own systems
-  // don't ship the 190 KB demo trace.
-  var S = null;
-  function data(o) {
-    var D = o.data || S;
-    if (!D) throw new Error('ELEO: pass { data }, or import "@eleoptics/plots/sample" to draw the sample achromat.');
-    return D;
-  }
-  function useSample(sample) { S = sample; api.sample = sample; }
-  var VIRIDIS = ["#440154","#482878","#3e4989","#31688e","#26828e","#1f9e89","#35b779","#6ece58","#b5de2b","#fde725"];
-  var GRAY = ["#000000","#ffffff"];
-
-  function fmt(v, n) { if (v === null || v === undefined || isNaN(v)) return "—"; return (v < 0 ? "−" : "") + Math.abs(v).toFixed(n == null ? 2 : n); }
-  function css(el, name) { return getComputedStyle(el || document.documentElement).getPropertyValue("--" + name).trim(); }
-  function rgb(h) { h = h.replace("#", ""); if (h.length === 3) h = h.split("").map(function (c) { return c + c; }).join(""); return [0, 2, 4].map(function (i) { return parseInt(h.slice(i, i + 2), 16); }); }
-  function ramp(stops, t) { t = Math.max(0, Math.min(1, t)); var x = t * (stops.length - 1), k = Math.min(Math.floor(x), stops.length - 2), f = x - k, a = rgb(stops[k]), b = rgb(stops[k + 1]); return a.map(function (v, i) { return Math.round(v + (b[i] - v) * f); }); }
-  function mapStops(el, map) {
-    if (map === "viridis") return VIRIDIS;
-    if (map === "gray") return GRAY;
-    var name = map === "wave" ? "map-wave-" : "map-ember-", out = [];
-    for (var i = 0; i < 9; i++) out.push(css(el, name + i));
-    return out;
-  }
-  /* A CSS gradient for a colorbar. Token maps use the variables so they follow the theme. */
-  function gradient(map, dir) {
-    var stops = map === "viridis" ? VIRIDIS : map === "gray" ? GRAY : Array.apply(null, Array(9)).map(function (_, i) { return "var(--map-" + (map === "wave" ? "wave-" : "ember-") + i + ")"; });
-    return "linear-gradient(" + (dir || "to top") + "," + stops.join(",") + ")";
-  }
-  /* Index color (idx), STANDARD, NS and svg() live in common.js. */
-  function hollow(i) { return i >= 8; }
-  function marker(x, y, i) { return hollow(i) ? '<circle cx="' + x + '" cy="' + y + '" r="3.2" fill="var(--surface)" stroke="' + idx(i) + '" stroke-width="1.5"/>' : ""; }
 
   /* ---------------- Layout2D ---------------- */
   function layout2D(o) { o = o || {}; return recordedLayout2D(Object.assign({}, o, { data: data(o) })); }
@@ -206,7 +177,7 @@ const ELEO = (function () {
 
   /* ---------------- Legends ---------------- */
   function legend(kind, n) {
-    var D = S, out = [];
+    var D = state.sample, out = [];
     if (kind === "field") for (var i = 0; i < (n || D.fields.length); i++) out.push('<span class="eleo-key' + (i >= 8 ? " eleo-key--hollow" : "") + '" style="--c:' + idx(i) + '">F' + (i + 1) + (i < D.fields.length ? " " + fmt(D.fields[i], 1) + "°" : "") + "</span>");
     else if (kind === "wavelength") for (var j = 0; j < (n || D.wl.length); j++) out.push('<span class="eleo-key' + (j >= 8 ? " eleo-key--hollow" : "") + '" style="--c:' + idx(j) + '">λ' + (j + 1) + (j < D.wl.length ? " " + D.wl[j].toFixed(1) + " nm" : "") + "</span>");
     else if (kind === "ts") out.push('<span class="eleo-key">T tangential</span><span class="eleo-key eleo-key--dash">S sagittal</span><span class="eleo-key eleo-key--dot">Diffraction limit</span>');
@@ -290,7 +261,7 @@ const ELEO = (function () {
   }
   var ICONS = { optical: OPT.map(function (i) { return { name: i[0], title: i[1] }; }), interface: UI.map(function (i) { return { name: i[0], title: i[1] }; }) };
 
-  var api = { useSample: useSample, icon: icon, icons: ICONS, sample: null, fmt: fmt, css: css, gradient: gradient, layout2D: layout2D, layout3D: layout3D, spot: spot, throughFocus: throughFocus, rayFan: rayFan, map2D: map2D, curve: curve, legend: legend, maps: { viridis: VIRIDIS, gray: GRAY } };
+  var api = { useSample: useSample, icon: icon, icons: ICONS, get sample() { return state.sample; }, fmt: fmt, css: css, gradient: gradient, layout2D: layout2D, layout3D: layout3D, spot: spot, throughFocus: throughFocus, rayFan: rayFan, map2D: map2D, curve: curve, legend: legend, maps: { viridis: VIRIDIS, gray: GRAY } };
   return api;
 })();
 
