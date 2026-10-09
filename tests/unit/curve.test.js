@@ -31,7 +31,7 @@ function toData([a, b, c, d, e, f], [px, py]) {
 
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
-test('recorded MTF round trip (U6)', { skip: '#164: written ahead of #169 (fixtures), #172 (typed curve) and #174 (adapters.js); #175 unskips it' }, async () => {
+test('recorded MTF round trip (U6)', async () => {
   await import('../fixtures/phos-core/adapters.js');
   const { ELEOAdapters } = globalThis;
   assert.ok(ELEOAdapters && typeof ELEOAdapters.mtf === 'function', 'adapters.js assigns globalThis.ELEOAdapters.mtf');
