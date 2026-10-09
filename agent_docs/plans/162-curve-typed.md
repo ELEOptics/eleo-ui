@@ -181,6 +181,8 @@ Proves: O1, O2
 | #201 | Round 2 finding 2: points and M written unrounded (shortest round-trip), replacing #197's 9 significant digits | exact values keep the group in data coordinates (U6, ADR-0001); considered offsets from the range start (sent back: inverting the transform would no longer give the data) and toPrecision(9) (1.2 px off at [1e6, 1e6+1]) | `packages/plots/src/curve.js` | `curve.test.js`: [1e6, 1e6+1] within 0.5 px | #200 |
 | #202 | Round 2 finding 3: `hasOwnProperty.call` instead of `Object.hasOwn` | forced (`packages/plots/build.mjs`: es2017 target, no polyfills) | `packages/plots/src/curve.js` | `curve.test.js`: no `Object.hasOwn(` in the built bundle | #201 |
 | #203 | Round 2 finding 6: fixtures record parsed args with paths replaced | as the finding names | `scripts/record-phos-core.py` | re-run with `--phos=<path>` is byte-identical | #198 |
+| #204 | CR (review M1 round 3 finding 1): point values converted with `+v` before printing | numbers can't carry markup; considered `esc()` on each value (keeps non-numbers in a numeric attribute) | `packages/plots/src/curve.js` | `curve.test.js::string point values cannot inject markup` | #203 |
+| #205 | Round 3 finding 2: axis ranges coerced to numbers | as #200 does for ticks | `packages/plots/src/curve.js` | `curve.test.js::string ranges draw as numbers` | #204 |
 
 ### M2: Field curvature, distortion and the typed API GitHub: `P162 M2: Field curvature, distortion and the typed API`
 
@@ -231,3 +233,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-08 CR #187 (accepted, orchestrator: a non-Core doc): `README.md:65` names `renderers.js` for "the rest"; work item #188 rewrites it after #168.
 - 2026-10-08 review M1 round 1: 3 blocking (CRs #189, #190, #191, accepted by the orchestrator: none changes an invariant, outcome or oracle; #189 strengthens O1's assertion to its stated oracle). Backlog into M1: #192–#198 (headless: backlog into M1, row: milestone acceptance within the plan). #199 stays a plain issue (`idx` is in `common.js`, which ships in `eleo-layout.js`).
 - 2026-10-08 review M1 round 2: 0 blocking. Backlog into M1: #200 (findings 1, 4), #201, #202, #203 (headless: backlog into M1, row: milestone acceptance within the plan). Finding 5 (the `kind` tiles' uniform tick decimals) is named at the M1 demo.
+- 2026-10-08 review M1 round 3: 1 blocking, new in #201 (CR #204, accepted by the orchestrator: a fix in the item's file that keeps every invariant). Backlog #205 into M1 (headless: backlog into M1, row: milestone acceptance within the plan). Later backlog stays plain issues.
