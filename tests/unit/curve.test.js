@@ -309,3 +309,20 @@ test('every role draws a 1 px stroke', () => {
     assert.deepEqual(widths, ['1'], String(role));
   }
 });
+
+// CR #212: the right margin grows to half the last x label's width (6 px a character, as layout2D estimates)
+test('x tick labels stay inside the viewBox', () => {
+  const W = 460, series = [{ points: [[-0.004, 0], [0, 1]], index: 0 }];
+  const svg = ELEO.curve({ series, x: { range: [-0.004, 0], ticks: [-0.004, 0] }, y: { range: [0, 1] }, width: W, height: 300 });
+  const labels = [...svg.matchAll(/<text class="eleo-tick" x="([\d.]+)" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)]
+    .map((m) => ({ cx: +m[1], half: 3 * [...m[2]].length }));
+  assert.equal(labels.length, 2);
+  for (const l of labels) {
+    assert.ok(l.cx + l.half <= W + 1e-6, `label centred at ${l.cx} with half-width ${l.half} fits in ${W}`);
+    assert.ok(l.cx - l.half >= 0);
+  }
+  // a range ending at 400: "400" needs 9 px, so the margin stays 12
+  const s2 = ELEO.curve({ series: [{ points: [[0, 0], [400, 1]], index: 0 }], x: { range: [0, 400], ticks: [0, 200, 400] }, y: { range: [0, 1] }, width: W, height: 300 });
+  const box = /<svg\b[^>]*\bx="([\d.]+)"[^>]*\bwidth="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(s2);
+  assert.equal(+box[1] + +box[2], W - 12);
+});

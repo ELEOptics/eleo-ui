@@ -23,11 +23,15 @@ function axisTicks(a, r) {
   return { ticks: ts, decimals: d };
 }
 function typedCurve(o) {
-  var W = o.width || 460, H = o.height || 260, L = 46, R = 12, T = 14, Bm = 36, pw = W - L - R, ph = H - T - Bm, g = "";
+  var W = o.width || 460, H = o.height || 260, L = 46, T = 14, Bm = 36, ph = H - T - Bm, g = "";
   var x = o.x || {}, y = o.y || {}, all = o.series.map(function (s) { return s.points || []; });
   var xr = axisRange(x, [].concat.apply([], all.map(function (p) { return p.map(function (q) { return q[0]; }); })));
   var yr = axisRange(y, [].concat.apply([], all.map(function (p) { return p.map(function (q) { return q[1]; }); })));
-  var xt = axisTicks(x, xr), yt = axisTicks(y, yr), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
+  var xt = axisTicks(x, xr), yt = axisTicks(y, yr);
+  /* The right margin: 12 px, or half the last x label's width (6 px a character, as layout2D estimates) when that is more. */
+  var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), R = 12;
+  if (shown.length) R = Math.max(R, 3 * Array.from(fmt(shown[shown.length - 1], xt.decimals)).length);
+  var pw = W - L - R, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
   g += '<rect x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="none" stroke="var(--plot-grid)"/>';
   xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + (T + ph) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + X(v) + '" y="' + (T + ph + 13) + '" text-anchor="middle">' + fmt(v, xt.decimals) + "</text>"; });
