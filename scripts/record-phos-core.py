@@ -41,10 +41,6 @@ def pts(points):
     return [[rnd(p[0]), rnd(p[1])] for p in points]
 
 
-def sources_of(phos, model):
-    return model.relative_sources(0), model.sources(0)
-
-
 def field_angle_deg(source):
     # The source's rotation is a quaternion (x, y, z, w) about the x axis.
     x, _, _, w = source.boundary().rotation()
@@ -127,11 +123,11 @@ def record(phos, lens, model, meta, outdir, header):
         "lengthUnit": "mm",
     }
     results = {
-        "mtf": ("mtf", mtf(phos, model), {"frequencyUnit": "cycles/mm", "pupilSampling": PUPIL_SAMPLING, "kind": "polychromatic, uniform weights"}),
-        "field-curvature": ("field-curvature", field_curvature(phos, model), {"focusUnit": "mm", "kind": "per source, one entry per wavelength"}),
-        "distortion": ("distortion", distortion(phos, model), {"percentUnit": "%", "kind": "per source, one entry per wavelength"}),
+        "mtf": (mtf(phos, model), {"frequencyUnit": "cycles/mm", "pupilSampling": PUPIL_SAMPLING, "kind": "polychromatic, uniform weights"}),
+        "field-curvature": (field_curvature(phos, model), {"focusUnit": "mm", "kind": "per source, one entry per wavelength"}),
+        "distortion": (distortion(phos, model), {"percentUnit": "%", "kind": "per source, one entry per wavelength"}),
     }
-    for name, (_, per_source, extra) in results.items():
+    for name, (per_source, extra) in results.items():
         assert len(per_source) == len(angles), f"{lens} {name}: one result per source"
         doc = {**base, "analysis": name, **extra,
                "sources": [{"fieldAngleDeg": a, **(r if isinstance(r, dict) else {"results": r})} for a, r in zip(angles, per_source)]}
