@@ -157,9 +157,19 @@ test('aria-label escapes labels once', () => {
 });
 
 test('caller ticks in exponent notation keep their decimals', () => {
-  const svg = ELEO.curve({ series: [{ points: [[0, 0], [2e-7, 1]], role: 'reference' }], x: { range: [0, 2e-7], ticks: [0, 1e-7, 2e-7] }, y: { range: [0, 1], ticks: [0] } });
+  const xTexts = (ticks, hi) => {
+    const svg = ELEO.curve({ series: [{ points: [[0, 0], [hi, 1]], role: 'reference' }], x: { range: [0, hi], ticks }, y: { range: [0, 1], ticks: [0] } });
+    return [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
+  };
+  assert.deepEqual(xTexts([0, 1e-7, 2e-7], 2e-7), ['0.0000000', '0.0000001', '0.0000002']);
+  assert.deepEqual(xTexts([0, 1e-10, 2e-10], 2e-10), ['0.0000000000', '0.0000000001', '0.0000000002']);
+  assert.deepEqual(xTexts([0, 5e-10, 1e-9], 1e-9), ['0.0000000000', '0.0000000005', '0.0000000010']);
+});
+
+test('caller ticks given as strings draw', () => {
+  const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], role: 'reference' }], x: { range: [0, 1], ticks: ['0', '0.5'] }, y: { range: [0, 1], ticks: [0] } });
   const texts = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
-  assert.deepEqual(texts, ['0.0000000', '0.0000001', '0.0000002']);
+  assert.deepEqual(texts, ['0.0', '0.5']);
 });
 
 test('caller ticks print exactly at a shared precision', () => {

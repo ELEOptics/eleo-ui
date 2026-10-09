@@ -18,9 +18,9 @@ function axisRange(a, vals) {
 function axisTicks(a, r) {
   if (!a.ticks) return niceTicks(r[0], r[1], 6);
   /* The fewest decimals at which every tick prints exactly (within float noise). */
-  var d = 0;
-  while (d < 20 && !a.ticks.every(function (v) { return Math.abs(Number(v.toFixed(d)) - v) <= 1e-9 * Math.max(1, Math.abs(v)); })) d++;
-  return { ticks: a.ticks, decimals: d };
+  var ts = a.ticks.map(Number), d = 0;
+  while (d < 20 && !ts.every(function (v) { return Math.abs(Number(v.toFixed(d)) - v) <= 1e-9 * Math.abs(v); })) d++;
+  return { ticks: ts, decimals: d };
 }
 function typedCurve(o) {
   var W = o.width || 460, H = o.height || 260, L = 46, R = 12, T = 14, Bm = 36, pw = W - L - R, ph = H - T - Bm, g = "";
