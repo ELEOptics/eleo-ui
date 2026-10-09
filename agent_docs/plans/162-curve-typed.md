@@ -1,6 +1,6 @@
 # Plan #162: Renderer modules and a generic curve
 
-Status: approved 2026-10-08
+Status: done 2026-10-09
 Branch: `plan/162-curve-typed` PR: #186 Depends on: plan #144 (done) Roadmap: `agent_docs/roadmap.md`, row D
 
 ## Problem
@@ -269,3 +269,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-09: U14 for `curve` (20 series of 200 points, headless Chromium, median of 20 redraws): 1.10, 1.15, 1.10, 1.20 ms over four runs, under 16 ms.
 - 2026-10-09 review M3 round 1: 0 blocking. Backlog #227 (findings 1, 2, 3, 5, 6) and #228 (finding 4) into M3 (headless: backlog into M3, row: milestone acceptance within the plan).
 - 2026-10-09 review M3 round 2: 0 blocking. Backlog #229 (findings 1, 2) into M3 (headless: backlog into M3, row: milestone acceptance within the plan); finding 3 left (false positives only); finding 4 fixed here (the #227/#228 rows moved under M3's table header).
+- 2026-10-09 (user, M3 demo): go. M3 done: CI `test` green on c0f2d16; review M3 round 3: 0 blocking.
+- 2026-10-09: CLAUDE.md commands re-verified on this branch: `npm ci && npm run build`, `npm run test:unit`, `npx playwright test`, `npm run gallery` (served for the demos), `scripts/check.sh` and `scripts/check.sh --fast` all ran green; `npx changeset status` plans a plots minor.
+- 2026-10-09 headless: merge through merge.sh (row: Merge a plan PR that `director/merge.sh` accepts; the user confirmed in the session).
+- 2026-10-09: plan done.
