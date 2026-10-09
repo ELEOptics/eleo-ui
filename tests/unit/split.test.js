@@ -13,3 +13,4 @@ test('SVG renderers draw the base markup', () => {
   assert.deepEqual(Object.keys(now), Object.keys(baseline), 'same renderers as recorded');
   for (const [name, draw] of Object.entries(now)) assert.equal(draw(), baseline[name], name);
 });
+// Plan 162 M1: curve and legend moved verbatim to curve.js and legend.js; this guard covers the moved modules.
