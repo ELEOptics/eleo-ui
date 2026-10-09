@@ -30,7 +30,7 @@ test('recorded fixtures carry what the adapters need', () => {
     assert.ok(m.wavelengthsNm.includes(m.referenceWavelengthNm), `${lens}: referenceWavelengthNm ${m.referenceWavelengthNm} is one of ${m.wavelengthsNm}`);
     assert.equal(m.sources.length, m.fieldAnglesDeg.length);
     m.sources.forEach((s, i) => {
-      assert.equal(s.fieldAngleDeg, m.fieldAnglesDeg[i]);
+      assert.equal(s.sourceIndex, i, `${lens}: sources are in source order (position ${i} holds sourceIndex ${s.sourceIndex})`);
       for (const k of ['tangential', 'sagittal']) assert.ok(s[k].length > 4 && s[k][0][0] === 0, `${lens} source ${i} ${k} runs from zero frequency`);
     });
     for (const name of ['field-curvature', 'distortion']) {
