@@ -2,7 +2,7 @@
 """Record phos-core analyses of the public lenses as JSON fixtures for the plots.
 
 Records, for the sample achromat and for OpticalModel.cooke_triplet_kingslake(): the polychromatic MTF,
-field curvature and distortion per source, first-order data, the field angle of each source and the
+field curvature and distortion per source (over 11 field angles evenly from 0 to the largest field), first-order data, the field angle of each source and the
 wavelengths. Writes tests/fixtures/phos-core/{achromat,cooke}-{mtf,field-curvature,distortion}.json.
 Numbers are rounded to 6 significant digits. Not part of the gate: the fixtures are committed.
 
@@ -31,6 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SIG = 6
 PUPIL_SAMPLING = 64  # pupil samples and zero pads of the MTF, per axis
+SWEEP = 11  # field angles of field curvature and distortion, evenly from 0 to the lens's largest field
 
 
 def rnd(x):
@@ -91,10 +92,19 @@ def mtf(phos, model):
     ]
 
 
-def field_curvature(phos, model):
+def sweep_sources(phos, angles):
+    # A RelativeSource indexes a model source and scales its field in direction-sine space: relative_y = sin(angle) / sin(that
+    # source's angle) (found by comparing heights with the lens's own 1 and 2 degree sources). Index the largest field.
+    top = max(range(len(angles)), key=lambda i: angles[i])
+    sweep = [angles[top] * k / (SWEEP - 1) for k in range(SWEEP)]
+    sin_top = math.sin(math.radians(angles[top]))
+    return [phos.RelativeSource(top, 0.0, math.sin(math.radians(a)) / sin_top, None) for a in sweep], [rnd(a) for a in sweep]
+
+
+def field_curvature(phos, model, sources):
     s = phos.FieldCurvatureSettings()
     s.set_system_index(0)
-    s.set_sources(model.relative_sources(0))
+    s.set_sources(sources)
     return [
         [{"wavelengthNm": rnd(r.wavelength * 1000), "tangential": rnd(r.tangential), "sagittal": rnd(r.sagittal),
           "chiefHeight": rnd(r.chief_height), "astigmatism": rnd(r.astigmatism)} for r in a.results()]
@@ -102,10 +112,10 @@ def field_curvature(phos, model):
     ]
 
 
-def distortion(phos, model):
+def distortion(phos, model, sources):
     s = phos.DistortionSettings()
     s.set_system_index(0)
-    s.set_sources(model.relative_sources(0))
+    s.set_sources(sources)
     return [
         [{"wavelengthNm": rnd(r.wavelength * 1000), "realHeight": rnd(r.real_height),
           "paraxialHeight": rnd(r.paraxial_height), "percent": rnd(r.percent)} for r in a.results()]
@@ -122,15 +132,16 @@ def record(phos, lens, model, meta, outdir, header):
         "wavelengthsNm": [rnd(w * 1000) for w in wl_um], "referenceWavelengthNm": meta["referenceNm"],
         "lengthUnit": "mm",
     }
+    sweep, sweep_angles = sweep_sources(phos, angles)
     results = {
-        "mtf": (mtf(phos, model), {"frequencyUnit": "cycles/mm", "pupilSampling": PUPIL_SAMPLING, "kind": "polychromatic, uniform weights"}),
-        "field-curvature": (field_curvature(phos, model), {"focusUnit": "mm", "kind": "per source, one entry per wavelength"}),
-        "distortion": (distortion(phos, model), {"percentUnit": "%", "kind": "per source, one entry per wavelength"}),
+        "mtf": (mtf(phos, model), angles, {"frequencyUnit": "cycles/mm", "pupilSampling": PUPIL_SAMPLING, "kind": "polychromatic, uniform weights"}),
+        "field-curvature": (field_curvature(phos, model, sweep), sweep_angles, {"focusUnit": "mm", "kind": "per source, one entry per wavelength"}),
+        "distortion": (distortion(phos, model, sweep), sweep_angles, {"percentUnit": "%", "kind": "per source, one entry per wavelength"}),
     }
-    for name, (per_source, extra) in results.items():
+    for name, (per_source, angles, extra) in results.items():
         if len(per_source) != len(angles):
             sys.exit(f"{lens} {name}: {len(per_source)} results for {len(angles)} sources, expected one each")
-        doc = {**base, "analysis": name, **extra,
+        doc = {**base, "fieldAnglesDeg": angles, "analysis": name, **extra,
                "sources": [{"fieldAngleDeg": a, **(r if isinstance(r, dict) else {"results": r})} for a, r in zip(angles, per_source)]}
         path = outdir / f"{lens}-{name}.json"
         path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
