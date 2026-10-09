@@ -9,20 +9,10 @@
       return Math.abs(r.wavelengthNm - rec.referenceWavelengthNm) < Math.abs(a.wavelengthNm - rec.referenceWavelengthNm) ? r : a;
     });
   }
-  /* A 1-2-5 step, a range that covers [lo, hi] and 0 in whole steps, and its ticks. */
-  function niceAxis(values) {
-    var lo = Math.min.apply(null, values.concat(0)), hi = Math.max.apply(null, values.concat(0));
-    if (hi === lo) { lo = -1; hi = 1; }
-    var raw = (hi - lo) / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
-    var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
-    var digits = Math.max(0, -Math.floor(Math.log10(step)) + 1);
-    var a = Math.floor(lo / step + 1e-9), b = Math.ceil(hi / step - 1e-9), ticks = [];
-    for (var k = a; k <= b; k++) ticks.push(+(k * step).toFixed(digits));
-    return { range: [ticks[0], ticks[ticks.length - 1]], ticks: ticks };
-  }
+  /* The y axis: the recorded field angle from 0 to the largest, with curve's default ticks. */
   function yAxis(rec) {
     var angles = rec.sources.map(function (s) { return s.fieldAngleDeg; });
-    return { label: 'Field', unit: '°', range: [Math.min.apply(null, angles.concat(0)), Math.max.apply(null, angles)], ticks: angles };
+    return { label: 'Field', unit: '°', range: [0, Math.max.apply(null, angles)] };
   }
   /* physics.js's mtfDiffraction, the one implementation: the page (or the test) must have it on globalThis.ELEO. */
   function diffraction(nu, lambda, N) {
@@ -54,19 +44,17 @@
     },
     /* fieldCurvature(recording) -> { series, x, y }: tangential and sagittal focus shift against the field angle. */
     fieldCurvature: function (rec) {
-      var rs = rec.sources.map(function (s) { return atRef(rec, s); }), all = [];
+      var rs = rec.sources.map(function (s) { return atRef(rec, s); });
       function line(key, role) {
-        var pts = rs.map(function (r, i) { all.push(r[key]); return [r[key], rec.sources[i].fieldAngleDeg]; });
+        var pts = rs.map(function (r, i) { return [r[key], rec.sources[i].fieldAngleDeg]; });
         return { points: pts, index: 0, role: role };
       }
-      var series = [line('tangential', 'tangential'), line('sagittal', 'sagittal')], ax = niceAxis(all);
-      return { series: series, x: { label: 'Focus shift', unit: 'mm', range: ax.range, ticks: ax.ticks }, y: yAxis(rec) };
+      return { series: [line('tangential', 'tangential'), line('sagittal', 'sagittal')], x: { label: 'Focus shift', unit: 'mm' }, y: yAxis(rec) };
     },
     /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
     distortion: function (rec) {
-      var vals = [], pts = rec.sources.map(function (s) { var r = atRef(rec, s); vals.push(r.percent); return [r.percent, s.fieldAngleDeg]; });
-      var ax = niceAxis(vals);
-      return { series: [{ points: pts, index: 0 }], x: { label: 'Distortion', unit: '%', range: ax.range, ticks: ax.ticks }, y: yAxis(rec) };
+      var pts = rec.sources.map(function (s) { return [atRef(rec, s).percent, s.fieldAngleDeg]; });
+      return { series: [{ points: pts, index: 0 }], x: { label: 'Distortion', unit: '%' }, y: yAxis(rec) };
     }
   };
 })();
