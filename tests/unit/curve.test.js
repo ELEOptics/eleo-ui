@@ -29,6 +29,25 @@ function toData([a, b, c, d, e, f], [px, py]) {
   return [(d * (px - e) - c * (py - f)) / det, (a * (py - f) - b * (px - e)) / det];
 }
 
+// The plot frame, from the SVG itself: the nested <svg>'s box and the x tick lines with their labels.
+function frame(svg) {
+  const box = /<svg\b[^>]*\bx="([\d.]+)"[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg);
+  assert.ok(box, 'the nested <svg> carries x, width and height');
+  const ticks = [...svg.matchAll(/<line x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)" y2="[\d.]+" stroke="var\(--plot-grid\)"\/><text class="eleo-tick"[^>]*>([^<]*)<\/text>/g)]
+    .filter((m) => m[1] === m[2]).map((m) => ({ x1: +m[1], tick: Number(m[3]) }));
+  return { L: +box[1], pw: +box[2], ph: +box[3], ticks };
+}
+
+// The transform is held to the caller's ranges, not to itself: x.range maps to [0, pw], y.range to [ph, 0], and each drawn x tick sits at its value.
+function assertPinned(M, svg, x, y, msg) {
+  const { L, pw, ph, ticks } = frame(svg);
+  const [x0, y0] = toPx(M, [x.range[0], y.range[0]]), [x1, y1] = toPx(M, [x.range[1], y.range[1]]);
+  assert.ok(Math.hypot(x0 - 0, y0 - ph) <= TOL_PX, `${msg}: range start maps to [0, ${ph}], got [${x0}, ${y0}]`);
+  assert.ok(Math.hypot(x1 - pw, y1 - 0) <= TOL_PX, `${msg}: range end maps to [${pw}, 0], got [${x1}, ${y1}]`);
+  assert.ok(ticks.length >= 2, `${msg}: x tick lines found`);
+  for (const t of ticks) assert.ok(Math.abs(t.x1 - L - toPx(M, [t.tick, y.range[0]])[0]) <= TOL_PX, `${msg}: tick ${t.tick} at its value`);
+}
+
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
 test('recorded MTF round trip (U6)', async () => {
@@ -40,7 +59,9 @@ test('recorded MTF round trip (U6)', async () => {
     assert.ok(series.length >= 2, `${lens}: tangential and sagittal series`);
     assert.ok(series.some((s) => s.role === 'tangential') && series.some((s) => s.role === 'sagittal'), `${lens}: both roles`);
     for (const [width, height] of SIZES) {
-      const { M, paths } = seriesGroup(ELEO.curve({ series, x, y, width, height }));
+      const svg = ELEO.curve({ series, x, y, width, height });
+      const { M, paths } = seriesGroup(svg);
+      assertPinned(M, svg, x, y, `${lens} ${width}px`);
       assert.equal(paths.length, series.length, `${lens} ${width}px: one path per series`);
       series.forEach((s, k) => {
         const inRange = s.points.filter(([px, py]) => px >= x.range[0] && px <= x.range[1] && py >= y.range[0] && py <= y.range[1]);
@@ -50,7 +71,6 @@ test('recorded MTF round trip (U6)', async () => {
           const back = toData(M, toPx(M, paths[k][i]));
           const [ex, ey] = toPx(M, pt), [gx, gy] = toPx(M, back);
           assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${lens} ${width}px series ${k} point ${i} within ${TOL_PX} px`);
-          assert.ok(Math.hypot(...toPx(M, paths[k][i]).map((v, j) => v - toPx(M, pt)[j])) <= TOL_PX, `${lens} ${width}px series ${k} point ${i} drawn at its data position`);
         });
       });
     }
@@ -69,6 +89,7 @@ test('series round trip', () => {
   for (const [width, height] of SIZES) {
     const svg = ELEO.curve({ series, x, y, width, height });
     const { M, paths } = seriesGroup(svg);
+    assertPinned(M, svg, x, y, `${width}px`);
     assert.equal(paths.length, series.length, `${width}px: one path per series`);
     series.forEach((s, k) => {
       const inRange = s.points.filter(([px, py]) => px >= x.range[0] && px <= x.range[1] && py >= y.range[0] && py <= y.range[1]);
