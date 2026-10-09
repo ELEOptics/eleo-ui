@@ -17,7 +17,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 
 <PlotCard title="Layout" meta="YZ" colorKey="Color: field">
   <Layout2D data={system} rays="fan" label="Lens layout with traced rays" />
-  {#snippet footer()}<Legend kind="field" />{/snippet}
+  {#snippet footer()}<Legend kind="field" n={3} />{/snippet}
 </PlotCard>
 
 <PlotCard title="PSF" meta="0.0°, linear">
@@ -41,7 +41,18 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 <Layout2D data={after} {box} {labels} marks={false} label="Layout after optimization" />
 ```
 
-`Legend` takes `kind` (`field`, `wavelength`, `ts`, `rays`) and `n`, or `kind="glass"` with `data`, a recorded layout or a system carrying one: one swatch key per drawn glass, by name, in order of first use, in the fill `Layout2D` gives its lenses (`glassLegend` in `@eleoptics/plots`):
+`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal` or `reference`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role draws 1 px, the plot area clips, and a range left out is the nice range of the data. There is no color option:
+
+```svelte
+<CurvePlot
+  series={[{ points: [[0, 1], [100, 0.62], [200, 0.31]], index: 0, role: 'tangential' }]}
+  x={{ label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400] }}
+  y={{ label: 'Modulus', range: [0, 1] }}
+  label="MTF at 0°"
+/>
+```
+
+`Legend` takes `kind` (`field`, `wavelength`, `ts`, `rays`) and `n` (`field` and `wavelength` need `n` when there is no sample), or `kind="glass"` with `data`, a recorded layout or a system carrying one: one swatch key per drawn glass, by name, in order of first use, in the fill `Layout2D` gives its lenses (`glassLegend` in `@eleoptics/plots`):
 
 ```svelte
 <PlotCard title="Layout">

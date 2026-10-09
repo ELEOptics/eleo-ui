@@ -22,6 +22,14 @@ export function airyRadius(lambda, N) {
   return 1.22 * lambda * N;
 }
 
+/** Diffraction-limited MTF of a circular aperture (Goodman): 2/π (φ − cos φ sin φ), φ = acos(ν/ν_c), ν_c = 1/(λN); 0 at and past cutoff. ν in cycles per unit of λ's length. */
+export function mtfDiffraction(nu, lambda, N) {
+  const x = Math.abs(nu) * lambda * N;
+  if (x >= 1) return 0;
+  const phi = Math.acos(x);
+  return (2 / Math.PI) * (phi - Math.cos(phi) * Math.sin(phi));
+}
+
 /**
  * Fundamental even (TE0) mode of a symmetric slab waveguide, normalized to 1 on axis: cos inside the
  * core, a matched exponential outside. `ka` is the transverse phase across the core half-width (0 to π/2).

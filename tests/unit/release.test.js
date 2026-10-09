@@ -225,3 +225,23 @@ test('layout defaults changeset asks a plots minor', { skip: layoutDefaultsConsu
 test('layout defaults changeset became a plots minor', { skip: !layoutDefaultsConsumed && 'changesets not yet versioned' }, () => {
   assert.equal(entry('plots', LAYOUT_ENTRY).kind, 'Minor');
 });
+
+// Plan #162 (agent_docs/plans/162-curve-typed.md), O6, issue #181.
+// oracle: spec roadmap Constraints (a typed API added alongside the old ships as a minor); semver 0.x.
+// plots-svelte's peer range >=0.1.0 <1 admits it, so it gets no bump (plan #30's O4, above).
+// Read as the layout-defaults pair above: the file, or once `changeset version` deleted it, the CHANGELOG entry.
+const CURVE_ENTRY = /typed curve/i;
+const curveTypedConsumed = !existsSync(join(repo, '.changeset', 'curve-typed.md'))
+  && CURVE_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'));
+
+test('curve-typed changeset asks a plots minor', { skip: curveTypedConsumed && 'consumed by changeset version' }, () => {
+  const text = readFileSync(join(repo, '.changeset', 'curve-typed.md'), 'utf8');
+  const m = text.match(/^---\n([\s\S]*?)\n---\n/);
+  assert.ok(m, '.changeset/curve-typed.md has no front matter');
+  const bumps = Object.fromEntries(m[1].split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((r) => [r[1], r[2]]));
+  assert.deepEqual(bumps, { '@eleoptics/plots': 'minor' });
+});
+
+test('curve-typed changeset became a plots minor', { skip: !curveTypedConsumed && 'changesets not yet versioned' }, () => {
+  assert.equal(entry('plots', CURVE_ENTRY).kind, 'Minor');
+});

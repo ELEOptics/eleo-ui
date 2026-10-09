@@ -17,7 +17,7 @@ map2D(psfCanvas, { data: system, kind: 'psf', scale: 'log' });
 colorbarEl.style.background = gradient('ember');
 ```
 
-- **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `rayFan`, `curve`, `legend`, `icon`) return markup whose colors are CSS variables: one drawing works in both themes.
+- **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `rayFan`, `curve`, `legend`, `icon`) return markup whose colors are CSS variables: one drawing works in both themes. `legend` needs no sample: without one, `field`/`wavelength` draw `n` index keys without values (`F1`.., `λ1`..), and none when `n` is omitted; `ts` and `rays` are unchanged.
 - **Canvas renderers** (`map2D`, `layout3D`) read the variables when they draw: call them again after a theme or palette change.
 - **Data:** pass your traced system as `data`. To try things out, `import '@eleoptics/plots/sample'` makes a traced achromat the default (190 KB, so it is opt-in).
 - **Fonts:** Fira Sans and Fira Code. Load them yourself.
@@ -57,6 +57,30 @@ afterEl.innerHTML = layout2D({ data: after, box, labels, marks: false });
 
 This is a breaking change. `data.layout` used to be a bare rays array (`layout[field][ray]` of `[z, y]` points), drawn against `data.profiles` and `data.zimg`. It is now a recorded layout, `{surfaces, rays, chief?}`, and so is `data.layoutWl` (previously `{field, rays}`). Record your system in the format above: each lens surface becomes a `surfaces` entry with its `profile` and the `glass` after it, the stop and the image become surfaces with `stop` or `image` set, and the old rays array moves to `rays`. `layout2D` throws on the old shape. `layout3D` is unchanged: it still reads `profiles` and `rays3d`.
 
+## Curves
+
+`curve` draws line series against two axes. Pass data, labels and a role per series; there is no color, font or stroke-width option. Restyle by setting the CSS custom properties (`--series-1..8`, `--ink`, `--plot-axis`) on an ancestor.
+
+```js
+import { curve } from '@eleoptics/plots';
+
+el.innerHTML = curve({
+  series: [
+    { points: [[0, 1], [100, 0.62], [200, 0.3]], index: 0, role: 'tangential' },
+    { points: [[0, 1], [100, 0.7], [200, 0.4]], index: 0, role: 'sagittal' },
+  ],
+  x: { label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400] },
+  y: { label: 'Modulus', range: [0, 1] },
+  width: 460, height: 260,
+});
+```
+
+- **`series`:** `{ points: [[x, y], ...], index?, role? }` each, drawn in order. `index` k takes the k-th series color. `role`: `tangential` (solid, the default), `sagittal` (dash `5 3`), or `reference` (`--ink`, dash `1 3`; ignores `index`). Every role draws a 1 px stroke.
+- **`x`, `y`:** `{ label, unit?, range?, ticks? }`, drawn as `label, unit`. `range` defaults to the nice range of the data and `ticks` to nice ticks over the range. A range that is empty or reversed is widened to a unit either side of its start. Every point is drawn and the plot area clips what lies outside the range.
+- **Zero line:** an axis range that straddles 0 draws a line at 0 in `--plot-axis`.
+- **Drawing:** the series sit in a nested `<svg>` that clips them, inside one `<g transform="matrix(...)">` in data coordinates under a non-scaling stroke. Inverting that matrix recovers the data.
+- **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromaticFocus' })` still draws from the sample.
+
 ## Palettes
 
 Plots color index 1 to 8 in the standard order. For readers with color vision deficiency, set a palette on the page:
@@ -72,12 +96,13 @@ The values are `standard` (the default), `red-green` (protanopia and deuteranopi
 ## Physics helpers
 
 ```js
-import { airy, airyRadius, j1, slabMode, colormap } from '@eleoptics/plots/physics';
+import { airy, airyRadius, j1, slabMode, colormap, mtfDiffraction } from '@eleoptics/plots/physics';
 
 airy(r, 0.5876, 4);      // Airy intensity at r µm for f/4 at 587.6 nm, peak 1
 airyRadius(0.5876, 4);   // 2.87 µm: first dark ring, 1.22 λN
 slabMode(y, 5);          // TE0 mode of a slab waveguide with a 5-unit core half-width
 colormap('ember');       // 256 [r, g, b] entries in the current theme
+mtfDiffraction(nu, 0.0005876, 4); // nu in cycles/mm, lambda in mm; 0 past cutoff
 ```
 
 ## Without a bundler

@@ -48,6 +48,28 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
   }
 });
 
+// Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
+// tile doesn't blank the other 16. The 404 and the gallery's own report of it are the expected console errors.
+for (const [fixture, broken] of [['mtf', 'mtf'], ['field-curvature', 'fieldCurvature'], ['distortion', 'distortion']]) {
+  test(`a missing phos-core fixture blanks only its tile: ${fixture}`, async ({ page }) => {
+    const thrown = [];
+    page.on('pageerror', (e) => thrown.push(e.message));
+    await page.route(`**/achromat-${fixture}.json`, (route) => route.fulfill({ status: 404, body: '' }));
+    await page.goto('/gallery/');
+    await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+    expect(thrown).toEqual([]);
+    for (const theme of ['light', 'dark']) {
+      const tiles = await inkByTile(page, theme);
+      expect(tiles.length).toBe(17);
+      expect(tiles.map((t) => t.tile), `${theme} tile ${broken} exists`).toContain(broken);
+      for (const t of tiles) {
+        if (t.tile === broken) expect(t.svgMarks + t.inked, `${theme} ${broken} tile drew`).toBe(0);
+        else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+      }
+    }
+  });
+}
+
 // Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
 // labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
 // or the merit tile's other drawing. The gallery's own report of it is the expected console error.
@@ -75,7 +97,7 @@ test('a rejected merit fixture blanks only its tile', async ({ page }) => {
 });
 
 // Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
-// the tiles that bring their own data (merit, glasses) or need none (airy, icons) still draw. The 404 is the expected
+// the tiles that bring their own data (merit, glasses, the recorded curves) or need none (airy, icons) still draw. The 404 is the expected
 // console error.
 test('a missing sample script blanks only the sample tiles', async ({ page }) => {
   const thrown = [];
@@ -84,7 +106,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'fieldCurvature', 'distortion', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(17);

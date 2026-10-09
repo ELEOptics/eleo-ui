@@ -72,32 +72,37 @@
     // The sample tiles keep their framing: a pinned box, not the rays' bounds. If eleo-plots-sample.js failed to load,
     // ELEO.sample is null, SAMPLE_BOX stays null and the sample tiles draw nothing while the rest of the page draws.
     var SAMPLE_BOX = ELEO.sample && { zmin: -8, zmax: ELEO.sample.zimg + 4, ylo: -13.5, yhi: 13.5 };
-    function sampleTile(f) { return function () { return SAMPLE_BOX ? f() : ''; }; }
     // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below;
     // if either fixture fails, MERIT_BOX stays unset and the tile draws nothing while the rest of the page draws.
     var MERIT = {}, MERIT_BOX;
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
+    // The MTF, field curvature and distortion tiles: the recorded achromat (tests/fixtures/phos-core/README.md)
+    // through ELEOAdapters, one fixture each. Filled by fetch() below; if the script or a recording fails, that
+    // key stays unset and only its tile draws nothing.
+    var REC = {};
+    // Each tile names the data it needs and draws from it. draw() below calls a tile only when `need()` gives something;
+    // otherwise the tile draws nothing and the rest of the page draws.
+    function sampleBox() { return SAMPLE_BOX; }
     function meritTile(k) {
-      if (!MERIT_BOX) return '';
       try { return ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
       catch (e) { console.error('merit-' + k + ':', e); return ''; }
     }
     var SVG = {
-      'layout2D': sampleTile(function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX }); }),
-      'layout2D-fan': sampleTile(function () { return ELEO.layout2D({ width: 1000, box: SAMPLE_BOX, colorBy: 'wavelength', rays: 'fan' }); }),
-      'merit-before': function () { return meritTile('before'); },
-      'merit-after': function () { return meritTile('after'); },
-      'layout2D-glasses': function () { return GLASSES ? ELEO.layout2D({ data: GLASSES, width: 1000, marks: false }) : ''; },
-      'spot': sampleTile(function () { return ELEO.spot(); }),
-      'throughFocus': sampleTile(function () { return ELEO.throughFocus(); }),
-      'rayFan': sampleTile(function () { return ELEO.rayFan(); }),
-      'rayFan-opd': sampleTile(function () { return ELEO.rayFan({ kind: 'opd' }); }),
-      'mtf': sampleTile(function () { return ELEO.curve({ kind: 'mtf' }); }),
-      'fieldCurvature': sampleTile(function () { return ELEO.curve({ kind: 'fieldCurvature' }); }),
-      'distortion': sampleTile(function () { return ELEO.curve({ kind: 'distortion' }); }),
-      'chromaticFocus': sampleTile(function () { return ELEO.curve({ kind: 'chromaticFocus' }); })
+      'layout2D': { need: sampleBox, draw: function (box) { return ELEO.layout2D({ width: 1000, box: box }); } },
+      'layout2D-fan': { need: sampleBox, draw: function (box) { return ELEO.layout2D({ width: 1000, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
+      'merit-before': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('before'); } },
+      'merit-after': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('after'); } },
+      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d) { return ELEO.layout2D({ data: d, width: 1000, marks: false }); } },
+      'spot': { need: sampleBox, draw: function () { return ELEO.spot(); } },
+      'throughFocus': { need: sampleBox, draw: function () { return ELEO.throughFocus(); } },
+      'rayFan': { need: sampleBox, draw: function () { return ELEO.rayFan(); } },
+      'rayFan-opd': { need: sampleBox, draw: function () { return ELEO.rayFan({ kind: 'opd' }); } },
+      'mtf': { need: function () { return REC.mtf; }, draw: function (d) { return ELEO.curve(d); } },
+      'fieldCurvature': { need: function () { return REC.fieldCurvature; }, draw: function (d) { return ELEO.curve(d); } },
+      'distortion': { need: function () { return REC.distortion; }, draw: function (d) { return ELEO.curve(d); } },
+      'chromaticFocus': { need: sampleBox, draw: function () { return ELEO.curve({ kind: 'chromaticFocus' }); } }
     };
     function airyTile(canvas) {
       var n = canvas.width, ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
@@ -120,7 +125,10 @@
     function draw() {
       document.querySelectorAll('.theme').forEach(function (theme) {
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
-        theme.querySelectorAll('[data-svg]').forEach(function (el) { el.innerHTML = SVG[el.dataset.svg](); });
+        theme.querySelectorAll('[data-svg]').forEach(function (el) {
+          var tile = SVG[el.dataset.svg], need = tile.need();
+          el.innerHTML = need ? tile.draw(need) : '';
+        });
         // The glass legend keys the Cooke tile's own layout; empty, like the tile, if its fixture failed.
         // The field and wavelength legends key the sample; empty, like its tiles, without it.
         theme.querySelectorAll('[data-legend]').forEach(function (el) {
@@ -156,7 +164,30 @@
     }).catch(function (e) {
       console.error('gallery: merit tile skipped:', e);
     });
-    Promise.all([glasses, merit]).then(function () {
+    var adapters = new Promise(function (ok, no) {
+      var el = document.createElement('script');
+      el.src = '/tests/fixtures/phos-core/adapters.js';
+      el.onload = ok;
+      el.onerror = function () { no(new Error('adapters.js failed to load')); };
+      document.head.appendChild(el);
+    });
+    // One recorded tile: fetch the fixture, run it through its adapter; a failure blanks only that tile.
+    function recorded(name, file, draw) {
+      return adapters.then(function () {
+        return fetch('/tests/fixtures/phos-core/achromat-' + file + '.json');
+      }).then(function (r) {
+        if (!r.ok) throw new Error('achromat-' + file + '.json: ' + r.status);
+        return r.json();
+      }).then(draw).catch(function (e) {
+        console.error('gallery: ' + name + ' tile skipped:', e);
+      });
+    }
+    var phos = Promise.all([
+      recorded('mtf', 'mtf', function (d) { REC.mtf = globalThis.ELEOAdapters.mtf(d, { diffraction: true }); }),
+      recorded('fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }),
+      recorded('distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); })
+    ]);
+    Promise.all([glasses, merit, phos]).then(function () {
       draw();
       document.body.dataset.ready = 'true';
     });

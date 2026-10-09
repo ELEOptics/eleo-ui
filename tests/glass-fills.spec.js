@@ -85,7 +85,7 @@ test('glass fills are distinct, stable and ordered', async ({ page }) => {
 // O2 (plan #90): the gallery's Cooke-glasses tile (data-tile="layout2D-glasses", fixture
 // tests/fixtures/layouts/analysis-glasses.json) gets a footer legend from ELEO.glassLegend(layout) (#100), hooked up
 // by #102 as `<div class="eleo-plot__ft eleo-legend" data-legend="glass">`, like the other tiles' ELEO.legend(kind).
-// Markup contract for glassLegend (#100 follows it), in the shape of legend()'s keys in renderers.js:
+// Markup contract for glassLegend (#100 follows it), in the shape of legend()'s keys in legend.js:
 //   one `<span class="eleo-key eleo-key--swatch" style="--c:<fill>"><name></span>` per distinct glass, in order of
 //   first use, nothing else in the legend. The swatch is the key's ::before (plots.css .eleo-key--swatch, background
 //   var(--c)); the key's trimmed text is the glass name.
