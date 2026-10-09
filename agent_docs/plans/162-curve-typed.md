@@ -174,7 +174,7 @@ Proves: O1, O2
 | #193 | Backlog finding 10: MTF sources in source order | as the finding names | `tests/unit/phos-core-fixtures.test.js` | swapped sources fail | #192 |
 | #194 | Backlog finding 4: aria-label escaped once | as the finding names | `packages/plots/src/curve.js` | `curve.test.js::aria-label escapes labels once` | #189 |
 | #195 | Backlog finding 7: unknown kind, prototype keys included, draws chromatic focus | own-key lookup, as before the split | `packages/plots/src/curve.js` | `curve.test.js::unknown kind draws chromatic focus` | #194 |
-| #196 | Backlog finding 5: caller ticks' decimals from the step | as the finding names; considered parsing `e-` (misses 0.30000000000000004) | `packages/plots/src/curve.js` | `curve.test.js::caller ticks in exponent notation keep their decimals` | #195 |
+| #196 | Backlog finding 5: caller ticks print exactly at a shared precision | the smallest d with every tick exact at `toFixed(d)`, because the finding's step rule mislabels 0, 1.5, 3 as 0, 2, 3 (sent back); considered parsing `e-` (misses 0.30000000000000004) | `packages/plots/src/curve.js` | `curve.test.js::caller ticks in exponent notation keep their decimals` | #195 |
 | #197 | Backlog finding 8: points and M to 9 significant digits | `toPrecision(9)`; considered unrounded floats (longer markup, no gain) | `packages/plots/src/curve.js` | `curve.test.js::tiny and huge ranges round-trip within 0.5 px` | #196 |
 | #198 | Backlog finding 11: comments name the split modules | as the finding names | `packages/plots/src/common.js`, `tests/glass-fills.spec.js` | none: comments only | #175 |
 

@@ -155,3 +155,15 @@ test('aria-label escapes labels once', () => {
   const label = /aria-label="([^"]*)"/.exec(svg)[1];
   assert.equal(label, 'Modulus against S&amp;P plot');
 });
+
+test('caller ticks in exponent notation keep their decimals', () => {
+  const svg = ELEO.curve({ series: [{ points: [[0, 0], [2e-7, 1]], role: 'reference' }], x: { range: [0, 2e-7], ticks: [0, 1e-7, 2e-7] }, y: { range: [0, 1], ticks: [0] } });
+  const texts = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
+  assert.deepEqual(texts, ['0.0000000', '0.0000001', '0.0000002']);
+});
+
+test('caller ticks print exactly at a shared precision', () => {
+  const svg = ELEO.curve({ series: [{ points: [[0, 0], [3, 1]], role: 'reference' }], x: { range: [0, 3], ticks: [0, 1.5, 3] }, y: { range: [0, 1], ticks: [0] } });
+  const texts = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
+  assert.deepEqual(texts, ['0.0', '1.5', '3.0']);
+});
