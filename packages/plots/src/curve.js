@@ -69,6 +69,6 @@ export var curveAdapters = {
 export function curve(o) {
   o = o || {};
   if (o.series) return typedCurve(o);
-  var a = (curveAdapters[o.kind || "mtf"] || curveAdapters.chromaticFocus)(data(o));
+  var a = curveAdapters[Object.hasOwn(curveAdapters, o.kind || "mtf") ? o.kind || "mtf" : "chromaticFocus"](data(o));
   return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height });
 }

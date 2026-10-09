@@ -143,6 +143,13 @@ test("kind draws its adapter's series", async () => {
   assert.deepEqual(curveAdapters.mtf(D).series.map((s) => s.role), ['reference', ...D.mtf.fields.flatMap(() => ['tangential', 'sagittal'])]);
 });
 
+// oracle: metamorphic (an unknown kind equals chromaticFocus)
+test('unknown kind draws chromatic focus', async () => {
+  await import('../../packages/plots/src/sample.js');
+  const want = ELEO.curve({ kind: 'chromaticFocus' });
+  for (const kind of ['toString', 'nope']) assert.equal(ELEO.curve({ kind }), want, kind);
+});
+
 test('aria-label escapes labels once', () => {
   const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], role: 'reference' }], x: { label: 'S&P', range: [0, 1] }, y: { label: 'Modulus', range: [0, 1] } });
   const label = /aria-label="([^"]*)"/.exec(svg)[1];
