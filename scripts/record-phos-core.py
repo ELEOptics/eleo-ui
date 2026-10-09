@@ -140,7 +140,8 @@ def record(phos, lens, model, meta, outdir, header):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--phos", required=True, help="<phos-core>/clients/python/src")
-    ap.add_argument("--out", default=str(ROOT / "tests/fixtures/phos-core"))
+    default_out = str(ROOT / "tests/fixtures/phos-core")
+    ap.add_argument("--out", default=default_out)
     args = ap.parse_args()
     sys.path.insert(0, args.phos)
     import phos  # noqa: E402
@@ -148,7 +149,7 @@ def main():
     core = Path(args.phos).resolve().parents[2]
     sha = subprocess.check_output(["git", "-C", str(core), "rev-parse", "HEAD"], text=True).strip()
     header = {"phosCore": {"sha": sha}, "script": "scripts/record-phos-core.py",
-              "args": ["<phos>" if a == args.phos else a for a in sys.argv[1:]]}
+              "args": ["--phos", "<phos>"] + ([] if args.out == default_out else ["--out", "<out>"])}
     sample = json.loads((ROOT / "packages/plots/src/sample.json").read_text())
 
     ach = achromat(phos, sample)
