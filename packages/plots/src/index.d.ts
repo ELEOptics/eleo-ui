@@ -92,12 +92,42 @@ export interface Map2DProps {
   /** Canvas size in px. Default 320. */
   size?: number;
 }
-export interface CurvePlotProps {
+/** One curve. Every role draws a 1 px stroke; there is no color, width or dash option (ADR-0001). */
+export interface CurveSeries {
+  /** [x, y] in data units. Points outside the axis ranges are clipped by the plot area. */
+  points: [number, number][];
+  /** Palette slot: the series color follows idx(index). Default 0. */
+  index?: number;
+  /** "tangential" is solid, "sagittal" dashed, "reference" a dotted ink line. Default solid, like tangential. */
+  role?: "tangential" | "sagittal" | "reference";
+}
+export interface CurveAxis {
+  /** Drawn as "label, unit". */
+  label?: string;
+  unit?: string;
+  /** [lo, hi] in data units. Default: the nice range of the data. */
+  range?: [number, number];
+  /** Tick positions. Default: nice ticks for the range. */
+  ticks?: number[];
+}
+/** Typed call: you give the series and axes. */
+export interface CurveSeriesProps {
+  series: CurveSeries[];
+  x?: CurveAxis;
+  y?: CurveAxis;
+  width?: number;
+  height?: number;
+  kind?: never;
+}
+/** Kind call: the analysis kind of the sample (or `data`), drawn through the typed path. */
+export interface CurveKindProps {
   data?: object;
   kind: "mtf" | "fieldCurvature" | "distortion" | "chromaticFocus";
   width?: number;
   height?: number;
+  series?: never;
 }
+export type CurvePlotProps = CurveSeriesProps | CurveKindProps;
 export interface ELEO {
   /** The sample system, once "@eleoptics/plots/sample" is imported; null before. */
   sample: object | null;
