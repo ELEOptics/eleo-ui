@@ -57,6 +57,30 @@ afterEl.innerHTML = layout2D({ data: after, box, labels, marks: false });
 
 This is a breaking change. `data.layout` used to be a bare rays array (`layout[field][ray]` of `[z, y]` points), drawn against `data.profiles` and `data.zimg`. It is now a recorded layout, `{surfaces, rays, chief?}`, and so is `data.layoutWl` (previously `{field, rays}`). Record your system in the format above: each lens surface becomes a `surfaces` entry with its `profile` and the `glass` after it, the stop and the image become surfaces with `stop` or `image` set, and the old rays array moves to `rays`. `layout2D` throws on the old shape. `layout3D` is unchanged: it still reads `profiles` and `rays3d`.
 
+## Curves
+
+`curve` draws line series against two axes. Pass data, labels and a role per series; there is no color, font or stroke-width option. Restyle by setting the CSS custom properties (`--series-1..8`, `--ink`, `--plot-axis`) on an ancestor.
+
+```js
+import { curve } from '@eleoptics/plots';
+
+el.innerHTML = curve({
+  series: [
+    { points: [[0, 1], [100, 0.62], [200, 0.3]], index: 0, role: 'tangential' },
+    { points: [[0, 1], [100, 0.7], [200, 0.4]], index: 0, role: 'sagittal' },
+  ],
+  x: { label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400] },
+  y: { label: 'Modulus', range: [0, 1] },
+  width: 460, height: 260,
+});
+```
+
+- **`series`:** `{ points: [[x, y], ...], index?, role? }` each, drawn in order. `index` k takes the k-th series color. `role`: `tangential` (solid, the default), `sagittal` (dash `5 3`), or `reference` (`--ink`, dash `1 3`, 1.25 px; ignores `index`).
+- **`x`, `y`:** `{ label, unit?, range?, ticks? }`, drawn as `label, unit`. `range` defaults to the nice range of the data and `ticks` to nice ticks over the range. A range that is empty or reversed is widened to a unit either side of its start. Every point is drawn and the plot area clips what lies outside the range.
+- **Zero line:** an axis range that straddles 0 draws a line at 0 in `--plot-axis`.
+- **Drawing:** the series sit in a nested `<svg>` that clips them, inside one `<g transform="matrix(...)">` in data coordinates under a non-scaling stroke. Inverting that matrix recovers the data.
+- **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromFocus' })` still draws from the sample.
+
 ## Palettes
 
 Plots color index 1 to 8 in the standard order. For readers with color vision deficiency, set a palette on the page:
