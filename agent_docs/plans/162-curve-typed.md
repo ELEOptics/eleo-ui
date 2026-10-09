@@ -1,7 +1,7 @@
 # Plan #162: Renderer modules and a generic curve
 
 Status: approved 2026-10-08
-Branch: `plan/162-curve-typed` PR: #<pr> Depends on: plan #144 (done) Roadmap: `agent_docs/roadmap.md`, row D
+Branch: `plan/162-curve-typed` PR: #186 Depends on: plan #144 (done) Roadmap: `agent_docs/roadmap.md`, row D
 
 ## Problem
 
