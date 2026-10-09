@@ -127,8 +127,8 @@ def record(phos, lens, model, meta, outdir, header):
     srcs = model.sources(0)
     angles = [rnd(field_angle_deg(s)) for s in srcs]
     wl_um = [e.wavelength() for e in srcs[0].emission_data()]
-    base = {
-        **header, "lens": lens, "firstOrder": first_order(model), "fieldAnglesDeg": angles,
+    head = {**header, "lens": lens, "firstOrder": first_order(model)}
+    tail = {
         "wavelengthsNm": [rnd(w * 1000) for w in wl_um], "referenceWavelengthNm": meta["referenceNm"],
         "lengthUnit": "mm",
     }
@@ -138,11 +138,11 @@ def record(phos, lens, model, meta, outdir, header):
         "field-curvature": (field_curvature(phos, model, sweep), sweep_angles, {"focusUnit": "mm", "kind": "per source, one entry per wavelength"}),
         "distortion": (distortion(phos, model, sweep), sweep_angles, {"percentUnit": "%", "kind": "per source, one entry per wavelength"}),
     }
-    for name, (per_source, angles, extra) in results.items():
-        if len(per_source) != len(angles):
-            sys.exit(f"{lens} {name}: {len(per_source)} results for {len(angles)} sources, expected one each")
-        doc = {**base, "fieldAnglesDeg": angles, "analysis": name, **extra,
-               "sources": [{"fieldAngleDeg": a, **(r if isinstance(r, dict) else {"results": r})} for a, r in zip(angles, per_source)]}
+    for name, (per_source, src_angles, extra) in results.items():
+        if len(per_source) != len(src_angles):
+            sys.exit(f"{lens} {name}: {len(per_source)} results for {len(src_angles)} sources, expected one each")
+        doc = {**head, "fieldAnglesDeg": src_angles, **tail, "analysis": name, **extra,
+               "sources": [{"fieldAngleDeg": a, **(r if isinstance(r, dict) else {"results": r})} for a, r in zip(src_angles, per_source)]}
         path = outdir / f"{lens}-{name}.json"
         path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
         yield path
