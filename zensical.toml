@@ -6,4 +6,7 @@ docs_dir = "dev_docs"
 site_dir = "site"
 nav = [
   { "Home" = "index.md" },
+  { "Decisions" = [
+    { "ADR-0001: Plot boundary and styling rule" = "adr/0001-plot-boundary.md" },
+  ] },
 ]
