@@ -199,3 +199,9 @@ test('tiny and huge ranges round-trip within 0.5 px', () => {
     }
   }
 });
+
+// Plan #162, issue #202: the bundle targets es2017 and esbuild adds no polyfills.
+test('kind lookup uses no API newer than the bundle target', () => {
+  const bundle = readFileSync(new URL('../../packages/plots/dist/eleo-plots.js', import.meta.url), 'utf8');
+  assert.ok(!bundle.includes('Object.hasOwn('), 'dist/eleo-plots.js calls Object.hasOwn, an ES2022 API');
+});
