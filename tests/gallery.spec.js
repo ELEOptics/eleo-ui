@@ -94,7 +94,7 @@ test('a rejected merit fixture blanks only its tile', async ({ page }) => {
 });
 
 // Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
-// the tiles that bring their own data (merit, glasses, mtf) or need none (airy, icons) still draw. The 404 is the expected
+// the tiles that bring their own data (merit, glasses, the recorded curves) or need none (airy, icons) still draw. The 404 is the expected
 // console error.
 test('a missing sample script blanks only the sample tiles', async ({ page }) => {
   const thrown = [];
@@ -103,7 +103,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'fieldCurvature', 'distortion', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(17);

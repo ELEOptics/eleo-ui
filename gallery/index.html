@@ -82,6 +82,8 @@
     // The MTF tile: the recorded achromat (tests/fixtures/phos-core/README.md) through ELEOAdapters.mtf. Filled by
     // fetch() below; if the script or the recording fails, MTF stays unset and only this tile draws nothing.
     var MTF;
+    // The field curvature and distortion tiles: the same recorded achromat, one fixture each, drawn the same way.
+    var REC = {};
     function meritTile(k) {
       if (!MERIT_BOX) return '';
       try { return ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
@@ -98,8 +100,8 @@
       'rayFan': sampleTile(function () { return ELEO.rayFan(); }),
       'rayFan-opd': sampleTile(function () { return ELEO.rayFan({ kind: 'opd' }); }),
       'mtf': function () { return MTF ? ELEO.curve(MTF) : ''; },
-      'fieldCurvature': sampleTile(function () { return ELEO.curve({ kind: 'fieldCurvature' }); }),
-      'distortion': sampleTile(function () { return ELEO.curve({ kind: 'distortion' }); }),
+      'fieldCurvature': function () { return REC.fieldCurvature ? ELEO.curve(REC.fieldCurvature) : ''; },
+      'distortion': function () { return REC.distortion ? ELEO.curve(REC.distortion) : ''; },
       'chromaticFocus': sampleTile(function () { return ELEO.curve({ kind: 'chromaticFocus' }); })
     };
     function airyTile(canvas) {
@@ -159,21 +161,30 @@
     }).catch(function (e) {
       console.error('gallery: merit tile skipped:', e);
     });
-    var mtf = new Promise(function (ok, no) {
+    var adapters = new Promise(function (ok, no) {
       var el = document.createElement('script');
       el.src = '/tests/fixtures/phos-core/adapters.js';
       el.onload = ok;
       el.onerror = function () { no(new Error('adapters.js failed to load')); };
       document.head.appendChild(el);
-    }).then(function () {
-      return fetch('/tests/fixtures/phos-core/achromat-mtf.json');
-    }).then(function (r) {
-      if (!r.ok) throw new Error('achromat-mtf.json: ' + r.status);
-      return r.json();
-    }).then(function (d) { MTF = globalThis.ELEOAdapters.mtf(d); }).catch(function (e) {
-      console.error('gallery: mtf tile skipped:', e);
     });
-    Promise.all([glasses, merit, mtf]).then(function () {
+    // One recorded tile: fetch the fixture, run it through its adapter; a failure blanks only that tile.
+    function recorded(name, file, draw) {
+      return adapters.then(function () {
+        return fetch('/tests/fixtures/phos-core/achromat-' + file + '.json');
+      }).then(function (r) {
+        if (!r.ok) throw new Error('achromat-' + file + '.json: ' + r.status);
+        return r.json();
+      }).then(draw).catch(function (e) {
+        console.error('gallery: ' + name + ' tile skipped:', e);
+      });
+    }
+    var phos = Promise.all([
+      recorded('mtf', 'mtf', function (d) { MTF = globalThis.ELEOAdapters.mtf(d, { diffraction: true }); }),
+      recorded('fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }),
+      recorded('distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); })
+    ]);
+    Promise.all([glasses, merit, phos]).then(function () {
       draw();
       document.body.dataset.ready = 'true';
     });
