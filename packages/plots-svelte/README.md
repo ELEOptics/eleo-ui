@@ -17,7 +17,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 
 <PlotCard title="Layout" meta="YZ" colorKey="Color: field">
   <Layout2D data={system} rays="fan" label="Lens layout with traced rays" />
-  {#snippet footer()}<Legend kind="field" />{/snippet}
+  {#snippet footer()}<Legend kind="field" n={3} />{/snippet}
 </PlotCard>
 
 <PlotCard title="PSF" meta="0.0°, linear">
@@ -52,7 +52,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 />
 ```
 
-`Legend` takes `kind` (`field`, `wavelength`, `ts`, `rays`) and `n`, or `kind="glass"` with `data`, a recorded layout or a system carrying one: one swatch key per drawn glass, by name, in order of first use, in the fill `Layout2D` gives its lenses (`glassLegend` in `@eleoptics/plots`):
+`Legend` takes `kind` (`field`, `wavelength`, `ts`, `rays`) and `n` (`field` and `wavelength` need `n` when there is no sample), or `kind="glass"` with `data`, a recorded layout or a system carrying one: one swatch key per drawn glass, by name, in order of first use, in the fill `Layout2D` gives its lenses (`glassLegend` in `@eleoptics/plots`):
 
 ```svelte
 <PlotCard title="Layout">
