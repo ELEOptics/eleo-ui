@@ -142,3 +142,9 @@ test("kind draws its adapter's series", async () => {
   }
   assert.deepEqual(curveAdapters.mtf(D).series.map((s) => s.role), ['reference', ...D.mtf.fields.flatMap(() => ['tangential', 'sagittal'])]);
 });
+
+test('aria-label escapes labels once', () => {
+  const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], role: 'reference' }], x: { label: 'S&P', range: [0, 1] }, y: { label: 'Modulus', range: [0, 1] } });
+  const label = /aria-label="([^"]*)"/.exec(svg)[1];
+  assert.equal(label, 'Modulus against S&amp;P plot');
+});

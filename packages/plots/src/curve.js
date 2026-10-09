@@ -42,7 +42,7 @@ function typedCurve(o) {
   g += "</g></svg>";
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   g += '<text class="eleo-tick" x="' + (L + pw) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="' + (T - 4) + '">' + lab(y) + "</text>";
-  return svg(W, H, g, esc(lab(y) + " against " + lab(x)) + " plot");
+  return svg(W, H, g, lab(y) + " against " + lab(x) + " plot");
 }
 
 /* Each analysis kind is an adapter: the sample in, { series, x, y } out, drawn by the typed path. */
