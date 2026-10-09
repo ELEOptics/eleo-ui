@@ -222,6 +222,8 @@ its diffraction limit again. The remaining sample tiles draw through one predica
 Demo: `npm run test:unit`: the style lint passes with its exemptions listed, legends render under SSR with no
 sample, and the changeset plans a plots minor. `PERF=1 npx playwright test tests/perf.spec.js` prints `curve`'s
 median redraw, which the orchestrator writes into the Change log. Proves: O4, O5, O6
+| #227 | Backlog (review M3 round 1 findings 1, 2, 3, 5, 6): the style-lint scanner covers concatenated colors, `fontFamily` and `//` in strings; every exemption in use | one file, the findings' named fixes; considered five items (one test file, one scanner) | `tests/unit/style-lint.test.js` | planted cases and `every exemption is in use` | #185 |
+| #228 | Backlog finding 4: plots-svelte README's Legend example passes `n` | as the finding names | `packages/plots-svelte/README.md` | none: doc only | #185 |
 
 | Issue | Work item | Approach | Files | Test | After |
 | -- | -- | -- | -- | -- | -- |
@@ -263,3 +265,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-09 review M2 round 3: 0 blocking. Backlog #225 into M2 (headless: backlog into M2, row: milestone acceptance within the plan); #226 stays a plain issue.
 - 2026-10-09 (user, M2 demo): go. The sample's distortion (−0.1 % with a step at 0.2°) disagrees with phos-core's (−0.0038 % at 2°): ignored, the legacy path goes in row J.
 - 2026-10-09: M2 done. CI `test` green on b904732; review M2 round 4: 0 blocking.
+- 2026-10-09: U14 for `curve` (20 series of 200 points, headless Chromium, median of 20 redraws): 1.10, 1.15, 1.10, 1.20 ms over four runs, under 16 ms.
+- 2026-10-09 review M3 round 1: 0 blocking. Backlog #227 (findings 1, 2, 3, 5, 6) and #228 (finding 4) into M3 (headless: backlog into M3, row: milestone acceptance within the plan).
