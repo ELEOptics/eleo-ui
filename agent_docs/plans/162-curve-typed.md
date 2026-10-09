@@ -222,8 +222,6 @@ its diffraction limit again. The remaining sample tiles draw through one predica
 Demo: `npm run test:unit`: the style lint passes with its exemptions listed, legends render under SSR with no
 sample, and the changeset plans a plots minor. `PERF=1 npx playwright test tests/perf.spec.js` prints `curve`'s
 median redraw, which the orchestrator writes into the Change log. Proves: O4, O5, O6
-| #227 | Backlog (review M3 round 1 findings 1, 2, 3, 5, 6): the style-lint scanner covers concatenated colors, `fontFamily` and `//` in strings; every exemption in use | one file, the findings' named fixes; considered five items (one test file, one scanner) | `tests/unit/style-lint.test.js` | planted cases and `every exemption is in use` | #185 |
-| #228 | Backlog finding 4: plots-svelte README's Legend example passes `n` | as the finding names | `packages/plots-svelte/README.md` | none: doc only | #185 |
 
 | Issue | Work item | Approach | Files | Test | After |
 | -- | -- | -- | -- | -- | -- |
@@ -233,6 +231,9 @@ median redraw, which the orchestrator writes into the Change log. Proves: O4, O5
 | #183 | U14 measurement for `curve`: 20 series of 200 points, median of 20 redraws | a Playwright test that reads `performance.now()` in the gallery page and skips unless `PERF=1`, because U14's oracle names it and it is not a gate; considered a Node benchmark (U14 names headless Chromium). Stop: a median over 16 ms is reported (kill criterion D–J / U14), not fixed | `tests/perf.spec.js` | `perf.spec.js::curve redraw (U14)` | #181 |
 | #184 | Changeset: plots minor | forced (CLAUDE.md: a changeset per user-facing change; roadmap Constraints: minors until J) | `.changeset/curve-typed.md`, `tests/unit/release.test.js` | O6 | #181 |
 | #185 | Unskip O4, O5, O6 | forced (`workflow.md`, TDD) | `tests/unit/style-lint.test.js`, `tests/unit/legend.test.js`, `tests/unit/release.test.js` | O4, O5, O6 | all above |
+| #227 | Backlog (review M3 round 1 findings 1, 2, 3, 5, 6): the style-lint scanner covers concatenated colors, `fontFamily` and `//` in strings; every exemption in use | one file, the findings' named fixes; considered five items (one test file, one scanner) | `tests/unit/style-lint.test.js` | planted cases and `every exemption is in use` | #185 |
+| #228 | Backlog finding 4: plots-svelte README's Legend example passes `n` | as the finding names | `packages/plots-svelte/README.md` | none: doc only | #185 |
+| #229 | Backlog (review M3 round 2 findings 1, 2): template-literal and concatenated hex colors flagged; a real allowed case | the findings' named fixes | `tests/unit/style-lint.test.js` | planted cases | #228 |
 ## Risks and spikes
 
 | Risk | Impact | Spike or mitigation |
@@ -267,3 +268,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-09: M2 done. CI `test` green on b904732; review M2 round 4: 0 blocking.
 - 2026-10-09: U14 for `curve` (20 series of 200 points, headless Chromium, median of 20 redraws): 1.10, 1.15, 1.10, 1.20 ms over four runs, under 16 ms.
 - 2026-10-09 review M3 round 1: 0 blocking. Backlog #227 (findings 1, 2, 3, 5, 6) and #228 (finding 4) into M3 (headless: backlog into M3, row: milestone acceptance within the plan).
+- 2026-10-09 review M3 round 2: 0 blocking. Backlog #229 (findings 1, 2) into M3 (headless: backlog into M3, row: milestone acceptance within the plan); finding 3 left (false positives only); finding 4 fixed here (the #227/#228 rows moved under M3's table header).
