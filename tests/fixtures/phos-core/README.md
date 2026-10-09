@@ -12,8 +12,8 @@ digits.
 - `cooke-*`: `OpticalModel.cooke_triplet_kingslake()`, fields 0/17/24 deg in `cooke-mtf.json`, 450/550/650 nm.
 
 | File | Content |
-| --- | --- |
-| `<lens>-mtf.json` | polychromatic MTF (uniform weights), per source: `tangential` and `sagittal`, each `[cycles/mm, modulus][]`. Pupil sampling 64, zero pad 64. phos-core has no diffraction-limit curve: use `firstOrder.fNumber` and `referenceWavelengthNm` |
+| -- | -- |
+| `<lens>-mtf.json` | polychromatic MTF (uniform weights), per source: `tangential` and `sagittal`, each `[cycles/mm, modulus][]`. Pupil sampling 64, zero pad 64. phos-core has no diffraction-limit curve: use `firstOrder.workingFNumber` (else `fNumber`) and `referenceWavelengthNm` |
 | `<lens>-field-curvature.json` | per source, `results[]` per wavelength: `tangential`, `sagittal` focus shift (mm), `chiefHeight` (mm), `astigmatism` |
 | `<lens>-distortion.json` | per source, `results[]` per wavelength: `realHeight`, `paraxialHeight` (mm), `percent` |
 
