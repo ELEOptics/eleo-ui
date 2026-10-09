@@ -27,6 +27,7 @@ test('recorded fixtures carry what the adapters need', () => {
     const m = read(`../fixtures/phos-core/${lens}-mtf.json`);
     assert.equal(m.frequencyUnit, 'cycles/mm');
     assert.ok(m.referenceWavelengthNm > 0 && m.firstOrder.fNumber > 0 && m.firstOrder.epd > 0, `${lens}: reference wavelength, f-number and EPD`);
+    assert.ok(m.wavelengthsNm.includes(m.referenceWavelengthNm), `${lens}: referenceWavelengthNm ${m.referenceWavelengthNm} is one of ${m.wavelengthsNm}`);
     assert.equal(m.sources.length, m.fieldAnglesDeg.length);
     m.sources.forEach((s, i) => {
       assert.equal(s.fieldAngleDeg, m.fieldAnglesDeg[i]);

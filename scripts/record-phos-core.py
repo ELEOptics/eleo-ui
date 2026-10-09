@@ -128,7 +128,8 @@ def record(phos, lens, model, meta, outdir, header):
         "distortion": (distortion(phos, model), {"percentUnit": "%", "kind": "per source, one entry per wavelength"}),
     }
     for name, (per_source, extra) in results.items():
-        assert len(per_source) == len(angles), f"{lens} {name}: one result per source"
+        if len(per_source) != len(angles):
+            sys.exit(f"{lens} {name}: {len(per_source)} results for {len(angles)} sources, expected one each")
         doc = {**base, "analysis": name, **extra,
                "sources": [{"fieldAngleDeg": a, **(r if isinstance(r, dict) else {"results": r})} for a, r in zip(angles, per_source)]}
         path = outdir / f"{lens}-{name}.json"
@@ -147,7 +148,7 @@ def main():
     core = Path(args.phos).resolve().parents[2]
     sha = subprocess.check_output(["git", "-C", str(core), "rev-parse", "HEAD"], text=True).strip()
     header = {"phosCore": {"sha": sha}, "script": "scripts/record-phos-core.py",
-              "args": ["--phos", "<phos-core>/clients/python/src"]}
+              "args": ["<phos>" if a == args.phos else a for a in sys.argv[1:]]}
     sample = json.loads((ROOT / "packages/plots/src/sample.json").read_text())
 
     ach = achromat(phos, sample)
@@ -159,8 +160,11 @@ def main():
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
     written = []
-    for lens, model, ref in (("achromat", ach, sample["wl"][1]), ("cooke", cooke, 550.0)):
-        written += list(record(phos, lens, model, {"referenceNm": rnd(ref)}, outdir, header))
+    for lens, model in (("achromat", ach), ("cooke", cooke)):
+        ref_um = model.system(0).reference_wavelength()
+        if ref_um is None:
+            sys.exit(f"{lens}: the model has no reference wavelength")
+        written += list(record(phos, lens, model, {"referenceNm": rnd(ref_um * 1000)}, outdir, header))
     print(f"wrote {outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir}/{{achromat,cooke}}-{{mtf,field-curvature,distortion}}.json (phos-core {sha[:10]})")
 
 
