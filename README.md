@@ -5,7 +5,7 @@ The design tokens and optical plots behind ELEO's tools, including Phos and eleo
 | Package | What it is |
 | -- | -- |
 | [`@eleoptics/tokens`](packages/tokens) | Colors for light and dark themes, colormaps, type, spacing and line weights, as `tokens.css` and as data |
-| [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, RayFan, Map2D (PSF, wavefront), CurvePlot (MTF and more), icons and legends; plus small, exact physics helpers (`airy`, `j1`, `slabMode`, `colormap`) |
+| [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, RayFan, Map2D (PSF, wavefront), CurvePlot (MTF and more), icons and legends; plus small, exact physics helpers (`airy`, `airyRadius`, `j1`, `slabMode`, `colormap`, `mtfDiffraction`) |
 | [`@eleoptics/plots-svelte`](packages/plots-svelte) | Svelte 5 components around `@eleoptics/plots`: PlotCard, Layout2D, Map2D and the rest, redrawn on a theme or palette change |
 
 ## Use it
