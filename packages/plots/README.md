@@ -79,7 +79,7 @@ el.innerHTML = curve({
 - **`x`, `y`:** `{ label, unit?, range?, ticks? }`, drawn as `label, unit`. `range` defaults to the nice range of the data and `ticks` to nice ticks over the range. A range that is empty or reversed is widened to a unit either side of its start. Every point is drawn and the plot area clips what lies outside the range.
 - **Zero line:** an axis range that straddles 0 draws a line at 0 in `--plot-axis`.
 - **Drawing:** the series sit in a nested `<svg>` that clips them, inside one `<g transform="matrix(...)">` in data coordinates under a non-scaling stroke. Inverting that matrix recovers the data.
-- **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromFocus' })` still draws from the sample.
+- **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromaticFocus' })` still draws from the sample.
 
 ## Palettes
 
