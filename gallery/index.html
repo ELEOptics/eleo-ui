@@ -78,10 +78,9 @@
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
-    // The MTF tile: the recorded achromat (tests/fixtures/phos-core/README.md) through ELEOAdapters.mtf. Filled by
-    // fetch() below; if the script or the recording fails, MTF stays unset and only this tile draws nothing.
-    var MTF;
-    // The field curvature and distortion tiles: the same recorded achromat, one fixture each, drawn the same way.
+    // The MTF, field curvature and distortion tiles: the recorded achromat (tests/fixtures/phos-core/README.md)
+    // through ELEOAdapters, one fixture each. Filled by fetch() below; if the script or a recording fails, that
+    // key stays unset and only its tile draws nothing.
     var REC = {};
     // Each tile names the data it needs and draws from it. draw() below calls a tile only when `need()` gives something;
     // otherwise the tile draws nothing and the rest of the page draws.
@@ -100,7 +99,7 @@
       'throughFocus': { need: sampleBox, draw: function () { return ELEO.throughFocus(); } },
       'rayFan': { need: sampleBox, draw: function () { return ELEO.rayFan(); } },
       'rayFan-opd': { need: sampleBox, draw: function () { return ELEO.rayFan({ kind: 'opd' }); } },
-      'mtf': { need: function () { return MTF; }, draw: function (d) { return ELEO.curve(d); } },
+      'mtf': { need: function () { return REC.mtf; }, draw: function (d) { return ELEO.curve(d); } },
       'fieldCurvature': { need: function () { return REC.fieldCurvature; }, draw: function (d) { return ELEO.curve(d); } },
       'distortion': { need: function () { return REC.distortion; }, draw: function (d) { return ELEO.curve(d); } },
       'chromaticFocus': { need: sampleBox, draw: function () { return ELEO.curve({ kind: 'chromaticFocus' }); } }
@@ -184,7 +183,7 @@
       });
     }
     var phos = Promise.all([
-      recorded('mtf', 'mtf', function (d) { MTF = globalThis.ELEOAdapters.mtf(d, { diffraction: true }); }),
+      recorded('mtf', 'mtf', function (d) { REC.mtf = globalThis.ELEOAdapters.mtf(d, { diffraction: true }); }),
       recorded('fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }),
       recorded('distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); })
     ]);
