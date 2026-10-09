@@ -3,12 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import ELEOBase from '../../packages/plots/src/renderers.js';
-import { mtfDiffraction } from '../../packages/plots/src/physics.js';
+import ELEO from '../../packages/plots/src/index.js';
 import { niceRange } from '../../packages/plots/src/axis.js';
 
-// renderers.js's default export lacks the physics helpers the adapters call on globalThis.ELEO.
-const ELEO = Object.assign({}, ELEOBase, { mtfDiffraction });
+// adapters.js reads ELEO from globalThis when it loads.
 globalThis.ELEO = ELEO;
 
 const TOL_PX = 0.5;
