@@ -30,3 +30,14 @@ test('non-glass legends render without the sample (#121)', { skip: 'issue #181: 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('legend() without the sample: n keys without values, none without n; ts/rays fixed (#121)', async () => {
+  const { legend } = await import('../../packages/plots/src/legend.js');
+  const keys = (s) => [...s.matchAll(/class="eleo-key[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1]);
+  assert.deepEqual(keys(legend('field', 3)), ['F1', 'F2', 'F3']);
+  assert.deepEqual(keys(legend('wavelength', 3)), ['λ1', 'λ2', 'λ3']);
+  assert.equal(legend('field'), '');
+  assert.equal(legend('wavelength'), '');
+  assert.deepEqual(keys(legend('ts')), ['T tangential', 'S sagittal', 'Diffraction limit']);
+  assert.deepEqual(keys(legend('rays')), ['Marginal ray', 'Chief ray']);
+});
