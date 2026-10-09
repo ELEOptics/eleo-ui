@@ -2,6 +2,7 @@
 // oracle: paper Heckbert 1990, Graphics Gems, "Nice numbers for graph labels" (loose labeling, worked by hand below)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { niceTicks, niceRange } from '../../packages/plots/src/axis.js';
 
 // Heckbert: nicenum(x, round) takes f = x / 10^floor(log10 x); round: f<1.5 -> 1, <3 -> 2, <7 -> 5, else 10;
@@ -31,4 +32,28 @@ test("Heckbert's examples", () => {
     assert.equal(r.decimals, c.decimals, `decimals (${c.lo}, ${c.hi}, ${c.n})`);
     assert.deepEqual(niceRange(c.lo, c.hi, c.n), { lo: c.ticks[0], hi: c.ticks[c.ticks.length - 1] });
   }
+});
+
+// #206: spans of a few ulps, or below 1e-100, used to loop for seconds and gigabytes (k++ stops changing past 2^53)
+// or make toFixed throw. Run in a child process with a time and heap cap so a regression fails fast instead of eating memory.
+// oracle: property niceTicks returns a bounded tick list for any finite lo < hi; labels distinct where toFixed (<= 100) allows
+test('spans of a few ulps or below 1e-100 return promptly', () => {
+  const src = new URL('../../packages/plots/src/axis.js', import.meta.url).href;
+  const script = `import { niceTicks } from ${JSON.stringify(src)};
+    const out = [[1, 1 + 2 ** -52], [100, 100.00000000000003], [0, 1e-120]].map(([lo, hi]) => ({ lo, hi, ...niceTicks(lo, hi, 5) }));
+    console.log(JSON.stringify(out));`;
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', script], { encoding: 'utf8', timeout: 2000 });
+  assert.equal(r.error, undefined, `finished within 2 s: ${r.error && r.error.message}`);
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  for (const { lo, hi, ticks, decimals } of out) {
+    assert.ok(ticks.length >= 2 && ticks.length <= 10, `ticks (${lo}, ${hi}): ${ticks.length}`);
+    assert.ok(decimals >= 0 && decimals <= 100, `decimals (${lo}, ${hi}): ${decimals}`);
+    assert.deepEqual([ticks[0], ticks[ticks.length - 1]], [lo, hi], `[lo, hi] kept (${lo}, ${hi})`);
+    const labels = ticks.map((t) => t.toFixed(decimals));
+    if (Number(lo.toFixed(decimals)) === lo && Number(hi.toFixed(decimals)) === hi) {
+      assert.equal(new Set(labels).size, labels.length, `labels distinct (${lo}, ${hi}): ${labels}`);
+    }
+  }
+  assert.equal(out[2].decimals, 100, 'below 1e-100 clamps to 100');
 });

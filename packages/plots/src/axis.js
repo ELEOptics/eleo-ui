@@ -7,11 +7,25 @@ function nice(x, round) {
   return m * Math.pow(10, e);
 }
 
-/* Ticks covering [lo, hi] in about n labels, and the decimals the step needs. */
+var MAX_TICKS = 1000, MAX_DECIMALS = 100;
+
+/* The fewest decimals (up to 100) that print both ends back exactly. */
+function endDecimals(lo, hi) {
+  for (var k = 0; k < MAX_DECIMALS; k++) if (Number(lo.toFixed(k)) === lo && Number(hi.toFixed(k)) === hi) return k;
+  return MAX_DECIMALS;
+}
+
+/* Ticks covering [lo, hi] in about n labels, and the decimals the step needs.
+   A span of a few ulps (or below 1e-100) has no usable step: the count would pass 1000, lo / d would pass 2^53
+   (k++ stops advancing) or toFixed would throw. Then the ticks are [lo, hi] alone. */
 export function niceTicks(lo, hi, n) {
   var d = nice(nice(hi - lo, false) / (n - 1), true);
   var decimals = Math.max(-Math.floor(Math.log10(d)), 0);
   var a = Math.floor(lo / d), b = Math.ceil(hi / d), ticks = [];
+  var limit = Number.MAX_SAFE_INTEGER;
+  if (!(d > 0 && isFinite(d)) || decimals > MAX_DECIMALS || !(b - a <= MAX_TICKS) || Math.abs(a) > limit || Math.abs(b) > limit) {
+    return { ticks: [lo, hi], decimals: endDecimals(lo, hi) };
+  }
   for (var k = a; k <= b; k++) ticks.push(Number((k * d).toFixed(decimals)));
   return { ticks: ticks, decimals: decimals };
 }
