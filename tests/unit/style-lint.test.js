@@ -1,4 +1,4 @@
-// Plan #162 (agent_docs/plans/162-curve-typed.md), O4, issue #181 (skipped; #182 adds the exemptions' code, #185 unskips).
+// Plan #162 (agent_docs/plans/162-curve-typed.md), O4, issue #181.
 // oracle: property roadmap U5. No color literal or font name in packages/plots/src outside the exemptions.
 // Comments are stripped first. Each exemption names a file and the identifier that holds the literal.
 import { test } from 'node:test';
@@ -42,7 +42,7 @@ const scanSource = (file, text) => {
   return found;
 };
 
-test('no color or font literal outside the exemptions (U5)', { skip: 'issue #181: #185 unskips' }, () => {
+test('no color or font literal outside the exemptions (U5)', () => {
   const found = readdirSync(src)
     .filter((f) => f.endsWith('.js'))
     .flatMap((file) => scanSource(file, readFileSync(join(src, file), 'utf8')));

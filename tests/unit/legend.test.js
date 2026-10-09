@@ -1,4 +1,4 @@
-// Plan #162 (agent_docs/plans/162-curve-typed.md), O5, issue #181 (skipped; #121 reuse implements, #185 unskips).
+// Plan #162 (agent_docs/plans/162-curve-typed.md), O5, issue #181.
 // oracle: spec #121. Legend renders for the non-glass kinds with no sample loaded, SSR included.
 // node --test runs each file in its own process and this file never imports the sample, so state.sample stays null.
 import { test } from 'node:test';
@@ -7,7 +7,7 @@ import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-test('non-glass legends render without the sample (#121)', { skip: 'issue #181: #185 unskips' }, async () => {
+test('non-glass legends render without the sample (#121)', async () => {
   const { compile } = await import('svelte/compiler');
   const { render } = await import('svelte/server');
   const root = fileURLToPath(new URL('../../', import.meta.url));
