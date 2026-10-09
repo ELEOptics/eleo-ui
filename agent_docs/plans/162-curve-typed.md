@@ -215,6 +215,7 @@ its diffraction limit again. The remaining sample tiles draw through one predica
 | #222 | Finding 3: every recorded tile blanks alone on a missing fixture | loop the existing test, as the finding names | `tests/gallery.spec.js` | the looped test | #219 |
 | #223 | Finding 4: one `fieldAnglesDeg` per document in the recorder | as the finding names, keeping fixtures byte-identical | `scripts/record-phos-core.py` | re-run, no fixture diff | #219 |
 | #224 | Finding 5: the MTF tile reads `REC.mtf` | as the finding names | `gallery/index.html` | markup identical, gallery green | #219 |
+| #225 | Backlog (review M2 round 3 finding 1): `tests/types/curve.ts` names its oracle | forced (`workflow.md`, TDD > Oracles) | `tests/types/curve.ts` | types.test.js passes | #224 |
 
 ### M3: The rule enforced and the release planned GitHub: `P162 M3: The rule enforced and the release`
 
@@ -259,3 +260,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-09 CR #213 (orchestrator): the phos-core adapters drop their own tick rule for curve's defaults.
 - 2026-10-09 review M2 round 1: 4 blocking (CRs #214–#217, accepted by the orchestrator: docs and smaller versions inside the milestone's files). Backlog #218, #219 into M2 (headless: backlog into M2, row: milestone acceptance within the plan); finding 5 (`CurvePlotProps` became a union) goes into #184's changeset.
 - 2026-10-09 review M2 round 2: 0 blocking. Backlog #220–#224 into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
+- 2026-10-09 review M2 round 3: 0 blocking. Backlog #225 into M2 (headless: backlog into M2, row: milestone acceptance within the plan); #226 stays a plain issue.
