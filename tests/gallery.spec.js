@@ -48,24 +48,27 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
   }
 });
 
-// Plan #162, #174: a missing phos-core recording fails the MTF tile, not the page. oracle: property, one broken tile
-// doesn't blank the other 16. The 404 and the gallery's own report of it are the expected console errors.
-test('a missing phos-core fixture blanks only its tile', async ({ page }) => {
-  const thrown = [];
-  page.on('pageerror', (e) => thrown.push(e.message));
-  await page.route('**/achromat-mtf.json', (route) => route.fulfill({ status: 404, body: '' }));
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  expect(thrown).toEqual([]);
-  for (const theme of ['light', 'dark']) {
-    const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(17);
-    for (const t of tiles) {
-      if (t.tile === 'mtf') expect(t.svgMarks + t.inked, `${theme} mtf tile drew`).toBe(0);
-      else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+// Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
+// tile doesn't blank the other 16. The 404 and the gallery's own report of it are the expected console errors.
+for (const [fixture, broken] of [['mtf', 'mtf'], ['field-curvature', 'fieldCurvature'], ['distortion', 'distortion']]) {
+  test(`a missing phos-core fixture blanks only its tile: ${fixture}`, async ({ page }) => {
+    const thrown = [];
+    page.on('pageerror', (e) => thrown.push(e.message));
+    await page.route(`**/achromat-${fixture}.json`, (route) => route.fulfill({ status: 404, body: '' }));
+    await page.goto('/gallery/');
+    await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+    expect(thrown).toEqual([]);
+    for (const theme of ['light', 'dark']) {
+      const tiles = await inkByTile(page, theme);
+      expect(tiles.length).toBe(17);
+      expect(tiles.map((t) => t.tile), `${theme} tile ${broken} exists`).toContain(broken);
+      for (const t of tiles) {
+        if (t.tile === broken) expect(t.svgMarks + t.inked, `${theme} ${broken} tile drew`).toBe(0);
+        else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
+      }
     }
-  }
-});
+  });
+}
 
 // Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
 // labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
