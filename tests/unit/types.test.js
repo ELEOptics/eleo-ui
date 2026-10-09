@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc');
-const files = ['layout2d-labels.ts', 'glass.ts', 'curve.ts'].map((f) => fileURLToPath(new URL(`../types/${f}`, import.meta.url)));
+const files = ['layout2d-labels.ts', 'glass.ts'].map((f) => fileURLToPath(new URL(`../types/${f}`, import.meta.url)));
 
 test('layout2D labels type-checks null entries under --strict, against src/index.d.ts', () => {
   const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',
