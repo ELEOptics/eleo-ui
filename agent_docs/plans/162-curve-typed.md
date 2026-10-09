@@ -261,3 +261,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-09 review M2 round 1: 4 blocking (CRs #214–#217, accepted by the orchestrator: docs and smaller versions inside the milestone's files). Backlog #218, #219 into M2 (headless: backlog into M2, row: milestone acceptance within the plan); finding 5 (`CurvePlotProps` became a union) goes into #184's changeset.
 - 2026-10-09 review M2 round 2: 0 blocking. Backlog #220–#224 into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
 - 2026-10-09 review M2 round 3: 0 blocking. Backlog #225 into M2 (headless: backlog into M2, row: milestone acceptance within the plan); #226 stays a plain issue.
+- 2026-10-09 (user, M2 demo): go. The sample's distortion (−0.1 % with a step at 0.2°) disagrees with phos-core's (−0.0038 % at 2°): ignored, the legacy path goes in row J.
+- 2026-10-09: M2 done. CI `test` green on b904732; review M2 round 4: 0 blocking.
