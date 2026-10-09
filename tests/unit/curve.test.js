@@ -333,4 +333,10 @@ test('x tick labels stay inside the viewBox', () => {
   const s2 = ELEO.curve({ series: [{ points: [[0, 0], [400, 1]], index: 0 }], x: { range: [0, 400], ticks: [0, 200, 400] }, y: { range: [0, 1] }, width: W, height: 300 });
   const box = /<svg\b[^>]*\bx="([\d.]+)"[^>]*\bwidth="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(s2);
   assert.equal(+box[1] + +box[2], W - 12);
+  // ticks in descending order: the margin follows the largest shown tick, "10000" (half-width 15), not the last in array order
+  const s3 = ELEO.curve({ series: [{ points: [[0, 0], [10000, 1]], index: 0 }], x: { range: [0, 10000], ticks: [10000, 0] }, y: { range: [0, 1] }, width: W, height: 300 });
+  const l3 = [...s3.matchAll(/<text class="eleo-tick" x="([\d.]+)" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)]
+    .map((m) => ({ cx: +m[1], half: 3 * [...m[2]].length }));
+  assert.equal(l3.length, 2);
+  for (const l of l3) assert.ok(l.cx + l.half <= W + 1e-6, `label centred at ${l.cx} with half-width ${l.half} fits in ${W}`);
 });
