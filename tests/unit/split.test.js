@@ -14,3 +14,4 @@ test('SVG renderers draw the base markup', () => {
   for (const [name, draw] of Object.entries(now)) assert.equal(draw(), baseline[name], name);
 });
 // Plan 162 M1: curve and legend moved verbatim to curve.js and legend.js; this guard covers the moved modules.
+// Plan 162 M1: spot, throughFocus and rayFan moved verbatim to spot.js and fan.js; the guard covers them too.

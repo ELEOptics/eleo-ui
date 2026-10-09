@@ -6,6 +6,8 @@ import { layout2D as recordedLayout2D } from "./layout2d.js";
 import { state, data, useSample } from "./data.js";
 import { curve } from "./curve.js";
 import { legend } from "./legend.js";
+import { spot, throughFocus } from "./spot.js";
+import { rayFan } from "./fan.js";
 import { VIRIDIS, GRAY, fmt, css, rgb, ramp, mapStops, gradient, hollow, marker } from "./color.js";
 
 const ELEO = (function () {
@@ -60,71 +62,6 @@ const ELEO = (function () {
     c.beginPath(); sen.forEach(function (p, i) { if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); c.fillStyle = C("mech"); c.fill(); c.strokeStyle = C("ink"); c.lineWidth = 1.25; c.stroke();
     var t0 = [40, Hc - 28]; c.font = '10px "Fira Code", monospace'; c.fillStyle = C("ink-muted"); c.strokeStyle = C("ink-muted"); c.lineWidth = 1;
     [["X", [1, 0, 0]], ["Y", [0, 1, 0]], ["Z", [0, 0, 1]]].forEach(function (a) { var q = R3(a[1]), e = [t0[0] + q[0] * 20, t0[1] - q[1] * 20]; c.beginPath(); c.moveTo(t0[0], t0[1]); c.lineTo(e[0], e[1]); c.stroke(); c.fillText(a[0], e[0] + 3, e[1] + 3); });
-  }
-
-  /* ---------------- SpotDiagram ---------------- */
-  function spot(o) {
-    o = o || {}; var D = data(o), colorBy = o.colorBy || "wavelength", scale = o.scale || "common", airy = o.airy !== false;
-    var B = 150, gap = 22, n = D.spots.length, W = n * B + (n - 1) * gap, H = B + 58, g = "";
-    var common = o.half || Math.max.apply(null, D.spotStats.map(function (s) { return s.geo; }));
-    common = [5, 10, 20, 25, 40, 50, 100, 200].find(function (v) { return v >= common; }) || Math.ceil(common);
-    D.spots.forEach(function (per, fi) {
-      var half = scale === "auto" ? ([5, 10, 20, 25, 40, 50, 100, 200].find(function (v) { return v >= D.spotStats[fi].geo; }) || common) : common;
-      var s = (B / 2) / half, ox = fi * (B + gap), cx = ox + B / 2, cy = B / 2 + 4;
-      g += '<rect x="' + (ox + .5) + '" y="4.5" width="' + (B - 1) + '" height="' + (B - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
-      g += '<path d="M' + (ox + 6) + "," + cy + " H" + (ox + B - 6) + " M" + cx + ",10 V" + (B - 2) + '" stroke="var(--plot-grid)"/>';
-      per.forEach(function (pts, wi) { var col = colorBy === "field" ? idx(fi) : idx(wi); pts.forEach(function (p) { g += '<circle cx="' + (cx + p[0] * s).toFixed(1) + '" cy="' + (cy - p[1] * s).toFixed(1) + '" r="1.1" fill="' + col + '" fill-opacity=".85"/>'; }); });
-      if (airy) g += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (D.airy * s).toFixed(2) + '" fill="none" stroke="var(--ink)" stroke-width=".8"/>';
-      var st = D.spotStats[fi];
-      g += '<text class="eleo-val" x="' + ox + '" y="' + (B + 22) + '">' + fmt(D.fields[fi], 1) + '°</text><text class="eleo-tick" x="' + (ox + B) + '" y="' + (B + 22) + '" text-anchor="end">±' + half + ' µm</text>';
-      g += '<text class="eleo-tick" x="' + ox + '" y="' + (B + 37) + '">RMS <tspan class="eleo-val">' + st.rms.toFixed(2) + '</tspan> µm</text>';
-      g += '<text class="eleo-tick" x="' + ox + '" y="' + (B + 51) + '">GEO <tspan class="eleo-val">' + st.geo.toFixed(2) + '</tspan> µm</text>';
-    });
-    return svg(W, H, g, "Spot diagrams, colored by " + colorBy);
-  }
-  function throughFocus(o) {
-    o = o || {}; var D = data(o), T = D.throughFocus, B = 92, gap = 10, lw = 44, th = 22;
-    var cols = T.defocus.length, rows = T.spots.length, W = lw + cols * (B + gap), H = th + rows * (B + 26), g = "", half = o.half || 40, s = (B / 2) / half;
-    T.defocus.forEach(function (dz, j) { g += '<text class="eleo-tick" x="' + (lw + j * (B + gap) + B / 2) + '" y="12" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + " µm</text>"; });
-    T.spots.forEach(function (row, i) {
-      var oy = th + i * (B + 26);
-      g += '<text class="eleo-val" x="0" y="' + (oy + B / 2 + 4) + '">' + fmt(D.fields[i], 1) + "°</text>";
-      row.forEach(function (cell, j) {
-        var ox = lw + j * (B + gap), cx = ox + B / 2, cy = oy + B / 2;
-        g += '<rect x="' + (ox + .5) + '" y="' + (oy + .5) + '" width="' + (B - 1) + '" height="' + (B - 1) + '" rx="3" fill="none" stroke="' + (j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)") + '"/>';
-        cell.pts.forEach(function (pts, wi) { pts.forEach(function (p) { var x = cx + p[0] * s, y = cy - p[1] * s; if (Math.abs(x - cx) < B / 2 && Math.abs(y - cy) < B / 2) g += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r=".9" fill="' + idx(wi) + '" fill-opacity=".85"/>'; }); });
-        g += '<text class="eleo-tick" x="' + ox + '" y="' + (oy + B + 13) + '">RMS <tspan class="eleo-val">' + cell.rms.toFixed(1) + "</tspan></text>";
-      });
-    });
-    return svg(W, H, g, "Through-focus spot diagrams, fields by rows, focus shift by columns");
-  }
-
-  /* ---------------- RayFan ---------------- */
-  function rayFan(o) {
-    o = o || {}; var D = data(o), kind = o.kind || "tra", src = kind === "opd" ? D.opdFans : D.fans, pick = o.fields || src.map(function (_, i) { return i; });
-    var all = []; pick.forEach(function (fi) { ["T", "S"].forEach(function (k) { src[fi][k].forEach(function (a) { a.forEach(function (v) { if (v !== null) all.push(Math.abs(v)); }); }); }); });
-    var mx = Math.max.apply(null, all), steps = kind === "opd" ? [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10] : [5, 10, 20, 25, 50, 100, 200];
-    var nice = o.fullScale || steps.find(function (v) { return v >= mx; }) || Math.ceil(mx);
-    var pw = o.panelWidth || 170, ph = 92, gx = 26, gy = 30, left = 34, W = left + pick.length * pw + (pick.length - 1) * gx + 4, H = 2 * ph + gy + 54, g = "";
-    var unit = kind === "opd" ? "waves" : "µm";
-    ["T", "S"].forEach(function (k, r) {
-      pick.forEach(function (fi, c) {
-        var F = src[fi], ox = left + c * (pw + gx), oy = 18 + r * (ph + gy);
-        function X(t) { return (ox + (t + 1) / 2 * pw).toFixed(1); } function Y(v) { return (oy + ph / 2 - v / nice * (ph / 2)).toFixed(1); }
-        g += '<rect x="' + ox + '" y="' + oy + '" width="' + pw + '" height="' + ph + '" rx="2" fill="none" stroke="var(--plot-grid)"/>';
-        g += '<line x1="' + X(0) + '" y1="' + oy + '" x2="' + X(0) + '" y2="' + (oy + ph) + '" stroke="var(--plot-grid)"/><line x1="' + ox + '" y1="' + Y(0) + '" x2="' + (ox + pw) + '" y2="' + Y(0) + '" stroke="var(--plot-axis)"/>';
-        F[k].forEach(function (vals, wi) {
-          var d = "", pen = false, N = vals.length;
-          vals.forEach(function (v, i) { if (v === null) { pen = false; return; } d += (pen ? " L" : " M") + X(-1 + 2 * i / (N - 1)) + "," + Y(v); pen = true; });
-          g += '<path d="' + d + '" fill="none" stroke="' + idx(wi) + '" style="stroke-width:var(--stroke-curve)" stroke-linecap="round" stroke-linejoin="round"/>';
-        });
-        if (r === 0) g += '<text class="eleo-val" x="' + ox + '" y="' + (oy - 6) + '">' + fmt(D.fields[fi], 1) + "°</text>";
-        if (c === 0) g += '<text class="eleo-tick" x="' + (ox - 6) + '" y="' + (oy + 8) + '" text-anchor="end">+' + nice + '</text><text class="eleo-tick" x="' + (ox - 6) + '" y="' + (oy + ph) + '" text-anchor="end">−' + nice + '</text><text class="eleo-tick" x="' + (ox - 6) + '" y="' + Y(0) + '" dy="3" text-anchor="end">0</text>';
-        g += '<text class="eleo-tick" x="' + (ox + pw) + '" y="' + (oy + ph + 12) + '" text-anchor="end">' + (k === "T" ? "Py" : "Px") + "</text>";
-      });
-    });
-    g += '<text class="eleo-tick" x="' + left + '" y="' + (H - 4) + '">' + (kind === "opd" ? "Optical path difference" : "Transverse ray aberration") + ", " + unit + ", full scale ±" + nice + " · top: tangential · bottom: sagittal</text>";
-    return svg(W, H, g, (kind === "opd" ? "OPD" : "Ray") + " fan plots, tangential and sagittal");
   }
 
   /* ---------------- Map2D (canvas) ---------------- */
