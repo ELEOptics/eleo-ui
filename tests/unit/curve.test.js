@@ -98,3 +98,26 @@ test('series round trip', () => {
   assert.ok(!/NaN|Infinity/.test(flat), 'a flat series draws finite numbers');
   assert.ok(!/NaN|Infinity/.test(ELEO.curve({ series: [], x: { label: 'a' }, y: { label: 'b' } })), 'no series draws finite numbers');
 });
+
+// Plan #162, issue #173: each kind is an adapter over the typed path.
+// oracle: metamorphic (curve({kind}) equals curve of its adapter's output) plus the sample data (adapter points are the sample's)
+test("kind draws its adapter's series", async () => {
+  await import('../../packages/plots/src/sample.js');
+  const { curveAdapters } = await import('../../packages/plots/src/curve.js');
+  const { data } = await import('../../packages/plots/src/data.js');
+  const D = data({});
+  const pick = {
+    mtf: () => [D.mtf.diff.map((v, i) => [i * D.mtf.df, v]), ...D.mtf.fields.flatMap((f) => [f.T, f.S].map((a) => a.map((v, i) => [i * D.mtf.df, v])))],
+    fieldCurvature: () => [D.fieldCurv.map((r) => [r[1], r[0]]), D.fieldCurv.map((r) => [r[2], r[0]])],
+    distortion: () => [D.distortion.map((r) => [r[1], r[0]])],
+    chromaticFocus: () => [D.chromFocus.map((r) => [r[1], r[0]])],
+  };
+  for (const kind of Object.keys(pick)) {
+    const a = curveAdapters[kind](D);
+    assert.deepEqual(a.series.map((s) => s.points), pick[kind](), `${kind}: the adapter's points are the sample's`);
+    for (const [width, height] of SIZES) {
+      assert.equal(ELEO.curve({ kind, width, height }), ELEO.curve({ ...a, width, height }), `${kind} ${width}px`);
+    }
+  }
+  assert.deepEqual(curveAdapters.mtf(D).series.map((s) => s.role), ['reference', ...D.mtf.fields.flatMap(() => ['tangential', 'sagittal'])]);
+});
