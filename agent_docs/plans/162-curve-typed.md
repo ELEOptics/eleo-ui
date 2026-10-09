@@ -204,6 +204,12 @@ its diffraction limit again. The remaining sample tiles draw through one predica
 | #213 | CR (orchestrator, after #211): the adapters use curve's default axes | curve's nice range and ticks, because the adapters carried a second copy of the tick rule and 11 y labels; considered keeping their own ticks (two rules to keep in step) | `tests/fixtures/phos-core/adapters.js` | O3 run unskipped locally; gallery green | #212 |
 | #137 reuse | One predicate in `draw()` instead of the `sampleTile` wraps: tiles carry their own data | as #137 proposes, because #174 and #179 moved three tiles off the sample and the wraps no longer fit; considered leaving them, which keeps two ways of blanking a tile | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js::a missing sample script blanks only the sample tiles` stays green | #179 |
 | #180 | Unskip O3 | forced (`workflow.md`, TDD) | `tests/unit/curve.test.js` | O3 | all above |
+| #214 | CR (review M2 round 1 finding 1): fixtures README describes the 11-field sweep | forced (stale doc since #211) | `tests/fixtures/phos-core/README.md` | none: doc only | #180 |
+| #215 | CR (finding 2): `curve.ts` type-checked once | as the finding names | `tests/unit/types.test.js` | both type tests pass | #180 |
+| #216 | CR (finding 3): curve.test.js imports the merged ELEO from `index.js` | as the finding names | `tests/unit/curve.test.js` | 15/15 pass | #180 |
+| #217 | CR (finding 4): adapters call `ELEO.mtfDiffraction` inline | the gallery already blanks only the MTF tile on failure; considered the named re-throw (no reader needs it) | `tests/fixtures/phos-core/adapters.js` | curve and gallery tests pass | #180 |
+| #218 | Backlog finding 6: right margin from the rightmost shown tick | as the finding names | `packages/plots/src/curve.js` | `curve.test.js::x tick labels stay inside the viewBox` with `[10000, 0]` | #180 |
+| #219 | Backlog finding 7: root README's physics list complete | as the finding names | `README.md` | none: doc only | #180 |
 
 ### M3: The rule enforced and the release planned GitHub: `P162 M3: The rule enforced and the release`
 
@@ -246,3 +252,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-09 CR #210 (accepted, orchestrator: a non-Core doc): the plots README's physics section gains `mtfDiffraction`. #184's changeset names it.
 - 2026-10-09 CRs #211 (dense field sweep for field curvature and distortion) and #212 (room for the last x tick label), accepted by the orchestrator from #179's gallery check: data resolution and a look fix inside the plan, outcomes and oracles unchanged.
 - 2026-10-09 CR #213 (orchestrator): the phos-core adapters drop their own tick rule for curve's defaults.
+- 2026-10-09 review M2 round 1: 4 blocking (CRs #214–#217, accepted by the orchestrator: docs and smaller versions inside the milestone's files). Backlog #218, #219 into M2 (headless: backlog into M2, row: milestone acceptance within the plan); finding 5 (`CurvePlotProps` became a union) goes into #184's changeset.
