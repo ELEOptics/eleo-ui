@@ -127,7 +127,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 - Series are drawn in a nested `<svg>` (clipping) holding a `<g transform>` in data coordinates under
   `vector-effect="non-scaling-stroke"`, as layout2D does. That makes U6's "inverting each SVG's transform" literal.
 - Role → style (ADR-0001): `index: k` → `idx(k)`; `tangential` solid, `sagittal` dash `5 3`; `reference`
-  `var(--ink)` dash `1 3`, 1.25 px. A zero line in `--plot-axis` whenever an axis range straddles 0. These are
+  `var(--ink)` dash `1 3`; every role 1 px (user, M1 demo, CR #209). A zero line in `--plot-axis` whenever an axis range straddles 0. These are
   today's styles, so the look is kept.
 - O2 and `curve`: #173 changes `curve`'s markup (the transform group), so it deletes `curve`'s entries from
   `renderers-baseline.json`. Re-recording them from the new code would make the code its own oracle
@@ -193,6 +193,7 @@ its diffraction limit again. The remaining sample tiles draw through one predica
 
 | Issue | Work item | Approach | Files | Test | After |
 | -- | -- | -- | -- | -- | -- |
+| #209 | CR (user, M1 demo): every curve role draws a 1 px stroke | 1 px non-scaling, like layout2D's rays, because the user chose it at the demo (user); considered 1.5 px as built and px-space drawing (ADR-0001's alternative) | `packages/plots/src/curve.js`, `packages/plots/README.md` | `curve.test.js::every role draws a 1 px stroke` | M1 |
 | #176 | O3 acceptance test, skipped | forced (`workflow.md`, TDD) | `tests/unit/curve.test.js` | `::recorded field curvature and distortion round trip (U6)`, skipped | M1 |
 | #177 | `mtfDiffraction(nu, lambda, N)` in physics, ν in cycles/mm and λ in mm | the closed form `2/π(φ − cos φ sin φ)`, φ = acos(ν/ν_c), ν_c = 1/(λN), because the caller needs the reference curve phos-core doesn't return; considered recording the sample's `mtf.diff` (it fits one lens only) | `packages/plots/src/physics.js`, `packages/plots/src/physics.d.ts`, `tests/unit/physics.test.js` | `physics.test.js::mtfDiffraction closed form` (1 at 0, 0 at cutoff, 0.3910 at half) | #176 |
 | #178 | Typed API in `index.d.ts`: `CurveSeries`, `CurveAxis`, `CurvePlotProps` with `series`/`x`/`y` alongside `kind`; `CurvePlot.svelte`'s header comment and the plots-svelte README's `CurvePlot` entry gain a typed example | forced (CLAUDE.md Core: `index.d.ts` is the public API's types; roadmap Constraints: typed API alongside the old) | `packages/plots/src/index.d.ts`, `tests/types/curve.ts`, `tests/unit/types.test.js`, `packages/plots-svelte/src/lib/CurvePlot.svelte`, `packages/plots-svelte/README.md` | `types.test.js::curve typed series type-check under --strict` | #176 |
@@ -236,3 +237,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-08 review M1 round 2: 0 blocking. Backlog into M1: #200 (findings 1, 4), #201, #202, #203 (headless: backlog into M1, row: milestone acceptance within the plan). Finding 5 (the `kind` tiles' uniform tick decimals) is named at the M1 demo.
 - 2026-10-08 review M1 round 3: 1 blocking, new in #201 (CR #204, accepted by the orchestrator: a fix in the item's file that keeps every invariant). Backlog #205 into M1 (headless: backlog into M1, row: milestone acceptance within the plan). Later backlog stays plain issues.
 - 2026-10-08 review M1 round 4: 1 blocking, missed by rounds 1–3 (CR #206, accepted by the orchestrator: a fix in `axis.js` that keeps every invariant). Backlog #207 stays a plain issue (after round 3).
+- 2026-10-09 (user, M1 demo): go. ADR-0001 accepted with a Verdict. Curve strokes 1 px non-scaling at every size (CR #209, into M2 as its first item); uniform tick decimals on field curvature and distortion accepted; the gallery diff (only the four curve tiles changed) approved as the U5–U10 baseline for row D.
+- 2026-10-09: M1 done. CI `test` green on fe2b61a; review M1 round 5: 0 blocking.

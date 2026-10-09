@@ -1,7 +1,7 @@
 # ADR-0001: Plot boundary and styling rule
 
-Status: proposed
-Date: 2026-10-08
+Status: accepted
+Date: 2026-10-09
 
 ## Context
 
@@ -19,14 +19,14 @@ needs it. The plot shell is not an app component, so hover, zoom and export belo
 
 **Roles, not colors.** A renderer's options carry data, labels, units and a role per series (field k, wavelength k,
 tangential, sagittal, reference, limit), never a color, font or stroke width. One table in the renderers maps role to
-style, and it keeps today's look:
+style. Every role draws a 1 px stroke at any plot size (the user at plan #162's M1 demo, as `layout2D`'s rays):
 
 | Role | Style |
 | -- | -- |
 | `index: k` | the k-th series color, `idx(k)` |
 | `tangential` | solid |
 | `sagittal` | dash `5 3` |
-| `reference` | `var(--ink)`, dash `1 3`, 1.25 px |
+| `reference` | `var(--ink)`, dash `1 3` |
 
 An axis range that straddles 0 draws a zero line in `--plot-axis`. The option-name rule (no color, font or stroke
 option) is checked at each row's review. A unit test scans `packages/plots/src` for color and font literals; the
@@ -39,6 +39,9 @@ are the only way a consumer restyles a plot. There is no per-call style option.
 **Curve drawing.** `curve` draws each series in a nested `<svg>` (it clips, and needs no page-unique ids as a
 `clipPath` would) holding a `<g transform>` in data coordinates under `vector-effect="non-scaling-stroke"`, as
 `layout2D` does. Inverting the transform then recovers the data, which is the literal wording of roadmap U6's oracle.
+Every point is drawn and the viewport clips: dropping out-of-range points would join non-adjacent points. Points and
+the transform are written unrounded (the shortest round-trip form) and converted to numbers first, so no caller
+string reaches the markup.
 
 **Alternative kept in reserve: px-space polylines.** The renderer computes pixel coordinates itself and writes plain
 polylines, with the data value on each mark as `data-x`/`data-y`. Strokes, dashes and joins are then exact, and the
@@ -66,5 +69,10 @@ changes the wording of U6's oracle, which is the user's to change.
 
 ## Verdict
 
-Pending: plan #162's M1 demo gives the verdict (the transform group's look against main's screenshots, and whether the
-roles table covers MTF, field curvature and distortion).
+Go (the user, plan #162 M1 demo, 2026-10-09). The skeleton drew the recorded phos-core MTF of the sample achromat and
+the Cooke triplet through the transform group: inverting it recovers every point within 0.5 px at 460 and 920 px
+(`tests/unit/curve.test.js::recorded MTF round trip (U6)`), with the transform pinned to the caller's ranges. The
+roles table covered MTF, field curvature, distortion and chromatic focus with no analysis branch in the drawing. Every
+non-curve tile stayed pixel-identical to main in both themes and three palettes. What changed because of it: the
+look was heavier (1.5 screen px), so every role now draws 1 px (CR #209), and the `reference` role lost its own
+width; tick labels print at one shared precision (`0.0`, `1.0`).
