@@ -11,7 +11,7 @@ function roleStyle(s) {
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */
 function axisRange(a, vals) {
-  var r = a.range;
+  var r = a.range && a.range.map(Number);
   if (!r) { var lo = Infinity, hi = -Infinity; vals.forEach(function (v) { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); r = lo <= hi ? [lo, hi] : [0, 1]; if (lo < hi) { var nr = niceRange(lo, hi, 6); r = [nr.lo, nr.hi]; } }
   return r[0] < r[1] ? [r[0], r[1]] : [r[0] - 1, r[0] + 1];
 }

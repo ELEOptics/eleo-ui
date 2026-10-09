@@ -214,3 +214,11 @@ test('string point values cannot inject markup', () => {
   const ok = ELEO.curve({ series: [{ points: [['1', '1'], [2, 2]], index: 0 }], x, y, width: 460, height: 300 });
   assert.deepEqual(seriesGroup(ok).paths[0], [[1, 1], [2, 2]], "'1' draws as 1");
 });
+
+// Plan #162, issue #205: a given range is mapped through Number, so string ranges are not compared as strings.
+test('string ranges draw as numbers', () => {
+  const series = [{ points: [[2, 1], [6, 2], [10, 3]], index: 0 }], y = { range: [0, 4] };
+  const num = ELEO.curve({ series, x: { range: [2, 10] }, y, width: 460, height: 300 });
+  const str = ELEO.curve({ series, x: { range: ['2', '10'] }, y, width: 460, height: 300 });
+  assert.equal(str, num);
+});
