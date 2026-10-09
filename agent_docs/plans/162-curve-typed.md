@@ -210,6 +210,11 @@ its diffraction limit again. The remaining sample tiles draw through one predica
 | #217 | CR (finding 4): adapters call `ELEO.mtfDiffraction` inline | the gallery already blanks only the MTF tile on failure; considered the named re-throw (no reader needs it) | `tests/fixtures/phos-core/adapters.js` | curve and gallery tests pass | #180 |
 | #218 | Backlog finding 6: right margin from the rightmost shown tick | as the finding names | `packages/plots/src/curve.js` | `curve.test.js::x tick labels stay inside the viewBox` with `[10000, 0]` | #180 |
 | #219 | Backlog finding 7: root README's physics list complete | as the finding names | `README.md` | none: doc only | #180 |
+| #220 | Backlog (review M2 round 2 finding 1): curve.test.js comments match the adapters | as the finding names | `tests/unit/curve.test.js` | 15/15 | #219 |
+| #221 | Finding 2: fixtures README names `workingFNumber` | as the finding names | `tests/fixtures/phos-core/README.md` | none: doc only | #219 |
+| #222 | Finding 3: every recorded tile blanks alone on a missing fixture | loop the existing test, as the finding names | `tests/gallery.spec.js` | the looped test | #219 |
+| #223 | Finding 4: one `fieldAnglesDeg` per document in the recorder | as the finding names, keeping fixtures byte-identical | `scripts/record-phos-core.py` | re-run, no fixture diff | #219 |
+| #224 | Finding 5: the MTF tile reads `REC.mtf` | as the finding names | `gallery/index.html` | markup identical, gallery green | #219 |
 
 ### M3: The rule enforced and the release planned GitHub: `P162 M3: The rule enforced and the release`
 
@@ -253,3 +258,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-09 CRs #211 (dense field sweep for field curvature and distortion) and #212 (room for the last x tick label), accepted by the orchestrator from #179's gallery check: data resolution and a look fix inside the plan, outcomes and oracles unchanged.
 - 2026-10-09 CR #213 (orchestrator): the phos-core adapters drop their own tick rule for curve's defaults.
 - 2026-10-09 review M2 round 1: 4 blocking (CRs #214–#217, accepted by the orchestrator: docs and smaller versions inside the milestone's files). Backlog #218, #219 into M2 (headless: backlog into M2, row: milestone acceptance within the plan); finding 5 (`CurvePlotProps` became a union) goes into #184's changeset.
+- 2026-10-09 review M2 round 2: 0 blocking. Backlog #220–#224 into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
