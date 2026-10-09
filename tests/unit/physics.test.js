@@ -29,3 +29,15 @@ test('slab mode is continuous and smooth at the core edge', () => {
   assert.ok(Math.abs(inside - outside) < 1e-3, 'derivative matches across the boundary');
   assert.ok(slabMode(5 * a, a) < 1e-3, 'evanescent tail decays');
 });
+
+test('mtfDiffraction closed form', async () => {
+  const { mtfDiffraction } = await import('../../packages/plots/src/physics.js');
+  const lambda = 0.0005, N = 4, nuc = 1 / (lambda * N);
+  assert.equal(mtfDiffraction(0, lambda, N), 1);
+  assert.equal(mtfDiffraction(nuc, lambda, N), 0);
+  assert.equal(mtfDiffraction(1.5 * nuc, lambda, N), 0);
+  // Goodman: 2/π (π/3 − (1/2)(√3/2)) at half cutoff, φ = π/3.
+  const half = (2 / Math.PI) * (Math.PI / 3 - 0.5 * (Math.sqrt(3) / 2));
+  assert.ok(Math.abs(half - 0.3910) < 5e-5);
+  assert.ok(Math.abs(mtfDiffraction(nuc / 2, lambda, N) - half) < 1e-12);
+});
