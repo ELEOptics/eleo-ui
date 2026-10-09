@@ -182,7 +182,7 @@ test('caller ticks print exactly at a shared precision', () => {
 // oracle: the caller's ranges and the plot frame; a point at fraction f of x.range lands at f * pw, one at fraction g of y.range at ph * (1 - g). Not read back from the emitted matrix.
 test('tiny and huge ranges round-trip within 0.5 px', () => {
   const y = { label: 'b', range: [0, 1] };
-  for (const range of [[-1e-4, 1e-4], [0, 1e7]]) {
+  for (const range of [[-1e-4, 1e-4], [0, 1e7], [1e6, 1e6 + 1]]) {
     const x = { label: 'a', range };
     const fr = [0, 0.1234567, 0.5, 0.7654321, 1];
     const points = fr.map((f, i) => [range[0] + f * (range[1] - range[0]), 0.1 + 0.2 * i]);

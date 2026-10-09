@@ -35,11 +35,11 @@ function typedCurve(o) {
   if (xr[0] < 0 && xr[1] > 0) g += '<line x1="' + X(0) + '" y1="' + T + '" x2="' + X(0) + '" y2="' + (T + ph) + '" stroke="var(--plot-axis)"/>';
   if (yr[0] < 0 && yr[1] > 0) g += '<line x1="' + L + '" y1="' + Y(0) + '" x2="' + (L + pw) + '" y2="' + Y(0) + '" stroke="var(--plot-axis)"/>';
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
-  var M = [+sx.toPrecision(9), 0, 0, +(-sy).toPrecision(9), +(-xr[0] * sx).toPrecision(9), +(ph + yr[0] * sy).toPrecision(9)];
+  var M = [sx, 0, 0, -sy, -xr[0] * sx, ph + yr[0] * sy].map(String);
   g += '<svg x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"><g transform="matrix(' + M.join(" ") + ')">';
   o.series.forEach(function (s) {
     var st = roleStyle(s), pts = s.points || [];
-    g += '<polyline points="' + pts.map(function (p) { return +p[0].toPrecision(9) + "," + +p[1].toPrecision(9); }).join(" ") + '" fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="round" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
+    g += '<polyline points="' + pts.map(function (p) { return String(p[0]) + "," + String(p[1]); }).join(" ") + '" fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="round" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
   });
   g += "</g></svg>";
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
