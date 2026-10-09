@@ -5,8 +5,8 @@ import { niceTicks, niceRange } from "./axis.js";
 
 /* Role to style (ADR-0001). Callers give a role and an index, never a color, font or stroke width. */
 function roleStyle(s) {
-  if (s.role === "reference") return { col: "var(--ink)", dash: "1 3", w: 1.25 };
-  return { col: idx(s.index || 0), dash: s.role === "sagittal" ? "5 3" : "", w: 1.5 };
+  if (s.role === "reference") return { col: "var(--ink)", dash: "1 3", w: 1 };
+  return { col: idx(s.index || 0), dash: s.role === "sagittal" ? "5 3" : "", w: 1 };
 }
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */

@@ -222,3 +222,13 @@ test('string ranges draw as numbers', () => {
   const str = ELEO.curve({ series, x: { range: ['2', '10'] }, y, width: 460, height: 300 });
   assert.equal(str, num);
 });
+
+// user plan #162 M1 demo
+test('every role draws a 1 px stroke', () => {
+  const pts = [[0, 0], [1, 1]];
+  for (const role of ['tangential', 'sagittal', 'reference', undefined]) {
+    const svg = ELEO.curve({ series: [{ points: pts, role }], x: { range: [0, 1] }, y: { range: [0, 1] } });
+    const widths = [...svg.matchAll(/<polyline[^>]*\sstroke-width="([^"]*)"/g)].map((m) => m[1]);
+    assert.deepEqual(widths, ['1'], String(role));
+  }
+});
