@@ -3,7 +3,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import ELEO from '../../packages/plots/src/renderers.js';
+import ELEOBase from '../../packages/plots/src/renderers.js';
+import { mtfDiffraction } from '../../packages/plots/src/physics.js';
+import { niceRange } from '../../packages/plots/src/axis.js';
+
+// renderers.js's default export lacks the physics helpers the adapters call on globalThis.ELEO.
+const ELEO = Object.assign({}, ELEOBase, { mtfDiffraction });
+globalThis.ELEO = ELEO;
 
 const TOL_PX = 0.5;
 const SIZES = [[460, 300], [920, 600]];
@@ -34,7 +40,7 @@ function frame(svg) {
   const box = /<svg\b[^>]*\bx="([\d.]+)"[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg);
   assert.ok(box, 'the nested <svg> carries x, width and height');
   const ticks = [...svg.matchAll(/<line x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)" y2="[\d.]+" stroke="var\(--plot-grid\)"\/><text class="eleo-tick"[^>]*>([^<]*)<\/text>/g)]
-    .filter((m) => m[1] === m[2]).map((m) => ({ x1: +m[1], tick: Number(m[3]) }));
+    .filter((m) => m[1] === m[2]).map((m) => ({ x1: +m[1], tick: Number(m[3].replace(/\u2212/g, '-')) }));
   return { L: +box[1], pw: +box[2], ph: +box[3], ticks };
 }
 
@@ -89,7 +95,7 @@ test('recorded MTF round trip (U6)', async () => {
 //  - mtf(rec, { diffraction: true }): the series of mtf(rec) plus a last series, role 'reference', whose points are
 //    [nu, ELEO.mtfDiffraction(nu, λ, N)] with λ = rec.referenceWavelengthNm * 1e-6 mm and N = rec.firstOrder.workingFNumber (or fNumber),
 //    on the grid nu = 0 … the cutoff 1/(λN); without the option mtf(rec) is unchanged.
-test('recorded field curvature and distortion round trip (U6)', { skip: '#176: written ahead of #177 and #179; #180 unskips it' }, async () => {
+test('recorded field curvature and distortion round trip (U6)', async () => {
   await import('../fixtures/phos-core/adapters.js');
   const { ELEOAdapters } = globalThis;
   assert.ok(ELEOAdapters && typeof ELEOAdapters.fieldCurvature === 'function' && typeof ELEOAdapters.distortion === 'function', 'adapters.js assigns fieldCurvature and distortion');
@@ -99,16 +105,20 @@ test('recorded field curvature and distortion round trip (U6)', { skip: '#176: w
   };
   const roundTrip = (label, { series, x, y }, expected) => {
     assert.equal(series.length, expected.length, `${label}: series count`);
+    // The adapters leave x.range to curve (#213): the oracle is the nice range of the recorded values, from axis.js.
+    const xs = series.flatMap((s) => s.points.map((p) => p[0]));
+    const nr = niceRange(Math.min(...xs), Math.max(...xs), 6);
+    const xr = { ...x, range: x.range ?? [nr.lo, nr.hi] }, yr = { ...y, range: y.range ?? [0, 1] };
     for (const [width, height] of SIZES) {
       const svg = ELEO.curve({ series, x, y, width, height });
       const { M, paths } = seriesGroup(svg);
-      assertPinned(M, svg, x, y, `${label} ${width}px`);
+      assertPinned(M, svg, xr, yr, `${label} ${width}px`);
       assert.equal(paths.length, series.length, `${label} ${width}px: one path per series`);
       series.forEach((s, k) => {
         assert.equal(s.points.length, expected[k].length, `${label} series ${k}: one point per source`);
         s.points.forEach(([px, py], i) => {
           assert.ok(Math.abs(px - expected[k][i][0]) < 1e-9 && Math.abs(py - expected[k][i][1]) < 1e-9, `${label} series ${k} point ${i} is the recorded value, y the field angle`);
-          assert.ok(px >= x.range[0] && px <= x.range[1] && py >= y.range[0] && py <= y.range[1], `${label} series ${k} point ${i} in range`);
+          assert.ok(px >= xr.range[0] && px <= xr.range[1] && py >= yr.range[0] && py <= yr.range[1], `${label} series ${k} point ${i} in range`);
         });
         assert.equal(paths[k].length, s.points.length, `${label} ${width}px series ${k}: every point drawn`);
         s.points.forEach((pt, i) => {
