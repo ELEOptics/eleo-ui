@@ -70,7 +70,7 @@ renderers and are independent of each other after D; H and I follow them (they t
 | Row | Plan | Scope | Exit criterion | Status |
 | -- | -- | -- | -- | -- |
 | C | #90 | Glass identity: `glass` takes `{name, nd, vd}`, a fill per glass on the glass-map rule, a glass legend, a committed table of public catalog glasses, in `layout2D` and its Svelte wrapper. Absorbs the recorded-data validation B deferred ([#60], [#74], [#75]: this row replaces the glass string and edits their checks in `layout2d.js`), [#76] (gallery merit tile blanks on a rejected fixture) and [#47] (classic build's `ELEO.sample` stays null; the gallery pins `ZIMG` because of it). Then phos switches its 2D layout to `layout2D` (adapter in phos). | U12 passes; the website's crown and flint layouts unchanged; the release is planned (changesets). phos's switch moved to ELEOptics/phos#31 (user, 2026-10-07). | done |
-| D | | First item: split `renderers.js` into one module per renderer plus a typed data module, and capture the gallery's Playwright screenshots as the baseline. Then `scripts/record-phos-core.py` (phos-core's Python client; the legacy REST client for results the uniffi client lacks), the ADR (boundary, styling rule, why not Observable Plot), the source lint, and `curve` generic; the gallery builds MTF, field curvature and distortion from recorded results. | U5 passes; U6 passes for MTF, field curvature, distortion. | later |
+| D | | First item: split `renderers.js` into one module per renderer plus a typed data module, and capture the gallery's Playwright screenshots as the baseline. Then `scripts/record-phos-core.py` (phos-core's Python client; the legacy REST client for results the uniffi client lacks), the ADR (boundary, styling rule, why not Observable Plot), the source lint, and `curve` generic; the gallery builds MTF, field curvature and distortion from recorded results. Absorbs [#121] (`legend` throws under SSR on null theme state: the split moves `legend` into its own module) and [#137] (the gallery's `sampleTile` wraps: this row rebuilds those tiles from recorded results). | U5 passes; U6 passes for MTF, field curvature, distortion; `<Legend kind="field" />` renders under SSR. | next |
 | E | | Fans as paneled curves (`rayFan` a thin wrapper), the cumulative probability curve, `spot` on typed points (spot, footprint). | U6 and U7 pass. | later |
 | F | | `map2D` on typed grids (masks, log, diverging); wavefront, PSF, irradiance tiles. | U8 passes. | later |
 | G | | `bars` (new renderer and Svelte wrapper) for Seidel; limit lines and bands on curves and bars. | U9 passes. | later |
@@ -132,6 +132,7 @@ coverage table). Each row names the plan that delivers it.
 
 One bullet per entry (bare lines render as one paragraph).
 
+- 2026-10-08 next (director): D (module split and `curve`) next, the order as written. Row L and its release (plots 0.4.0 on npm) are done; eleoptics.com can bump. D absorbs [#121] (its split moves `legend` out of `renderers.js`) and [#137] (it rebuilds the gallery's sample tiles). Runner-up: a layout2D hardening row batching [#70], [#125], [#136], [#138], [#139], [#156], [#160] (no shipped input hits any of them; D is phos's pull). 10 issues deferred: [#70], [#86], [#125], [#132], [#133], [#136], [#138], [#139], [#156], [#160]; [#158] waits on row J, which its fix names.
 - 2026-10-07: row L done (plan #144, PR #152 ready): `layout2D`'s defaults per [#126] (no end dot, labels 6 px past the image plane with room kept, rays 1 px at .85 in one group, "10 mm"), nothing outside the viewBox ([#117]), texts styled without `plots.css` ([#112]), and a changeset for a plots minor. Releasing (merging the Version Packages PR) is the user's; eleoptics.com then bumps.
 - 2026-10-07 next (director): new row L (layout defaults, [#126]) next, ahead of D. The user filed [#126] after the no-go at eleoptics.com's M1 demo, so the website's plan waits on this release. Row C and its release (plots 0.3.0 on npm) are done. L absorbs [#117] and [#112], which [#126] names. Runner-up: D (module split and `curve`), the order as written; it has no consumer waiting. 10 issues deferred: [#70], [#86], [#121], [#125], [#132], [#133], [#136], [#137], [#138], [#139].
 - 2026-10-07: review (roadmap-reviewer, claude-opus-5-5)
@@ -215,3 +216,6 @@ One bullet per entry (bare lines render as one paragraph).
 [#137]: https://github.com/ELEOptics/eleo-ui/issues/137
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
+[#156]: https://github.com/ELEOptics/eleo-ui/issues/156
+[#158]: https://github.com/ELEOptics/eleo-ui/issues/158
+[#160]: https://github.com/ELEOptics/eleo-ui/issues/160
