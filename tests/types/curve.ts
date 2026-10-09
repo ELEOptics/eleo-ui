@@ -1,4 +1,5 @@
 // A typed curve call compiles under --strict; a color option and an unknown role do not (#178, plan 162).
+// oracle: spec ADR-0001 (roles, no color option) and plan #162 Decisions (CurveSeries, CurveAxis, CurvePlotProps)
 import type { CurvePlotProps, CurveSeries } from '../../packages/plots/src/index';
 import { curve } from '../../packages/plots/src/index';
 
