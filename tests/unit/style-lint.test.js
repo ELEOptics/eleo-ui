@@ -19,16 +19,38 @@ const EXEMPT = [
   ['layout3d.js', /c\.font = '10px "Fira Code", monospace'/, "layout3D's label font"],
 ];
 
-// Block comments, then line comments not inside a string or after a colon (urls).
-const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
+// Comments removed, walking the text so a quote opens a string and `//` or `/*` inside one is kept.
+const strip = (s) => {
+  let out = '';
+  for (let i = 0; i < s.length; ) {
+    const c = s[i];
+    if (c === '"' || c === "'" || c === '`') {
+      let j = i + 1;
+      while (j < s.length && s[j] !== c && !(s[j] === '\n' && c !== '`')) j += s[j] === '\\' ? 2 : 1;
+      out += s.slice(i, j + 1);
+      i = j + 1;
+    } else if (c === '/' && s[i + 1] === '/') {
+      while (i < s.length && s[i] !== '\n') i++;
+    } else if (c === '/' && s[i + 1] === '*') {
+      const end = s.indexOf('*/', i + 2);
+      const stop = end < 0 ? s.length : end + 2;
+      out += s.slice(i, stop).replace(/[^\n]/g, '');
+      i = stop;
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+};
 
 const LITERALS = [
   /#[0-9a-fA-F]{3,8}\b/,
-  /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(\s*[-+.\d]/,
+  /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(\s*(?:[-+.\d]|['"`]\s*\+)/,
   /\b(?:monospace|sans-serif|serif|system-ui|ui-monospace|cursive|fantasy)\b/,
   /\bfont-family\s*:\s*(?!var\(|inherit|initial|unset)[A-Za-z'"]/,
+  /\bfontFamily\s*[:=]\s*['"`](?!var\()/,
   /\bfont(?:-family)?\s*[:=]\s*['"`]?[^;\n]*['"`][A-Z][\w -]*['"`]/,
-  /\.font\s*=\s*[^;\n]*['"][A-Z][\w -]*['"]/,
 ];
 
 // Lines of one source file holding a color or font literal that no exemption covers.
@@ -57,6 +79,10 @@ test('the scanner flags planted literals', () => {
     'css = "font-family: Inter";',
     "ctx.font = '12px \"Fira Code\"';",
     "css = 'font: 12px monospace';",
+    'const c = "rgb(" + r + ",0,0)";',
+    'el.style.fontFamily = "Inter";',
+    '{ fontFamily: "Fira Sans" }',
+    'const x = "a // b"; const c = "#ff8800";',
   ];
   for (const line of planted) {
     assert.equal(scanSource('plant.js', line).length, 1, `flagged: ${line}`);
@@ -66,9 +92,19 @@ test('the scanner flags planted literals', () => {
     'const b = "oklch(from var(--ink) l c h)";',
     '// color #ff8800 is a hex in a comment',
     '/* rgb(1,2,3) and font-family: Inter */',
-    'const url = "https://example.com/#anchor";'.replace('#anchor', 'x'),
+    'const s = "a://b #x";',
   ];
   for (const line of allowed) {
     assert.deepEqual(scanSource('allow.js', line), [], `not flagged: ${line}`);
+  }
+});
+
+test('every exemption is in use', () => {
+  for (const [file, re, why] of EXEMPT) {
+    const lines = strip(readFileSync(join(src, file), 'utf8')).split('\n');
+    assert.ok(
+      lines.some((line) => re.test(line) && LITERALS.some((l) => l.test(line))),
+      `exemption covers a flagged line: ${file} ${why}`,
+    );
   }
 });
