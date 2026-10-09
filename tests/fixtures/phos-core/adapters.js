@@ -14,12 +14,6 @@
     var angles = rec.sources.map(function (s) { return s.fieldAngleDeg; });
     return { label: 'Field', unit: '°', range: [0, Math.max.apply(null, angles)] };
   }
-  /* physics.js's mtfDiffraction, the one implementation: the page (or the test) must have it on globalThis.ELEO. */
-  function diffraction(nu, lambda, N) {
-    var E = globalThis.ELEO;
-    if (!E || typeof E.mtfDiffraction !== 'function') throw new Error('ELEOAdapters.mtf: diffraction needs globalThis.ELEO.mtfDiffraction (load eleo-plots.js, or set it in the test)');
-    return E.mtfDiffraction(nu, lambda, N);
-  }
   globalThis.ELEOAdapters = {
     /* mtf(recording, { diffraction }) -> { series, x, y }: one tangential and one sagittal series per field. The recorded
        grid runs past cutoff, so x.range stops at 400 cycles/mm and the viewport clips the rest. With diffraction, a last
@@ -33,7 +27,7 @@
       if (opts && opts.diffraction) {
         var lambda = rec.referenceWavelengthNm * 1e-6, fo = rec.firstOrder, N = fo.workingFNumber != null ? fo.workingFNumber : fo.fNumber;
         var nuc = 1 / (lambda * N), steps = 80, pts = [];
-        for (var i = 0; i <= steps; i++) { var nu = nuc * i / steps; pts.push([nu, diffraction(nu, lambda, N)]); }
+        for (var i = 0; i <= steps; i++) { var nu = nuc * i / steps; pts.push([nu, globalThis.ELEO.mtfDiffraction(nu, lambda, N)]); }
         series.push({ points: pts, role: 'reference' });
       }
       return {
