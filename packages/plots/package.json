@@ -1,6 +1,6 @@
 {
   "name": "@eleoptics/plots",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "ELEO's optical plot renderers: lens layouts, spot diagrams, ray fans, PSF and wavefront maps, MTF and more. Framework-free, themed by @eleoptics/tokens.",
   "type": "module",
   "license": "MIT",
