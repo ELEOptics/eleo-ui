@@ -96,12 +96,13 @@ The values are `standard` (the default), `red-green` (protanopia and deuteranopi
 ## Physics helpers
 
 ```js
-import { airy, airyRadius, j1, slabMode, colormap } from '@eleoptics/plots/physics';
+import { airy, airyRadius, j1, slabMode, colormap, mtfDiffraction } from '@eleoptics/plots/physics';
 
 airy(r, 0.5876, 4);      // Airy intensity at r µm for f/4 at 587.6 nm, peak 1
 airyRadius(0.5876, 4);   // 2.87 µm: first dark ring, 1.22 λN
 slabMode(y, 5);          // TE0 mode of a slab waveguide with a 5-unit core half-width
 colormap('ember');       // 256 [r, g, b] entries in the current theme
+mtfDiffraction(nu, 0.0005876, 4); // nu in cycles/mm, lambda in mm; 0 past cutoff
 ```
 
 ## Without a bundler
