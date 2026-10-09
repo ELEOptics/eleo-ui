@@ -205,3 +205,12 @@ test('kind lookup uses no API newer than the bundle target', () => {
   const bundle = readFileSync(new URL('../../packages/plots/dist/eleo-plots.js', import.meta.url), 'utf8');
   assert.ok(!bundle.includes('Object.hasOwn('), 'dist/eleo-plots.js calls Object.hasOwn, an ES2022 API');
 });
+
+// Plan #162, issue #204: point values are converted with + before printing, so no caller string reaches the markup.
+test('string point values cannot inject markup', () => {
+  const x = { range: [0, 2] }, y = { range: [0, 2] };
+  const bad = ELEO.curve({ series: [{ points: [['1" onmouseover="alert(1)', 1], [2, 2]], index: 0 }], x, y, width: 460, height: 300 });
+  assert.ok(!/onmouseover/.test(bad), 'no caller string reaches the markup');
+  const ok = ELEO.curve({ series: [{ points: [['1', '1'], [2, 2]], index: 0 }], x, y, width: 460, height: 300 });
+  assert.deepEqual(seriesGroup(ok).paths[0], [[1, 1], [2, 2]], "'1' draws as 1");
+});
