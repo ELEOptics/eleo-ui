@@ -137,7 +137,7 @@ SpotDiagram; the cumulative probability curve and the beam footprint move to a l
 
 ## Milestones
 
-### M1: Fans as paneled curves GitHub: `P232 M1: Fans as paneled curves`
+### M1: Fans as paneled curves (done 2026-10-11) GitHub: `P232 M1: Fans as paneled curves`
 
 Demo: before the first change, the orchestrator screenshots main's gallery at the plan's base (every tile, both
 themes, standard and both vision palettes, `page.screenshot` per tile from a scratchpad script, named
@@ -219,3 +219,4 @@ Proves: O3, O4
 - 2026-10-11 CR #254 (accepted, orchestrator: a non-Core doc): the README's panels bullet, stale since #252.
 - 2026-10-11 review M1 round 2: 0 blocking. Backlog #255 (findings 1-3) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
 - 2026-10-11 review M1 round 3: 0 blocking. Backlog #256 (findings 1, 3) into M1 (headless: backlog into M1, row: milestone acceptance within the plan); #257 (finding 2, typed-array ranges outside the contract) stays a plain issue.
+- 2026-10-11 review M1 round 4: 0 blocking, nothing pulled in; #258 stays a plain issue (after round 3). M1 done, pending the user's demo.
