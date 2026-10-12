@@ -202,7 +202,9 @@ test('group dividers and title room', () => {
 });
 
 // Plan #284 #317 (CR #315). oracle: fixture phos-core SeidelCoefficients (every bar's height, the Σ series included, within 0.5 px); metamorphic: a value drawn grouped by surface, by coefficient or in a subset has the same height at one fixed y range.
-test('recorded Seidel grouped by coefficient and as a subset', () => {
+test('recorded Seidel grouped by coefficient and as a subset', async () => {
+  await import('../fixtures/phos-core/adapters.js');
+  const { ELEOAdapters } = globalThis;
   const names = { SI: 'spherical', SII: 'coma', SIII: 'astigmatism', SIV: 'fieldCurvature', SV: 'distortion', CL: 'axialColor', CT: 'lateralColor' };
   const terms = Object.keys(names);
   for (const lens of ['achromat', 'cooke']) {
@@ -218,6 +220,11 @@ test('recorded Seidel grouped by coefficient and as a subset', () => {
     // Caller-built calls, no gallery adapter.
     const bySurface = { categories: surfaces, series: terms.map((label, i) => ({ label, index: i, values: v[i] })), total: 'Σ', y };
     const byCoef = { categories: terms, series: [...surfaces.map((_, s) => ({ label: surfaces[s], index: s, values: terms.map((__, t) => v[t][s]) })), { label: 'Σ', index: surfaces.length, values: sums }], y };
+    // The gallery adapter's by-term call is the hand-built one (its y has no shared range).
+    const viaAdapter = ELEOAdapters.seidel(rec, { by: 'term' });
+    assert.deepEqual(viaAdapter.categories, byCoef.categories, `${lens}: adapter by-term categories`);
+    assert.deepEqual(viaAdapter.series.map((x) => [x.index, x.values]), byCoef.series.map((x) => [x.index, x.values]), `${lens}: adapter by-term values and indexes`);
+    assert.throws(() => ELEOAdapters.seidel(rec, { by: 'terms' }), /by/, 'an unknown by throws');
     const pick = [0, 1], tPick = [0, 1, 2];
     const subset = { categories: tPick.map((t) => terms[t]), series: pick.map((s) => ({ label: surfaces[s], index: s, values: tPick.map((t) => v[t][s]) })), y };
     for (const [width, height] of SIZES) {

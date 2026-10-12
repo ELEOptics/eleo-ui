@@ -109,6 +109,8 @@ el.innerHTML = bars({
 `bars` takes any `categories` and `series`, so grouping and subsetting are your call. Group by Seidel coefficient instead of surface by making the terms the categories and a surface each series. `total` sums per series, so it would add a surface's terms; a total per coefficient is a series you build yourself, here phos-core's recorded totals:
 
 ```js
+const surfaces = ['S1', 'S2', 'S3'];  // one name per surface
+const range = [-0.05, 0.05];          // a y range that holds every value of every call
 const terms = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'];
 // v[t][s]: term t at surface s (phos-core's values); sums[t]: its recorded total
 bars({
@@ -121,7 +123,7 @@ bars({
 });
 ```
 
-A subset is the same call with fewer categories or series (`categories: terms.slice(0, 3)`, `series` filtered to two surfaces). Pass the same `y.range` to every call you want to compare: a value then has the same height in each. The key row can wrap differently when the number of series differs, which changes the plot height, so compare at one `width` and `height`.
+A subset is the same call with fewer categories or series (`categories: terms.slice(0, 3)`, `series` filtered to two surfaces). Pass the same `y.range` to every call you want to compare: a value then has the same height in each. A value keeps its height across calls only while each call's key fits on one line: a key that wraps takes 14 px per extra line from the plot, even at the same `width` and `height`. Compare at a width where both keys fit.
 
 ## Spot diagrams
 

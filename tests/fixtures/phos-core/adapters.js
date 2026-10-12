@@ -69,11 +69,14 @@
        categories and a series per Seidel term (SI to SV, CL, CT; index 0 to 6) found by key name, in a fixed order. phos-core's total
        (the last element of each term) is stripped: bars() recomputes the sum from `total`, 'Σ'.
        seidel(recording, { by: 'term' }) transposes it, as phos would: the terms SI to CT as categories, a series per surface (S1, S2, ...;
-       index 0 to n-1) and a Σ series (index n) of phos-core's recorded totals, with no `total`. The default, by: 'surface', is the above. */
+       index 0 to n-1) and a Σ series (index n) of phos-core's recorded totals, with no `total`. The default, by: 'surface', is the above.
+       Any other `by` throws. */
     seidel: function (rec, opts) {
       var res = atRef(rec, rec);
       var terms = [['spherical', 'SI'], ['coma', 'SII'], ['astigmatism', 'SIII'], ['fieldCurvature', 'SIV'], ['distortion', 'SV'], ['axialColor', 'CL'], ['lateralColor', 'CT']];
-      if (opts && opts.by === 'term') {
+      var by = opts && opts.by;
+      if (by !== undefined && by !== 'surface' && by !== 'term') throw new Error("seidel: by must be 'surface' or 'term', got " + String(by));
+      if (by === 'term') {
         var n = res.terms[terms[0][0]].length - 1;
         var row = function (k) { return terms.map(function (t) { return res.terms[t[0]][k]; }); };
         var surfaces = [];
