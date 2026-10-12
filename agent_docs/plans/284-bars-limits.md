@@ -240,3 +240,4 @@ Proves: O3, O4
 - 2026-10-12 (user, M2 demo): "The 'Modulus' label on the MTF plot is too close to its vertical axis. After that fix, the rest looks good." CR #329: `curve`'s single plot gets `bars`' title room; every single-plot curve tile moves down 12 px inside its frame, at the user's request. M2 is accepted once #329 lands and its review is clean.
 - 2026-10-12 review M2 round 6 (after CR #329): 0 blocking, nothing pulled in; #330 a plain issue. M2 done; accepted by the user's demo ("after that fix, the rest looks good").
 - 2026-10-12 (user, M2 demo): go after CR #329.
+- 2026-10-12: U14 (headless Chromium, median of 20 redraws, 3 runs): `bars` with 50 categories x 7 series plus the total and one limit 1.20-1.60 ms; `curve` 1.30 ms; `curve` panels 0.80-1.00 ms; `spot` 3.25-3.30 ms. All under 16 ms.
