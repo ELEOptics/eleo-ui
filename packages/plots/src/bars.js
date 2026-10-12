@@ -1,6 +1,6 @@
 import { idx, svg, esc } from "./common.js";
 import { scales, plotCell, limitBody, PLOT_L, PLOT_B } from "./curve.js";
-import { checkLimits } from "./limits.js";
+import { checkLimits, limitLabels } from "./limits.js";
 
 var GAP = 0.5, FILL = 0.8, MIN_BAND_PX = 14, TOP = 26, KEY_LINE = 14;
 
@@ -45,7 +45,7 @@ export function bars(o) {
   }
   cats.forEach(function (_, c) { series.forEach(function (s, j) { bar(c, s, j, (s.values || [])[c]); }); });
   if (hasTotal) series.forEach(function (s, j) { bar(n + GAP, s, j, sums[j]); });
-  var g = plotCell(sc, [], W, Hf, TOP, false, limitBody(lim, sc, rects), lim);
+  var g = plotCell(sc, [], W, Hf, TOP, false, limitBody(lim, sc, rects));
   /* Category labels in px at each band centre, every k-th when a band is under 14 px; the total's label is always drawn. */
   var pw = W - PLOT_L - sc.R, px = pw / span, ph = Hf - TOP - PLOT_B, step = Math.max(1, Math.ceil(MIN_BAND_PX / px));
   /* Solid dividers, frame decoration in px outside the data group: at every step-th boundary between category groups (each separates labelled groups) and mid-gap before the total. */
@@ -55,6 +55,8 @@ export function bars(o) {
     var dx = (PLOT_L + k * px).toFixed(1);
     g += '<line x1="' + dx + '" y1="' + TOP + '" x2="' + dx + '" y2="' + (Hf - PLOT_B) + '" stroke="var(--plot-grid)"/>';
   });
+  /* Limit labels after the dividers, so a divider never strikes through one: plotCell gets no limits and the labels are drawn here with its px functions. */
+  g += limitLabels(lim, sc.xr, sc.yr, { X: function (v) { return (PLOT_L + (v - sc.xr[0]) * pw / (sc.xr[1] - sc.xr[0])).toFixed(1); }, Y: function (v) { return (TOP + ph - (v - sc.yr[0]) * ph / (sc.yr[1] - sc.yr[0])).toFixed(1); }, right: PLOT_L + pw, top: TOP });
   var label = function (k, t) { return '<text class="eleo-tick" x="' + (PLOT_L + (k + 0.5) * px).toFixed(1) + '" y="' + (TOP + ph + 13) + '" text-anchor="middle">' + esc(t) + "</text>"; };
   cats.forEach(function (t, c) { if (c % step === 0) g += label(c, t); });
   if (hasTotal) g += label(n + GAP, o.total);

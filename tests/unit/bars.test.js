@@ -313,6 +313,7 @@ test('bar limits draw and x limits throw', () => {
   assert.equal(bands.length, 1, 'one band');
   assert.equal(lines[0].y1, 0.01, 'the line sits at its value');
   assert.ok(svg.includes('>lim<'), 'the label is drawn');
+  assert.ok(svg.indexOf('>lim<') > svg.lastIndexOf('stroke="var(--plot-grid)"/>'), 'the dividers come before the limit label');
   assert.ok(g.body.search(/<rect\b[^>]*class="eleo-limit"/) < g.body.search(/<rect\b(?![^>]*eleo-limit)/), 'the band comes before the bars');
   assert.ok(g.body.search(/<line\b[^>]*class="eleo-limit"/) > g.body.lastIndexOf('<rect'), 'the line comes after the bars');
   const far = seriesGroup(ELEO.bars({ ...call, limits: [{ y: 30 }] }));

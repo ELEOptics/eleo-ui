@@ -15,6 +15,7 @@ export function checkLimits(limits, who) {
     var axis = hasX ? "x" : "y", v = l[axis];
     var band = Array.isArray(v);
     if (band ? !(v.length === 2 && isNum(v[0]) && isNum(v[1])) : !isNum(v)) throw new TypeError(who + ": a limit is a finite number or a pair of them");
+    if (band && v[0] === v[1]) throw new TypeError(who + ": a band needs two distinct ends");
     if (l.label !== undefined && typeof l.label !== "string") throw new TypeError(who + ": a limit label must be a string");
     return { axis: axis, lo: band ? Math.min(v[0], v[1]) : v, hi: band ? Math.max(v[0], v[1]) : v, band: band, label: l.label };
   });
@@ -39,7 +40,7 @@ export function limitMarks(norm, xr, yr, style) {
   });
   return { under: under, over: over };
 }
-/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line, end-anchored left of it when the line is past the plot's midpoint. `px` is { X, Y, right, top }, the cell's data to px functions and edges. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
+/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line, end-anchored left of it when the line is past the plot's midpoint (a band whose left edge is past it, inside the band at its right edge, clamped to the range). `px` is { X, Y, right, top }, the cell's data to px functions and edges. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
 export function limitLabels(norm, xr, yr, px) {
   var g = "";
   norm.forEach(function (l) {
@@ -50,7 +51,8 @@ export function limitLabels(norm, xr, yr, px) {
     } else {
       if (l.hi < xr[0] || l.lo > xr[1]) return;
       var xp = +px.X(Math.max(l.lo, xr[0])), late = xp > (+px.X(xr[0]) + +px.X(xr[1])) / 2;
-      g += '<text class="eleo-tick" x="' + (late ? xp - 4 : xp + 4) + '" y="' + (px.top + 10) + '"' + (late ? ' text-anchor="end"' : "") + ">" + esc(l.label) + "</text>";
+      var ax = late ? +px.X(Math.min(l.hi, xr[1])) - 4 : xp + 4;
+      g += '<text class="eleo-tick" x="' + ax + '" y="' + (px.top + 10) + '"' + (late ? ' text-anchor="end"' : "") + ">" + esc(l.label) + "</text>";
     }
   });
   return g;
