@@ -162,3 +162,19 @@ test('the half holds the reference circle', () => {
     });
   }
 });
+
+// #261: centroid coerced to numbers, empty panels non-negative viewBox, no no-op fill-opacity, sample aria-label names colorBy.
+// oracle: property, and the base's output ("Spot diagrams, colored by <colorBy>")
+test('typed spot hardening', async () => {
+  await import('../../packages/plots/src/sample.js');
+  const s = ELEO.spot({ panels: [{ series: [{ points: [[0.1, 0.1]] }], centroid: ['0.3', '-0.2'] }] });
+  const ln = [...s.matchAll(/<line\b[^>]*\bx1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)][0].slice(1).map(Number);
+  assert.ok(ln.every(Number.isFinite), 'centroid line coordinates are numbers');
+  assert.ok(Math.abs((ln[0] + ln[2]) / 2 - 0.3) < 1e-9 && Math.abs(ln[1] - -0.2) < 1e-9, 'a string centroid draws at its number');
+  const vb = /viewBox="([^"]+)"/.exec(ELEO.spot({ panels: [] }))[1].split(/\s+/).map(Number);
+  assert.ok(vb.every((v) => v >= 0), 'empty panels give a non-negative viewBox: ' + vb);
+  assert.ok(!/fill-opacity/.test(s), 'no fill-opacity on stroked dots');
+  assert.ok(ELEO.spot({}).includes('aria-label="Spot diagrams, colored by wavelength"'), 'sample label names colorBy');
+  assert.ok(ELEO.spot({ colorBy: 'field' }).includes('colored by field'));
+  assert.ok(ELEO.spot({ panels: [{ series: [] }], label: 'Mine' }).includes('aria-label="Mine"'), 'typed call takes a label');
+});
