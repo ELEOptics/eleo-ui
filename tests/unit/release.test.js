@@ -269,7 +269,7 @@ test('panels-spot changeset became a plots minor', { skip: !panelsSpotConsumed &
 // oracle: spec roadmap Constraints (a typed API added alongside the old one ships as a minor); semver 0.x.
 // Each file test has a consumed twin reading the CHANGELOG once `changeset version` deleted the file (#279).
 // The plots changeset starts **Breaking:** (README.md, Changing things): it names #199's throws.
-const BARS_PLOTS_ENTRY = /\*\*Breaking:\*\*/;
+const BARS_PLOTS_ENTRY = /New: `bars` draws grouped bars/;
 const BARS_SVELTE_ENTRY = /BarPlot/;
 const barsConsumed = (file, dir, re) => !existsSync(join(repo, '.changeset', file))
   && re.test(readFileSync(join(repo, 'packages', dir, 'CHANGELOG.md'), 'utf8'));

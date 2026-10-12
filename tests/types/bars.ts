@@ -32,4 +32,8 @@ curve({ panels: [{ series: [{ points: [[0, 1], [null, 2]] }] }], limits: [{ x: 0
 bars({ categories: ['1'], series: [{ values: [1], color: 'red' }] });
 // @ts-expect-error a category axis has no x value to draw a limit at
 bars({ categories: ['1'], series: [{ values: [1] }], limits: [{ x: 0.5 }] });
+// A non-literal call (no excess-property check): limits with kind throws at run time, so it must not type-check.
+const kindLimits = { kind: 'mtf' as const, limits: [{ y: 0.5 }] };
+// @ts-expect-error CurveKindProps has no limits
+curve(kindLimits);
 export { a, b, c };

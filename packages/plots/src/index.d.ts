@@ -214,6 +214,7 @@ export interface CurveKindProps {
   height?: number;
   series?: never;
   panels?: never;
+  limits?: never;
 }
 export type CurvePlotProps = CurveSeriesProps | CurvePanelsProps | CurveKindProps;
 /** One bar series: a value per category, one palette slot. There is no color option (ADR-0001). */
