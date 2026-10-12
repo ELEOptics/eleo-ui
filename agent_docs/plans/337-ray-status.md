@@ -1,0 +1,132 @@
+# Plan #337: Ray status in layout2D
+
+Status: approved 2026-10-12
+Branch: `plan/337-ray-status` PR: #<pr> Depends on: plan #284 (done) Roadmap: `agent_docs/roadmap.md`, row M
+
+## Problem
+
+phos draws the part of a ray after it stops being physical (aurora's `Virtual`, `Missed`, `Dead`) lighter and
+dotted (ELEOptics/phos#310, the user: "a lower weight, dotted, line"). `layout2D` styles every ray alike, so
+phos stacks a second `layout2D` layer of the non-alive tails with the same box and width (`layoutLayers` in
+phos's `src/lib/prescription/layout.ts`) and deletes it on the plots release that closes #302. Row M draws
+those tails in one call.
+
+## Ground truth
+
+- `layout2D` (`packages/plots/src/layout2d.js`) draws each picked ray as one `<polyline>` in a single
+  `<g opacity=".85">`, stroke `idx(k)`, 1 px, the chief dashed `6 4` unless `rays: "chief"`; the axis is dashed
+  `4 6`. `layout2d.test.js:716-731` asserts no `stroke-opacity` on any ray polyline (crossings don't darken).
+  A glass polygon is drawn only for a surface with `glass` set and a next surface (`:106-110`).
+- Rays are validated in `layout2D` (non-finite points only when boxed) and in `layoutBounds` (non-finite points),
+  which name them differently (#136; `layout2d.test.js:606-608` expects `layoutBounds: layouts[0].rays[2][1] …`).
+- `layoutBounds` frames every ray point; phos's box covers every point, dotted too.
+- phos's semantics (`LayoutRay.ts`; `api.rs:607-619, 676-686`): each ray is cut at its first non-finite point
+  (`map_while`), statuses are folded sticky, the solid layer is `points[0..c)` and the dotted
+  `points[max(c - 1, 0)..]`, `c` the first non-alive index. A leading alive count per ray carries it.
+- phos-core's Python client: `OpticalModel.visualize_system_2d(system, samples, num_rays)` →
+  `ray_data.sources[k].rays[i].interfaces[j]` (`x`, `y`, `status`: `RayStatus.ALIVE`, `VIRTUAL`, `MISSED`,
+  `DEAD_E`), and `system.elements[e].interfaces[i].points` (`Point2` lists, an `interface_type` string). aurora
+  pushes every interface whatever the status, so a missed ray carries non-finite points (`visualize.rs:70-85`).
+  The achromat and the Cooke keep every ray alive at their fields (probed 2026-10-12).
+- The Wandersleb triplet (US 1,073,789, Carl Zeiss 1913, expired; phos `fixtures/triplet.toml`, with its stated
+  assumptions) is ELEOptics/phos#310's lens: the 28° lower ray goes `Virtual` at S2, the 14° lower ray is
+  vignetted. phos builds it with plano radius → `inf`, the plano stop typed `Aperture`, `image: Some(0.0)`
+  (`phos/src-tauri/src/prescription.rs:241-266`). A first Python probe passed radius 0 as a real radius and
+  killed every ray at S1. Python has `LensTable(image=…)`, `InterfaceType.aperture()`.
+- `tests/unit/split.test.js` pins `layout2D`'s markup in `tests/fixtures/renderers-baseline.json`.
+- `tests/unit/layout-size.test.js`: baseline 3278 B from row L's start; dist is 3405 B today.
+- `tests/perf.spec.js` (`PERF=1`) has no `layout2D` measurement; U14's reference is 50 surfaces, 3 fields × 21 rays.
+- Gallery: 20 tiles; `gallery/index.html:188-190` and `gallery.spec.js:60` hard-code the `achromat-` prefix.
+- Prior art: no library; split polylines in the existing group. TOML through Python's stdlib `tomllib`.
+
+## Outcomes
+
+| ID | Outcome | Acceptance test (given / when / then) | Oracle | Test |
+| -- | -- | -- | -- | -- |
+| O1 | `RecordedLayout.alive?: number[][]` (leading alive points per `rays[field][ray]`) makes `layout2D` draw each ray's alive part solid and the rest, from its last alive point, dotted (`1 3`), in the same ray group; a layout without `alive` draws byte-identical to today. The gallery draws the recorded Wandersleb triplet, its three lenses filled. | given the Wandersleb layout recorded by `scripts/record-phos-core.py`, when drawn with `rays: "fan"` at two widths, then for each ray with `0 < a < len` the solid and dotted polylines share exactly its last alive point and together recover every point within 0.01 mm through the inverse transform; a ray with `a = 0` is one dotted polyline, with `a = len` one solid; at least one 28° ray has a dotted part; three glass polygons are drawn; the renderer baseline still holds | `fixture: phos-core visualize_system_2d of the Wandersleb triplet (US 1,073,789) recorded by scripts/record-phos-core.py` (user); `property: a layout without alive gives a byte-identical SVG` (tests/fixtures/renderers-baseline.json); `user: the layout tiles in both themes and palettes` | `tests/unit/layout2d.test.js::recorded Wandersleb ray status round trip (U16)` |
+| O2 | The typed API: `alive?: number[][]` on `RecordedLayout`. Bad `alive` and a non-finite ray point are named by `layout2D` itself, boxed or not (#136). | given `tests/types/layout2d-alive.ts`, when `tsc --strict` runs, then a layout with `alive` passes and `alive: [[true]]` fails; and `layout2D` without a box names `layout2D: fan 2 ray 1 has a non-finite point` | `spec roadmap Constraints (typed API alongside the old one)`; `spec #136` | `tests/unit/types.test.js::layout alive type-checks under --strict`, `tests/unit/layout2d.test.js::bad ray input is named by layout2D, boxed or not (#136)` |
+| O3 | The release is planned: a plots minor. | given the branch, when `.changeset/ray-status.md` is parsed, then it is `{"@eleoptics/plots": "minor"}`; once consumed, its CHANGELOG entry | `spec roadmap Constraints; semver 0.x` | `tests/unit/release.test.js::ray-status changeset asks a plots minor` |
+
+## Non-goals
+
+- Status kinds drawn differently (virtual vs missed vs dead): ELEOptics/phos#310 draws them alike.
+- `layout3D`: row J. Panel fit and a ray-count input: phos's side of ELEOptics/phos#310.
+- A plots-svelte change: `Layout2D.svelte` passes `data` through and takes its type from `index.d.ts`.
+- The layout2D label hardening (#70, #125, #138, #139, #156, #160): deferred by the roadmap.
+
+## Existing issues
+
+| Issue | Bucket | Where or why |
+| -- | -- | -- |
+| #302 | absorb | the plan delivers it |
+| #136 | absorb | reused as a work item in M2 (O2): the non-finite message moves from `layoutBounds` to `layout2D`, a user-visible rename named in the changeset |
+| #70, #125, #138, #139, #156, #160 | related | layout2D hardening, deferred by the roadmap (2026-10-12) |
+
+## Constraints and assumptions
+
+- Roadmap constraints: typed alongside the old; every gallery tile keeps working (20 → 21); `eleo-layout.js`
+  within 2 kB of a baseline re-recorded at M's start; U14 for `layout2D`. Recorded fixtures: public lenses; the
+  Wandersleb triplet joins the achromat and the Cooke (user, 2026-10-12).
+- Assumption: phos-core's Python client, built as phos builds it, reproduces ELEOptics/phos#310's non-alive rays.
+
+## Decisions
+
+- Input: `alive?: number[][]`, `alive[k][i]` the number of leading alive points of `rays[k][i]` (after the
+  cut at the first non-finite point), an integer in `0..len`; absent means every point alive. Named after aurora's
+  `Alive`; phos maps its first non-alive index in one line (`c < 0 ? n : c`); considered phos-core's per-point
+  statuses (four kinds drawn alike, a per-point enum in Core) and a new vocabulary (roadmap review finding 7).
+- Drawing: a ray with `a < len` is two polylines in the ray group: points `[0, a)` as today, points
+  `[max(a - 1, 0), len)` with `stroke-dasharray="1 3"` (25 % ink: lighter by its dash, no `stroke-opacity`, so
+  `rays are 1 px at .85` holds and crossings don't darken; phos uses `1 4` today). `a = 0` draws one dotted
+  polyline. A chief's dotted part replaces its `6 4` dash there; the M1 demo decides the chief's rule.
+- Bounds: `layoutBounds` keeps every point, as phos's box does.
+- Labels: a field label stays at its chief's last point, dotted or not.
+- Core changes approved with the plan: `packages/plots/src/index.d.ts` (`alive?: number[][]` on
+  `RecordedLayout`). The roadmap's U16 is edited to the approved wording (the last alive point; the Wandersleb
+  fixture) in the plan commit.
+
+## Milestones
+
+### M1: The recorded Wandersleb triplet drawn with ray status GitHub: `P337 M1: Ray status`
+
+Demo: before the first change the orchestrator screenshots main's gallery (both themes, three palettes) to
+`review-assets`. At the demo, `npm run gallery` shows a new Layout2D tile of the Wandersleb triplet, its
+non-alive tails dotted, in both themes and palettes; every other tile unchanged. Proves: O1
+
+| Issue | Work item | Approach | Files | Test | After |
+| -- | -- | -- | -- | -- | -- |
+| #338 | O1 acceptance test, skipped; its own reader joins a ray's two polylines at the shared point (the existing `roundTrip` asserts one polyline per ray, `layout2d.test.js:91`); re-record `layout-size.test.js`'s `BASELINE` at M's start (#145's pattern) | forced (`workflow.md`, TDD); the baseline because the roadmap's budget is per row | `tests/unit/layout2d.test.js`, `tests/unit/layout-size.test.js` | `layout2d.test.js::recorded Wandersleb ray status round trip (U16)`, skipped; the size test green on the new baseline |  |
+| #339 | `record-phos-core.py --only layout`: copies phos's `fixtures/triplet.toml` (with its source comment) to `tests/fixtures/phos-core/wandersleb.toml`, reads it with `tomllib`, builds the model as phos does (plano radius `inf`, `MaterialSpec.CONSTANT(name, index)`, `stop=5`, `FieldSpec.ANGLES([0, 14, 28])`, EPD 15.87, `image=0.0`, the stop typed `aperture()` if the table can't), records `visualize_system_2d` with 11 rays as a `RecordedLayout`: surfaces (`z` the profile's middle point as phos `layout.ts:13`, `sd` max | y | , 41-point `profile`, `stop` at 5, `image` last, `glass: "crown"` after each lens's front surface else `null`; air-spaced, so no cemented dedup), each ray cut at its first non-finite point, `chief`, `alive` (first non-`ALIVE` index among the kept points, else `len`), the prescription and fields in the header; fixtures README. `python3 scripts/record-phos-core.py --phos <phos-core>/clients/python/src --only layout` → `wrote tests/fixtures/phos-core/wandersleb-layout.json (phos-core <sha>)`. Stop: the 28° lower ray isn't `VIRTUAL` at S2 or the 14° lower ray reaches the image, after matching phos's build | the uniffi client as for the other fixtures (user: wandersleb); the TOML copied, because one transcription of the patent serves the recorder and the test; considered constants in the script (a second transcription) |  |
+| #340 | `layout2D` draws `alive` (Decisions) and validates it (shape matches `rays`, integers in `0..len`, named errors); `rays are 1 px at .85` extended to an `alive` layout; plots README layout section. Invocation: `layout2D({ data: { surfaces, rays: [[[[0,0],[5,1],[9,2]]]], alive: [[2]] }, rays: 'fan' })` → in the ray group a solid `<polyline points="0,0 5,1">` and `<polyline points="5,1 9,2" … stroke-dasharray="1 3">` | split polylines in the existing group, because each part inverts through the same transform and the group's opacity doesn't stack; considered a per-segment `<line>` (many marks, joins lost) and a sibling tails group at lower opacity (a second group for no reading the dash doesn't give) | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js`, `packages/plots/README.md` | `layout2d.test.js::alive splits a ray at its last alive point` (oracle: property: synthetic layouts; the parts share one point and recover the ray; `a = 0` and `a = len`; bad `alive` throws) | #338 |
+| #341 | Gallery Wandersleb tile: `recorded(name, lens, file, draw)` and the loop's `[fixture, lens, tiles[]]` replace the `achromat-` prefix; `ELEOAdapters.layout(rec)` returns the `layout2D` props (`{ data: rec, rays: 'fan', width: 1000, labels: <the header's fields as °> }`, as `seidel` returns `bars` props), drawn `recTile('layout', ELEO.layout2D)`; `TILES` 21; `ownData` gains it | the classic-script adapter and `recTile` as for the other recorded tiles, because the labels come from the recording's header; considered drawing inline (the unit tests couldn't reuse the props) | `tests/fixtures/phos-core/adapters.js`, `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js::a missing phos-core fixture blanks only its tiles: wandersleb layout` (red first) | #339, #340 |
+| #342 | Unskip O1 | forced (`workflow.md`, TDD) | `tests/unit/layout2d.test.js` | O1 | #338, #339, #340, #341 |
+
+### M2: Types, #136, the redraw budget and the release GitHub: `P337 M2: Types and release`
+
+Demo: `npm run test:unit`: the types test accepts `alive` and rejects `[[true]]`; `layout2D` names a bad ray
+itself; the changeset plans a plots minor. `PERF=1 npx playwright test tests/perf.spec.js` prints the `layout2D`
+median, written into the Change log. Proves: O2, O3
+
+| Issue | Work item | Approach | Files | Test | After |
+| -- | -- | -- | -- | -- | -- |
+| #343 | O2 and O3 acceptance tests, skipped | forced (`workflow.md`, TDD) | `tests/unit/types.test.js`, `tests/unit/release.test.js` | the tests, skipped | #342 |
+| #344 | `index.d.ts`: `alive?: number[][]` on `RecordedLayout`, documented; `tests/types/layout2d-alive.ts`; O2's types test unskipped here | forced (CLAUDE.md Core: `index.d.ts`; the pre-commit hook needs a test beside it, as #243) | `packages/plots/src/index.d.ts`, `tests/types/layout2d-alive.ts`, `tests/unit/types.test.js` | O2 (types) | #343 |
+| #136 reuse | `layout2D` names a non-finite ray point itself, boxed or not, before `layoutBounds`; `layout2d.test.js:606-608` updated | the issue's named fix (O2), beside M1's `alive` validation; considered leaving `layoutBounds` to name it (two names for one input) | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::bad ray input is named by layout2D, boxed or not (#136)` | #343 |
+| #345 | U14 for `layout2D` (50 surfaces with 41-point profiles built in the page, 3 fields of 21 rays, half with a dotted tail) | forced (roadmap Constraints: U14 for the renderers a row touches; the existing spec's method, `perf.spec.js:1-3`). Stop: a median over 16 ms is reported | `tests/perf.spec.js` | `perf.spec.js::layout2D redraw (U14)` | #343 |
+| #346 | Changeset: plots minor; its body names `alive`, the chief's dotted tail and #136's message move; its consumed twin | forced (CLAUDE.md: a changeset per user-facing change; #279's twin; `.changeset/bars-limits.md` the model) | `.changeset/ray-status.md`, `tests/unit/release.test.js` | O3 | #343 |
+| #347 | Unskip O2's #136 test and O3 | forced (`workflow.md`, TDD) | `tests/unit/layout2d.test.js`, `tests/unit/release.test.js` | O2, O3 | #343, #344, #136, #345, #346 |
+
+## Risks and spikes
+
+| Risk | Impact | Spike or mitigation |
+| -- | -- | -- |
+| phos-core's Python client doesn't reproduce the triplet's non-alive rays | O1's fixture has nothing to show | the recorder item matches phos's build and checks two of ELEOptics/phos#310's facts; its stop goes to the user |
+| A dotted chief reads as a marginal | the demo misreads fields | the M1 demo decides the chief's rule |
+| `layoutBounds` counting virtual points widens the box | the drawing shrinks | the recorded box checked at M1; phos already uses all points |
+
+## Change log
+
+- 2026-10-12 (user): U16's oracle is the recorded Wandersleb triplet (US 1,073,789), adding a third public lens to the fixtures; approved as worded in O1 (the parts share the last alive point, as phos draws them).
+- 2026-10-12 headless: scope from roadmap row M, absorbing #302 and #136 (row: Choose, add or reorder rows). Input shape `alive?: number[][]`, bounds over every point, a dotted chief and dash-only tails decided under the same row.
+- 2026-10-12 (user): plan approved; publish without starting work.
+- 2026-10-12: critique (general-purpose, claude-fable-5-1), all 22 findings applied: crown fills; dash-only tails (no `stroke-opacity`); rays cut at the first non-finite point; phos's build and two ELEOptics/phos#310 facts as the recorder's stop; the prescription in the header and checked against the TOML; O1 wording for `a = 0` and `a = len`; U16 reworded in the roadmap; #136 in O2; U14 cell; themes and palettes; the `achromat-` prefix; the adapter returns props; the size baseline re-recorded; the recorder's surface mapping; the changeset's body; `ELEOptics/phos#310`; O1's own reader; the TOML copied with `tomllib`.
