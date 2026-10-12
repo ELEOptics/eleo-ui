@@ -17,7 +17,8 @@ function endDecimals(lo, hi) {
 
 /* Ticks covering [lo, hi] in about n labels, and the decimals the step needs.
    A span of a few ulps (or below 1e-100) has no usable step: the count would pass 1000, lo / d would pass 2^53
-   (k++ stops advancing) or toFixed would throw. Then the ticks are [lo, hi] alone. */
+   (k++ stops advancing) or toFixed would throw. Then the ticks are [lo, hi] alone, as they are when the
+   rounded ticks repeat or miss the data. */
 export function niceTicks(lo, hi, n) {
   var d = nice(nice(hi - lo, false) / (n - 1), true);
   var decimals = Math.max(-Math.floor(Math.log10(d)), 0);
@@ -27,6 +28,10 @@ export function niceTicks(lo, hi, n) {
     return { ticks: [lo, hi], decimals: endDecimals(lo, hi) };
   }
   for (var k = a; k <= b; k++) ticks.push(Number((k * d).toFixed(decimals)));
+  // A span of a few hundred ulps rounds ticks onto each other or short of the data: the same fallback.
+  var bad = ticks[0] > lo || ticks[ticks.length - 1] < hi;
+  for (var i = 1; i < ticks.length && !bad; i++) bad = ticks[i] <= ticks[i - 1];
+  if (bad) return { ticks: [lo, hi], decimals: endDecimals(lo, hi) };
   return { ticks: ticks, decimals: decimals };
 }
 
