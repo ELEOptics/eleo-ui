@@ -247,3 +247,4 @@ Proves: O3, O4
 - 2026-10-12 review M2 round 6: 1 blocking (CR #276, accepted by the orchestrator), findings 2–4 folded in (the same caption code, as in round 5).
 - 2026-10-12 review M2 round 7: 1 blocking (CR #277, accepted by the orchestrator), findings 2–4 folded in.
 - 2026-10-12 review M2 round 8: 0 blocking, nothing pulled in; #278 stays a plain issue. M2 done again after CR #270, pending the user's demo.
+- 2026-10-12 (user, M2 demo after CR #270): go. The spot tile and its settings are row E's spot baseline.
