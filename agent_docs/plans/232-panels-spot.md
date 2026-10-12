@@ -160,6 +160,7 @@ beside their baselines, every other tile unchanged. Proves: O1
 | #252 | Backlog findings 3 and 4: a non-finite or null point breaks a panel series; the single plot's range as before | the findings' named fixes in one item, because both are `curve.js`'s rule for bad points; considered two items (one file, one rule) | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::non-finite points break panel series`, `::single plot range unchanged by nulls` | #234 |
 | #253 | Backlog finding 5: O1 runs a pass with one fan value nulled | as the finding names | `tests/unit/curve.test.js` | O1 with the extra pass | #236 |
 | #254 | CR (#252's worker, stale doc): the README's `panels` bullet names NaN and infinite breaks | forced (stale doc: `packages/plots/README.md:82` since #252) | `packages/plots/README.md` | none: doc only | #252 |
+| #255 | Backlog (review M1 round 2 findings 1-3): a non-array range falls back; `plotCell`'s comment; dead conditions dropped | the findings' named fixes in one item, because all are `curve.js` and none changes valid output; considered three items | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::a non-numeric range falls back to the data (#207)` with non-arrays | #252 |
 
 ### M2: Spot on typed points from the recorded SpotDiagram GitHub: `P232 M2: Spot on typed points`
 
@@ -215,3 +216,4 @@ Proves: O3, O4
 - 2026-10-11 (orchestrator): #248 and #208 ran at the same time in one tree, against `Parallel waves: off`; their files were disjoint and each was verified and committed alone. Not repeated.
 - 2026-10-11 review M1 round 1: 2 blocking (CRs #250, #251, accepted by the orchestrator: a regression fix in #208's file and a non-Core doc). Backlog #252 (findings 3, 4) and #253 (finding 5) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
 - 2026-10-11 CR #254 (accepted, orchestrator: a non-Core doc): the README's panels bullet, stale since #252.
+- 2026-10-11 review M1 round 2: 0 blocking. Backlog #255 (findings 1-3) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
