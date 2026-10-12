@@ -302,3 +302,21 @@ test.skip('bar limits round trip (U9)', async () => {
     assert.throws(() => ELEO.bars({ ...call, limits: [{ x: 1 }] }), { name: 'TypeError', message: /bars: x limits are not supported/ }, `${lens}: an x limit throws`);
   }
 });
+
+// Plan #284, issue #292: bars takes y limits through limits.js; an x limit throws.
+test('bar limits draw and x limits throw', () => {
+  const call = { categories: ['a', 'b', 'c'], series: [{ values: [1, -2, 3], index: 0 }, { values: [0.5, 1, -1], index: 1 }], total: 'Σ', y: { label: 'v' } };
+  const svg = ELEO.bars({ ...call, limits: [{ y: 0.01, label: 'lim' }, { y: [-1, 1] }] });
+  const g = seriesGroup(svg);
+  const lines = marks(g, 'line').filter((l) => l.limit), bands = marks(g, 'rect').filter((r) => r.limit);
+  assert.equal(lines.length, 1, 'one limit line');
+  assert.equal(bands.length, 1, 'one band');
+  assert.equal(lines[0].y1, 0.01, 'the line sits at its value');
+  assert.ok(svg.includes('>lim<'), 'the label is drawn');
+  assert.ok(g.body.search(/<rect\b[^>]*class="eleo-limit"/) < g.body.search(/<rect\b(?![^>]*eleo-limit)/), 'the band comes before the bars');
+  assert.ok(g.body.search(/<line\b[^>]*class="eleo-limit"/) > g.body.lastIndexOf('<rect'), 'the line comes after the bars');
+  const far = seriesGroup(ELEO.bars({ ...call, limits: [{ y: 30 }] }));
+  assert.ok(toData(far.M, [0, 0])[1] >= 30, 'an auto range contains the limit');
+  assert.ok(!ELEO.bars(call).includes('eleo-limit'), 'no limits, no marks');
+  assert.throws(() => ELEO.bars({ ...call, limits: [{ x: 1 }] }), { name: 'TypeError', message: 'bars: x limits are not supported' });
+});

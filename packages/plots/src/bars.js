@@ -1,5 +1,6 @@
 import { idx, svg, esc } from "./common.js";
-import { scales, plotCell, PLOT_L, PLOT_B } from "./curve.js";
+import { scales, plotCell, limitBody, PLOT_L, PLOT_B } from "./curve.js";
+import { checkLimits } from "./limits.js";
 
 var GAP = 0.5, FILL = 0.8, MIN_BAND_PX = 14, TOP = 26, KEY_LINE = 14;
 
@@ -14,6 +15,9 @@ export function bars(o) {
     var i = s.index === undefined ? 0 : s.index;
     if (typeof i !== "number" || !isFinite(i) || Math.floor(i) !== i || i < 0) throw new TypeError("bars: index must be a non-negative integer");
   });
+  /* y limits only: the same look as curve's (limits.js); a category axis has no x value to draw at. */
+  var lim = checkLimits(o.limits, "bars");
+  lim.forEach(function (l) { if (l.axis === "x") throw new TypeError("bars: x limits are not supported"); });
   /* A value that is not a finite number is missing: no bar, no share of the sum or the range. */
   var num = function (v) { return typeof v === "number" && isFinite(v); };
   var val = function (v) { return num(v) ? v : 0; };
@@ -22,7 +26,7 @@ export function bars(o) {
   var span = hasTotal ? n + GAP + 1 : n;
   var all = [0].concat(hasTotal ? sums : []);
   series.forEach(function (s) { cats.forEach(function (_, c) { all.push(val((s.values || [])[c])); }); });
-  var sc = scales({ x: { range: [0, span], ticks: [] }, y: y }, [[{ points: all.map(function (v) { return [0, v]; }) }]], false);
+  var sc = scales({ x: { range: [0, span], ticks: [] }, y: y, limits: lim }, [[{ points: all.map(function (v) { return [0, v]; }) }]], false);
   /* The key row starts a new line when an entry would pass the frame's right edge; each extra line takes KEY_LINE px from the frame, down to a frame TOP + PLOT_B + 1 px tall; past that the row runs on. */
   var maxRow = Math.max(0, Math.floor((H - TOP - PLOT_B - 1) / KEY_LINE));
   var keyed = series.filter(function (s) { return s.label; }), kx = PLOT_L, row = 0, place = [];
@@ -41,7 +45,7 @@ export function bars(o) {
   }
   cats.forEach(function (_, c) { series.forEach(function (s, j) { bar(c, s, j, (s.values || [])[c]); }); });
   if (hasTotal) series.forEach(function (s, j) { bar(n + GAP, s, j, sums[j]); });
-  var g = plotCell(sc, [], W, Hf, TOP, false, rects);
+  var g = plotCell(sc, [], W, Hf, TOP, false, limitBody(lim, sc, rects), lim);
   /* Category labels in px at each band centre, every k-th when a band is under 14 px; the total's label is always drawn. */
   var pw = W - PLOT_L - sc.R, px = pw / span, ph = Hf - TOP - PLOT_B, step = Math.max(1, Math.ceil(MIN_BAND_PX / px));
   /* Solid dividers, frame decoration in px outside the data group: at every step-th boundary between category groups (each separates labelled groups) and mid-gap before the total. */
