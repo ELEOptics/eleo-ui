@@ -423,3 +423,9 @@ test('single plot range unchanged by nulls', () => {
   const withZero = ELEO.curve({ ...base, series: [{ points: [[0, 5], [1, 0], [2, 7]], index: 0 }] });
   assert.equal(withNull, withZero, 'a null counts as 0 in the range, as at the base, so the polyline stays inside it');
 });
+
+test('helpers skip a path with no data', () => {
+  const svg = '<svg x="0" width="10" height="10"><g transform="matrix(1 0 0 1 0 0)"><path/><polyline class="s"/></g></svg>';
+  assert.deepEqual(seriesGroup(svg).paths, [], 'a bare <path/> reads as no series');
+  assert.deepEqual(panelGroups(svg)[0].paths, [], 'and in a panel');
+});

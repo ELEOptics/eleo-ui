@@ -25,7 +25,7 @@ const PATH = /<(?:path|polyline)\b[^>]*?\b(?:d="([^"]*)"|points="([^"]*)")/;
 const LIMIT = /\bclass="eleo-limit"/;
 // Series are the paths that are not limit marks (`class="eleo-limit"`, plan #284): a limit is read by marks().
 function readPaths(body) {
-  return [...body.matchAll(/<(?:path|polyline)\b[^>]*>/g)].filter((t) => !LIMIT.test(t[0])).map((t) => PATH.exec(t[0])).map((m) => (m[1] !== undefined ? subpaths(m[1]) : [subpaths(`M${m[2].trim().replace(/ /g, ' L')}`)[0]]));
+  return [...body.matchAll(/<(?:path|polyline)\b[^>]*>/g)].filter((t) => !LIMIT.test(t[0])).map((t) => PATH.exec(t[0])).filter(Boolean).map((m) => (m[1] !== undefined ? subpaths(m[1]) : [subpaths(`M${m[2].trim().replace(/ /g, ' L')}`)[0]]));
 }
 
 // The series group: the first `<g transform="matrix(a b c d e f)">` inside a curve's nested <svg>.
