@@ -1,7 +1,7 @@
 import { idx, svg, esc } from "./common.js";
 import { scales, plotCell, PLOT_L, PLOT_B } from "./curve.js";
 
-var GAP = 0.5, FILL = 0.8, MIN_BAND_PX = 14, TOP = 14, KEY_LINE = 14;
+var GAP = 0.5, FILL = 0.8, MIN_BAND_PX = 14, TOP = 26, KEY_LINE = 14;
 
 /* Signed grouped bars in curve's frame (ADR-0001: roles and indexes, no colors). Category k occupies x in [k, k + 1] in data units;
    bars fill 80 % of it, split among the series; `total` appends a group of per-series sums after a half-band gap.
@@ -42,6 +42,14 @@ export function bars(o) {
   cats.forEach(function (_, c) { series.forEach(function (s, j) { bar(c, s, j, (s.values || [])[c]); }); });
   if (hasTotal) series.forEach(function (s, j) { bar(n + GAP, s, j, sums[j]); });
   var g = plotCell(sc, [], W, Hf, TOP, false, rects);
+  /* Dotted dividers, frame decoration in px outside the data group: at each boundary between category groups and mid-gap before the total. */
+  var cuts = cats.map(function (_, c) { return c + 1; }).slice(0, -1);
+  if (hasTotal && n > 0) cuts.push(n + GAP / 2);
+  var pw0 = W - PLOT_L - sc.R;
+  cuts.forEach(function (k) {
+    var dx = (PLOT_L + k * pw0 / span).toFixed(1);
+    g += '<line x1="' + dx + '" y1="' + TOP + '" x2="' + dx + '" y2="' + (Hf - PLOT_B) + '" stroke="var(--plot-grid)" stroke-dasharray="1 3"/>';
+  });
   /* Category labels in px at each band centre, every k-th when a band is under 14 px; the total's label is always drawn. */
   var pw = W - PLOT_L - sc.R, px = pw / span, ph = Hf - TOP - PLOT_B, step = Math.max(1, Math.ceil(MIN_BAND_PX / px));
   var label = function (k, t) { return '<text class="eleo-tick" x="' + (PLOT_L + (k + 0.5) * px).toFixed(1) + '" y="' + (TOP + ph + 13) + '" text-anchor="middle">' + esc(t) + "</text>"; };

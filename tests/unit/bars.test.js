@@ -175,3 +175,20 @@ test('a small drawing keeps a positive frame', () => {
   assert.ok(heights.every((h) => h > 0), `every height is positive: ${heights.join(', ')}`);
   assert.ok(series.every((s) => svg.includes('>' + s.label + '</text>')), 'every series is still named');
 });
+
+// Plan #284 #312 (CR from the M1 demo). oracle: property: dotted dividers at band boundaries 1, 2 and the Σ gap's middle, full frame height, outside the series group; the frame sits 14 px under the title baseline.
+test('group dividers and title room', () => {
+  const svg = ELEO.bars({ categories: ['1', '2', '3'], series: [{ values: [1, -2, 3], index: 0 }], total: 'Σ', y: { label: 'Seidel sum', unit: 'mm' }, width: 460, height: 260 });
+  const group = seriesGroup(svg), { L, ph } = frame(svg), T = Number(/<svg\b[^>]*\by="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg)[1]), B = T + ph;
+  const dots = [...svg.matchAll(/<line\b[^>]*stroke-dasharray="1 3"[^>]*>/g)].map((m) => m[0]);
+  assert.equal(dots.length, 3);
+  const attr = (s, k) => Number(s.match(new RegExp(`\\b${k}="([^"]+)"`))[1]);
+  const xs = dots.map((d) => attr(d, 'x1'));
+  [1, 2, 3.25].forEach((c, k) => assert.ok(Math.abs(xs[k] - (L + toPx(group.M, [c, 0])[0])) <= TOL_PX, `divider ${k} at x = ${c}`));
+  dots.forEach((d) => {
+    assert.ok(/stroke="var\(--plot-grid\)"/.test(d));
+    assert.ok(Math.abs(attr(d, 'y1') - T) <= TOL_PX && Math.abs(attr(d, 'y2') - B) <= TOL_PX, 'spans the frame');
+  });
+  assert.equal(marks(group, 'line').length, 0, 'no dividers in the data group');
+  assert.ok(T >= 10 + 14, `frame top ${T} is 14 px under the title baseline`);
+});
