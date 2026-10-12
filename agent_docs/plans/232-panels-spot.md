@@ -82,9 +82,8 @@ SpotDiagram; the cumulative probability curve and the beam footprint move to a l
 - `throughFocus` on typed points: U7 keeps it on sample data until phos-core computes it.
 - Per-panel ranges or axis labels: the fans need one shared scale, and titles name each panel. Next plan if
   phos asks.
-- Spot stats computed by the renderer or the gallery adapter: the renderer draws a caller-given `centroid` and
-  `notes`; the gallery's notes show phos-core's recorded polychromatic enclosing radius ("100 %"), not RMS or
-  GEO, which the Python client doesn't expose and the adapter would have to compute.
+- (Dropped by CR #270, user 2026-10-12: `spot` now computes RMS and GEO about the chosen reference.) The real
+  chief ray and per-wavelength centroids as references: they wait for phos-core to expose them.
 - Limit lines and bands (G), hover and zoom (H), export (I).
 - A plots-svelte release: comments only.
 - #199 (unknown roles): the roadmap holds it for row G's role table.
@@ -163,7 +162,7 @@ beside their baselines, every other tile unchanged. Proves: O1
 | #255 | Backlog (review M1 round 2 findings 1-3): a non-array range falls back; `plotCell`'s comment; dead conditions dropped | the findings' named fixes in one item, because all are `curve.js` and none changes valid output; considered three items | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::a non-numeric range falls back to the data (#207)` with non-arrays | #252 |
 | #256 | Backlog (review M1 round 3 findings 1, 3): panel points not drawn don't set the range; a null entry breaks | one `drawn(p)` rule for the path and the range, because the two had drifted; considered two separate checks | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::non-finite points break panel series` extended | #255 |
 
-### M2: Spot on typed points from the recorded SpotDiagram (done 2026-10-12) GitHub: `P232 M2: Spot on typed points`
+### M2: Spot on typed points from the recorded SpotDiagram GitHub: `P232 M2: Spot on typed points`
 
 Demo: `npm run gallery`: the spot tile draws the recorded achromat (three fields, colored by wavelength, the
 Airy circle, the 100 % radius as a note); its spots are about the sample's size (100 % radius 6.5, 13.1, 33.0 µm
@@ -187,6 +186,10 @@ fixture blanks only that tile. Proves: O2
 | #266 | CR (finding 2): the README's half rule names the circle | forced (stale doc since #260) | `packages/plots/README.md` | none: doc only | #265 |
 | #267 | Backlog (review M2 round 3 finding 1): a non-finite `half` is ignored | the finding's named fix, as #265 did for `circle`; considered clamping to a maximum (an arbitrary bound) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::typed spot hardening` extended | #265 |
 | #268 | CR (#267's worker, stale doc): the README says `half` counts only when finite | forced (stale doc since #267) | `packages/plots/README.md` | none: doc only | #267 |
+| #271 | CR #270 (user, M2 demo): `reference: 'chief' \| 'centroid'` with the input's `origin`, labelled in a caption line; the caller-given centroid cross goes | re-centre each panel before drawing, scaling and stats, because every later quantity is about the reference; considered a centroid mark only (the user asked for the reference to change) (user) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::reference centroid re-centres each panel` | #268 |
+| #272 | CR #270: RMS and GEO about the reference, toggled by `showStats` | computed in `spot` from the drawn points (user); considered caller-supplied stats (they would have to be recomputed per reference) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::stats about the reference` | #271 |
+| #273 | CR #270: the Airy circle as panel data (`airy`), toggled by `showAiry` and labelled | data plus a toggle, because `spot` has no wavelength or f-number (user); considered computing it from λ and N in `spot` | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::Airy circle toggled and labelled` | #272 |
+| #274 | CR #270: the adapters pass `origin` and `airy`, no stats notes; README documents the settings and caption | forced (CR #270: the renderer now computes the stats the adapters wrote) | `packages/plots/src/spot.js`, `tests/fixtures/phos-core/adapters.js`, `packages/plots/README.md` | `spot.test.js::spotPanels carries the sample's spots` updated; O2 and the gallery green | #273 |
 
 ### M3: The typed API, the redraw budget and the release GitHub: `P232 M3: Typed API and release`
 
@@ -236,3 +239,4 @@ Proves: O3, O4
 - 2026-10-12 review M2 round 3: 0 blocking. Backlog #267 into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
 - 2026-10-12 CR #268 (accepted, orchestrator: a non-Core doc): the README's half rule, stale since #267.
 - 2026-10-12 review M2 round 4: 0 blocking, nothing pulled in; #269 stays a plain issue (after round 3). M2 done, pending the user's demo.
+- 2026-10-12 (user, M2 demo): no-go. CR #270 (the user's decision, plan scope): `spot` gains `reference` ('chief' with the input's `origin`, or 'centroid'), RMS and GEO computed about the reference behind `showStats`, the Airy circle as panel data (`airy`) behind `showAiry`, and a caption line naming the active settings. Work items #271–#274 in M2; the non-goal on renderer stats is dropped; #243 types the new options.
