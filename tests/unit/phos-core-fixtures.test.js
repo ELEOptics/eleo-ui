@@ -110,3 +110,32 @@ test('spot recorded per source and wavelength', () => {
     });
   }
 });
+
+// Plan #284 M1, work item #286. oracle: closed-form, phos-core's documented total is the sum of the per-surface values (each rounded to 6 significant digits: relative error up to 5e-6); reference sample.json and the MTF recordings for the wavelengths
+const TERMS = ['spherical', 'coma', 'astigmatism', 'fieldCurvature', 'distortion', 'axialColor', 'lateralColor'];
+test('seidel recorded per wavelength', () => {
+  for (const lens of ['achromat', 'cooke']) {
+    const mtf = read(`../fixtures/phos-core/${lens}-mtf.json`);
+    const file = `${lens}-seidel.json`;
+    assert.ok(existsSync(new URL(file, dir)), `${file} is recorded`);
+    const f = read(`../fixtures/phos-core/${file}`);
+    assert.equal(f.analysis, 'seidel', `${lens}: analysis`);
+    assert.equal(f.lengthUnit, 'mm');
+    assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+    assert.equal(f.referenceWavelengthNm, mtf.referenceWavelengthNm, `${lens}: reference wavelength is the MTF recording's`);
+    assert.ok(f.results.length > 0, `${lens}: a result per wavelength`);
+    for (const r of f.results) assert.ok(mtf.wavelengthsNm.some((w) => Math.abs(w - r.wavelengthNm) <= 1e-3), `${lens}: ${r.wavelengthNm} nm is one of ${mtf.wavelengthsNm}`);
+    assert.ok(f.results.some((r) => Math.abs(r.wavelengthNm - f.referenceWavelengthNm) <= 1e-3), `${lens}: the reference wavelength is recorded`);
+    const n = f.results[0].terms.spherical.length - 1;
+    if (lens === 'achromat') assert.equal(n, sample.rx.filter((r) => typeof r.R === 'number').length, 'achromat: one entry per surface of the sample');
+    for (const r of f.results) {
+      assert.deepEqual(Object.keys(r.terms), TERMS, `${lens} ${r.wavelengthNm}: the seven terms in order`);
+      for (const [k, t] of Object.entries(r.terms)) {
+        assert.equal(t.length, n + 1, `${lens} ${r.wavelengthNm} ${k}: one entry per surface plus the total`);
+        const sum = t.slice(0, n).reduce((a, b) => a + b, 0);
+        const tol = (n + 1) * 5e-6 * Math.max(...t.map(Math.abs));
+        assert.ok(Math.abs(sum - t[n]) <= tol, `${lens} ${r.wavelengthNm} ${k}: sum ${sum} vs total ${t[n]}`);
+      }
+    }
+  }
+});
