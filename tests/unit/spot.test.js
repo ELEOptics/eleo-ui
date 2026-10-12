@@ -78,7 +78,7 @@ test('recorded spot round trip (U7)', async () => {
 // #239: spot({ panels }) on synthetic points (the recorded round trip above waits on #238, #226 and #241).
 test('typed points round trip, common and auto scale', () => {
   const panels = [
-    { title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3], [-0.7, 0.9]], index: 0 }, { points: [[-2.5, 2.2], [0, 0]], index: 2 }], circle: 2.87, centroid: [0.3, -0.2], notes: ['100 % 6.53 µm'] },
+    { title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3], [-0.7, 0.9]], index: 0 }, { points: [[-2.5, 2.2], [0, 0]], index: 2 }], circle: 2.87, notes: ['100 % 6.53 µm'] },
     { title: '1.0°', series: [{ points: [[8, -12], [-14, 3.5], [Infinity, 1], [5, NaN]], index: 0 }], circle: 2.87, notes: [] },
     { title: '2.0°', series: [{ points: [[0.1, 0.2]], index: 1 }] },
   ];
@@ -109,12 +109,7 @@ test('typed points round trip, common and auto scale', () => {
         const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(body);
         if (panels[p].circle) assert.ok(r && Math.abs(Math.abs(a) * (+r[1] - panels[p].circle)) <= TOL_PX, `${label} panel ${p}: the circle's radius maps to the given radius`);
         else assert.ok(!r, `${label} panel ${p}: no circle unless given`);
-        const lines = [...body.matchAll(/<line\b[^>]*\bx1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)].map((m) => m.slice(1).map(Number));
-        if (panels[p].centroid) {
-          assert.equal(lines.length, 2, `${label} panel ${p}: a cross of two lines`);
-          const [cx, cy] = panels[p].centroid;
-          lines.forEach(([x1, y1, x2, y2]) => assert.ok(Math.abs((x1 + x2) / 2 - cx) < 1e-9 && Math.abs((y1 + y2) / 2 - cy) < 1e-9, `${label} panel ${p}: the cross is centred on the centroid`));
-        } else assert.equal(lines.length, 0, `${label} panel ${p}: no cross unless given`);
+        assert.ok(!/<line\b/.test(body), `${label} panel ${p}: no caller-given cross`);
       });
       if (scale === 'common') groups.forEach((g, p) => assert.ok(Math.abs(Math.abs(g.M[0]) - Math.abs(groups[0].M[0])) <= 1e-9 * Math.abs(groups[0].M[0]), `${label} panel ${p}: one common scale`));
       else assert.ok(Math.abs(groups[0].M[0]) > Math.abs(groups[1].M[0]), `${label}: auto fits each panel, the tight one larger`);
@@ -163,14 +158,11 @@ test('the half holds the reference circle', () => {
   }
 });
 
-// #261: centroid coerced to numbers, empty panels non-negative viewBox, no no-op fill-opacity, sample aria-label names colorBy.
+// #261:  empty panels non-negative viewBox, no no-op fill-opacity, sample aria-label names colorBy.
 // oracle: property, and the base's output ("Spot diagrams, colored by <colorBy>")
 test('typed spot hardening', async () => {
   await import('../../packages/plots/src/sample.js');
-  const s = ELEO.spot({ panels: [{ series: [{ points: [[0.1, 0.1]] }], centroid: ['0.3', '-0.2'] }] });
-  const ln = [...s.matchAll(/<line\b[^>]*\bx1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)][0].slice(1).map(Number);
-  assert.ok(ln.every(Number.isFinite), 'centroid line coordinates are numbers');
-  assert.ok(Math.abs((ln[0] + ln[2]) / 2 - 0.3) < 1e-9 && Math.abs(ln[1] - -0.2) < 1e-9, 'a string centroid draws at its number');
+  const s = ELEO.spot({ panels: [{ series: [{ points: [[0.1, 0.1]] }] }] });
   const vb = /viewBox="([^"]+)"/.exec(ELEO.spot({ panels: [] }))[1].split(/\s+/).map(Number);
   assert.ok(vb.every((v) => v >= 0), 'empty panels give a non-negative viewBox: ' + vb);
   assert.ok(!/fill-opacity/.test(s), 'no fill-opacity on stroked dots');
@@ -186,4 +178,25 @@ test('typed spot hardening', async () => {
   assert.ok(!/<circle/.test(inf) && !/Infinity/.test(inf), 'no circle drawn for Infinity');
   assert.equal(ELEO.spot({ panels: [{ series: pts }], half: Infinity }), base, 'a non-finite half is ignored');
   assert.equal(ELEO.spot({ panels: [{ series: pts }], half: '1e400' }), base, 'a string half beyond range is ignored');
+});
+
+// #271 (CR #270): reference 'chief' draws the points as given, 'centroid' re-centres each panel on its mean; a caption names the reference.
+// oracle: closed form: a panel offset by (3, -2) under 'centroid' draws as the unshifted set under 'chief'; each drawn mean is 0.
+test('reference centroid re-centres each panel', () => {
+  const base = [[0.4, -1.2], [1.1, 0.3], [-0.7, 0.9], [-2.5, 2.2], [0, 0]];
+  const mean = base.reduce((a, q) => [a[0] + q[0] / base.length, a[1] + q[1] / base.length], [0, 0]);
+  const centred = base.map((q) => [q[0] - mean[0], q[1] - mean[1]]);
+  const mk = (pts, dx = 0, dy = 0) => ({ series: [{ points: pts.slice(0, 3).map((q) => [q[0] + dx, q[1] + dy]), index: 0 }, { points: pts.slice(3).map((q) => [q[0] + dx, q[1] + dy]), index: 1 }] });
+  const dots = (svg) => panelGroups(svg).map((g) => g.paths.flat(2));
+  const shifted = ELEO.spot({ panels: [mk(base, 3, -2)], reference: 'centroid', width: 300, height: 200 });
+  const plain = ELEO.spot({ panels: [mk(centred)], reference: 'chief', width: 300, height: 200 });
+  const a = dots(shifted)[0], b = dots(plain)[0];
+  assert.equal(a.length, b.length);
+  a.forEach((q, i) => assert.ok(Math.hypot(q[0] - b[i][0], q[1] - b[i][1]) < 1e-9, 'offset panel draws as the unshifted set'));
+  const m = a.reduce((t, q) => [t[0] + q[0] / a.length, t[1] + q[1] / a.length], [0, 0]);
+  assert.ok(Math.abs(m[0]) < 1e-9 && Math.abs(m[1]) < 1e-9, 'drawn mean is 0');
+  assert.ok(shifted.includes('Reference: centroid'), 'caption names centroid');
+  assert.ok(ELEO.spot({ panels: [mk(base)], origin: 'paraxial chief ray' }).includes('Reference: paraxial chief ray'), 'caption names the origin');
+  assert.ok(ELEO.spot({ panels: [mk(base)] }).includes('Reference: chief ray'), 'default caption');
+  assert.deepEqual(dots(ELEO.spot({ panels: [mk(base, 3, -2)] }))[0][0], [3.4, -3.2], 'chief draws as given');
 });

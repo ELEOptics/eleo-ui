@@ -11,9 +11,15 @@ function niceHalf(v) {
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
-  var panels = o.panels, n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
+  var cen = o.reference === "centroid";
+  var panels = o.panels.map(function (p) {
+    var sx = 0, sy = 0, k = 0, series = p.series || [];
+    series.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { sx += +q[0]; sy += +q[1]; k++; } }); });
+    var mx = cen && k ? sx / k : 0, my = cen && k ? sy / k : 0;
+    return Object.assign({}, p, { series: series.map(function (se) { return Object.assign({}, se, { points: (se.points || []).map(function (q) { return live(q) ? [q[0] - mx, q[1] - my] : q; }) }); }) });
+  }), n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
   var notesMax = Math.max.apply(null, [0].concat(panels.map(function (p) { return (p.notes || []).length; })));
-  var foot = 28 + 15 * notesMax, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
+  var foot = 28 + 15 * notesMax + 16, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
   if (o.height) side = Math.min(side, o.height - foot - 8);
   side = Math.max(side, 1);
   var W = o.width || Math.max(0, n * side + (n - 1) * gap), H = o.height || side + 8 + foot, top = 4;
@@ -29,12 +35,12 @@ function typedSpot(o) {
       g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="2.2" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
     });
     if (isFinite(p.circle) && p.circle > 0) g += '<circle cx="0" cy="0" r="' + +p.circle + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
-    if (live(p.centroid)) { var c = [+p.centroid[0], +p.centroid[1]], k = 4 / s; g += '<line x1="' + (c[0] - k) + '" y1="' + c[1] + '" x2="' + (c[0] + k) + '" y2="' + c[1] + '" stroke="var(--ink)" ' + NS + '/><line x1="' + c[0] + '" y1="' + (c[1] - k) + '" x2="' + c[0] + '" y2="' + (c[1] + k) + '" stroke="var(--ink)" ' + NS + "/>"; }
     g += "</g></svg>";
     var ty = top + side + 18;
     g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + +half.toPrecision(6) + unit + "</text>";
     (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick" x="' + ox + '" y="' + (ty + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
   });
+  g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15) + '">' + esc("Reference: " + (cen ? "centroid" : o.origin || "chief ray")) + "</text>";
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
 /* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as the circle, RMS and GEO as notes. */
@@ -50,7 +56,7 @@ export function spotPanels(D, o) {
     return p;
   });
   var r = { panels: panels, unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  ["scale", "half", "width", "height", "origin", "reference"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
   return r;
 }
 export function spot(o) {
