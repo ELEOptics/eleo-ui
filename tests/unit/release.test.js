@@ -245,3 +245,13 @@ test('curve-typed changeset asks a plots minor', { skip: curveTypedConsumed && '
 test('curve-typed changeset became a plots minor', { skip: !curveTypedConsumed && 'changesets not yet versioned' }, () => {
   assert.equal(entry('plots', CURVE_ENTRY).kind, 'Minor');
 });
+
+// Plan #232 (agent_docs/plans/232-panels-spot.md), O4, issue #242; #245 adds the changeset, #246 unskips.
+// oracle: spec roadmap Constraints (a typed API added alongside the old ships as a minor); semver 0.x.
+test('panels-spot changeset asks a plots minor', { skip: 'plan #232 O4 (#242): the changeset arrives in #245; #246 unskips' }, () => {
+  const text = readFileSync(join(repo, '.changeset', 'panels-spot.md'), 'utf8');
+  const m = text.match(/^---\n([\s\S]*?)\n---\n/);
+  assert.ok(m, '.changeset/panels-spot.md has no front matter');
+  const bumps = Object.fromEntries(m[1].split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((r) => [r[1], r[2]]));
+  assert.deepEqual(bumps, { '@eleoptics/plots': 'minor' });
+});

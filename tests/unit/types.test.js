@@ -22,3 +22,11 @@ test('curve typed series type-check under --strict', () => {
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/curve.ts', import.meta.url))], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
+
+// Plan #232, O3 (issue #242; #243 types panels and spot, #246 unskips).
+// oracle: spec roadmap Constraints (typed API alongside the old one)
+test('panels and spot points type-check under --strict', { skip: 'plan #232 O3 (#242): index.d.ts types arrive in #243; #246 unskips' }, () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/panels.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
