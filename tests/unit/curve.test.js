@@ -309,8 +309,13 @@ test('x tick labels stay inside the viewBox', () => {
 test('sample fans round trip through panels (U6)', async () => {
   const { fanPanels } = await import('../../packages/plots/src/fan.js');
   const { default: sample } = await import('../../packages/plots/src/sample.json', { with: { type: 'json' } });
-  for (const kind of ['tra', 'opd']) {
-    const { panels, columns, x, y } = fanPanels(sample, { kind });
+  // The sample holds no null, so a second pass runs on a clone with one interior value of each fan nulled (as fan.test.js does).
+  const nulled = structuredClone(sample);
+  nulled.fans[1].T[0][3] = null;
+  nulled.opdFans[1].T[0][3] = null;
+  for (const [pass, src] of [['sample', sample], ['one value nulled', nulled]]) for (const kind of ['tra', 'opd']) {
+    const { panels, columns, x, y } = fanPanels(src, { kind });
+    if (pass !== 'sample') assert.ok(panels.some((pn) => pn.series.some((s) => s.points.some((pt) => pt[1] === null))), `${kind}: the clone's null reaches the panels`);
     assert.ok(panels.length >= 2, `${kind}: panels for each row and field`);
     for (const [width, height] of SIZES) {
       const svg = ELEO.curve({ panels, columns, x, y, width, height });
@@ -336,6 +341,7 @@ test('sample fans round trip through panels (U6)', async () => {
           let runs = 0, prev = false;
           for (const pt of s.points) { const on = pt[1] !== null; if (on && !prev) runs++; prev = on; }
           assert.equal(g.paths[k].length, runs, `${kind} ${width}px panel ${p} series ${k}: a null splits the series into subpaths`);
+          if (s.points.some((pt) => pt[1] === null)) assert.ok(runs >= 2, `${kind} ${pass}: the nulled series is two or more subpaths`);
         });
       });
     }
