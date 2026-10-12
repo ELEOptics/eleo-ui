@@ -11,12 +11,15 @@ function niceHalf(v) {
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
-  var cen = o.reference === "centroid";
+  var cen = o.reference === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
     series.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { sx += +q[0]; sy += +q[1]; k++; } }); });
     var mx = cen && k ? sx / k : 0, my = cen && k ? sy / k : 0;
-    return Object.assign({}, p, { series: series.map(function (se) { return Object.assign({}, se, { points: (se.points || []).map(function (q) { return live(q) ? [q[0] - mx, q[1] - my] : q; }) }); }) });
+    var q2 = 0, geo = 0, np = 0;
+    var drawn = series.map(function (se) { return Object.assign({}, se, { points: (se.points || []).map(function (q) { if (!live(q)) return q; var x = q[0] - mx, y = q[1] - my; q2 += x * x + y * y; geo = Math.max(geo, Math.hypot(x, y)); np++; return [x, y]; }) }); });
+    var stats = o.showStats !== false && np ? ["RMS " + Math.sqrt(q2 / np).toFixed(2) + (o.unit ? " " + o.unit : ""), "GEO " + geo.toFixed(2) + (o.unit ? " " + o.unit : "")] : [];
+    return Object.assign({}, p, { series: drawn, notes: stats.concat(p.notes || []) });
   }), n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
   var notesMax = Math.max.apply(null, [0].concat(panels.map(function (p) { return (p.notes || []).length; })));
   var foot = 28 + 15 * notesMax + 16, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
@@ -40,7 +43,7 @@ function typedSpot(o) {
     g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + +half.toPrecision(6) + unit + "</text>";
     (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick" x="' + ox + '" y="' + (ty + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
   });
-  g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15) + '">' + esc("Reference: " + (cen ? "centroid" : o.origin || "chief ray")) + "</text>";
+  g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15) + '">' + esc("Reference: " + ref + (o.showStats !== false ? " · RMS, GEO about " + ref : "")) + "</text>";
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
 /* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as the circle, RMS and GEO as notes. */

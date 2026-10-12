@@ -200,3 +200,23 @@ test('reference centroid re-centres each panel', () => {
   assert.ok(ELEO.spot({ panels: [mk(base)] }).includes('Reference: chief ray'), 'default caption');
   assert.deepEqual(dots(ELEO.spot({ panels: [mk(base, 3, -2)] }))[0][0], [3.4, -3.2], 'chief draws as given');
 });
+
+// #272 (CR #270): RMS and GEO about the reference, behind showStats; the caption names them.
+// oracle: closed form: points (±3, 0), (0, ±4) give RMS sqrt(12.5) = 3.54 and GEO 4.00 about the origin; offset by (1, 1) and drawn under 'centroid' they give the same.
+test('stats about the reference', () => {
+  const pts = [[3, 0], [-3, 0], [0, 4], [0, -4]];
+  const off = pts.map((q) => [q[0] + 1, q[1] + 1]);
+  const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  const chief = texts(ELEO.spot({ panels: [{ series: [{ points: pts }], notes: ['mine'] }], unit: 'µm' }));
+  assert.ok(chief.includes('RMS 3.54 µm') && chief.includes('GEO 4.00 µm'), 'stats about the origin: ' + chief);
+  assert.ok(chief.indexOf('RMS 3.54 µm') < chief.indexOf('GEO 4.00 µm') && chief.indexOf('GEO 4.00 µm') < chief.indexOf('mine'), 'stats come before the caller\'s notes');
+  assert.ok(chief.some((t) => /^Reference: chief ray · RMS, GEO about chief ray$/.test(t)), 'caption: ' + chief);
+  const cen = texts(ELEO.spot({ panels: [{ series: [{ points: off }] }], reference: 'centroid', unit: 'µm' }));
+  assert.ok(cen.includes('RMS 3.54 µm') && cen.includes('GEO 4.00 µm'), 'stats about the centroid: ' + cen);
+  assert.ok(cen.includes('Reference: centroid · RMS, GEO about centroid'));
+  const off1 = texts(ELEO.spot({ panels: [{ series: [{ points: pts }], notes: ['mine'] }], showStats: false, unit: 'µm' }));
+  assert.ok(!off1.some((t) => /^(RMS|GEO)\b/.test(t)) && off1.includes('mine'), 'showStats false omits the notes');
+  assert.ok(off1.every((t) => !/RMS, GEO/.test(t)), 'and the caption clause');
+  const none = texts(ELEO.spot({ panels: [{ series: [{ points: [[NaN, 1], null] }] }] }));
+  assert.ok(!none.some((t) => /^(RMS|GEO)\b/.test(t)), 'no drawn points, no stats');
+});
