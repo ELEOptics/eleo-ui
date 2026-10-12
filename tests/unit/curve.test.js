@@ -306,7 +306,7 @@ test('x tick labels stay inside the viewBox', () => {
 // each panel { title, series: [{ points: [[pupil, value | null], …], index }] } (a null value is a vignetted ray), and
 // curve({ panels, columns, x, y, width, height }) draws one nested <svg> and transform group per panel, a series as a <path>
 // whose `M`/`L` data starts a new subpath after each null.
-test('sample fans round trip through panels (U6)', { skip: '#233: written ahead of #234 (curve panels) and #235 (fanPanels); #236 unskips it' }, async () => {
+test('sample fans round trip through panels (U6)', async () => {
   const { fanPanels } = await import('../../packages/plots/src/fan.js');
   const { default: sample } = await import('../../packages/plots/src/sample.json', { with: { type: 'json' } });
   for (const kind of ['tra', 'opd']) {
