@@ -164,7 +164,7 @@ unchanged. Proves: O1
 | #318 | CR #315: gallery Seidel tile grouped by coefficient (`ELEOAdapters.seidel(rec, { by: 'term' })`); `TILES` 19 | an adapter option, because the transposition is the caller's (U11); considered a second fixture (same data) (user: "tile") | `tests/fixtures/phos-core/adapters.js`, `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js::a missing phos-core fixture blanks only its tiles: seidel` (both Seidel tiles); counts at 19 | #317 |
 | #319 | CR (review M1 round 7 finding 1, with 2–4): the README's subsets wording; the adapter's `by` strict and its by-term output tested; the example's names defined | the findings' named fixes in one item, because all are #317/#318's docs, adapter and test; considered four items | `packages/plots/README.md`, `tests/fixtures/phos-core/adapters.js`, `tests/unit/bars.test.js` | `bars.test.js::recorded Seidel grouped by coefficient and as a subset` extended | #318 |
 
-### M2: Limit lines and bands (done 2026-10-12) GitHub: `P284 M2: Limits`
+### M2: Limit lines and bands GitHub: `P284 M2: Limits`
 
 Demo: `npm run gallery`: a new MTF requirement tile (the recorded achromat MTF with `MTF ≥ 0.3` as a line,
 50 cycles/mm as a line and the failing band below 0.3) and the Seidel tile with a limit, in both themes and
@@ -185,6 +185,7 @@ palettes; every other tile unchanged. Proves: O2
 | #325 | Backlog (review M2 round 3 findings 1–3): x band labels inside the band; bars dividers under the limit labels; a zero-width band throws | the findings' named fixes in one item, because all are limit-label placement and validation; dividers first by appending `limitLabels` in `bars`; considered a `plotCell` argument for dividers | `packages/plots/src/limits.js`, `packages/plots/src/bars.js`, `tests/unit/curve.test.js`, `tests/unit/bars.test.js` | `curve.test.js::limits draw single and paneled`, `bars.test.js::bar limits draw and x limits throw` extended | #324 |
 | #326 | CR (#325's worker, stale doc): the README's limit bullets name the zero-width throw, the x band label and dividers under labels | forced (stale doc since #325) | `packages/plots/README.md` | none: doc only | #325 |
 | #327 | CR (review M2 round 4 finding 1): `bars` draws dividers before `plotCell`, dropping the copied px maths | the reviewer's sketch, because it removes two copied functions and an import and adds nothing; considered #325's shape | `packages/plots/src/bars.js`, `packages/plots/README.md`, `tests/unit/bars.test.js` | `bars.test.js::bar limits draw and x limits throw`, `::group dividers and title room` | #326 |
+| #329 | CR #329 (user, M2 demo): a single-plot `curve` leaves room under its y-axis title (frame top 26 px), shared with `bars` as `PLOT_T` | one exported top margin, because the user asked for the same room as the bars title; considered a curve-only constant (user) | `packages/plots/src/curve.js`, `packages/plots/src/bars.js`, `packages/plots/README.md`, `tests/unit/curve.test.js` | `curve.test.js::the y-axis title has room above the frame` | #327 |
 
 ### M3: The typed API, the Svelte wrapper, the redraw budget and the release GitHub: `P284 M3: Typed API and release`
 
@@ -236,3 +237,4 @@ Proves: O3, O4
 - 2026-10-12 CR #326 (accepted, orchestrator: a non-Core doc): the README's limit bullets, stale since #325.
 - 2026-10-12 review M2 round 4: 1 blocking (CR #327, accepted by the orchestrator: necessity, in #325's files); #328 (finding 2, after round 3) a plain issue.
 - 2026-10-12 review M2 round 5: 0 blocking, nothing pulled in. M2 done, pending the user's demo (O2's oracle includes `user`).
+- 2026-10-12 (user, M2 demo): "The 'Modulus' label on the MTF plot is too close to its vertical axis. After that fix, the rest looks good." CR #329: `curve`'s single plot gets `bars`' title room; every single-plot curve tile moves down 12 px inside its frame, at the user's request. M2 is accepted once #329 lands and its review is clean.
