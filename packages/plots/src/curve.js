@@ -24,11 +24,11 @@ function axisTicks(a, r) {
   while (d < 20 && !ts.every(function (v) { return Math.abs(Number(v.toFixed(d)) - v) <= 1e-9 * Math.abs(v); })) d++;
   return { ticks: ts, decimals: d };
 }
-/* A series as path data in data coordinates: a point with a null coordinate ends the run, and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
+/* A series as path data in data coordinates: a point with a null or non-finite coordinate ends the run, and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
 function seriesPath(pts) {
   var d = "", run = [];
   function flush() { if (run.length) d += (d ? " " : "") + "M" + run.join(" L") + (run.length === 1 ? " h0" : ""); run = []; }
-  pts.forEach(function (p) { if (p[0] === null || p[1] === null || p[0] === undefined || p[1] === undefined) flush(); else run.push(String(+p[0]) + "," + String(+p[1])); });
+  pts.forEach(function (p) { if (p[0] === null || p[1] === null || p[0] === undefined || p[1] === undefined || !isFinite(p[0]) || !isFinite(p[1])) flush(); else run.push(String(+p[0]) + "," + String(+p[1])); });
   flush();
   return d;
 }
@@ -39,9 +39,10 @@ function seriesMarkup(s, panel) {
   return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;
 }
 /* The ranges and ticks, computed once over every series of every panel, and the right margin they need. */
-function scales(o, groups) {
+function scales(o, groups, panel) {
   var all = [].concat.apply([], groups.map(function (g) { return g.map(function (s) { return s.points || []; }); })), x = o.x || {}, y = o.y || {};
-  var live = function (p) { return p[0] !== null && p[1] !== null; };
+  /* Panels leave out the points they don't draw; the single plot counts every point, as it always has, so its polyline stays inside the range. */
+  var live = function (p) { return !panel || (p[0] !== null && p[1] !== null); };
   var xr = axisRange(x, [].concat.apply([], all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
   var yr = axisRange(y, [].concat.apply([], all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
   var xt = axisTicks(x, xr), yt = axisTicks(y, yr);
@@ -75,7 +76,7 @@ function typedCurve(o) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
     var top = 14, cw = W / cols, ch = (H - top) / rows, T = 22;
-    sc = scales(o, panels.map(function (p) { return p.series || []; }));
+    sc = scales(o, panels.map(function (p) { return p.series || []; }), true);
     panels.forEach(function (p, i) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
       g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="46" y="' + (T - 6) + '">' + esc(p.title) + "</text>" : "") + plotCell(sc, p.series || [], cw, ch, T, true) + "</g>";

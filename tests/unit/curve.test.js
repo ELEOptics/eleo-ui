@@ -391,3 +391,20 @@ test('panels share ranges and break at nulls', () => {
     assert.ok(/<path d="M[^"]*M[^"]*"/.test(svg), 'a break is an M inside one path');
   }
 });
+
+// Issue #252: curve's rule for bad points. oracle: property; the base's output
+test('non-finite points break panel series', () => {
+  const pts = [[-1, 1], [-0.5, NaN], [0, 2], [0.25, Infinity], [0.5, 3], [0.75, 4], [NaN, 5], [1, 6], [-Infinity, 7]];
+  const svg = ELEO.curve({ panels: [{ title: 'a', series: [{ points: pts, index: 0 }] }], x: { range: [-1, 1] }, y: { range: [0, 8] }, width: 460, height: 260 });
+  const d = svg.match(/<path d="([^"]*)"/)[1];
+  assert.ok(!/NaN|Infinity/.test(d), `no NaN or Infinity in the path data: ${d}`);
+  // runs: [-1,1] | [0,2] | [0.5,3] [0.75,4] | [1,6]
+  assert.equal((d.match(/M/g) || []).length, 4, `a non-finite coordinate ends the run: ${d}`);
+});
+
+test('single plot range unchanged by nulls', () => {
+  const base = { x: { range: [0, 2] }, width: 460, height: 260 };
+  const withNull = ELEO.curve({ ...base, series: [{ points: [[0, 5], [1, null], [2, 7]], index: 0 }] });
+  const withZero = ELEO.curve({ ...base, series: [{ points: [[0, 5], [1, 0], [2, 7]], index: 0 }] });
+  assert.equal(withNull, withZero, 'a null counts as 0 in the range, as at the base, so the polyline stays inside it');
+});
