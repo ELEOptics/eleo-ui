@@ -23,7 +23,7 @@ test('curve typed series type-check under --strict', () => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
-// Plan #232, O3 (issue #242; #243 types panels and spot, #246 unskips).
+// Plan #232, O3 (issue #242; #243 types panels and spot, #246 unskips; #280 sample-call options showStats and reference, no label).
 // oracle: spec roadmap Constraints (typed API alongside the old one)
 test('panels and spot points type-check under --strict', () => {
   const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',

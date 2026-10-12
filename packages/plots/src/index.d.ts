@@ -60,7 +60,7 @@ export interface Layout3DProps {
 }
 /** One spot series: dots in the panel's unit, one palette slot. Every dot is the same size; there is no color option (ADR-0001). */
 export interface SpotSeries {
-  /** [x, y] per ray, in `unit`, relative to the chief ray. A null or non-finite point is skipped. */
+  /** [x, y] per ray, in `unit`, relative to the zero point named by `origin`. A null or non-finite point is skipped. */
   points: [number | null, number | null][];
   /** Palette slot: the series color follows idx(index). Default 0. */
   index?: number;
@@ -110,7 +110,16 @@ export interface SpotSampleProps {
   half?: number;
   /** Airy circle. Default true. */
   airy?: boolean;
-  label?: string;
+  /** Names the zero point in the caption. Default "chief ray". */
+  origin?: string;
+  /** "centroid" recenters every panel on the centroid of its dots. Default "chief": dots stay as given. */
+  reference?: "chief" | "centroid";
+  /** RMS and GEO radius lines under each panel. Default true. */
+  showStats?: boolean;
+  /** Draw each panel's Airy circle. Default true. */
+  showAiry?: boolean;
+  width?: number;
+  height?: number;
   panels?: never;
 }
 export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
