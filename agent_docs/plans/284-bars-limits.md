@@ -1,7 +1,7 @@
 # Plan #284: Bars for Seidel, and limit lines and bands
 
-Status: approved 2026-10-12
-Branch: `plan/284-bars-limits` PR: #<pr> Depends on: plan #232 (done) Roadmap: `agent_docs/roadmap.md`, row G
+Status: done 2026-10-12
+Branch: `plan/284-bars-limits` PR: #301 Depends on: plan #232 (done) Roadmap: `agent_docs/roadmap.md`, row G
 
 ## Problem
 
@@ -251,3 +251,5 @@ Proves: O3, O4
 - 2026-10-12 review M3 round 3: 1 blocking (CR #334, accepted by the orchestrator, with finding 4). Backlog #335 (findings 2, 3) into M3 (headless: backlog into M3, row: milestone acceptance within the plan).
 - 2026-10-12 review M3 round 4: 0 blocking, nothing pulled in; #336 a plain issue. M3 done.
 - 2026-10-12 headless: M3 accepted, every acceptance test has a machine oracle (O3 spec, O4 spec) (row: milestone acceptance within the plan).
+- 2026-10-12: CLAUDE.md commands re-verified: `npm ci && npm run build`, `npm run test:unit` (138 pass), `npx playwright test` (21 pass), `npm run gallery` (serves /gallery/), `npx changeset status`, `scripts/check.sh` and `--fast`, `core.hooksPath` = `.githooks`.
+- 2026-10-12 headless: merge through merge.sh (row: Merge a plan PR that `director/merge.sh` accepts).
