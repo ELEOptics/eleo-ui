@@ -5,8 +5,12 @@ import { niceTicks, niceRange } from "./axis.js";
 
 /* Role to style (ADR-0001). Callers give a role and an index, never a color, font or stroke width. */
 function roleStyle(s) {
-  if (s.role === "reference") return { col: "var(--ink)", dash: "1 3", w: 1 };
-  return { col: idx(s.index || 0), dash: s.role === "sagittal" ? "5 3" : "", w: 1 };
+  var r = s.role, i = s.index === undefined ? 0 : s.index;
+  if (r !== undefined && r !== "tangential" && r !== "sagittal" && r !== "reference" && r !== "limit") throw new TypeError('curve: unknown role "' + r + '"');
+  if (typeof i !== "number" || !isFinite(i) || Math.floor(i) !== i || i < 0) throw new TypeError("curve: index must be a non-negative integer");
+  if (r === "reference") return { col: "var(--ink)", dash: "1 3", w: 1, cap: "round" };
+  if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: 1, cap: "butt" };
+  return { col: idx(i), dash: r === "sagittal" ? "5 3" : "", w: 1, cap: "round" };
 }
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */
@@ -36,7 +40,7 @@ function seriesPath(pts) {
 }
 function seriesMarkup(s, panel) {
   var st = roleStyle(s), pts = s.points || [];
-  var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="round" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
+  var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
   if (panel) return '<path d="' + seriesPath(pts) + '"' + attrs;
   return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;
 }

@@ -485,3 +485,21 @@ test.skip('limit lines and bands round trip (U9)', async () => {
     groups.forEach((pg, p) => check({ ...pg }, { x: x.range, y: y.range }, `${width}px panel ${p}`));
   }
 });
+
+// spec #199
+import { idx } from '../../packages/plots/src/common.js';
+test('unknown roles and bad indexes throw (#199)', () => {
+  const draw = (s) => ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], ...s }], x: { range: [0, 1] }, y: { range: [0, 1] } });
+  for (const role of ['Sagittal', 'ref', '', null, 3]) {
+    assert.throws(() => draw({ role }), { name: 'TypeError', message: `curve: unknown role "${role}"` }, String(role));
+  }
+  for (const index of [-1, 1.5, NaN, Infinity, '0', null]) {
+    assert.throws(() => draw({ index }), { name: 'TypeError', message: 'curve: index must be a non-negative integer' }, String(index));
+  }
+  for (const role of ['tangential', 'sagittal', 'reference', undefined]) assert.doesNotThrow(() => draw({ role, index: 0 }), String(role));
+  const lim = draw({ role: 'limit' });
+  assert.match(lim, /stroke="var\(--ink\)"[^>]*stroke-width="1"[^>]*stroke-linecap="butt"[^>]*stroke-dasharray="6 3 1 3"/);
+  assert.equal(idx(-1), idx(7));
+  assert.equal(idx(-9), idx(7));
+  assert.equal(idx(8), idx(0));
+});
