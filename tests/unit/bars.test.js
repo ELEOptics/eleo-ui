@@ -192,6 +192,7 @@ test('group dividers and title room', () => {
     assert.ok(Math.abs(attr(d, 'y1') - T) <= TOL_PX && Math.abs(attr(d, 'y2') - B) <= TOL_PX, 'spans the frame');
   });
   assert.equal(marks(group, 'line').length, 0, 'no dividers in the data group');
+  assert.ok(svg.indexOf(dots[0]) < svg.indexOf('<g transform="matrix'), 'the dividers come before the data group, so the bars paint over them');
   assert.ok(T >= 10 + 14, `frame top ${T} is at least 14 px under the title baseline`);
   const many = ELEO.bars({ categories: Array.from({ length: 40 }, (_, i) => String(i + 1)), series: [{ values: Array.from({ length: 40 }, () => 1), index: 0 }], total: 'Σ', width: 460, height: 260 });
   const ticks = [...many.matchAll(/<text class="eleo-tick"[^>]*text-anchor="middle">/g)].length - 1;
