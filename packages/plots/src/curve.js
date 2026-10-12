@@ -55,8 +55,10 @@ export function scales(o, groups, panel) {
 }
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
+/* The frame's left and bottom margins in px; bars reads them to place its category labels. */
+export var PLOT_L = 46, PLOT_B = 36;
 export function plotCell(sc, series, w, h, T, panel, body) {
-  var L = 46, Bm = 36, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
+  var L = PLOT_L, Bm = PLOT_B, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var pw = w - L - sc.R, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
   g += '<rect x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="none" stroke="var(--plot-grid)"/>';

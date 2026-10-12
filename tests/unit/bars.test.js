@@ -104,3 +104,22 @@ test('synthetic bars round trip, signed and unsigned', async () => {
   vm.runInNewContext(readFileSync(new URL('../../packages/plots/dist/eleo-plots.js', import.meta.url), 'utf8'), { window: win });
   assert.equal(typeof win.ELEO.bars, 'function', 'window.ELEO.bars');
 });
+
+// Plan #284 #305. oracle: property: a value that is not a finite number draws no rect and is left out of the sum; labels sit at band centres from plotCell's margins.
+test('non-numeric values draw no bar', () => {
+  const svg = ELEO.bars({ categories: ['a', 'b', 'c', 'd'], series: [{ values: [NaN, undefined, true, 0] }], total: 'Σ', y: { label: 'n' }, width: 460, height: 260 });
+  const group = seriesGroup(svg), rects = marks(group, 'rect');
+  assert.equal(rects.length, 2, 'the 0 and the Σ bar');
+  assert.ok(rects.every((r) => r.height === 0), 'both are 0: the skipped values count as nothing');
+  const { L } = frame(svg);
+  const labels = labelsOf(svg).filter((l) => ['a', 'b', 'c', 'd', 'Σ'].includes(l.text));
+  assert.equal(labels.length, 5);
+  labels.forEach((l, k) => {
+    const centre = k < 4 ? k + 0.5 : 4 + 0.5 + 0.5;
+    assert.ok(Math.abs(l.x - L - toPx(group.M, [centre, 0])[0]) <= TOL_PX, `label ${l.text} at its band centre`);
+  });
+  const mixed = ELEO.bars({ categories: ['a', 'b'], series: [{ values: [3, 'x'] }], total: 'Σ', y: { label: 'n' } });
+  const mg = seriesGroup(mixed), mr = marks(mg, 'rect');
+  assert.equal(mr.length, 2, 'the 3 and Σ');
+  assert.equal(mr[1].height, 3, 'Σ leaves the skipped value out');
+});
