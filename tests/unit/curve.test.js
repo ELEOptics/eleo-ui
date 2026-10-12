@@ -9,48 +9,7 @@ import { niceRange } from '../../packages/plots/src/axis.js';
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-const TOL_PX = 0.5;
-const SIZES = [[460, 300], [920, 600]];
-const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/phos-core/${name}.json`, import.meta.url), 'utf8'));
-const nums = (s) => s.trim().split(/[\s,]+/).map(Number);
-
-// The series group: the one `<g transform="matrix(a b c d e f)">` inside the curve's nested <svg>.
-// Its paths are in data coordinates (non-scaling stroke), one per series, in series order.
-function seriesGroup(svg) {
-  const open = /<g\b[^>]*\btransform="matrix\(([^)]*)\)"[^>]*>/.exec(svg);
-  assert.ok(open, 'the SVG has a <g transform="matrix(…)"> holding the series');
-  const end = svg.indexOf('</g>', open.index);
-  const paths = [...svg.slice(open.index, end).matchAll(/<(?:path|polyline)\b[^>]*?\b(?:d|points)="([^"]*)"/g)]
-    .map((m) => { const n = nums(m[1].replace(/[ML]/g, ' ')); const p = []; for (let i = 0; i < n.length; i += 2) p.push([n[i], n[i + 1]]); return p; });
-  return { M: nums(open[1]), paths };
-}
-
-// px = M·data; the inverse recovers data from px.
-const toPx = ([a, b, c, d, e, f], [x, y]) => [a * x + c * y + e, b * x + d * y + f];
-function toData([a, b, c, d, e, f], [px, py]) {
-  const det = a * d - b * c;
-  assert.ok(Math.abs(det) > 0, 'the transform is invertible');
-  return [(d * (px - e) - c * (py - f)) / det, (a * (py - f) - b * (px - e)) / det];
-}
-
-// The plot frame, from the SVG itself: the nested <svg>'s box and the x tick lines with their labels.
-function frame(svg) {
-  const box = /<svg\b[^>]*\bx="([\d.]+)"[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg);
-  assert.ok(box, 'the nested <svg> carries x, width and height');
-  const ticks = [...svg.matchAll(/<line x1="([\d.]+)" y1="[\d.]+" x2="([\d.]+)" y2="[\d.]+" stroke="var\(--plot-grid\)"\/><text class="eleo-tick"[^>]*>([^<]*)<\/text>/g)]
-    .filter((m) => m[1] === m[2]).map((m) => ({ x1: +m[1], tick: Number(m[3].replace(/\u2212/g, '-')) }));
-  return { L: +box[1], pw: +box[2], ph: +box[3], ticks };
-}
-
-// The transform is held to the caller's ranges, not to itself: x.range maps to [0, pw], y.range to [ph, 0], and each drawn x tick sits at its value.
-function assertPinned(M, svg, x, y, msg) {
-  const { L, pw, ph, ticks } = frame(svg);
-  const [x0, y0] = toPx(M, [x.range[0], y.range[0]]), [x1, y1] = toPx(M, [x.range[1], y.range[1]]);
-  assert.ok(Math.hypot(x0 - 0, y0 - ph) <= TOL_PX, `${msg}: range start maps to [0, ${ph}], got [${x0}, ${y0}]`);
-  assert.ok(Math.hypot(x1 - pw, y1 - 0) <= TOL_PX, `${msg}: range end maps to [${pw}, 0], got [${x1}, ${y1}]`);
-  assert.ok(ticks.length >= 2, `${msg}: x tick lines found`);
-  for (const t of ticks) assert.ok(Math.abs(t.x1 - L - toPx(M, [t.tick, y.range[0]])[0]) <= TOL_PX, `${msg}: tick ${t.tick} at its value`);
-}
+import { TOL_PX, SIZES, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned } from './helpers/svg.js';
 
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
@@ -339,4 +298,46 @@ test('x tick labels stay inside the viewBox', () => {
     .map((m) => ({ cx: +m[1], half: 3 * [...m[2]].length }));
   assert.equal(l3.length, 2);
   for (const l of l3) assert.ok(l.cx + l.half <= W + 1e-6, `label centred at ${l.cx} with half-width ${l.half} fits in ${W}`);
+});
+
+// Plan #232, outcome O1 (issue #233; #234 adds curve's panels, #235 fanPanels, #236 unskips).
+// oracle: fixture packages/plots/src/sample.json fans and opdFans (TransverseRayError waits on ELEOptics/phos-core#371; user 2026-10-11), changing U6's oracle for the fans
+// What #234 and #235 must provide: fanPanels(sample, { kind }) in packages/plots/src/fan.js returns { panels, columns, x, y },
+// each panel { title, series: [{ points: [[pupil, value | null], …], index }] } (a null value is a vignetted ray), and
+// curve({ panels, columns, x, y, width, height }) draws one nested <svg> and transform group per panel, a series as a <path>
+// whose `M`/`L` data starts a new subpath after each null.
+test('sample fans round trip through panels (U6)', { skip: '#233: written ahead of #234 (curve panels) and #235 (fanPanels); #236 unskips it' }, async () => {
+  const { fanPanels } = await import('../../packages/plots/src/fan.js');
+  const { default: sample } = await import('../../packages/plots/src/sample.json', { with: { type: 'json' } });
+  for (const kind of ['tra', 'opd']) {
+    const { panels, columns, x, y } = fanPanels(sample, { kind });
+    assert.ok(panels.length >= 2, `${kind}: panels for each row and field`);
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.curve({ panels, columns, x, y, width, height });
+      const groups = panelGroups(svg);
+      assert.equal(groups.length, panels.length, `${kind} ${width}px: one nested <svg> and group per panel`);
+      // Every panel maps the same ranges to its own box: the x range to [0, pw], the y range to [ph, 0].
+      const xr = x.range ?? [-1, 1], yr = y.range;
+      assert.ok(yr, `${kind}: the fans give a y range`);
+      groups.forEach((g, p) => {
+        const [x0, y0] = toPx(g.M, [xr[0], yr[0]]), [x1, y1] = toPx(g.M, [xr[1], yr[1]]);
+        assert.ok(Math.hypot(x0, y0 - g.box.ph) <= TOL_PX && Math.hypot(x1 - g.box.pw, y1) <= TOL_PX, `${kind} ${width}px panel ${p}: the shared ranges map to its box`);
+        assert.equal(g.paths.length, panels[p].series.length, `${kind} ${width}px panel ${p}: one path per series`);
+        panels[p].series.forEach((s, k) => {
+          const live = s.points.filter((pt) => pt[1] !== null);
+          const drawn = g.paths[k].flat();
+          assert.equal(drawn.length, live.length, `${kind} ${width}px panel ${p} series ${k}: every non-null point drawn`);
+          live.forEach((pt, i) => {
+            const back = toData(g.M, toPx(g.M, drawn[i]));
+            const [ex, ey] = toPx(g.M, pt), [gx, gy] = toPx(g.M, back);
+            assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${kind} ${width}px panel ${p} series ${k} point ${i} within ${TOL_PX} px`);
+          });
+          // A null splits the series: one subpath per run of non-null points.
+          let runs = 0, prev = false;
+          for (const pt of s.points) { const on = pt[1] !== null; if (on && !prev) runs++; prev = on; }
+          assert.equal(g.paths[k].length, runs, `${kind} ${width}px panel ${p} series ${k}: a null splits the series into subpaths`);
+        });
+      });
+    }
+  }
 });
