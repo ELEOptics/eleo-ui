@@ -135,10 +135,10 @@ test('spotPanels carries the sample\'s spots', async () => {
     assert.equal(p.airy, sample.airy, 'the Airy radius is the circle');
     assert.deepEqual(p.series.map((s) => s.points), sample.spots[fi], 'a series per wavelength, the sample\'s points');
     assert.deepEqual(p.series.map((s) => s.index), sample.spots[fi].map((_, w) => w));
-    const st = sample.spotStats[fi];
-    assert.deepEqual(p.notes, [`RMS ${st.rms.toFixed(2)} µm`, `GEO ${st.geo.toFixed(2)} µm`]);
+    assert.equal(p.notes, undefined, 'no RMS/GEO notes: the renderer computes them');
   });
   assert.ok(spotPanels(sample, { colorBy: 'field' }).panels.every((p, fi) => p.series.every((s) => s.index === fi)), 'colorBy field: index = field');
+  assert.equal(spotPanels(sample, { showStats: false }).showStats, false, 'showStats passes through');
   assert.equal(spotPanels(sample, { airy: false }).panels[0].airy, undefined, 'airy: false draws no circle');
 });
 

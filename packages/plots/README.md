@@ -85,17 +85,26 @@ el.innerHTML = curve({
 
 ## Spot diagrams
 
-`spot({ data })` draws the sample's spots as before. `spot({ panels })` draws points you give it, one square panel each, with no statistics computed:
+`spot({ data })` draws the sample's spots. `spot({ panels })` draws points you give it, one square panel each. RMS and GEO are computed from each panel's drawn points about the reference:
 
 ```js
 el.innerHTML = spot({
-  panels: [{ title: '1.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], circle: 2.87, notes: ['100 % 6.53 µm'] }],
-  unit: 'µm', scale: 'common',
+  panels: [{ title: '1.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3], [-0.8, 0.5]], index: 0 }], airy: 2.87 }],
+  unit: 'µm', reference: 'centroid',
 });
 ```
 
-- **`panels`:** `{ title?, series: [{ points: [[x, y], ...], index? }], circle?, centroid?, notes? }` each. `index` k takes the k-th series color. `circle` is a radius in data units, centred on the origin; `centroid` is a `[x, y]` you computed, drawn as a cross; `notes` are text lines under the panel. A point that is not two finite numbers is skipped.
-- **`scale`, `half`, `unit`:** `common` (the default) gives every panel one half-width, `half` if given, else the next nice step above the largest coordinate or `circle` of any panel; `auto` fits each panel's points and circle (`half` is ignored). `half` and `circle` each count only when finite and above 0. Each panel is labelled `±half unit`. `width` and `height` size the figure. `label` is the SVG's `aria-label` (default `Spot diagrams`).
+The panel's notes read `RMS 1.09 µm` and `GEO 1.21 µm`, and one caption line under the panels names every active setting:
+
+```
+Reference: centroid · Airy radius 2.87 µm · RMS, GEO about centroid
+```
+
+- **`panels`:** `{ title?, series: [{ points: [[x, y], ...], index? }], airy?, notes? }` each. `index` k takes the k-th series color. `airy` is the diffraction-limit radius in data units, drawn as a circle centred on the origin; `notes` are your own text lines under the panel, after the computed RMS and GEO. A point that is not two finite numbers is skipped.
+- **`origin`, `reference`:** `reference` is `'chief'` (the default: points as given, about the origin) or `'centroid'` (each panel re-centred on the centroid of all its points). `origin` is the label for the `'chief'` reference (default `chief ray`), e.g. `'paraxial chief ray'`; the caption reads `Reference: <origin>`.
+- **`showStats`, `showAiry`:** both default on. `showStats: false` drops the RMS and GEO notes and their caption part. `showAiry: false` hides the Airy circles and their caption part, which names the radius when every panel has the same one and says `Airy circle` otherwise.
+- **`scale`, `half`, `unit`:** `common` (the default) gives every panel one half-width, `half` if given, else the next nice step above the largest coordinate or `airy` of any panel; `auto` fits each panel's points and circle (`half` is ignored). `half` and `airy` each count only when finite and above 0. Each panel is labelled `±half unit`; `unit` also follows the RMS and GEO values and the Airy radius in the caption. `width` and `height` size the figure.
+- **`label`:** the SVG's `aria-label` (default `Spot diagrams`).
 - **Drawing:** each panel is a nested `<svg>` holding one `<g transform="matrix(...)">` in data coordinates, with the same scale on both axes and a non-scaling stroke; inverting the matrix recovers the points. A series is one `<path>` of dots, each `M x,y h0` under a round cap (2.2 px across).
 
 ## Palettes

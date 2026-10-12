@@ -48,20 +48,19 @@ function typedSpot(o) {
   g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15) + '">' + esc("Reference: " + ref + airyCap + (o.showStats !== false ? " · RMS, GEO about " + ref : "")) + "</text>";
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
-/* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`, RMS and GEO as notes. */
+/* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`; RMS and GEO are the renderer's. */
 export function spotPanels(D, o) {
   o = o || {}; var byField = o.colorBy === "field";
   var panels = D.spots.map(function (per, fi) {
-    var st = D.spotStats[fi], p = {
+    var p = {
       title: fmt(D.fields[fi], 1) + "°",
-      series: per.map(function (pts, wi) { return { points: pts, index: byField ? fi : wi }; }),
-      notes: ["RMS " + st.rms.toFixed(2) + " µm", "GEO " + st.geo.toFixed(2) + " µm"]
+      series: per.map(function (pts, wi) { return { points: pts, index: byField ? fi : wi }; })
     };
     if (o.airy !== false) p.airy = D.airy;
     return p;
   });
   var r = { panels: panels, unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height", "origin", "reference", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  ["scale", "half", "width", "height", "origin", "reference", "showStats", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
   return r;
 }
 export function spot(o) {

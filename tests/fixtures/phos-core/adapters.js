@@ -45,22 +45,22 @@
       }
       return { series: [line('tangential', 'tangential'), line('sagittal', 'sagittal')], x: { label: 'Focus shift', unit: 'mm' }, y: yAxis(rec) };
     },
-    /* spot(recording) -> { panels, unit }: one panel per field titled with its angle, a series per wavelength (index k) with
+    /* spot(recording) -> { panels, unit, origin }: one panel per field titled with its angle, a series per wavelength (index k) with
        the points in µm (the recording is in mm), the Airy radius in µm at the reference wavelength and working f-number as
-       the `airy` field, and the polychromatic enclosing radius as a `100 %` note. No RMS or GEO. */
+       the `airy` field, and `origin` naming the reference. No notes: the renderer computes RMS and GEO. */
     spot: function (rec) {
       var fo = rec.firstOrder, N = fo.workingFNumber != null ? fo.workingFNumber : fo.fNumber;
       var airy = globalThis.ELEO.airyRadius(rec.referenceWavelengthNm * 1e-3, N);
       return {
         unit: 'µm',
+        origin: 'paraxial chief ray',
         panels: rec.sources.map(function (s) {
           return {
             title: s.fieldAngleDeg.toFixed(1) + '°',
             series: s.points.map(function (pts, k) {
               return { points: pts.map(function (q) { return [q[0] * 1000, q[1] * 1000]; }), index: k };
             }),
-            airy: airy,
-            notes: ['100 % ' + (s.enclosingRadiusAll * 1000).toFixed(2) + ' µm']
+            airy: airy
           };
         })
       };
