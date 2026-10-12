@@ -9,7 +9,7 @@ import { niceRange } from '../../packages/plots/src/axis.js';
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-import { TOL_PX, SIZES, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned } from './helpers/svg.js';
+import { TOL_PX, SIZES, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
 
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
@@ -119,6 +119,13 @@ test('recorded field curvature and distortion round trip (U6)', async () => {
       });
     }
   }
+});
+
+// Plan #284 #329 (CR from the M2 demo). oracle: property: a single plot's frame top sits at least 14 px under the y-axis title's baseline (y = 10), as bars.test.js checks for bars.
+test('the y-axis title has room above the frame', () => {
+  const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], index: 0 }], x: { label: 'Frequency', unit: 'cy/mm' }, y: { label: 'Modulus' }, width: 460, height: 260 });
+  const T = Number(/<svg\b[^>]*\by="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg)[1]);
+  assert.ok(T >= 10 + 14, 'frame top ' + T + ' is under the title baseline by at least 14 px');
 });
 
 // Plan #162, issue #172: the typed call. Synthetic points, no fixture.
@@ -422,4 +429,175 @@ test('single plot range unchanged by nulls', () => {
   const withNull = ELEO.curve({ ...base, series: [{ points: [[0, 5], [1, null], [2, 7]], index: 0 }] });
   const withZero = ELEO.curve({ ...base, series: [{ points: [[0, 5], [1, 0], [2, 7]], index: 0 }] });
   assert.equal(withNull, withZero, 'a null counts as 0 in the range, as at the base, so the polyline stays inside it');
+});
+
+test('helpers skip a path with no data', () => {
+  const svg = '<svg x="0" width="10" height="10"><g transform="matrix(1 0 0 1 0 0)"><path/><polyline class="s"/></g></svg>';
+  assert.deepEqual(seriesGroup(svg).paths, [], 'a bare <path/> reads as no series');
+  assert.deepEqual(panelGroups(svg)[0].paths, [], 'and in a panel');
+});
+
+// Plan #284, issue #291. oracle: property: synthetic limits recovered through the inverse transform within 0.5 px; an auto range contains every limit; a given range clips them.
+test('limits draw single and paneled', () => {
+  const series = [
+    { points: [[0, 1], [100, 0.6], [200, 0.3], [400, 0.05]], index: 0, role: 'tangential' },
+    { points: [[0, 1], [100, 0.7], [200, 0.4], [400, 0.1]], index: 0, role: 'sagittal' },
+    { points: [[0, 1], [100, 0.5], [400, 0]], index: 1 },
+    { points: [[0, 0.9], [400, 0.2]], index: 1, role: 'sagittal' },
+  ];
+  const limits = [{ y: 0.3, label: 'MTF ≥ 0.3' }, { x: 50 }, { y: [0.3, 0] }];
+  const x = { label: 'f', range: [0, 400] }, y = { label: 'm', range: [0, 1] };
+  const near = (M, v, w, msg) => assert.ok(Math.hypot(...toPx(M, v).map((c, i) => c - toPx(M, w)[i])) <= TOL_PX, msg);
+  const check = (g, msg) => {
+    const lines = marks(g, 'line').filter((l) => l.limit), rects = marks(g, 'rect').filter((r) => r.limit);
+    assert.equal(lines.length, 2, `${msg}: a line per number`);
+    assert.equal(rects.length, 1, `${msg}: a rect per pair`);
+    const h = lines.find((l) => l.y1 === l.y2), v = lines.find((l) => l.x1 === l.x2);
+    near(g.M, [h.x1, h.y1], [0, 0.3], `${msg}: y line at 0.3, from the range start`);
+    near(g.M, [h.x2, h.y2], [400, 0.3], `${msg}: y line to the range end`);
+    near(g.M, [v.x1, v.y1], [50, 0], `${msg}: x line at 50`);
+    near(g.M, [v.x2, v.y2], [50, 1], `${msg}: x line spans y`);
+    near(g.M, [rects[0].x, rects[0].y], [0, 0], `${msg}: band corner`);
+    near(g.M, [rects[0].x + rects[0].width, rects[0].y + rects[0].height], [400, 0.3], `${msg}: band far corner`);
+    const at = [...g.body.matchAll(/<(?:path|polyline)\b/g)].map((m) => m.index);
+    assert.ok(at.length > 0 && g.body.indexOf('<rect') < at[0] && g.body.indexOf('<line') > at.at(-1), `${msg}: band under, lines over`);
+  };
+  for (const [width, height] of SIZES) {
+    let svg = ELEO.curve({ series, x, y, limits, width, height });
+    check(seriesGroup(svg), `${width}px single`);
+    assert.match(svg, /<text class="eleo-tick"[^>]*>MTF ≥ 0.3<\/text>/, 'the label is a text of its own');
+    assert.match(svg, /<line class="eleo-limit"[^>]*stroke="var\(--ink\)"[^>]*stroke-dasharray="6 3 1 3"/, 'a line takes the limit role style');
+    // Auto ranges contain every limit.
+    const { range: _x, ...xa } = x, { range: _y, ...ya } = y;
+    svg = ELEO.curve({ series, x: xa, y: ya, limits: [...limits, { y: 1.6 }, { x: [-20, 500] }], width, height });
+    const f = frame(svg), g = seriesGroup(svg);
+    const [xlo, ylo] = toData(g.M, [0, f.ph]), [xhi, yhi] = toData(g.M, [f.pw, 0]);
+    assert.ok(ylo <= 0 && yhi >= 1.6 && xlo <= -20 && xhi >= 500, `${width}px auto range [${xlo},${xhi}]x[${ylo},${yhi}] contains the limits`);
+    // A given range clips: a limit outside it leaves the range alone and draws no label.
+    svg = ELEO.curve({ series, x, y, limits: [{ y: 9, label: 'far' }], width, height });
+    assertPinned(seriesGroup(svg).M, svg, x, y, `${width}px clipped`);
+    assert.ok(!svg.includes('far'), 'no label outside the range');
+    // Panels: the limits in every panel, through its own transform.
+    const panels = [{ title: 'a', series: series.slice(0, 2) }, { title: 'b', series: series.slice(2) }];
+    svg = ELEO.curve({ panels, columns: 2, x, y, limits, width, height });
+    const groups = panelGroups(svg);
+    assert.equal(groups.length, 2);
+    groups.forEach((pg, p) => check(pg, `${width}px panel ${p}`));
+    assert.equal(svg.split('MTF ≥ 0.3').length - 1, 2, 'a label per panel');
+    // A band partly inside the range keeps its label, at the clamped edge: y at the range top, x at the range start.
+    svg = ELEO.curve({ series, x, y, limits: [{ y: [0.5, 9], label: 'part y' }, { x: [-50, 100], label: 'part x' }], width, height });
+    const gp = seriesGroup(svg), bx = panelGroups(svg)[0].box;
+    const ty = svg.match(/<text class="eleo-tick" x="[^"]*" y="([^"]*)"[^>]*>part y<\/text>/), tx = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"[^>]*>part x<\/text>/);
+    assert.ok(ty && tx, `${width}px: a partly drawn band keeps its label`);
+    assert.ok(Math.abs(+ty[1] - bx.y - toPx(gp.M, [0, 1])[1]) <= TOL_PX, `${width}px: the y band's label sits at the range top`);
+    assert.ok(Math.abs(+tx[1] - 4 - bx.x - toPx(gp.M, [0, 0])[0]) <= TOL_PX, `${width}px: the x band's label sits at the range start`);
+    // An x limit past the plot's midpoint has its label end-anchored left of its line, inside the viewBox.
+    svg = ELEO.curve({ series, x, y, limits: [{ x: 400, label: 'Nyquist 400' }, { x: 50, label: 'early' }], width, height });
+    const ny = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>Nyquist 400<\/text>/), ea = svg.match(/<text class="eleo-tick"([^>]*)>early<\/text>/);
+    assert.ok(ny, `${width}px: the Nyquist label is drawn`);
+    assert.match(ny[2], /text-anchor="end"/, `${width}px: a label past the midpoint is end-anchored`);
+    assert.ok(+ny[1] <= width, `${width}px: the label's anchor is inside the viewBox`);
+    assert.ok(Math.abs(+ny[1] + 4 - panelGroups(svg)[0].box.x - toPx(seriesGroup(svg).M, [400, 0])[0]) <= TOL_PX, `${width}px: the label sits 4 px left of its line`);
+    assert.ok(!/text-anchor/.test(ea[1]), `${width}px: a label before the midpoint keeps the start anchor`);
+    // A band whose left edge is past the midpoint is end-anchored inside the band, at its right edge.
+    svg = ELEO.curve({ series, x, y, limits: [{ x: [280, 360], label: 'late band' }, { x: [300, 900], label: 'late clip' }], width, height });
+    const lb = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>late band<\/text>/), lc = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>late clip<\/text>/);
+    const lx = panelGroups(svg)[0].box.x, lm = seriesGroup(svg).M;
+    assert.ok(lb && lc && /text-anchor="end"/.test(lb[2]), `${width}px: a late band's label is end-anchored`);
+    assert.ok(Math.abs(+lb[1] + 4 - lx - toPx(lm, [360, 0])[0]) <= TOL_PX, `${width}px: a late band's label ends 4 px inside its right edge`);
+    assert.ok(Math.abs(+lc[1] + 4 - lx - toPx(lm, [400, 0])[0]) <= TOL_PX, `${width}px: a clipped late band's label ends at the range end`);
+    // A band wholly outside the range has none.
+    svg = ELEO.curve({ series, x, y, limits: [{ y: [2, 9], label: 'gone' }, { x: [500, 600], label: 'gone' }], width, height });
+    assert.ok(!svg.includes('gone'), 'no label for a band outside the range');
+  }
+  assert.throws(() => ELEO.curve({ kind: 'mtf', limits }), { name: 'TypeError', message: 'curve: limits need series or panels' });
+  assert.ok(!ELEO.curve({ series, x, y }).includes('eleo-limit'), 'no limits, no marks');
+  assert.throws(() => ELEO.curve({ series, x, y, limits: [{ y: [0.5, 0.5] }] }), { name: 'TypeError', message: 'curve: a band needs two distinct ends' });
+  assert.throws(() => ELEO.curve({ series, x, y, limits: [{ x: [3, 3] }] }), { name: 'TypeError', message: 'curve: a band needs two distinct ends' });
+  for (const bad of [5, [null], [{}], [{ x: 1, y: 1 }], [{ y: NaN }], [{ y: [1] }], [{ y: 'a' }], [{ y: 1, label: 3 }]]) {
+    assert.throws(() => ELEO.curve({ series, x, y, limits: bad }), { name: 'TypeError', message: /^curve: / }, JSON.stringify(bad));
+  }
+});
+
+// Plan #284, outcome O2 (issue #290; #294 unskips). oracle: property: synthetic and recorded limits recovered through the inverse transform within 0.5 px; an auto range contains every limit.
+// What the limits items must provide: curve({ series | panels, limits: [{ x? | y?: number | [lo, hi], label? }] }) draws, inside the data-space group, a number as
+// <line class="eleo-limit"> across the plot (x1 y1 x2 y2 in data units) and a pair as <rect class="eleo-limit"> (x y width height in data units), bands before the
+// series and lines after them; a limit's label is px-space text. A limit counts toward an auto range.
+test('limit lines and bands round trip (U9)', async () => {
+  const { marks } = await import('./helpers/svg.js');
+  await import('../fixtures/phos-core/adapters.js');
+  const { series, x, y } = globalThis.ELEOAdapters.mtf(fixture('achromat-mtf'));
+  const limits = [{ y: 0.3, label: 'MTF ≥ 0.3' }, { x: 50 }, { y: [0, 0.3] }];
+  const near = (a, b, M, axis, msg) => assert.ok(Math.abs(toPx(M, axis === 'x' ? [a, 0] : [0, a])[axis === 'x' ? 0 : 1] - toPx(M, axis === 'x' ? [b, 0] : [0, b])[axis === 'x' ? 0 : 1]) <= TOL_PX, msg);
+  // The limit marks of one group: the horizontal line, the vertical line and the band, each recovered through the group's transform.
+  const check = (g, ranges, msg) => {
+    const lines = marks(g, 'line').filter((l) => l.limit), rects = marks(g, 'rect').filter((r) => r.limit);
+    assert.equal(lines.length, 2, `${msg}: a line per number limit`);
+    assert.equal(rects.length, 1, `${msg}: a rect per pair limit`);
+    const h = lines.find((l) => l.y1 === l.y2), v = lines.find((l) => l.x1 === l.x2);
+    assert.ok(h && v, `${msg}: one horizontal and one vertical line`);
+    near(h.y1, 0.3, g.M, 'y', `${msg}: the y line sits at 0.3`);
+    near(v.x1, 50, g.M, 'x', `${msg}: the x line sits at 50`);
+    // Each line crosses the whole plot: its ends lie at or beyond the range ends.
+    const [lo, hi] = ranges.x, [ylo, yhi] = ranges.y;
+    assert.ok(Math.min(h.x1, h.x2) <= lo + 1e-9 && Math.max(h.x1, h.x2) >= hi - 1e-9, `${msg}: the y line spans the x range`);
+    assert.ok(Math.min(v.y1, v.y2) <= ylo + 1e-9 && Math.max(v.y1, v.y2) >= yhi - 1e-9, `${msg}: the x line spans the y range`);
+    near(rects[0].y, 0, g.M, 'y', `${msg}: the band starts at 0`);
+    near(rects[0].y + rects[0].height, 0.3, g.M, 'y', `${msg}: the band ends at 0.3`);
+    assert.ok(rects[0].x <= lo + 1e-9 && rects[0].x + rects[0].width >= hi - 1e-9, `${msg}: the band spans the x range`);
+    // Bands under the series, lines over them.
+    // A single plot draws its series as <polyline>, a panel as <path>.
+    const at = (f) => Math.max(...['<path', '<polyline'].map((t) => g.body[f](t)));
+    const first = [g.body.indexOf('<path'), g.body.indexOf('<polyline')].filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? -1, last = at('lastIndexOf');
+    assert.ok(first >= 0, `${msg}: the series are drawn`);
+    assert.ok(g.body.indexOf('<rect') < first, `${msg}: the band is under the series`);
+    assert.ok(g.body.indexOf('<line') > last, `${msg}: the lines are over the series`);
+  };
+  for (const [width, height] of SIZES) {
+    // Single plot, caller ranges.
+    let svg = ELEO.curve({ series, x, y, limits, width, height });
+    assert.ok(svg.includes('MTF ≥ 0.3'), `${width}px: the limit's label is drawn`);
+    check(seriesGroup(svg), { x: x.range, y: y.range }, `${width}px single`);
+    // Single plot, auto ranges: the range contains every limit, here two beyond the data.
+    const wide = [...limits, { y: 1.6 }, { x: [-20, 400] }];
+    const { range: _x, ...xAuto } = x, { range: _y, ...yAuto } = y;
+    svg = ELEO.curve({ series, x: xAuto, y: yAuto, limits: wide, width, height });
+    const f = frame(svg), g = seriesGroup(svg);
+    const [xlo, ylo] = toData(g.M, [0, f.ph]), [xhi, yhi] = toData(g.M, [f.pw, 0]);
+    assert.ok(ylo <= 0 && yhi >= 1.6, `${width}px auto: the y range [${ylo}, ${yhi}] contains the limits 0 and 1.6`);
+    assert.ok(xlo <= -20 && xhi >= 400, `${width}px auto: the x range [${xlo}, ${xhi}] contains the band -20 to 400`);
+    // Panels: every panel carries the limits, recovered through its own transform.
+    const panels = [];
+    for (let i = 0; i < series.length; i += 2) panels.push({ title: `field ${i / 2}`, series: series.slice(i, i + 2).map((s) => ({ points: s.points, index: s.index })) });
+    assert.ok(panels.length >= 2, 'panels for each field');
+    svg = ELEO.curve({ panels, columns: 2, x, y, limits, width, height });
+    const groups = panelGroups(svg);
+    assert.equal(groups.length, panels.length, `${width}px: one group per panel`);
+    groups.forEach((pg, p) => check({ ...pg }, { x: x.range, y: y.range }, `${width}px panel ${p}`));
+    // Panels, auto ranges: the shared range contains the wide limits too.
+    svg = ELEO.curve({ panels, columns: 2, x: xAuto, y: yAuto, limits: wide, width, height });
+    const pf = frame(svg);
+    panelGroups(svg).forEach((pg, p) => {
+      const [plo, qlo] = toData(pg.M, [0, pf.ph]), [phi, qhi] = toData(pg.M, [pf.pw, 0]);
+      assert.ok(qlo <= 0 && qhi >= 1.6 && plo <= -20 && phi >= 400, `${width}px panel ${p} auto range [${plo},${phi}]x[${qlo},${qhi}] contains the limits`);
+    });
+  }
+});
+
+// spec #199
+import { idx } from '../../packages/plots/src/common.js';
+test('unknown roles and bad indexes throw (#199)', () => {
+  const draw = (s) => ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], ...s }], x: { range: [0, 1] }, y: { range: [0, 1] } });
+  for (const role of ['Sagittal', 'ref', '', null, 3]) {
+    assert.throws(() => draw({ role }), { name: 'TypeError', message: `curve: unknown role "${role}"` }, String(role));
+  }
+  for (const index of [-1, 1.5, NaN, Infinity, '0', null]) {
+    assert.throws(() => draw({ index }), { name: 'TypeError', message: 'curve: index must be a non-negative integer' }, String(index));
+  }
+  for (const role of ['tangential', 'sagittal', 'reference', undefined]) assert.doesNotThrow(() => draw({ role, index: 0 }), String(role));
+  const lim = draw({ role: 'limit' });
+  assert.match(lim, /stroke="var\(--ink\)"[^>]*stroke-width="1"[^>]*stroke-linecap="butt"[^>]*stroke-dasharray="6 3 1 3"/);
+  assert.equal(idx(-1), idx(7));
+  assert.equal(idx(-9), idx(7));
+  assert.equal(idx(8), idx(0));
 });

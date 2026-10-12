@@ -152,8 +152,8 @@ export interface CurveSeries {
   points: [number, number][];
   /** Palette slot: the series color follows idx(index). Default 0. */
   index?: number;
-  /** "tangential" is solid, "sagittal" dashed, "reference" a dotted ink line. Default solid, like tangential. */
-  role?: "tangential" | "sagittal" | "reference";
+  /** "tangential" is solid, "sagittal" dashed, "reference" a dotted ink line, "limit" a dash-dot ink line. The last two ignore `index`. Default solid, like tangential. */
+  role?: "tangential" | "sagittal" | "reference" | "limit";
 }
 export interface CurveAxis {
   /** Drawn as "label, unit". */
@@ -174,11 +174,19 @@ export interface CurvePanel {
   title?: string;
   series: CurvePanelSeries[];
 }
+/** A y limit: a number draws a line across the plot, a pair [lo, hi] a band, in the `limit` style (ADR-0001: a role's style, never a color). */
+export interface PlotLimitY { y: number | [number, number]; x?: never; label?: string }
+/** An x limit, as PlotLimitY on the x axis. `bars` has no x limits: its x axis is categories. */
+export interface PlotLimitX { x: number | [number, number]; y?: never; label?: string }
+/** A limit line or band on a curve: exactly one of x and y. A bad limit throws a TypeError at run time. */
+export type PlotLimit = PlotLimitX | PlotLimitY;
 /** Typed call: you give the series and axes. */
 export interface CurveSeriesProps {
   series: CurveSeries[];
   x?: CurveAxis;
   y?: CurveAxis;
+  /** Limit lines and bands; an auto range contains them. */
+  limits?: PlotLimit[];
   width?: number;
   height?: number;
   kind?: never;
@@ -191,6 +199,8 @@ export interface CurvePanelsProps {
   columns?: number;
   x?: CurveAxis;
   y?: CurveAxis;
+  /** Limit lines and bands, drawn in every panel. */
+  limits?: PlotLimit[];
   width?: number;
   height?: number;
   kind?: never;
@@ -204,8 +214,32 @@ export interface CurveKindProps {
   height?: number;
   series?: never;
   panels?: never;
+  limits?: never;
 }
 export type CurvePlotProps = CurveSeriesProps | CurvePanelsProps | CurveKindProps;
+/** One bar series: a value per category, one palette slot. There is no color option (ADR-0001). */
+export interface BarSeries {
+  /** One value per category, in `y` units; the bar rises from 0, so a negative value hangs below it. A null (or any value that is not a finite number) is a gap: no bar, no share of the total or the range. A series may be shorter than `categories`. */
+  values: (number | null)[];
+  /** Palette slot: the series color follows idx(index). A non-negative integer; default 0. */
+  index?: number;
+  /** Named in the key row under the plot; a series without one has no key. */
+  label?: string;
+}
+/** Signed grouped bars in curve's frame: a group per category, a bar per series. */
+export interface BarPlotProps {
+  categories: string[];
+  series: BarSeries[];
+  /** Appends a group of per-series sums after a gap, labelled with this text. Default none. */
+  total?: string;
+  /** The value axis: `label`, `unit` and `range` apply; `ticks` do too. Default: the nice range of the values, the limits and 0. */
+  y?: CurveAxis;
+  /** y limits only: a category axis has no x value to draw at (an x limit throws). */
+  limits?: PlotLimitY[];
+  /** viewBox size in px. Default 460 by 260. */
+  width?: number;
+  height?: number;
+}
 export interface ELEO {
   /** The sample system, once "@eleoptics/plots/sample" is imported; null before. */
   sample: object | null;
@@ -229,6 +263,7 @@ export interface ELEO {
   rayFan(props?: RayFanProps): string;
   map2D(canvas: HTMLCanvasElement, props?: Map2DProps): { lo: number; hi: number };
   curve(props: CurvePlotProps): string;
+  bars(props: BarPlotProps): string;
   /** One icon as inline SVG. Default style "line", size 16. */
   icon(name: string, props?: { style?: "line" | "glass" | "blueprint"; size?: number; label?: string }): string;
   /** Every icon name and title, by set. */
@@ -242,7 +277,7 @@ export * from './physics.js';
 declare const ELEO: ELEO & typeof Physics;
 export default ELEO;
 export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spot: ELEO['spot'],
-  throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'],
+  throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
   css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
   glassLegend: ELEO['glassLegend'];

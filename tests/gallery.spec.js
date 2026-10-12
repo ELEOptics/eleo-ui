@@ -2,6 +2,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
+// The gallery's tile count.
+const TILES = 20;
+
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
   const svg = el.querySelector('.eleo-plot__body svg');
@@ -24,13 +27,13 @@ test('gallery renders every tile in both themes', async ({ page }) => {
 
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(17);
+    expect(tiles.length).toBe(TILES);
     for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
   }
 });
 
 // #69: a missing merit fixture fails its one tile, not the page. oracle: property, one broken tile doesn't
-// blank the other 16. The 404 and the gallery's own report of it are the expected console errors.
+// blank the others. The 404 and the gallery's own report of it are the expected console errors.
 test('a missing merit fixture blanks only its tile', async ({ page }) => {
   const thrown = [];
   page.on('pageerror', (e) => thrown.push(e.message));
@@ -40,7 +43,7 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
   expect(thrown).toEqual([]);
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(17);
+    expect(tiles.length).toBe(TILES);
     for (const t of tiles) {
       if (t.tile === 'layout2D-shared') expect(t.svgMarks + t.inked, `${theme} merit tile drew`).toBe(0);
       else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
@@ -49,9 +52,9 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 });
 
 // Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
-// tile doesn't blank the other 16. The 404 and the gallery's own report of it are the expected console errors.
-for (const [fixture, broken] of [['mtf', 'mtf'], ['field-curvature', 'fieldCurvature'], ['distortion', 'distortion'], ['spot', 'spot']]) {
-  test(`a missing phos-core fixture blanks only its tile: ${fixture}`, async ({ page }) => {
+// tile doesn't blank the others. The 404 and the gallery's own report of it are the expected console errors.
+for (const [fixture, blanked] of [['mtf', ['mtf', 'mtf-limits']], ['field-curvature', ['fieldCurvature']], ['distortion', ['distortion']], ['spot', ['spot']], ['seidel', ['seidel', 'seidel-terms']]]) {
+  test(`a missing phos-core fixture blanks only its tiles: ${fixture}`, async ({ page }) => {
     const thrown = [];
     page.on('pageerror', (e) => thrown.push(e.message));
     await page.route(`**/achromat-${fixture}.json`, (route) => route.fulfill({ status: 404, body: '' }));
@@ -60,10 +63,10 @@ for (const [fixture, broken] of [['mtf', 'mtf'], ['field-curvature', 'fieldCurva
     expect(thrown).toEqual([]);
     for (const theme of ['light', 'dark']) {
       const tiles = await inkByTile(page, theme);
-      expect(tiles.length).toBe(17);
-      expect(tiles.map((t) => t.tile), `${theme} tile ${broken} exists`).toContain(broken);
+      expect(tiles.length).toBe(TILES);
+      for (const b of blanked) expect(tiles.map((t) => t.tile), `${theme} tile ${b} exists`).toContain(b);
       for (const t of tiles) {
-        if (t.tile === broken) expect(t.svgMarks + t.inked, `${theme} ${broken} tile drew`).toBe(0);
+        if (blanked.includes(t.tile)) expect(t.svgMarks + t.inked, `${theme} ${t.tile} tile drew`).toBe(0);
         else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
       }
     }
@@ -87,7 +90,7 @@ test('a rejected merit fixture blanks only its tile', async ({ page }) => {
   expect(logged.length, 'the gallery logs the rejected drawing').toBeGreaterThan(0);
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(17);
+    expect(tiles.length).toBe(TILES);
     for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
     const merit = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout2D-shared"] [data-svg]`).evaluateAll((els) =>
       Object.fromEntries(els.map((el) => [el.dataset.svg, el.querySelectorAll('svg *').length])));
@@ -106,10 +109,10 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'fieldCurvature', 'distortion', 'spot', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(17);
+    expect(tiles.length).toBe(TILES);
     for (const t of tiles) {
       if (ownData.includes(t.tile)) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
       else expect(t.svgMarks + t.inked, `${theme} sample tile ${t.tile} drew`).toBe(0);

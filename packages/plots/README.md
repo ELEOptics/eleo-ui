@@ -1,6 +1,6 @@
 # @eleoptics/plots
 
-Optical plots for the web, without a framework: lens layouts in 2D and 3D, spot diagrams, ray fans, PSF and wavefront maps, MTF, field curvature, distortion and chromatic focus shift, plus ELEO's optical icons. Geometry is exact and true to scale; colors come from [`@eleoptics/tokens`](https://www.npmjs.com/package/@eleoptics/tokens), so every plot follows the light or dark theme.
+Optical plots for the web, without a framework: lens layouts in 2D and 3D, spot diagrams, ray fans, PSF and wavefront maps, MTF, field curvature, distortion and chromatic focus shift, Seidel sums as signed bars, plus ELEO's optical icons. Geometry is exact and true to scale; colors come from [`@eleoptics/tokens`](https://www.npmjs.com/package/@eleoptics/tokens), so every plot follows the light or dark theme.
 
 ```bash
 npm install @eleoptics/tokens @eleoptics/plots
@@ -17,7 +17,7 @@ map2D(psfCanvas, { data: system, kind: 'psf', scale: 'log' });
 colorbarEl.style.background = gradient('ember');
 ```
 
-- **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `rayFan`, `curve`, `legend`, `icon`) return markup whose colors are CSS variables: one drawing works in both themes. `legend` needs no sample: without one, `field`/`wavelength` draw `n` index keys without values (`F1`.., `λ1`..), and none when `n` is omitted; `ts` and `rays` are unchanged.
+- **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `rayFan`, `curve`, `bars`, `legend`, `icon`) return markup whose colors are CSS variables: one drawing works in both themes. `legend` needs no sample: without one, `field`/`wavelength` draw `n` index keys without values (`F1`.., `λ1`..), and none when `n` is omitted; `ts` and `rays` are unchanged.
 - **Canvas renderers** (`map2D`, `layout3D`) read the variables when they draw: call them again after a theme or palette change.
 - **Data:** pass your traced system as `data`. To try things out, `import '@eleoptics/plots/sample'` makes a traced achromat the default (190 KB, so it is opt-in).
 - **Fonts:** Fira Sans and Fira Code. Load them yourself.
@@ -75,13 +75,57 @@ el.innerHTML = curve({
 });
 ```
 
-- **`series`:** `{ points: [[x, y], ...], index?, role? }` each, drawn in order. `index` k takes the k-th series color. `role`: `tangential` (solid, the default), `sagittal` (dash `5 3`), or `reference` (`--ink`, dash `1 3`; ignores `index`). Every role draws a 1 px stroke.
-- **`x`, `y`:** `{ label, unit?, range?, ticks? }`, drawn as `label, unit`. `range` defaults to the nice range of the data and `ticks` to nice ticks over the range. A range that is not two finite numbers (empty, or with a NaN or infinite end) is dropped and the axis uses the data's nice range; a reversed or zero-width range is widened to a unit either side of its start. Every point is drawn and the plot area clips what lies outside the range.
+- **`series`:** `{ points: [[x, y], ...], index?, role? }` each, drawn in order. `index` k takes the k-th series color. `role`: `tangential` (solid, the default), `sagittal` (dash `5 3`), `reference` (`--ink`, dash `1 3`; ignores `index`), or `limit` (`--ink`, dash `6 3 1 3`; ignores `index`). Every role draws a 1 px stroke. An unknown `role`, or an `index` that is not a non-negative integer, throws a `TypeError`. A single plot's frame starts 26 px from the top, under the y-axis title, as `bars` does.
+- **`x`, `y`:** `{ label, unit?, range?, ticks? }`, drawn as `label, unit`. `range` defaults to the nice range of the data and of the `limits`, and `ticks` to nice ticks over the range. A range that is not two finite numbers (empty, or with a NaN or infinite end) is dropped and the axis uses the data's nice range; a reversed or zero-width range is widened to a unit either side of its start. Every point is drawn and the plot area clips what lies outside the range.
 - **Zero line:** an axis range that straddles 0 draws a line at 0 in `--plot-axis`.
 - **Drawing:** the series sit in a nested `<svg>` that clips them, inside one `<g transform="matrix(...)">` in data coordinates under a non-scaling stroke. Inverting that matrix recovers the data.
-- **`panels`:** `curve({ panels: [{ title?, series }], columns?, x, y, width?, height? })` draws a grid of plots (`columns` defaults to one row) on one x and one y range: the given `range`, else the nice range over every panel's data. Each panel has its own nested `<svg>` and `<g transform="matrix(...)">` in data coordinates, its `title` above it, and the axis labels are drawn once. A series is a `<path>`: a point with a `null`, NaN or infinite coordinate breaks it, and the next point starts a new subpath (`M`); a run of one point is a dot. Without `panels`, a series is a `<polyline>` as before.
+- **`panels`:** `curve({ panels: [{ title?, series }], columns?, x, y, width?, height? })` draws a grid of plots (`columns` defaults to one row) on one x and one y range: the given `range`, else the nice range over every panel's data and the `limits`. Each panel has its own nested `<svg>` and `<g transform="matrix(...)">` in data coordinates, its `title` above it, and the axis labels are drawn once. A series is a `<path>`: a `null` entry, or a point with a `null`, NaN or infinite coordinate, breaks it and doesn't count toward the range, and the next point starts a new subpath (`M`); a run of one point is a dot. Without `panels`, a series is a `<polyline>` as before.
+- **`limits`:** `[{ x | y: number | [lo, hi], label? }]` on a single plot or on `panels` (every panel gets them). A number draws a line across the plot and a pair a band, in the `limit` style (a line `--ink`, dash `6 3 1 3`; a band filled `--ink` at 6 % with no stroke), in the data group: bands under the series as `<rect class="eleo-limit">`, lines over them as `<line class="eleo-limit">`, both in data units. A `label` is `eleo-tick` text at the line's right end (an `x` limit's at the top, end-anchored left of its line when that is past the plot's midpoint); a band's is at its upper edge (an `x` band's at its left, but once its left edge is past the midpoint it ends inside the band at its right edge, clamped to the range), moved to the range edge when the band runs past it, and left out when the limit is outside the range. An auto range contains every limit; a given `range` clips them. A bad limit throws a `TypeError`, a zero-width band (`[a, a]`) among them (`a band needs two distinct ends`; use a number for a line), and so do `limits` with `kind`: `TypeError('curve: limits need series or panels')`.
 - **`rayFan`:** draws the sample's ray fans (`kind: 'opd'` for optical path difference) through `curve`'s `panels`: tangential (`Py`) above sagittal (`Px`), a column per field (`fields` picks them), one shared y range of ±`fullScale` (default: the next step above the largest value). `panelWidth` (default 170) is each plot area's width in px.
 - **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromaticFocus' })` still draws from the sample.
+
+## Bars
+
+`bars` draws signed, grouped bars in `curve`'s frame: a group per category, a bar per series. Pass data, labels and an `index` per series; there is no color, font or width option.
+
+```js
+import { bars } from '@eleoptics/plots';
+el.innerHTML = bars({
+  categories: ['1', '2', '3'],
+  series: [{ values: [0.012, -0.004, 0.001], index: 0, label: 'SI' }],
+  total: 'Σ',
+  y: { label: 'Seidel sum', unit: 'mm' },
+});
+```
+
+- **Bars:** each is a `<rect>` in the data-space `<g transform="matrix(...)">`, in category order then series order, with `y = min(0, v)` and `height = |v|` in data units, so inverting the transform recovers `v`. Category k occupies x from k to k + 1; bars fill 80 % of it.
+- **`total`:** a string appends a group of per-series sums after a half-band gap, labelled with that string.
+- **Limits:** `limits: [{ y: number | [lo, hi], label? }]` draws as in `curve` (the `limit` style: lines `--ink` dash `6 3 1 3`, bands `--ink` at 6 % with no stroke; bands under the bars as `<rect class="eleo-limit">`, lines over them as `<line class="eleo-limit">`, in data units; a `label` at the right end). An auto `y` range contains every limit. An `x` limit throws `TypeError('bars: x limits are not supported')`; so does any bad limit, as in `curve`, a zero-width band included.
+- **Dividers:** a thin solid line (`--plot-grid`, 1 px, no dash) at each boundary between category groups (every k-th boundary, following the labels' "every k-th category" thinning, #314) and midway in the gap before the `total` group, the frame's full height, drawn outside the data-space group, which holds the bars and the limit marks (`class="eleo-limit"`); limit bands are the rects told apart from bars by that class. The dividers come before the plot cell, with the gridlines, so the bars, limit lines and zero line paint over them and the limit labels stay above them.
+- **Range:** `y.range`, else the nice range of the values, the `limits` and 0; a zero line is drawn only when the range straddles 0. When a band is under 14 px, only every k-th category label is drawn, at its band centre.
+- **Key:** one entry for each series with a `label`. The row starts a new line when an entry would pass the frame's right edge, and each extra line takes 14 px from the plot area's height, down to a frame 1 px taller than its margins (a very small drawing stops wrapping and the row runs past the right edge), so every series stays named. An `index` that is not a non-negative integer, or a `null` or non-object entry in `series`, throws a `TypeError`.
+- **Skipped values:** a value that is not a finite number (`NaN`, a string, `undefined`, `true`) draws no rect and is left out of the `total` sum and the range. A series with no finite value still draws a zero-height Σ bar, which keeps the Σ group's order fixed per series.
+
+### Other groupings and subsets
+
+`bars` takes any `categories` and `series`, so grouping and subsetting are your call. Group by Seidel coefficient instead of surface by making the terms the categories and a surface each series. `total` sums per series, so it would add a surface's terms; a total per coefficient is a series you build yourself, here phos-core's recorded totals:
+
+```js
+const surfaces = ['S1', 'S2', 'S3'];  // one name per surface
+const range = [-0.05, 0.05];          // a y range that holds every value of every call
+const terms = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'];
+// v[t][s]: term t at surface s (phos-core's values); sums[t]: its recorded total
+bars({
+  categories: terms,
+  series: [
+    ...surfaces.map((name, s) => ({ label: name, index: s, values: v.map((row) => row[s]) })),
+    { label: 'Σ', index: surfaces.length, values: sums },
+  ],
+  y: { label: 'Seidel sum', unit: 'mm', range },
+});
+```
+
+A subset is the same call with fewer categories or series (`categories: terms.slice(0, 3)`, `series` filtered to two surfaces). Pass the same `y.range` to every call you want to compare: a value then has the same height in each. A value keeps its height across calls only while each call's key fits on one line: a key that wraps takes 14 px per extra line from the plot, even at the same `width` and `height`. Compare at a width where both keys fit.
 
 ## Spot diagrams
 

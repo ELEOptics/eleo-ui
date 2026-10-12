@@ -1,6 +1,6 @@
 # @eleoptics/plots-svelte
 
-Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleoptics/plots): `PlotCard`, `Layout2D`, `Layout3D`, `SpotDiagram`, `RayFan`, `CurvePlot`, `Map2D`, `Icon`, `Legend` and `Colorbar`. Canvas plots redraw when their props, the theme or the palette change.
+Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleoptics/plots): `PlotCard`, `Layout2D`, `Layout3D`, `SpotDiagram`, `RayFan`, `CurvePlot`, `BarPlot`, `Map2D`, `Icon`, `Legend` and `Colorbar`. Canvas plots redraw when their props, the theme or the palette change.
 
 ```bash
 npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
@@ -41,7 +41,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 <Layout2D data={after} {box} {labels} marks={false} label="Layout after optimization" />
 ```
 
-`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal` or `reference`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role draws 1 px, the plot area clips, and a range left out is the nice range of the data. There is no color option:
+`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal`, `reference` or `limit`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role draws 1 px, the plot area clips, and a range left out is the nice range of the data. There is no color option:
 
 ```svelte
 <CurvePlot
@@ -52,7 +52,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 />
 ```
 
-`CurvePlot` also takes `panels` (each with a `title` and `series`) and `columns`: a grid of plots on one shared scale with the axis labels drawn once. `SpotDiagram` takes typed `panels` (`title`, `series` of `points` and `index`, `airy` radius), with `origin`, `reference` (`chief` or `centroid`), `showStats`, `showAiry`, `scale`, `half`, `unit` and `width`; the wrapper's `label` names the figure; without `panels` it draws the sample by `colorBy`. Neither has a color option:
+`CurvePlot` also takes `panels` (each with a `title` and `series`) and `columns`: a grid of plots on one shared scale with the axis labels drawn once. Both take `limits`, `[{ x | y: number | [lo, hi], label? }]`: a number draws a limit line across the plot and a pair a band, in every panel, e.g. `limits={[{ y: 0.5, label: 'spec' }]}`; a range left out grows to contain them. `SpotDiagram` takes typed `panels` (`title`, `series` of `points` and `index`, `airy` radius), with `origin`, `reference` (`chief` or `centroid`), `showStats`, `showAiry`, `scale`, `half`, `unit` and `width`; the wrapper's `label` names the figure; without `panels` it draws the sample by `colorBy`. Neither has a color option:
 
 ```svelte
 <CurvePlot
@@ -64,6 +64,19 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 <SpotDiagram
   panels={[{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }], airy: 2.4 }]}
   origin="chief ray" reference="centroid" unit="µm" half={5}
+/>
+```
+
+`BarPlot` draws signed, grouped bars: a group per category, a bar per series (`values`, `index`, `label`), with `total` appending a group of per-series sums and `y` the value axis (`label`, `unit`, `range`, `ticks`). `limits` pass through as in `CurvePlot`, y only (`[{ y: number | [lo, hi], label? }]`): a category axis has no x value, so an `x` limit throws. `BarPlot` needs `@eleoptics/plots` 0.5.0 or later (`bars`); with an older plots, rendering it throws `BarPlot needs @eleoptics/plots 0.5.0 or later (bars)`, and the other components still work. There is no color option:
+
+```svelte
+<BarPlot
+  categories={['1', '2', '3']}
+  series={[{ values: [0.012, -0.004, 0.001], index: 0, label: 'SI' }]}
+  total="Σ"
+  y={{ label: 'Seidel sum', unit: 'mm' }}
+  limits={[{ y: [-0.005, 0.005], label: 'tolerance' }]}
+  label="Seidel sums"
 />
 ```
 

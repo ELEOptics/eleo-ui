@@ -1,8 +1,8 @@
-/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve and ELEO.spot (plan #162, #174, #179).
+/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve, ELEO.spot and ELEO.bars (plan #162, #174, #179, #284).
    A classic script: the gallery loads it with a <script> tag and the unit tests with import(), so it has no
    import or export and assigns globalThis.ELEOAdapters. */
 (function () {
-  /* The result of source s whose wavelength is nearest the reference: the recorded 656.272 against 656.273 shows
+  /* The result of s (a source, or the recording itself for Seidel) whose wavelength is nearest the reference: the recorded 656.272 against 656.273 shows
      names are not exact. */
   function atRef(rec, s) {
     return s.results.reduce(function (a, r) {
@@ -63,6 +63,32 @@
             airy: airy
           };
         })
+      };
+    },
+    /* seidel(recording) -> { categories, series, total, y }: at the result nearest the reference wavelength, the surface numbers as
+       categories and a series per Seidel term (SI to SV, CL, CT; index 0 to 6) found by key name, in a fixed order. phos-core's total
+       (the last element of each term) is stripped: bars() recomputes the sum from `total`, 'Σ'.
+       seidel(recording, { by: 'term' }) transposes it, as phos would: the terms SI to CT as categories, a series per surface (S1, S2, ...;
+       index 0 to n-1) and a Σ series (index n) of phos-core's recorded totals, with no `total`. The default, by: 'surface', is the above.
+       Any other `by` throws. */
+    seidel: function (rec, opts) {
+      var res = atRef(rec, rec);
+      var terms = [['spherical', 'SI'], ['coma', 'SII'], ['astigmatism', 'SIII'], ['fieldCurvature', 'SIV'], ['distortion', 'SV'], ['axialColor', 'CL'], ['lateralColor', 'CT']];
+      var by = opts && opts.by;
+      if (by !== undefined && by !== 'surface' && by !== 'term') throw new Error("seidel: by must be 'surface' or 'term', got " + String(by));
+      if (by === 'term') {
+        var n = res.terms[terms[0][0]].length - 1;
+        var row = function (k) { return terms.map(function (t) { return res.terms[t[0]][k]; }); };
+        var surfaces = [];
+        for (var k = 0; k < n; k++) surfaces.push({ values: row(k), index: k, label: 'S' + (k + 1) });
+        surfaces.push({ values: row(n), index: n, label: 'Σ' });
+        return { categories: terms.map(function (t) { return t[1]; }), series: surfaces, y: { label: 'Seidel sum', unit: 'mm' } };
+      }
+      return {
+        categories: res.terms[terms[0][0]].slice(0, -1).map(function (_, i) { return String(i + 1); }),
+        series: terms.map(function (t, i) { return { values: res.terms[t[0]].slice(0, -1), index: i, label: t[1] }; }),
+        total: 'Σ',
+        y: { label: 'Seidel sum', unit: 'mm' }
       };
     },
     /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */

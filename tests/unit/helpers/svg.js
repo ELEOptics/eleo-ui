@@ -21,9 +21,11 @@ export function subpaths(d) {
   }
   return out;
 }
-const PATHS = /<(?:path|polyline)\b[^>]*?\b(?:d="([^"]*)"|points="([^"]*)")/g;
+const PATH = /<(?:path|polyline)\b[^>]*?\b(?:d="([^"]*)"|points="([^"]*)")/;
+const LIMIT = /\bclass="eleo-limit"/;
+// Series are the paths that are not limit marks (`class="eleo-limit"`, plan #284): a limit is read by marks().
 function readPaths(body) {
-  return [...body.matchAll(PATHS)].map((m) => (m[1] !== undefined ? subpaths(m[1]) : [subpaths(`M${m[2].trim().replace(/ /g, ' L')}`)[0]]));
+  return [...body.matchAll(/<(?:path|polyline)\b[^>]*>/g)].filter((t) => !LIMIT.test(t[0])).map((t) => PATH.exec(t[0])).filter(Boolean).map((m) => (m[1] !== undefined ? subpaths(m[1]) : [subpaths(`M${m[2].trim().replace(/ /g, ' L')}`)[0]]));
 }
 
 // The series group: the first `<g transform="matrix(a b c d e f)">` inside a curve's nested <svg>.
@@ -32,7 +34,21 @@ export function seriesGroup(svg) {
   const open = /<g\b[^>]*\btransform="matrix\(([^)]*)\)"[^>]*>/.exec(svg);
   assert.ok(open, 'the SVG has a <g transform="matrix(…)"> holding the series');
   const end = svg.indexOf('</g>', open.index);
-  return { M: nums(open[1]), paths: readPaths(svg.slice(open.index, end)).map((p) => p.flat()) };
+  const body = svg.slice(open.index, end);
+  return { M: nums(open[1]), body, paths: readPaths(body).map((p) => p.flat()) };
+}
+
+// The <rect>s or <line>s of a group (seriesGroup's or a panelGroups entry's `body`, or markup itself), each as its numeric attributes
+// plus `limit`: true for a limit mark (`class="eleo-limit"`). Attributes are in the group's data units; non-numeric ones are left out.
+export function marks(group, tag) {
+  assert.ok(tag === 'rect' || tag === 'line', `marks reads <rect> or <line>, not <${tag}>`);
+  const body = typeof group === 'string' ? group : group.body;
+  assert.equal(typeof body, 'string', 'marks takes a group with a body, or markup');
+  return [...body.matchAll(new RegExp(`<${tag}\\b([^>]*?)/?>`, 'g'))].map((m) => {
+    const out = { limit: LIMIT.test(m[1]) };
+    for (const a of m[1].matchAll(/\b([\w-]+)="([^"]*)"/g)) if (a[2].trim() !== '' && Number.isFinite(Number(a[2]))) out[a[1]] = Number(a[2]);
+    return out;
+  });
 }
 
 // Every panel of a paneled plot: its nested <svg> box (x, y, width, height), its transform M, and its paths,
@@ -41,10 +57,12 @@ export function panelGroups(svg) {
   const attr = (tag, k) => { const m = new RegExp(`\\b${k}="([\\d.\\-]+)"`).exec(tag); return m ? +m[1] : NaN; };
   return [...svg.matchAll(/(<svg\b[^>]*>)\s*<g\b[^>]*\btransform="matrix\(([^)]*)\)"[^>]*>/g)].map((m) => {
     const end = svg.indexOf('</g>', m.index);
+    const body = svg.slice(m.index + m[0].length, end);
     return {
+      body,
       box: { x: attr(m[1], 'x'), y: attr(m[1], 'y'), pw: attr(m[1], 'width'), ph: attr(m[1], 'height') },
       M: nums(m[2]),
-      paths: readPaths(svg.slice(m.index + m[0].length, end)),
+      paths: readPaths(body),
     };
   });
 }

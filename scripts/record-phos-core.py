@@ -21,6 +21,10 @@ Copy them as clients/python/README.md describes, or the first Surf with a catalo
 Run from the repo root:
 
     python3 scripts/record-phos-core.py --phos <phos-core>/clients/python/src
+
+--only <analysis> records one analysis alone (so far only `seidel`: SeidelCoefficients, default chromatic lines, per
+wavelength the seven terms per surface with phos-core's total last) and leaves the other fixtures untouched, so a rerun
+at a newer phos-core does not rewrite them. Writes tests/fixtures/phos-core/{achromat,cooke}-seidel.json.
 """
 import argparse
 import json
@@ -142,6 +146,39 @@ def spot(phos, model):
     return out
 
 
+SEIDEL_TERMS = ("spherical", "coma", "astigmatism", "field_curvature", "distortion", "axial_color", "lateral_color")
+
+
+def camel(name):
+    head, *rest = name.split("_")
+    return head + "".join(w.capitalize() for w in rest)
+
+
+def seidel(phos, lens, model, ref_nm, outdir, header):
+    # SeidelCoefficients.results(): one entry per wavelength (the default chromatic lines), each term a list of values per
+    # surface with phos-core's total as the last element.
+    s = phos.SeidelSettings()
+    s.set_system_index(0)
+    run = s.run(model)
+    results = run.results()
+    if not results:
+        sys.exit(f"{lens} seidel: no results")
+    n = None
+    out = []
+    for r in results:
+        terms = {camel(k): [rnd(v) for v in getattr(r, k)] for k in SEIDEL_TERMS}
+        for k, t in terms.items():
+            n = len(t) if n is None else n
+            if len(t) != n or n < 2:
+                sys.exit(f"{lens} seidel {k} at {r.wavelength} um: {len(t)} values, expected the surface count plus one ({n})")
+        out.append({"wavelengthNm": rnd(r.wavelength * 1000), "terms": terms})
+    doc = {**header, "lens": lens, "analysis": "seidel", "referenceWavelengthNm": ref_nm, "lengthUnit": "mm",
+           "kind": "per wavelength, per term one value per surface then phos-core's total", "results": out}
+    path = outdir / f"{lens}-seidel.json"
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    return path
+
+
 def record(phos, lens, model, meta, outdir, header):
     srcs = model.sources(0)
     angles = [rnd(field_angle_deg(s)) for s in srcs]
@@ -174,6 +211,7 @@ def main():
     ap.add_argument("--phos", required=True, help="<phos-core>/clients/python/src")
     default_out = str(ROOT / "tests/fixtures/phos-core")
     ap.add_argument("--out", default=default_out)
+    ap.add_argument("--only", choices=["seidel"], help="record only this analysis; the other fixtures are left as they are")
     args = ap.parse_args()
     sys.path.insert(0, args.phos)
     import phos  # noqa: E402
@@ -181,7 +219,7 @@ def main():
     core = Path(args.phos).resolve().parents[2]
     sha = subprocess.check_output(["git", "-C", str(core), "rev-parse", "HEAD"], text=True).strip()
     header = {"phosCore": {"sha": sha}, "script": "scripts/record-phos-core.py",
-              "args": ["--phos", "<phos>"] + ([] if args.out == default_out else ["--out", "<out>"])}
+              "args": ["--phos", "<phos>"] + ([] if args.out == default_out else ["--out", "<out>"]) + (["--only", args.only] if args.only else [])}
     sample = json.loads((ROOT / "packages/plots/src/sample.json").read_text())
 
     ach = achromat(phos, sample)
@@ -193,12 +231,19 @@ def main():
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
     written = []
+    shown = outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir
     for lens, model in (("achromat", ach), ("cooke", cooke)):
         ref_um = model.system(0).reference_wavelength()
         if ref_um is None:
             sys.exit(f"{lens}: the model has no reference wavelength")
+        if args.only == "seidel":
+            written.append(seidel(phos, lens, model, rnd(ref_um * 1000), outdir, header))
+            continue
         written += list(record(phos, lens, model, {"referenceNm": rnd(ref_um * 1000)}, outdir, header))
-    print(f"wrote {outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir}/{{achromat,cooke}}-{{mtf,field-curvature,distortion,spot}}.json (phos-core {sha[:10]})")
+    if args.only == "seidel":
+        print(f"wrote {shown}/{{achromat,cooke}}-seidel.json (phos-core {sha[:10]})")
+        return
+    print(f"wrote {shown}/{{achromat,cooke}}-{{mtf,field-curvature,distortion,spot}}.json (phos-core {sha[:10]})")
 
 
 if __name__ == "__main__":

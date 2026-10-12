@@ -17,6 +17,7 @@ digits.
 | `<lens>-field-curvature.json` | per source, `results[]` per wavelength: `tangential`, `sagittal` focus shift (mm), `chiefHeight` (mm), `astigmatism` |
 | `<lens>-distortion.json` | per source, `results[]` per wavelength: `realHeight`, `paraxialHeight` (mm), `percent` |
 | `<lens>-spot.json` | SpotDiagram per source (the lens's own sources, as in the MTF file; pupil sampling 32 x 32), per source: `wavelengths` (nm), `points[w]` = `[x, y][]` in mm (the rays alive at the image, so fewer than 32 x 32 where vignetted; relative to the paraxial chief ray at the reference wavelength, the same origin for every wavelength, not the centroid), `enclosingRadius[w]` (smallest enclosing circle, mm) and `enclosingRadiusAll` (polychromatic). No centroid or RMS. Top-level `reference` and `pupilSampling`. About 180 kB (achromat) and 160 kB (Cooke); the gallery fetches the achromat one |
+| `<lens>-seidel.json` | SeidelCoefficients at the default chromatic lines (recorded with `--only seidel`, so at a later phos-core sha than the other files): `results[]` per wavelength (`wavelengthNm`), each with `terms`: `spherical`, `coma`, `astigmatism`, `fieldCurvature`, `distortion`, `axialColor`, `lateralColor` (SI to SV, CL, CT, in that order), each one value per surface then phos-core's total as the last element (mm). No sources or field angles |
 
 The MTF files hold one source per lens field, with the angles read from each source's rotation. The field curvature
 and distortion files hold an 11-source sweep: 11 sources evenly from 0 to the lens's largest field (0 to 2 deg for the
@@ -25,5 +26,7 @@ achromat, 0 to 24 deg for the Cooke), each a `RelativeSource` scaled in directio
 Common keys: `fieldAnglesDeg` (one per source; for the MTF files read from each source's rotation, for the field
 curvature and distortion files the sweep angles), `wavelengthsNm`,
 `referenceWavelengthNm`, `firstOrder` (`efl`, `bfl`, `epd`, `fNumber`, `workingFNumber`, `paraxialImageHeight`, mm),
-`lengthUnit`, `phosCore.sha`, `script`, `args`. phos-core's results give image heights, not angles; each
+`lengthUnit`, `phosCore.sha`, `script`, `args`. The Seidel files carry only `referenceWavelengthNm`, `lengthUnit` and
+the header keys (`phosCore.sha`, `script`, `args`, `lens`, `analysis`, `kind`): no `fieldAnglesDeg`, `wavelengthsNm` or
+`firstOrder`, their wavelengths being in `results[].wavelengthNm`. phos-core's results give image heights, not angles; each
 `sources[i].fieldAngleDeg` is that source's angle (the sweep angle in the field curvature and distortion files).

@@ -2,11 +2,16 @@ import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
+import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
 
 /* Role to style (ADR-0001). Callers give a role and an index, never a color, font or stroke width. */
 function roleStyle(s) {
-  if (s.role === "reference") return { col: "var(--ink)", dash: "1 3", w: 1 };
-  return { col: idx(s.index || 0), dash: s.role === "sagittal" ? "5 3" : "", w: 1 };
+  var r = s.role, i = s.index === undefined ? 0 : s.index;
+  if (r !== undefined && r !== "tangential" && r !== "sagittal" && r !== "reference" && r !== "limit") throw new TypeError('curve: unknown role "' + r + '"');
+  if (typeof i !== "number" || !isFinite(i) || Math.floor(i) !== i || i < 0) throw new TypeError("curve: index must be a non-negative integer");
+  if (r === "reference") return { col: "var(--ink)", dash: "1 3", w: 1, cap: "round" };
+  if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: 1, cap: "butt", fill: "var(--ink)", fillOpacity: 0.06 };
+  return { col: idx(i), dash: r === "sagittal" ? "5 3" : "", w: 1, cap: "round" };
 }
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */
@@ -26,7 +31,7 @@ function axisTicks(a, r) {
 }
 /* Whether a panel point is drawn: not a null entry, no null coordinate, both finite. One rule for the path and the range. */
 function drawn(p) { return !!p && p[0] !== null && p[1] !== null && isFinite(p[0]) && isFinite(p[1]); }
-/* A series as path data in data coordinates: a point with a null or non-finite coordinate ends the run, and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
+/* A series as path data in data coordinates: a null entry, or a point with a null or non-finite coordinate, ends the run (and doesn't count toward the range), and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
 function seriesPath(pts) {
   var d = "", run = [];
   function flush() { if (run.length) d += (d ? " " : "") + "M" + run.join(" L") + (run.length === 1 ? " h0" : ""); run = []; }
@@ -36,26 +41,32 @@ function seriesPath(pts) {
 }
 function seriesMarkup(s, panel) {
   var st = roleStyle(s), pts = s.points || [];
-  var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="round" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
+  var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
   if (panel) return '<path d="' + seriesPath(pts) + '"' + attrs;
   return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;
 }
 /* The ranges and ticks, computed once over every series of every panel, and the right margin they need. */
-function scales(o, groups, panel) {
+export function scales(o, groups, panel) {
   var all = [].concat.apply([], groups.map(function (g) { return g.map(function (s) { return s.points || []; }); })), x = o.x || {}, y = o.y || {};
   /* Panels leave out the points they don't draw; the single plot counts every point, as it always has, so its polyline stays inside the range. */
   var live = function (p) { return !panel || drawn(p); };
-  var xr = axisRange(x, [].concat.apply([], all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
-  var yr = axisRange(y, [].concat.apply([], all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
+  /* `o.limits`, when given, is checkLimits' output: an auto range contains every limit. */
+  var lim = o.limits || [];
+  var xr = axisRange(x, [].concat.apply(limitValues(lim, "x"), all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
+  var yr = axisRange(y, [].concat.apply(limitValues(lim, "y"), all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
   var xt = axisTicks(x, xr), yt = axisTicks(y, yr);
   /* The right margin: 12 px, or half the rightmost shown x label's width (6 px a character, as layout2D estimates) when that is more. */
   var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), R = 12;
   if (shown.length) R = Math.max(R, 3 * Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length);
   return { xr: xr, yr: yr, xt: xt, yt: yt, R: R };
 }
+/* The frame's left and bottom margins in px; bars reads them to place its category labels. */
+export var PLOT_L = 46, PLOT_B = 36, PLOT_T = 26;
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
-function plotCell(sc, series, w, h, T, panel) {
-  var L = 46, Bm = 36, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
+/* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
+/* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
+export function plotCell(sc, series, w, h, T, panel, body, limits) {
+  var L = PLOT_L, Bm = PLOT_B, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var pw = w - L - sc.R, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
   g += '<rect x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="none" stroke="var(--plot-grid)"/>';
@@ -66,27 +77,40 @@ function plotCell(sc, series, w, h, T, panel) {
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
   var M = [sx, 0, 0, -sy, -xr[0] * sx, ph + yr[0] * sy].map(String);
   g += '<svg x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"><g transform="matrix(' + M.join(" ") + ')">';
-  series.forEach(function (s) { g += seriesMarkup(s, panel); });
-  return g + "</g></svg>";
+  if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
+  g += "</g></svg>";
+  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: L + pw, top: T });
+  return g;
+}
+/* The `limit` role's style, as attributes for a line and for a band. */
+export function limitStyle() {
+  var st = roleStyle({ role: "limit" });
+  return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
+}
+/* A series group's markup with the limits: bands under `inner`, lines over it. */
+export function limitBody(limits, sc, inner) {
+  var m = limitMarks(limits, sc.xr, sc.yr, limitStyle());
+  return m.under + inner + m.over;
 }
 function typedCurve(o) {
   var W = o.width || 460, H = o.height || 260, x = o.x || {}, y = o.y || {};
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var labels = function () { return '<text class="eleo-tick" x="' + (W - sc.R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="10">' + lab(y) + "</text>"; };
-  var sc, g = "";
+  var sc, g = "", lim = checkLimits(o.limits, "curve");
+  var cell = function (series, w, h, T, panel) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel); }).join("")), lim); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
     var top = 14, cw = W / cols, ch = (H - top) / rows, T = 22;
-    sc = scales(o, panels.map(function (p) { return p.series || []; }), true);
+    sc = scales({ x: x, y: y, limits: lim }, panels.map(function (p) { return p.series || []; }), true);
     panels.forEach(function (p, i) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
-      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="46" y="' + (T - 6) + '">' + esc(p.title) + "</text>" : "") + plotCell(sc, p.series || [], cw, ch, T, true) + "</g>";
+      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="46" y="' + (T - 6) + '">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true) + "</g>";
     });
     return svg(W, H, g + labels(), lab(y) + " against " + lab(x) + " plot");
   }
-  sc = scales(o, [o.series]);
-  g = plotCell(sc, o.series, W, H, 14, false) + labels();
+  sc = scales({ x: x, y: y, limits: lim }, [o.series]);
+  g = cell(o.series, W, H, PLOT_T, false) + labels();
   return svg(W, H, g, lab(y) + " against " + lab(x) + " plot");
 }
 
@@ -114,6 +138,7 @@ export var curveAdapters = {
 export function curve(o) {
   o = o || {};
   if (o.series || o.panels) return typedCurve(o);
+  if (o.limits != null) throw new TypeError("curve: limits need series or panels");
   var a = curveAdapters[Object.prototype.hasOwnProperty.call(curveAdapters, o.kind || "mtf") ? o.kind || "mtf" : "chromaticFocus"](data(o));
   return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height });
 }

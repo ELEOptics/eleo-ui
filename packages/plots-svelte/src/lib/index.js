@@ -6,6 +6,7 @@ export { default as Layout3D } from './Layout3D.svelte';
 export { default as SpotDiagram } from './SpotDiagram.svelte';
 export { default as RayFan } from './RayFan.svelte';
 export { default as CurvePlot } from './CurvePlot.svelte';
+export { default as BarPlot } from './BarPlot.svelte';
 export { default as Map2D } from './Map2D.svelte';
 export { default as Icon } from './Icon.svelte';
 export { default as Legend } from './Legend.svelte';
