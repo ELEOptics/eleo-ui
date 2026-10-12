@@ -187,7 +187,7 @@ palettes; every other tile unchanged. Proves: O2
 | #327 | CR (review M2 round 4 finding 1): `bars` draws dividers before `plotCell`, dropping the copied px maths | the reviewer's sketch, because it removes two copied functions and an import and adds nothing; considered #325's shape | `packages/plots/src/bars.js`, `packages/plots/README.md`, `tests/unit/bars.test.js` | `bars.test.js::bar limits draw and x limits throw`, `::group dividers and title room` | #326 |
 | #329 | CR #329 (user, M2 demo): a single-plot `curve` leaves room under its y-axis title (frame top 26 px), shared with `bars` as `PLOT_T` | one exported top margin, because the user asked for the same room as the bars title; considered a curve-only constant (user) | `packages/plots/src/curve.js`, `packages/plots/src/bars.js`, `packages/plots/README.md`, `tests/unit/curve.test.js` | `curve.test.js::the y-axis title has room above the frame` | #327 |
 
-### M3: The typed API, the Svelte wrapper, the redraw budget and the release GitHub: `P284 M3: Typed API and release`
+### M3: The typed API, the Svelte wrapper, the redraw budget and the release (done 2026-10-12) GitHub: `P284 M3: Typed API and release`
 
 Demo: `npm run test:unit`: the types test passes a Seidel, a merit-share and a limited curve call and
 rejects a `color` key and an `x` limit on bars; the changesets plan plots and plots-svelte minors. `PERF=1 npx playwright test tests/perf.spec.js` prints the `bars` median at 50 × 7 + total, written into the Change log.
@@ -249,3 +249,5 @@ Proves: O3, O4
 - 2026-10-12 review M3 round 2: 1 blocking. BarPlot imports `bars`, but plots-svelte's peer admits plots 0.4.0, which lacks it. The user chose `peer` over a guard in BarPlot (the manifest is a security trigger, so it was the user's call): CR #332. It holds only if this PR merges before Version Packages (#231); the PR body says so, and the orchestrator re-checks npm's latest plots at plan end. The manifest edit means `merge.sh` will refuse, so the user merges.
 - 2026-10-12 CR #332 stopped: `>=0.5.0 <1` makes `npm ci` fail (`ETARGET: No matching version found for @eleoptics/plots@>=0.5.0 <1`), because the workspace's plots is 0.4.0 until Version Packages runs. User: `later`. #332 adds a guard in `BarPlot` (a named error); the peer range moves in #333 once plots 0.5.0 is on npm. No manifest change in this PR, so `merge.sh` stays possible.
 - 2026-10-12 review M3 round 3: 1 blocking (CR #334, accepted by the orchestrator, with finding 4). Backlog #335 (findings 2, 3) into M3 (headless: backlog into M3, row: milestone acceptance within the plan).
+- 2026-10-12 review M3 round 4: 0 blocking, nothing pulled in; #336 a plain issue. M3 done.
+- 2026-10-12 headless: M3 accepted, every acceptance test has a machine oracle (O3 spec, O4 spec) (row: milestone acceptance within the plan).
