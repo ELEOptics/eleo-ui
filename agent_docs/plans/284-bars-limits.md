@@ -135,7 +135,7 @@ lines and bands on `curve` and `bars`.
 
 ## Milestones
 
-### M1: Seidel bars from the recorded achromat GitHub: `P284 M1: Seidel bars`
+### M1: Seidel bars from the recorded achromat (done 2026-10-12) GitHub: `P284 M1: Seidel bars`
 
 Demo: before the first change, the orchestrator screenshots main's gallery at the plan's base (every tile,
 both themes, standard and both vision palettes) and uploads them with `gh release upload review-assets --clobber` (never committed). At the demo, `npm run gallery` shows the new Seidel tile (the achromat's seven
@@ -208,3 +208,4 @@ Proves: O3, O4
 - 2026-10-12 review M1 round 1: 2 blocking (CRs #303 and #304, accepted by the orchestrator: a non-Core doc and the gallery adapter, with finding 4). Backlog #305 (findings 3, 5) and #306 (finding 6) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
 - 2026-10-12 review M1 round 2: 1 blocking (CR #307, accepted by the orchestrator: a non-Core doc, with backlog findings 3–5 in the same file). Backlog #308 (finding 2) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
 - 2026-10-12 review M1 round 3: 1 blocking (CR #309, accepted by the orchestrator: a non-Core doc, with backlog findings 2, 3, 4, 6 in the same files). Finding 5 (BarPlot in the package lists) added to #297 in M3, which edits the Svelte docs (headless: row: milestone acceptance within the plan).
+- 2026-10-12 review M1 round 4: 0 blocking, nothing pulled in; #310 and #311 stay plain issues (after round 3). M1 done, pending the user's demo (O1's oracle includes `user`).
