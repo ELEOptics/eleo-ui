@@ -146,3 +146,20 @@ test('key row wraps inside the viewBox and null series throw', () => {
   }
   assert.throws(() => ELEO.bars({ categories: ['1'], series: [null] }), { name: 'TypeError', message: 'bars: each series must be an object' });
 });
+
+test('seidel adapter labels by term name', async () => {
+  await import('../fixtures/phos-core/adapters.js');
+  const rec = fixture('achromat-seidel');
+  const names = ['spherical', 'coma', 'astigmatism', 'fieldCurvature', 'distortion', 'axialColor', 'lateralColor'];
+  const labels = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'];
+  const shuffled = structuredClone(rec);
+  shuffled.results = shuffled.results.map((r) => ({ ...r, terms: Object.fromEntries([...names].reverse().map((k) => [k, r.terms[k]])) }));
+  const res = rec.results.reduce((a, r) => (Math.abs(r.wavelengthNm - rec.referenceWavelengthNm) < Math.abs(a.wavelengthNm - rec.referenceWavelengthNm) ? r : a));
+  const { series } = globalThis.ELEOAdapters.seidel(shuffled);
+  names.forEach((k, i) => {
+    const s = series[i];
+    assert.equal(s.label, labels[i], `${k}: labelled ${labels[i]}`);
+    assert.equal(s.index, i, `${k}: index ${i}`);
+    assert.deepEqual(s.values, res.terms[k].slice(0, -1), `${k}: its own values`);
+  });
+});

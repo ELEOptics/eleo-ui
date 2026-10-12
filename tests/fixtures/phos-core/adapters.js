@@ -66,14 +66,14 @@
       };
     },
     /* seidel(recording) -> { categories, series, total, y }: at the result nearest the reference wavelength, the surface numbers as
-       categories and a series per Seidel term (SI to SV, CL, CT; index 0 to 6) in the recording's order. phos-core's total
+       categories and a series per Seidel term (SI to SV, CL, CT; index 0 to 6) found by key name, in a fixed order. phos-core's total
        (the last element of each term) is stripped: bars() recomputes the sum from `total`, 'Σ'. */
     seidel: function (rec) {
-      var res = atRef(rec, rec), labels = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'];
-      var keys = Object.keys(res.terms);
+      var res = atRef(rec, rec);
+      var terms = [['spherical', 'SI'], ['coma', 'SII'], ['astigmatism', 'SIII'], ['fieldCurvature', 'SIV'], ['distortion', 'SV'], ['axialColor', 'CL'], ['lateralColor', 'CT']];
       return {
-        categories: res.terms[keys[0]].slice(0, -1).map(function (_, i) { return String(i + 1); }),
-        series: keys.map(function (k, i) { return { values: res.terms[k].slice(0, -1), index: i, label: labels[i] }; }),
+        categories: res.terms[terms[0][0]].slice(0, -1).map(function (_, i) { return String(i + 1); }),
+        series: terms.map(function (t, i) { return { values: res.terms[t[0]].slice(0, -1), index: i, label: t[1] }; }),
         total: 'Σ',
         y: { label: 'Seidel sum', unit: 'mm' }
       };
