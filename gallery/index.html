@@ -42,6 +42,7 @@
     <section class="eleo-plot" data-tile="layout2D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
     <div class="row">
       <section class="eleo-plot" data-tile="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
+      <section class="eleo-plot" data-tile="seidel"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums, mm</span></div><div class="eleo-plot__body" data-svg="seidel"></div></section>
       <section class="eleo-plot" data-tile="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
     </div>
     <div class="row">
@@ -78,7 +79,7 @@
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
-    // The MTF, field curvature, distortion and spot tiles: the recorded achromat (tests/fixtures/phos-core/README.md)
+    // The MTF, field curvature, distortion, spot and Seidel tiles: the recorded achromat (tests/fixtures/phos-core/README.md)
     // through ELEOAdapters, one fixture each. Filled by fetch() below; if the script or a recording fails, that
     // key stays unset and only its tile draws nothing.
     var REC = {};
@@ -98,6 +99,7 @@
       'merit-after': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('after'); } },
       'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d) { return ELEO.layout2D({ data: d, width: 1000, marks: false }); } },
       'spot': recTile('spot', ELEO.spot),
+      'seidel': recTile('seidel', function (d) { return ELEO.bars(Object.assign({ total: 'Σ' }, d)); }),
       'throughFocus': { need: sampleBox, draw: function () { return ELEO.throughFocus(); } },
       'rayFan': { need: sampleBox, draw: function () { return ELEO.rayFan(); } },
       'rayFan-opd': { need: sampleBox, draw: function () { return ELEO.rayFan({ kind: 'opd' }); } },
@@ -188,7 +190,8 @@
       recorded('mtf', 'mtf', function (d) { REC.mtf = globalThis.ELEOAdapters.mtf(d, { diffraction: true }); }),
       recorded('fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }),
       recorded('distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); }),
-      recorded('spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); })
+      recorded('spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); }),
+      recorded('seidel', 'seidel', function (d) { REC.seidel = globalThis.ELEOAdapters.seidel(d); })
     ]);
     Promise.all([glasses, merit, phos]).then(function () {
       draw();

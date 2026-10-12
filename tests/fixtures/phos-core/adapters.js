@@ -1,8 +1,8 @@
-/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve and ELEO.spot (plan #162, #174, #179).
+/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve, ELEO.spot and ELEO.bars (plan #162, #174, #179, #284).
    A classic script: the gallery loads it with a <script> tag and the unit tests with import(), so it has no
    import or export and assigns globalThis.ELEOAdapters. */
 (function () {
-  /* The result of source s whose wavelength is nearest the reference: the recorded 656.272 against 656.273 shows
+  /* The result of s (a source, or the recording itself for Seidel) whose wavelength is nearest the reference: the recorded 656.272 against 656.273 shows
      names are not exact. */
   function atRef(rec, s) {
     return s.results.reduce(function (a, r) {
@@ -63,6 +63,18 @@
             airy: airy
           };
         })
+      };
+    },
+    /* seidel(recording) -> { categories, series, y }: at the result nearest the reference wavelength, the surface numbers as
+       categories and a series per Seidel term (SI to SV, CL, CT; index 0 to 6) in the recording's order. phos-core's total
+       (the last element of each term) is stripped: bars() recomputes the sum from its `total`. */
+    seidel: function (rec) {
+      var res = atRef(rec, rec), labels = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'];
+      var keys = Object.keys(res.terms);
+      return {
+        categories: res.terms[keys[0]].slice(0, -1).map(function (_, i) { return String(i + 1); }),
+        series: keys.map(function (k, i) { return { values: res.terms[k].slice(0, -1), index: i, label: labels[i] }; }),
+        y: { label: 'Seidel sum', unit: 'mm' }
       };
     },
     /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
