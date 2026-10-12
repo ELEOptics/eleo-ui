@@ -74,3 +74,53 @@ test('recorded spot round trip (U7)', { skip: '#237: written ahead of #238 (spot
     }
   }
 });
+
+// #239: spot({ panels }) on synthetic points (the recorded round trip above waits on #238, #226 and #241).
+test('typed points round trip, common and auto scale', () => {
+  const panels = [
+    { title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3], [-0.7, 0.9]], index: 0 }, { points: [[-2.5, 2.2], [0, 0]], index: 2 }], circle: 2.87, centroid: [0.3, -0.2], notes: ['100 % 6.53 µm'] },
+    { title: '1.0°', series: [{ points: [[8, -12], [-14, 3.5], [Infinity, 1], [5, NaN]], index: 0 }], circle: 2.87, notes: [] },
+    { title: '2.0°', series: [{ points: [[0.1, 0.2]], index: 1 }] },
+  ];
+  for (const scale of ['common', 'auto']) {
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.spot({ panels, scale, unit: 'µm', width, height });
+      const label = `${scale} ${width}px`;
+      const groups = panelGroups(svg);
+      assert.equal(groups.length, panels.length, `${label}: one nested <svg> and group per panel`);
+      const starts = [...svg.matchAll(/<svg\b/g)].map((m) => m.index).slice(1);
+      groups.forEach((g, p) => {
+        const [a, b, c, d] = g.M;
+        assert.ok(Math.abs(b) < 1e-9 && Math.abs(c) < 1e-9, `${label} panel ${p}: no rotation or skew`);
+        assert.ok(Math.abs(Math.abs(a) - Math.abs(d)) <= 1e-9 * Math.abs(a), `${label} panel ${p}: |a| = |d|`);
+        assert.ok(Math.abs(g.box.pw - g.box.ph) < 1e-9, `${label} panel ${p}: a square box`);
+        assert.equal(g.paths.length, panels[p].series.length, `${label} panel ${p}: one path per series`);
+        panels[p].series.forEach((s, k) => {
+          const live = s.points.filter((q) => q.every(Number.isFinite));
+          const drawn = g.paths[k].flat();
+          assert.equal(drawn.length, live.length, `${label} panel ${p} series ${k}: every finite point drawn, no other`);
+          live.forEach((pt, i) => {
+            const [ex, ey] = toPx(g.M, pt), [gx, gy] = toPx(g.M, toData(g.M, toPx(g.M, drawn[i])));
+            assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${label} panel ${p} series ${k} point ${i} within ${TOL_PX} px`);
+            assert.ok(ex >= -TOL_PX && ex <= g.box.pw + TOL_PX && ey >= -TOL_PX && ey <= g.box.ph + TOL_PX, `${label} panel ${p} series ${k} point ${i} inside its box`);
+          });
+        });
+        const body = svg.slice(starts[p], starts[p + 1] ?? svg.length);
+        const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(body);
+        if (panels[p].circle) assert.ok(r && Math.abs(Math.abs(a) * (+r[1] - panels[p].circle)) <= TOL_PX, `${label} panel ${p}: the circle's radius maps to the given radius`);
+        else assert.ok(!r, `${label} panel ${p}: no circle unless given`);
+        const lines = [...body.matchAll(/<line\b[^>]*\bx1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)].map((m) => m.slice(1).map(Number));
+        if (panels[p].centroid) {
+          assert.equal(lines.length, 2, `${label} panel ${p}: a cross of two lines`);
+          const [cx, cy] = panels[p].centroid;
+          lines.forEach(([x1, y1, x2, y2]) => assert.ok(Math.abs((x1 + x2) / 2 - cx) < 1e-9 && Math.abs((y1 + y2) / 2 - cy) < 1e-9, `${label} panel ${p}: the cross is centred on the centroid`));
+        } else assert.equal(lines.length, 0, `${label} panel ${p}: no cross unless given`);
+      });
+      if (scale === 'common') groups.forEach((g, p) => assert.ok(Math.abs(Math.abs(g.M[0]) - Math.abs(groups[0].M[0])) <= 1e-9 * Math.abs(groups[0].M[0]), `${label} panel ${p}: one common scale`));
+      else assert.ok(Math.abs(groups[0].M[0]) > Math.abs(groups[1].M[0]), `${label}: auto fits each panel, the tight one larger`);
+      assert.ok(svg.includes('M0.4,-1.2 h0'), `${label}: dots are M x y h0`);
+      assert.ok(svg.includes('±') && svg.includes('µm') && svg.includes('100 % 6.53 µm') && svg.includes('1.0°'), `${label}: half, unit, title and notes drawn`);
+    }
+  }
+  assert.ok(ELEO.spot({ panels: [panels[2]], scale: 'common', half: 7 }).includes('±7'), 'half overrides the common size');
+});

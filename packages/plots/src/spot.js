@@ -1,9 +1,46 @@
-import { idx, svg } from "./common.js";
+import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
 
+/* The smallest 1, 2, 2.5, 4, 5 or 10 times a power of ten that holds v. */
+function niceHalf(v) {
+  if (!(v > 0) || !isFinite(v)) return 1;
+  var e = Math.pow(10, Math.floor(Math.log10(v))), m = [1, 2, 2.5, 4, 5, 10].find(function (k) { return k * e >= v * (1 - 1e-12); });
+  return m * e;
+}
+var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
+/* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
+function typedSpot(o) {
+  var panels = o.panels, n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
+  var notesMax = Math.max.apply(null, [0].concat(panels.map(function (p) { return (p.notes || []).length; })));
+  var foot = 28 + 15 * notesMax, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
+  if (o.height) side = Math.min(side, o.height - foot - 8);
+  side = Math.max(side, 1);
+  var W = o.width || n * side + (n - 1) * gap, H = o.height || side + 8 + foot, top = 4;
+  var ext = panels.map(function (p) { var m = 0; (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
+  var common = +o.half > 0 ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
+  panels.forEach(function (p, i) {
+    var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common, s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
+    g += '<rect x="' + (ox + .5) + '" y="' + (top + .5) + '" width="' + (side - 1) + '" height="' + (side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
+    g += '<path d="M' + (ox + 6) + "," + (top + cx) + " H" + (ox + side - 6) + " M" + (ox + cx) + "," + (top + 6) + " V" + (top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
+    g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, cx, cx].join(" ") + ')">';
+    (p.series || []).forEach(function (se) {
+      var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
+      g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="2.2" stroke-linecap="round" stroke-opacity=".85" fill-opacity=".85" ' + NS + "/>";
+    });
+    if (p.circle > 0) g += '<circle cx="0" cy="0" r="' + +p.circle + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
+    if (live(p.centroid)) { var c = p.centroid, k = 4 / s; g += '<line x1="' + (c[0] - k) + '" y1="' + c[1] + '" x2="' + (c[0] + k) + '" y2="' + c[1] + '" stroke="var(--ink)" ' + NS + '/><line x1="' + c[0] + '" y1="' + (c[1] - k) + '" x2="' + c[0] + '" y2="' + (c[1] + k) + '" stroke="var(--ink)" ' + NS + "/>"; }
+    g += "</g></svg>";
+    var ty = top + side + 18;
+    g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + +half.toPrecision(6) + unit + "</text>";
+    (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick" x="' + ox + '" y="' + (ty + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
+  });
+  return svg(+W.toFixed(2), +H.toFixed(2), g, "Spot diagrams");
+}
 export function spot(o) {
-  o = o || {}; var D = data(o), colorBy = o.colorBy || "wavelength", scale = o.scale || "common", airy = o.airy !== false;
+  o = o || {};
+  if (o.panels) return typedSpot(o);
+  var D = data(o), colorBy = o.colorBy || "wavelength", scale = o.scale || "common", airy = o.airy !== false;
   var B = 150, gap = 22, n = D.spots.length, W = n * B + (n - 1) * gap, H = B + 58, g = "";
   var common = o.half || Math.max.apply(null, D.spotStats.map(function (s) { return s.geo; }));
   common = [5, 10, 20, 25, 40, 50, 100, 200].find(function (v) { return v >= common; }) || Math.ceil(common);

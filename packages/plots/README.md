@@ -83,6 +83,21 @@ el.innerHTML = curve({
 - **`rayFan`:** draws the sample's ray fans (`kind: 'opd'` for optical path difference) through `curve`'s `panels`: tangential (`Py`) above sagittal (`Px`), a column per field (`fields` picks them), one shared y range of ±`fullScale` (default: the next step above the largest value). `panelWidth` (default 170) is each plot area's width in px.
 - **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromaticFocus' })` still draws from the sample.
 
+## Spot diagrams
+
+`spot({ data })` draws the sample's spots as before. `spot({ panels })` draws points you give it, one square panel each, with no statistics computed:
+
+```js
+el.innerHTML = spot({
+  panels: [{ title: '1.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], circle: 2.87, notes: ['100 % 6.53 µm'] }],
+  unit: 'µm', scale: 'common',
+});
+```
+
+- **`panels`:** `{ title?, series: [{ points: [[x, y], ...], index? }], circle?, centroid?, notes? }` each. `index` k takes the k-th series color. `circle` is a radius in data units, centred on the origin; `centroid` is a `[x, y]` you computed, drawn as a cross; `notes` are text lines under the panel. A point that is not two finite numbers is skipped.
+- **`scale`, `half`, `unit`:** `common` (the default) gives every panel one half-width, `half` if given, else the next nice step above the largest coordinate of any panel; `auto` fits each panel (`half` is ignored). Each panel is labelled `±half unit`. `width` and `height` size the figure.
+- **Drawing:** each panel is a nested `<svg>` holding one `<g transform="matrix(...)">` in data coordinates, with the same scale on both axes and a non-scaling stroke; inverting the matrix recovers the points. A series is one `<path>` of dots, each `M x,y h0` under a round cap (2.2 px across).
+
 ## Palettes
 
 Plots color index 1 to 8 in the standard order. For readers with color vision deficiency, set a palette on the page:
