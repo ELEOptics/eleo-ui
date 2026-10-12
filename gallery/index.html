@@ -58,6 +58,7 @@
     </div>
     <div class="row">
       <section class="eleo-plot" data-tile="mtf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF</span></div><div class="eleo-plot__body" data-svg="mtf"></div></section>
+      <section class="eleo-plot" data-tile="mtf-limits"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF, requirement limits</span></div><div class="eleo-plot__body" data-svg="mtf-limits"></div></section>
       <section class="eleo-plot" data-tile="fieldCurvature"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">field curvature</span></div><div class="eleo-plot__body" data-svg="fieldCurvature"></div></section>
       <section class="eleo-plot" data-tile="distortion"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">distortion</span></div><div class="eleo-plot__body" data-svg="distortion"></div></section>
       <section class="eleo-plot" data-tile="chromaticFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">chromatic focus</span></div><div class="eleo-plot__body" data-svg="chromaticFocus"></div></section>
@@ -102,12 +103,15 @@
       'merit-after': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('after'); } },
       'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d) { return ELEO.layout2D({ data: d, width: 1000, marks: false }); } },
       'spot': recTile('spot', ELEO.spot),
-      'seidel': recTile('seidel', ELEO.bars),
+      // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
+      'seidel': recTile('seidel', function (d) { return ELEO.bars(Object.assign({}, d, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', ELEO.bars),
       'throughFocus': { need: sampleBox, draw: function () { return ELEO.throughFocus(); } },
       'rayFan': { need: sampleBox, draw: function () { return ELEO.rayFan(); } },
       'rayFan-opd': { need: sampleBox, draw: function () { return ELEO.rayFan({ kind: 'opd' }); } },
       'mtf': recTile('mtf', ELEO.curve),
+      // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
+      'mtf-limits': recTile('mtf', function (d) { return ELEO.curve(Object.assign({}, d, { limits: [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }] })); }),
       'fieldCurvature': recTile('fieldCurvature', ELEO.curve),
       'distortion': recTile('distortion', ELEO.curve),
       'chromaticFocus': { need: sampleBox, draw: function () { return ELEO.curve({ kind: 'chromaticFocus' }); } }
