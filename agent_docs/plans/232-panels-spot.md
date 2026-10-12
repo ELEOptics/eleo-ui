@@ -186,6 +186,7 @@ fixture blanks only that tile. Proves: O2
 | #265 | CR (review M2 round 2 findings 1, 3): `label` escaped; a non-finite `circle` ignored | the findings' named fixes in one item, because both are `spot.js` input guards; considered escaping in `common.js`'s `svg()` (every renderer's label, outside M2's files) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::typed spot hardening` extended | #261 |
 | #266 | CR (finding 2): the README's half rule names the circle | forced (stale doc since #260) | `packages/plots/README.md` | none: doc only | #265 |
 | #267 | Backlog (review M2 round 3 finding 1): a non-finite `half` is ignored | the finding's named fix, as #265 did for `circle`; considered clamping to a maximum (an arbitrary bound) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::typed spot hardening` extended | #265 |
+| #268 | CR (#267's worker, stale doc): the README says `half` counts only when finite | forced (stale doc since #267) | `packages/plots/README.md` | none: doc only | #267 |
 
 ### M3: The typed API, the redraw budget and the release GitHub: `P232 M3: Typed API and release`
 
@@ -233,3 +234,4 @@ Proves: O3, O4
 - 2026-10-11 CR #264 (accepted, orchestrator: a non-Core doc): the README's spot section, stale since #261. `index.d.ts`'s `label?` on `SpotDiagramProps` goes into #243 (Core, approved with the plan's typed spot props).
 - 2026-10-12 review M2 round 2: 2 blocking (CRs #265, with backlog finding 3, and #266, accepted by the orchestrator: an input guard in the milestone's file and a non-Core doc).
 - 2026-10-12 review M2 round 3: 0 blocking. Backlog #267 into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
+- 2026-10-12 CR #268 (accepted, orchestrator: a non-Core doc): the README's half rule, stale since #267.
