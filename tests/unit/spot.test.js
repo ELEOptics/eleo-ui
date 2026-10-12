@@ -124,3 +124,25 @@ test('typed points round trip, common and auto scale', () => {
   }
   assert.ok(ELEO.spot({ panels: [panels[2]], scale: 'common', half: 7 }).includes('±7'), 'half overrides the common size');
 });
+
+// #240: spot() on the sample is the adapter spotPanels(sample, o) and then the typed path.
+// oracle: reference packages/plots/src/sample.json: points, Airy radius and stats are the sample's.
+test('spotPanels carries the sample\'s spots', async () => {
+  const { spotPanels } = await import('../../packages/plots/src/spot.js');
+  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const o = spotPanels(sample, { scale: 'auto', half: 7 });
+  assert.equal(o.unit, 'µm');
+  assert.equal(o.scale, 'auto');
+  assert.equal(o.half, 7);
+  assert.equal(o.panels.length, sample.spots.length, 'a panel per field');
+  o.panels.forEach((p, fi) => {
+    assert.equal(p.title, `${sample.fields[fi].toFixed(1)}°`);
+    assert.equal(p.circle, sample.airy, 'the Airy radius is the circle');
+    assert.deepEqual(p.series.map((s) => s.points), sample.spots[fi], 'a series per wavelength, the sample\'s points');
+    assert.deepEqual(p.series.map((s) => s.index), sample.spots[fi].map((_, w) => w));
+    const st = sample.spotStats[fi];
+    assert.deepEqual(p.notes, [`RMS ${st.rms.toFixed(2)} µm`, `GEO ${st.geo.toFixed(2)} µm`]);
+  });
+  assert.ok(spotPanels(sample, { colorBy: 'field' }).panels.every((p, fi) => p.series.every((s) => s.index === fi)), 'colorBy field: index = field');
+  assert.equal(spotPanels(sample, { airy: false }).panels[0].circle, undefined, 'airy: false draws no circle');
+});

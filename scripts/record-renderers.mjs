@@ -20,7 +20,6 @@ export function draws() {
     'merit-before': () => merit(before),
     'merit-after': () => merit(after),
     'layout2D-glasses': () => ELEO.layout2D({ data: glasses, width: 1000, marks: false }),
-    'spot': () => ELEO.spot(),
     'throughFocus': () => ELEO.throughFocus(),
     'legend-field': () => ELEO.legend('field'),
     'legend-wavelength': () => ELEO.legend('wavelength'),

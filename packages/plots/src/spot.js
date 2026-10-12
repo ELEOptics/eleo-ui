@@ -37,26 +37,25 @@ function typedSpot(o) {
   });
   return svg(+W.toFixed(2), +H.toFixed(2), g, "Spot diagrams");
 }
+/* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as the circle, RMS and GEO as notes. */
+export function spotPanels(D, o) {
+  o = o || {}; var byField = o.colorBy === "field";
+  var panels = D.spots.map(function (per, fi) {
+    var st = D.spotStats[fi], p = {
+      title: fmt(D.fields[fi], 1) + "°",
+      series: per.map(function (pts, wi) { return { points: pts, index: byField ? fi : wi }; }),
+      notes: ["RMS " + st.rms.toFixed(2) + " µm", "GEO " + st.geo.toFixed(2) + " µm"]
+    };
+    if (o.airy !== false) p.circle = D.airy;
+    return p;
+  });
+  var r = { panels: panels, unit: "µm" };
+  ["scale", "half", "width", "height"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  return r;
+}
 export function spot(o) {
   o = o || {};
-  if (o.panels) return typedSpot(o);
-  var D = data(o), colorBy = o.colorBy || "wavelength", scale = o.scale || "common", airy = o.airy !== false;
-  var B = 150, gap = 22, n = D.spots.length, W = n * B + (n - 1) * gap, H = B + 58, g = "";
-  var common = o.half || Math.max.apply(null, D.spotStats.map(function (s) { return s.geo; }));
-  common = [5, 10, 20, 25, 40, 50, 100, 200].find(function (v) { return v >= common; }) || Math.ceil(common);
-  D.spots.forEach(function (per, fi) {
-    var half = scale === "auto" ? ([5, 10, 20, 25, 40, 50, 100, 200].find(function (v) { return v >= D.spotStats[fi].geo; }) || common) : common;
-    var s = (B / 2) / half, ox = fi * (B + gap), cx = ox + B / 2, cy = B / 2 + 4;
-    g += '<rect x="' + (ox + .5) + '" y="4.5" width="' + (B - 1) + '" height="' + (B - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
-    g += '<path d="M' + (ox + 6) + "," + cy + " H" + (ox + B - 6) + " M" + cx + ",10 V" + (B - 2) + '" stroke="var(--plot-grid)"/>';
-    per.forEach(function (pts, wi) { var col = colorBy === "field" ? idx(fi) : idx(wi); pts.forEach(function (p) { g += '<circle cx="' + (cx + p[0] * s).toFixed(1) + '" cy="' + (cy - p[1] * s).toFixed(1) + '" r="1.1" fill="' + col + '" fill-opacity=".85"/>'; }); });
-    if (airy) g += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (D.airy * s).toFixed(2) + '" fill="none" stroke="var(--ink)" stroke-width=".8"/>';
-    var st = D.spotStats[fi];
-    g += '<text class="eleo-val" x="' + ox + '" y="' + (B + 22) + '">' + fmt(D.fields[fi], 1) + '°</text><text class="eleo-tick" x="' + (ox + B) + '" y="' + (B + 22) + '" text-anchor="end">±' + half + ' µm</text>';
-    g += '<text class="eleo-tick" x="' + ox + '" y="' + (B + 37) + '">RMS <tspan class="eleo-val">' + st.rms.toFixed(2) + '</tspan> µm</text>';
-    g += '<text class="eleo-tick" x="' + ox + '" y="' + (B + 51) + '">GEO <tspan class="eleo-val">' + st.geo.toFixed(2) + '</tspan> µm</text>';
-  });
-  return svg(W, H, g, "Spot diagrams, colored by " + colorBy);
+  return typedSpot(o.panels ? o : spotPanels(data(o), o));
 }
 export function throughFocus(o) {
   o = o || {}; var D = data(o), T = D.throughFocus, B = 92, gap = 10, lw = 44, th = 22;

@@ -218,7 +218,7 @@ test('palette switch recolors both themes', async ({ page }) => {
       const col = page.locator(`.theme[data-theme="${theme}"]`);
       const got = await col.evaluate((el, fields) => {
         const probe = (v) => { const p = document.createElement('i'); p.style.color = `var(${v})`; el.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
-        const fill = (k) => { const c = el.querySelector(`[data-tile="spot"] circle[fill^="var(--series-${k}"]`); return c && getComputedStyle(c).fill; };
+        const fill = (k) => { const c = el.querySelector(`[data-tile="spot"] path[stroke^="var(--series-${k}"]`); return c && getComputedStyle(c).stroke; };
         return { fills: [fill(1), fill(2)], expected: fields.map((n) => probe(`--field-${n}`)) };
       }, fields);
       expect(got.fills, `${label}, ${theme} column: spot index 1 and 2`).toEqual(got.expected);
