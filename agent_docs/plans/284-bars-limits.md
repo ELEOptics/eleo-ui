@@ -164,7 +164,7 @@ unchanged. Proves: O1
 | #318 | CR #315: gallery Seidel tile grouped by coefficient (`ELEOAdapters.seidel(rec, { by: 'term' })`); `TILES` 19 | an adapter option, because the transposition is the caller's (U11); considered a second fixture (same data) (user: "tile") | `tests/fixtures/phos-core/adapters.js`, `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js::a missing phos-core fixture blanks only its tiles: seidel` (both Seidel tiles); counts at 19 | #317 |
 | #319 | CR (review M1 round 7 finding 1, with 2–4): the README's subsets wording; the adapter's `by` strict and its by-term output tested; the example's names defined | the findings' named fixes in one item, because all are #317/#318's docs, adapter and test; considered four items | `packages/plots/README.md`, `tests/fixtures/phos-core/adapters.js`, `tests/unit/bars.test.js` | `bars.test.js::recorded Seidel grouped by coefficient and as a subset` extended | #318 |
 
-### M2: Limit lines and bands GitHub: `P284 M2: Limits`
+### M2: Limit lines and bands (done 2026-10-12) GitHub: `P284 M2: Limits`
 
 Demo: `npm run gallery`: a new MTF requirement tile (the recorded achromat MTF with `MTF ≥ 0.3` as a line,
 50 cycles/mm as a line and the failing band below 0.3) and the Seidel tile with a limit, in both themes and
@@ -235,3 +235,4 @@ Proves: O3, O4
 - 2026-10-12 review M2 round 3: 0 blocking. Backlog #325 (findings 1–3) into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
 - 2026-10-12 CR #326 (accepted, orchestrator: a non-Core doc): the README's limit bullets, stale since #325.
 - 2026-10-12 review M2 round 4: 1 blocking (CR #327, accepted by the orchestrator: necessity, in #325's files); #328 (finding 2, after round 3) a plain issue.
+- 2026-10-12 review M2 round 5: 0 blocking, nothing pulled in. M2 done, pending the user's demo (O2's oracle includes `user`).
