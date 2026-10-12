@@ -17,7 +17,7 @@ import { TOL_PX, SIZES, fixture, panelGroups, toPx, toData } from './helpers/svg
 //  - #239: ELEO.spot({ panels, scale, half, unit, width, height }) draws one nested <svg> and matrix <g> per panel; each series is
 //    one <path> of `M x y h0` dots in the group's data coordinates, and a panel's `circle` is a <circle r="…"> in that group
 //    (r in data units, centred on the origin, inside the matrix <g>). scale 'common' gives every panel one scale, 'auto' fits each.
-test('recorded spot round trip (U7)', { skip: '#237: written ahead of #238 (spot fixtures), #239 (spot panels) and #226 (ELEOAdapters.spot); #241 unskips it' }, async () => {
+test('recorded spot round trip (U7)', async () => {
   await import('../fixtures/phos-core/adapters.js');
   const { ELEOAdapters } = globalThis;
   assert.ok(ELEOAdapters && typeof ELEOAdapters.spot === 'function', 'adapters.js assigns globalThis.ELEOAdapters.spot');
