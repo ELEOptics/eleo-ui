@@ -123,3 +123,26 @@ test('non-numeric values draw no bar', () => {
   assert.equal(mr.length, 2, 'the 3 and Σ');
   assert.equal(mr[1].height, 3, 'Σ leaves the skipped value out');
 });
+
+// Plan #284 #307. oracle: property: every series stays named and inside the viewBox; one key line at 460 px keeps the old height; a null series throws.
+test('key row wraps inside the viewBox and null series throw', () => {
+  const labels = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'];
+  const series = labels.map((label, index) => ({ values: [1, -2], index, label }));
+  const keys = (svg) => [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="8" height="8"[^>]*\/><text class="eleo-tick" x="([\d.]+)" y="([\d.]+)">([^<]*)<\/text>/g)]
+    .map((m) => ({ x: Number(m[1]), y: Number(m[2]), tx: Number(m[3]), text: m[5] }));
+  for (const [width, height] of [[240, 260], [460, 260]]) {
+    const svg = ELEO.bars({ categories: ['1', '2'], series, y: { label: 'n' }, width, height });
+    const k = keys(svg);
+    assert.deepEqual(k.map((e) => e.text), labels, `${width}px: every series is named`);
+    for (const e of k) {
+      assert.ok(e.tx + 6 * e.text.length <= width, `${width}px: ${e.text} ends inside the viewBox`);
+      assert.ok(e.y >= 0 && e.y + 8 <= height, `${width}px: ${e.text} sits inside the height`);
+    }
+    const rows = new Set(k.map((e) => e.y)).size;
+    if (width === 460) {
+      assert.equal(rows, 1, 'one key line at 460 px');
+      assert.equal(k[0].y, height - 12, 'the single line is where it was');
+    } else assert.ok(rows > 1, '240 px wraps to a second line');
+  }
+  assert.throws(() => ELEO.bars({ categories: ['1'], series: [null] }), { name: 'TypeError', message: 'bars: each series must be an object' });
+});
