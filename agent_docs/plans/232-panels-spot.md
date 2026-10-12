@@ -162,7 +162,7 @@ beside their baselines, every other tile unchanged. Proves: O1
 | #255 | Backlog (review M1 round 2 findings 1-3): a non-array range falls back; `plotCell`'s comment; dead conditions dropped | the findings' named fixes in one item, because all are `curve.js` and none changes valid output; considered three items | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::a non-numeric range falls back to the data (#207)` with non-arrays | #252 |
 | #256 | Backlog (review M1 round 3 findings 1, 3): panel points not drawn don't set the range; a null entry breaks | one `drawn(p)` rule for the path and the range, because the two had drifted; considered two separate checks | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::non-finite points break panel series` extended | #255 |
 
-### M2: Spot on typed points from the recorded SpotDiagram GitHub: `P232 M2: Spot on typed points`
+### M2: Spot on typed points from the recorded SpotDiagram (done 2026-10-12) GitHub: `P232 M2: Spot on typed points`
 
 Demo: `npm run gallery`: the spot tile draws the recorded achromat (three fields, colored by wavelength), the Airy
 circle, RMS and GEO about the reference in each panel's notes, and a caption naming each setting (`Reference: paraxial
@@ -246,3 +246,4 @@ Proves: O3, O4
 - 2026-10-12 review M2 round 5 (after CR #270): 2 blocking. CR #275 (finding 1, accepted by the orchestrator) folds in findings 3–8, which bear on the user's "clear labels"; finding 2 (O2 and the M2 demo line predated CR #270) corrected here.
 - 2026-10-12 review M2 round 6: 1 blocking (CR #276, accepted by the orchestrator), findings 2–4 folded in (the same caption code, as in round 5).
 - 2026-10-12 review M2 round 7: 1 blocking (CR #277, accepted by the orchestrator), findings 2–4 folded in.
+- 2026-10-12 review M2 round 8: 0 blocking, nothing pulled in; #278 stays a plain issue. M2 done again after CR #270, pending the user's demo.
