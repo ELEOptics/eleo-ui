@@ -1,6 +1,6 @@
 # Plan #232: Paneled curves for the fans, and spot on typed points
 
-Status: approved 2026-10-11
+Status: done 2026-10-12
 Branch: `plan/232-panels-spot` PR: #247 Depends on: plan #162 (done) Roadmap: `agent_docs/roadmap.md`, row E
 
 ## Problem
@@ -194,7 +194,7 @@ only that tile. Proves: O2
 | #276 | CR (review M2 round 6 finding 1, with 2–4): a one-panel figure fits its caption; `Airy circle` unless every panel shares a radius; RMS and GEO at 3 significant digits; a small height grows | widen to the longest caption line at 6 px a character (layout2D's estimate), because the caption must stay inside without text measurement; considered shortening the origin label (the user asked for clear labels) | `packages/plots/src/spot.js` | `spot.test.js::caption lines and stats labels` extended | #275 |
 | #277 | CR (review M2 round 7 finding 1, with 2–4): one number formatter for RMS, GEO and the Airy radius (no exponents); the README's sizing sentence; a one-panel margin checked in the browser | 3 significant digits below 1000 and whole numbers above, because exponents are not clear labels (CR #270); considered `toFixed(2)` everywhere (round 5's `0.00 mm`) | `packages/plots/src/spot.js`, `packages/plots/README.md`, `tests/gallery.spec.js` | `spot.test.js::caption lines and stats labels`, `gallery.spec.js::spot caption stays inside the viewBox` extended | #276 |
 
-### M3: The typed API, the redraw budget and the release GitHub: `P232 M3: Typed API and release`
+### M3: The typed API, the redraw budget and the release (done 2026-10-12) GitHub: `P232 M3: Typed API and release`
 
 Demo: `npm run test:unit`: the types test passes a typed panel and spot call and rejects a `color` key; the
 changeset plans a plots minor. `PERF=1 npx playwright test tests/perf.spec.js` prints the medians for `curve`
@@ -257,3 +257,7 @@ Proves: O3, O4
 - 2026-10-12 review M3 round 1: 1 blocking (CR #279, accepted by the orchestrator, with finding 5). Backlog #280 (findings 2–4) into M3 (headless: backlog into M3, row: milestone acceptance within the plan); #281 (finding 6, optional) a plain issue.
 - 2026-10-12 review M3 round 2: 1 blocking (CR #282, accepted by the orchestrator, with finding 2).
 - 2026-10-12 review M3 round 3: 1 blocking (CR #283, accepted by the orchestrator): #282 documented the centroid default on `SpotPanelsProps` instead of `SpotSampleProps`; the orchestrator committed it without reading the diff.
+- 2026-10-12 review M3 round 4: 0 blocking. M3 done.
+- 2026-10-12 headless: M3 accepted (row: Choose, add or reorder rows (`/roadmap next`), milestone acceptance within the plan): its oracles are machine (types spec, changeset spec, U14 measurement).
+- 2026-10-12: CLAUDE.md commands re-verified: `npm ci && npm run build`, `npm run test:unit`, `npx playwright test` and `scripts/check.sh` (the full gate, green on the pushed head), `scripts/check.sh --fast` (each item), `npm run gallery` (`node gallery/serve.mjs`, served every screenshot), `npx changeset status` (plots minor), `core.hooksPath` is `.githooks`.
+- 2026-10-12 headless: merge through merge.sh (row: Merge a plan PR that `director/merge.sh` accepts).
