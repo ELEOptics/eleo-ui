@@ -10,7 +10,7 @@ function roleStyle(s) {
   if (r !== undefined && r !== "tangential" && r !== "sagittal" && r !== "reference" && r !== "limit") throw new TypeError('curve: unknown role "' + r + '"');
   if (typeof i !== "number" || !isFinite(i) || Math.floor(i) !== i || i < 0) throw new TypeError("curve: index must be a non-negative integer");
   if (r === "reference") return { col: "var(--ink)", dash: "1 3", w: 1, cap: "round" };
-  if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: 1, cap: "butt" };
+  if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: 1, cap: "butt", fill: "var(--ink)", fillOpacity: 0.06 };
   return { col: idx(i), dash: r === "sagittal" ? "5 3" : "", w: 1, cap: "round" };
 }
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
@@ -82,14 +82,14 @@ export function plotCell(sc, series, w, h, T, panel, body, limits) {
   if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: L + pw, top: T });
   return g;
 }
-/* The `limit` role's stroke, as attributes for a line. */
-export function limitStroke() {
+/* The `limit` role's style, as attributes for a line and for a band. */
+export function limitStyle() {
   var st = roleStyle({ role: "limit" });
-  return 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"';
+  return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
 }
 /* A series group's markup with the limits: bands under `inner`, lines over it. */
 export function limitBody(limits, sc, inner) {
-  var m = limitMarks(limits, sc.xr, sc.yr, limitStroke());
+  var m = limitMarks(limits, sc.xr, sc.yr, limitStyle());
   return m.under + inner + m.over;
 }
 function typedCurve(o) {
@@ -138,6 +138,7 @@ export var curveAdapters = {
 export function curve(o) {
   o = o || {};
   if (o.series || o.panels) return typedCurve(o);
+  if (o.limits != null) throw new TypeError("curve: limits need series or panels");
   var a = curveAdapters[Object.prototype.hasOwnProperty.call(curveAdapters, o.kind || "mtf") ? o.kind || "mtf" : "chromaticFocus"](data(o));
   return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height });
 }

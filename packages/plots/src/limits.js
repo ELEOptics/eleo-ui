@@ -25,31 +25,31 @@ export function limitValues(norm, axis) {
   norm.forEach(function (l) { if (l.axis === axis) out.push(l.lo, l.hi); });
   return out;
 }
-/* Markup in data units for the series group, given the ranges: bands for under the series, lines for over them. `stroke` is the line's attributes (the `limit` role's style). */
-export function limitMarks(norm, xr, yr, stroke) {
+/* Markup in data units for the series group, given the ranges: bands for under the series, lines for over them. `style` is { line, band }: the attributes of a line and of a band (the `limit` role's style). */
+export function limitMarks(norm, xr, yr, style) {
   var under = "", over = "";
   norm.forEach(function (l) {
     var h = l.axis === "y", span = h ? xr : yr;
     if (l.band) {
       under += h ? '<rect class="eleo-limit" x="' + span[0] + '" y="' + l.lo + '" width="' + (span[1] - span[0]) + '" height="' + (l.hi - l.lo) + '"' : '<rect class="eleo-limit" x="' + l.lo + '" y="' + span[0] + '" width="' + (l.hi - l.lo) + '" height="' + (span[1] - span[0]) + '"';
-      under += ' fill="var(--ink)" fill-opacity="0.06" stroke="none"/>';
+      under += " " + style.band + "/>";
     } else {
-      over += '<line class="eleo-limit" x1="' + (h ? span[0] : l.lo) + '" y1="' + (h ? l.lo : span[0]) + '" x2="' + (h ? span[1] : l.lo) + '" y2="' + (h ? l.lo : span[1]) + '" ' + stroke + " " + NS + "/>";
+      over += '<line class="eleo-limit" x1="' + (h ? span[0] : l.lo) + '" y1="' + (h ? l.lo : span[0]) + '" x2="' + (h ? span[1] : l.lo) + '" y2="' + (h ? l.lo : span[1]) + '" ' + style.line + " " + NS + "/>";
     }
   });
   return { under: under, over: over };
 }
-/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line. `px` is { X, Y, right, top }, the cell's data to px functions and edges. A limit outside the range has no label. */
+/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line. `px` is { X, Y, right, top }, the cell's data to px functions and edges. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
 export function limitLabels(norm, xr, yr, px) {
   var g = "";
   norm.forEach(function (l) {
     if (!l.label) return;
     if (l.axis === "y") {
-      if (l.hi < yr[0] || l.hi > yr[1]) return;
-      g += '<text class="eleo-tick" x="' + (px.right - 4) + '" y="' + px.Y(l.hi) + '" dy="-3" text-anchor="end">' + esc(l.label) + "</text>";
+      if (l.hi < yr[0] || l.lo > yr[1]) return;
+      g += '<text class="eleo-tick" x="' + (px.right - 4) + '" y="' + px.Y(Math.min(l.hi, yr[1])) + '" dy="-3" text-anchor="end">' + esc(l.label) + "</text>";
     } else {
-      if (l.lo < xr[0] || l.lo > xr[1]) return;
-      g += '<text class="eleo-tick" x="' + (+px.X(l.lo) + 4) + '" y="' + (px.top + 10) + '">' + esc(l.label) + "</text>";
+      if (l.hi < xr[0] || l.lo > xr[1]) return;
+      g += '<text class="eleo-tick" x="' + (+px.X(Math.max(l.lo, xr[0])) + 4) + '" y="' + (px.top + 10) + '">' + esc(l.label) + "</text>";
     }
   });
   return g;

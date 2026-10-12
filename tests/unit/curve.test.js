@@ -477,7 +477,18 @@ test('limits draw single and paneled', () => {
     assert.equal(groups.length, 2);
     groups.forEach((pg, p) => check(pg, `${width}px panel ${p}`));
     assert.equal(svg.split('MTF ≥ 0.3').length - 1, 2, 'a label per panel');
+    // A band partly inside the range keeps its label, at the clamped edge: y at the range top, x at the range start.
+    svg = ELEO.curve({ series, x, y, limits: [{ y: [0.5, 9], label: 'part y' }, { x: [-50, 100], label: 'part x' }], width, height });
+    const gp = seriesGroup(svg), bx = panelGroups(svg)[0].box;
+    const ty = svg.match(/<text class="eleo-tick" x="[^"]*" y="([^"]*)"[^>]*>part y<\/text>/), tx = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"[^>]*>part x<\/text>/);
+    assert.ok(ty && tx, `${width}px: a partly drawn band keeps its label`);
+    assert.ok(Math.abs(+ty[1] - bx.y - toPx(gp.M, [0, 1])[1]) <= TOL_PX, `${width}px: the y band's label sits at the range top`);
+    assert.ok(Math.abs(+tx[1] - 4 - bx.x - toPx(gp.M, [0, 0])[0]) <= TOL_PX, `${width}px: the x band's label sits at the range start`);
+    // A band wholly outside the range has none.
+    svg = ELEO.curve({ series, x, y, limits: [{ y: [2, 9], label: 'gone' }, { x: [500, 600], label: 'gone' }], width, height });
+    assert.ok(!svg.includes('gone'), 'no label for a band outside the range');
   }
+  assert.throws(() => ELEO.curve({ kind: 'mtf', limits }), { name: 'TypeError', message: 'curve: limits need series or panels' });
   assert.ok(!ELEO.curve({ series, x, y }).includes('eleo-limit'), 'no limits, no marks');
   for (const bad of [5, [null], [{}], [{ x: 1, y: 1 }], [{ y: NaN }], [{ y: [1] }], [{ y: 'a' }], [{ y: 1, label: 3 }]]) {
     assert.throws(() => ELEO.curve({ series, x, y, limits: bad }), { name: 'TypeError', message: /^curve: / }, JSON.stringify(bad));
@@ -539,6 +550,13 @@ test('limit lines and bands round trip (U9)', async () => {
     const groups = panelGroups(svg);
     assert.equal(groups.length, panels.length, `${width}px: one group per panel`);
     groups.forEach((pg, p) => check({ ...pg }, { x: x.range, y: y.range }, `${width}px panel ${p}`));
+    // Panels, auto ranges: the shared range contains the wide limits too.
+    svg = ELEO.curve({ panels, columns: 2, x: xAuto, y: yAuto, limits: wide, width, height });
+    const pf = frame(svg);
+    panelGroups(svg).forEach((pg, p) => {
+      const [plo, qlo] = toData(pg.M, [0, pf.ph]), [phi, qhi] = toData(pg.M, [pf.pw, 0]);
+      assert.ok(qlo <= 0 && qhi >= 1.6 && plo <= -20 && phi >= 400, `${width}px panel ${p} auto range [${plo},${phi}]x[${qlo},${qhi}] contains the limits`);
+    });
   }
 });
 
