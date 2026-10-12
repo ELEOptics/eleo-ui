@@ -50,7 +50,7 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 
 // Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
 // tile doesn't blank the other 16. The 404 and the gallery's own report of it are the expected console errors.
-for (const [fixture, broken] of [['mtf', 'mtf'], ['field-curvature', 'fieldCurvature'], ['distortion', 'distortion']]) {
+for (const [fixture, broken] of [['mtf', 'mtf'], ['field-curvature', 'fieldCurvature'], ['distortion', 'distortion'], ['spot', 'spot']]) {
   test(`a missing phos-core fixture blanks only its tile: ${fixture}`, async ({ page }) => {
     const thrown = [];
     page.on('pageerror', (e) => thrown.push(e.message));
@@ -97,7 +97,7 @@ test('a rejected merit fixture blanks only its tile', async ({ page }) => {
 });
 
 // Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
-// the tiles that bring their own data (merit, glasses, the recorded curves) or need none (airy, icons) still draw. The 404 is the expected
+// the tiles that bring their own data (merit, glasses, the recorded curves and spot) or need none (airy, icons) still draw. The 404 is the expected
 // console error.
 test('a missing sample script blanks only the sample tiles', async ({ page }) => {
   const thrown = [];
@@ -106,7 +106,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'fieldCurvature', 'distortion', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'fieldCurvature', 'distortion', 'spot', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(17);
@@ -218,7 +218,7 @@ test('palette switch recolors both themes', async ({ page }) => {
       const col = page.locator(`.theme[data-theme="${theme}"]`);
       const got = await col.evaluate((el, fields) => {
         const probe = (v) => { const p = document.createElement('i'); p.style.color = `var(${v})`; el.append(p); const c = getComputedStyle(p).color; p.remove(); return c; };
-        const fill = (k) => { const c = el.querySelector(`[data-tile="spot"] circle[fill^="var(--series-${k}"]`); return c && getComputedStyle(c).fill; };
+        const fill = (k) => { const c = el.querySelector(`[data-tile="spot"] path[stroke^="var(--series-${k}"]`); return c && getComputedStyle(c).stroke; };
         return { fills: [fill(1), fill(2)], expected: fields.map((n) => probe(`--field-${n}`)) };
       }, fields);
       expect(got.fills, `${label}, ${theme} column: spot index 1 and 2`).toEqual(got.expected);
@@ -290,4 +290,30 @@ test('standalone label style (#112)', async ({ page }) => {
   } finally {
     await ref.close();
   }
+});
+
+// Plan #232 #275: the spot caption is one line per setting and stays inside the figure. oracle: property, getBBox of each caption text within the viewBox.
+test('spot caption stays inside the viewBox', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const got = await page.locator(`.theme[data-theme="${theme}"] [data-tile="spot"] .eleo-plot__body svg[viewBox]`).evaluate((svg) => {
+      const [vx, vy, vw, vh] = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+      const lines = [...svg.querySelectorAll(':scope > text')].filter((t) => /^(Reference|Airy|RMS, GEO)/.test(t.textContent));
+      return { vw, lines: lines.map((t) => { const b = t.getBBox(); return { text: t.textContent, ok: b.x >= vx - 0.5 && b.y >= vy && b.x + b.width <= vx + vw + 0.5 && b.y + b.height <= vy + vh + 0.5 }; }) };
+    });
+    expect(got.lines.length, `${theme}: caption lines`).toBeGreaterThanOrEqual(2);
+    for (const l of got.lines) expect(l.ok, `${theme}: "${l.text}" inside the viewBox`).toBe(true);
+  }
+  const lone = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.innerHTML = window.ELEO.spot({ panels: [{ series: [{ points: [[1, 2], [-1, 0.5]] }], airy: 2.87 }], unit: 'µm', origin: 'paraxial chief ray' });
+    document.body.appendChild(host);
+    const svg = host.querySelector('svg[viewBox]'), [vx, vy, vw, vh] = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+    const lines = [...svg.querySelectorAll(':scope > text')].filter((t) => /^(Reference|Airy|RMS, GEO)/.test(t.textContent)).map((t) => { const b = t.getBBox(); return { text: t.textContent, ok: b.x >= vx - 0.5 && b.y >= vy && b.x + b.width <= vx + vw + 0.5 && b.y + b.height <= vy + vh + 0.5 }; });
+    host.remove();
+    return lines;
+  });
+  expect(lone.length, 'one-panel caption lines').toBeGreaterThanOrEqual(3);
+  for (const l of lone) expect(l.ok, `one panel: "${l.text}" inside the viewBox`).toBe(true);
 });

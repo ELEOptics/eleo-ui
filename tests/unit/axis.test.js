@@ -57,3 +57,27 @@ test('spans of a few ulps or below 1e-100 return promptly', () => {
   }
   assert.equal(out[2].decimals, 100, 'below 1e-100 clamps to 100');
 });
+
+// #208: spans of a few hundred ulps repeated the last tick or ended below the data
+// oracle: property: ticks strictly increase and cover [lo, hi]
+test('spans of a few hundred ulps cover the data without repeats (#208)', () => {
+  const cases = [[1, 1 + 4 * 2 ** -52], [0.1, 0.1 + 5 * 2 ** -56], [0.1, 0.1 + 5 * 2 ** -55], [1, 1 + 100 * 2 ** -52], [1, 1 + 500 * 2 ** -52]];
+  for (const [lo, hi] of cases) {
+    for (const n of [2, 5, 6, 10]) {
+      const { ticks } = niceTicks(lo, hi, n);
+      assert.ok(ticks[0] <= lo, `first tick covers lo (${lo}, ${hi}, ${n}): ${ticks[0]}`);
+      assert.ok(ticks[ticks.length - 1] >= hi, `last tick covers hi (${lo}, ${hi}, ${n}): ${ticks[ticks.length - 1]}`);
+      for (let i = 1; i < ticks.length; i++) assert.ok(ticks[i] > ticks[i - 1], `strictly increasing (${lo}, ${hi}, ${n}): ${ticks}`);
+      const r = niceRange(lo, hi, n);
+      assert.ok(r.lo <= lo && r.hi >= hi, `niceRange covers (${lo}, ${hi}, ${n})`);
+    }
+  }
+});
+
+// #250: one ulp of float noise at the ends must not trigger the #208 fallback
+// oracle: property (the #208 cases still cover and strictly increase); the base's output
+test('float noise at the ends keeps nice ticks', () => {
+  const r = niceTicks(6.94, 7.6000000000000005, 6);
+  assert.deepEqual(r.ticks, [6.8, 7, 7.2, 7.4, 7.6]);
+  assert.equal(r.decimals, 1);
+});

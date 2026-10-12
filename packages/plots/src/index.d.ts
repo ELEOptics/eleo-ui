@@ -58,7 +58,49 @@ export interface Layout3DProps {
   width?: number;
   height?: number;
 }
-export interface SpotDiagramProps {
+/** One spot series: dots in the panel's unit, one palette slot. Every dot is the same size; there is no color option (ADR-0001). */
+export interface SpotSeries {
+  /** [x, y] per ray, in `unit`, relative to the zero point named by `origin`. A null or non-finite point is skipped. */
+  points: [number | null, number | null][];
+  /** Palette slot: the series color follows idx(index). Default 0. */
+  index?: number;
+}
+/** One spot panel, usually one field. */
+export interface SpotPanel {
+  /** Drawn above the panel, e.g. "0.0°". */
+  title?: string;
+  series: SpotSeries[];
+  /** Airy radius in the panel's unit, drawn as a circle when `showAiry` is not false. */
+  airy?: number;
+  /** Extra caption lines under the panel, after the RMS and GEO lines. */
+  notes?: string[];
+}
+/** Typed call: you give the panels. */
+export interface SpotPanelsProps {
+  panels: SpotPanel[];
+  /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
+  origin?: string;
+  /** "centroid" recentres every panel on the centroid of its dots. Default "chief": dots stay as given, labelled with origin. */
+  reference?: "chief" | "centroid";
+  /** RMS and GEO radius lines under each panel. Default true. */
+  showStats?: boolean;
+  /** Draw each panel's Airy circle. Default true. */
+  showAiry?: boolean;
+  /** Box size rule. Default "common". */
+  scale?: "common" | "auto";
+  /** Box half-width in `unit`; overrides the automatic common size. */
+  half?: number;
+  /** Unit of the points, the radii and the half-width, e.g. "µm". */
+  unit?: string;
+  /** The SVG's aria-label. Default "Spot diagrams". */
+  label?: string;
+  width?: number;
+  height?: number;
+  data?: never;
+  colorBy?: never;
+}
+/** Sample call: the spots of the sample (or `data`), one color per wavelength or field. */
+export interface SpotSampleProps {
   data?: object;
   /** Default "wavelength". */
   colorBy?: IndexKey;
@@ -68,7 +110,19 @@ export interface SpotDiagramProps {
   half?: number;
   /** Airy circle. Default true. */
   airy?: boolean;
+  /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
+  origin?: string;
+  /** "chief" keeps the dots as given, labelled with origin. Default "centroid": every panel is recentred on the centroid of its dots. */
+  reference?: "chief" | "centroid";
+  /** RMS and GEO radius lines under each panel. Default true. */
+  showStats?: boolean;
+  /** Draw each panel's Airy circle. Default true. */
+  showAiry?: boolean;
+  width?: number;
+  height?: number;
+  panels?: never;
 }
+export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
 export interface RayFanProps {
   data?: object;
   /** Transverse ray aberration (µm) or optical path difference (waves). Default "tra". */
@@ -110,6 +164,16 @@ export interface CurveAxis {
   /** Tick positions. Default: nice ticks for the range. */
   ticks?: number[];
 }
+/** A series in a panel: a null coordinate breaks the line, and the next live point starts a new run. */
+export interface CurvePanelSeries extends Omit<CurveSeries, "points"> {
+  points: [number | null, number | null][];
+}
+/** One panel of a curve grid: a title and its series. */
+export interface CurvePanel {
+  /** Drawn above the panel. */
+  title?: string;
+  series: CurvePanelSeries[];
+}
 /** Typed call: you give the series and axes. */
 export interface CurveSeriesProps {
   series: CurveSeries[];
@@ -118,6 +182,19 @@ export interface CurveSeriesProps {
   width?: number;
   height?: number;
   kind?: never;
+  panels?: never;
+}
+/** Panels call: a grid of plots on one shared scale, the axis labels drawn once. */
+export interface CurvePanelsProps {
+  panels: CurvePanel[];
+  /** Columns of the grid. Default: one row. */
+  columns?: number;
+  x?: CurveAxis;
+  y?: CurveAxis;
+  width?: number;
+  height?: number;
+  kind?: never;
+  series?: never;
 }
 /** Kind call: the analysis kind of the sample (or `data`), drawn through the typed path. */
 export interface CurveKindProps {
@@ -126,8 +203,9 @@ export interface CurveKindProps {
   width?: number;
   height?: number;
   series?: never;
+  panels?: never;
 }
-export type CurvePlotProps = CurveSeriesProps | CurveKindProps;
+export type CurvePlotProps = CurveSeriesProps | CurvePanelsProps | CurveKindProps;
 export interface ELEO {
   /** The sample system, once "@eleoptics/plots/sample" is imported; null before. */
   sample: object | null;

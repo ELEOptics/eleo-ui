@@ -2,8 +2,9 @@
 """Record phos-core analyses of the public lenses as JSON fixtures for the plots.
 
 Records, for the sample achromat and for OpticalModel.cooke_triplet_kingslake(): the polychromatic MTF,
-field curvature and distortion per source (over 11 field angles evenly from 0 to the largest field), first-order data, the field angle of each source and the
-wavelengths. Writes tests/fixtures/phos-core/{achromat,cooke}-{mtf,field-curvature,distortion}.json.
+field curvature and distortion per source (over 11 field angles evenly from 0 to the largest field), the spot diagram per
+source (pupil sampling 32, points in mm), first-order data, the field angle of each source and the wavelengths.
+Writes tests/fixtures/phos-core/{achromat,cooke}-{mtf,field-curvature,distortion,spot}.json.
 Numbers are rounded to 6 significant digits. Not part of the gate: the fixtures are committed.
 
 Build the client first (phos-core is not vendored here):
@@ -31,6 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SIG = 6
 PUPIL_SAMPLING = 64  # pupil samples and zero pads of the MTF, per axis
+SPOT_SAMPLING = 32  # pupil samples of the spot diagram, per axis
 SWEEP = 11  # field angles of field curvature and distortion, evenly from 0 to the lens's largest field
 
 
@@ -123,6 +125,23 @@ def distortion(phos, model, sources):
     ]
 
 
+def spot(phos, model):
+    # ray_errors(): one list per wavelength of the rays alive at the image, mm, relative to the paraxial chief ray at the
+    # reference wavelength. enclosing_radius(i): smallest enclosing circle in mm; None is the polychromatic one.
+    s = phos.SpotDiagramSettings()
+    s.set_system_index(0)
+    s.set_pupil_sampling_x(SPOT_SAMPLING)
+    s.set_pupil_sampling_y(SPOT_SAMPLING)
+    out = []
+    for a in s.run(model):
+        wl = a.wavelengths()
+        out.append({"sourceIndex": a.source_index(), "wavelengths": [rnd(w * 1000) for w in wl],
+                    "points": [pts(p) for p in a.ray_errors()],
+                    "enclosingRadius": [rnd(a.enclosing_radius(i)) for i in range(len(wl))],
+                    "enclosingRadiusAll": rnd(a.enclosing_radius(None))})
+    return out
+
+
 def record(phos, lens, model, meta, outdir, header):
     srcs = model.sources(0)
     angles = [rnd(field_angle_deg(s)) for s in srcs]
@@ -137,6 +156,8 @@ def record(phos, lens, model, meta, outdir, header):
         "mtf": (mtf(phos, model), angles, {"frequencyUnit": "cycles/mm", "pupilSampling": PUPIL_SAMPLING, "kind": "polychromatic, uniform weights"}),
         "field-curvature": (field_curvature(phos, model, sweep), sweep_angles, {"focusUnit": "mm", "kind": "per source, one entry per wavelength"}),
         "distortion": (distortion(phos, model, sweep), sweep_angles, {"percentUnit": "%", "kind": "per source, one entry per wavelength"}),
+        "spot": (spot(phos, model), angles, {"pupilSampling": SPOT_SAMPLING, "reference": "paraxial chief ray at the reference wavelength",
+                                             "kind": "per source, points per wavelength: the rays alive at the image"}),
     }
     for name, (per_source, src_angles, extra) in results.items():
         if len(per_source) != len(src_angles):
@@ -177,7 +198,7 @@ def main():
         if ref_um is None:
             sys.exit(f"{lens}: the model has no reference wavelength")
         written += list(record(phos, lens, model, {"referenceNm": rnd(ref_um * 1000)}, outdir, header))
-    print(f"wrote {outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir}/{{achromat,cooke}}-{{mtf,field-curvature,distortion}}.json (phos-core {sha[:10]})")
+    print(f"wrote {outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir}/{{achromat,cooke}}-{{mtf,field-curvature,distortion,spot}}.json (phos-core {sha[:10]})")
 
 
 if __name__ == "__main__":

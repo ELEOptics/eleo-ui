@@ -76,10 +76,38 @@ el.innerHTML = curve({
 ```
 
 - **`series`:** `{ points: [[x, y], ...], index?, role? }` each, drawn in order. `index` k takes the k-th series color. `role`: `tangential` (solid, the default), `sagittal` (dash `5 3`), or `reference` (`--ink`, dash `1 3`; ignores `index`). Every role draws a 1 px stroke.
-- **`x`, `y`:** `{ label, unit?, range?, ticks? }`, drawn as `label, unit`. `range` defaults to the nice range of the data and `ticks` to nice ticks over the range. A range that is empty or reversed is widened to a unit either side of its start. Every point is drawn and the plot area clips what lies outside the range.
+- **`x`, `y`:** `{ label, unit?, range?, ticks? }`, drawn as `label, unit`. `range` defaults to the nice range of the data and `ticks` to nice ticks over the range. A range that is not two finite numbers (empty, or with a NaN or infinite end) is dropped and the axis uses the data's nice range; a reversed or zero-width range is widened to a unit either side of its start. Every point is drawn and the plot area clips what lies outside the range.
 - **Zero line:** an axis range that straddles 0 draws a line at 0 in `--plot-axis`.
 - **Drawing:** the series sit in a nested `<svg>` that clips them, inside one `<g transform="matrix(...)">` in data coordinates under a non-scaling stroke. Inverting that matrix recovers the data.
+- **`panels`:** `curve({ panels: [{ title?, series }], columns?, x, y, width?, height? })` draws a grid of plots (`columns` defaults to one row) on one x and one y range: the given `range`, else the nice range over every panel's data. Each panel has its own nested `<svg>` and `<g transform="matrix(...)">` in data coordinates, its `title` above it, and the axis labels are drawn once. A series is a `<path>`: a point with a `null`, NaN or infinite coordinate breaks it, and the next point starts a new subpath (`M`); a run of one point is a dot. Without `panels`, a series is a `<polyline>` as before.
+- **`rayFan`:** draws the sample's ray fans (`kind: 'opd'` for optical path difference) through `curve`'s `panels`: tangential (`Py`) above sagittal (`Px`), a column per field (`fields` picks them), one shared y range of ±`fullScale` (default: the next step above the largest value). `panelWidth` (default 170) is each plot area's width in px.
 - **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromaticFocus' })` still draws from the sample.
+
+## Spot diagrams
+
+`spot({ data })` draws the sample's spots. `spot({ panels })` draws points you give it, one square panel each. RMS and GEO are computed from each panel's drawn points about the reference:
+
+```js
+el.innerHTML = spot({
+  panels: [{ title: '1.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3], [-0.8, 0.5]], index: 0 }], airy: 2.87 }],
+  unit: 'µm', reference: 'centroid',
+});
+```
+
+The panel's notes read `RMS 1.09 µm` and `GEO 1.21 µm`, and the caption under the panels has one line per active setting:
+
+```
+Reference: centroid
+Airy radius 2.87 µm
+RMS, GEO
+```
+
+- **`panels`:** `{ title?, series: [{ points: [[x, y], ...], index? }], airy?, notes? }` each. `index` k takes the k-th series color. `airy` is the diffraction-limit radius in data units, drawn as a circle centred on the origin; `notes` are your own text lines under the panel, after the computed RMS and GEO. A point that is not two finite numbers is skipped.
+- **`origin`, `reference`:** `reference` is `'chief'` (the default: points as given, about the origin) or `'centroid'` (each panel re-centred on the centroid of all its points). Case and surrounding spaces are ignored; anything else means chief. The sample's `spot({ data })` defaults to `'centroid'`. `origin` is the label for the `'chief'` reference (default `chief ray`), e.g. `'paraxial chief ray'`; the caption reads `Reference: <origin>`.
+- **`showStats`, `showAiry`:** both default on. `showStats: false` drops the RMS and GEO notes and their caption part. `showAiry: false` hides the Airy circles and their caption part, which names the radius when every panel has the same one and says `Airy circle` otherwise.
+- **`scale`, `half`, `unit`:** `common` (the default) gives every panel one half-width, `half` if given, else the next nice step above the largest coordinate or `airy` of any panel; `auto` fits each panel's points and circle (`half` is ignored). `half` and `airy` each count only when finite and above 0. Each panel is labelled `±half unit`; `unit` also follows the RMS and GEO values and the Airy radius in the caption. `width` and `height` size the figure: a height too small for the notes and caption grows to fit, and with no `width` the figure is at least as wide as its longest caption line.
+- **`label`:** the SVG's `aria-label` (default `Spot diagrams`).
+- **Drawing:** each panel is a nested `<svg>` holding one `<g transform="matrix(...)">` in data coordinates, with the same scale on both axes and a non-scaling stroke; inverting the matrix recovers the points. A series is one `<path>` of dots, each `M x,y h0` under a round cap (2.2 px across).
 
 ## Palettes
 

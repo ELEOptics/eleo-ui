@@ -52,6 +52,21 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 />
 ```
 
+`CurvePlot` also takes `panels` (each with a `title` and `series`) and `columns`: a grid of plots on one shared scale with the axis labels drawn once. `SpotDiagram` takes typed `panels` (`title`, `series` of `points` and `index`, `airy` radius), with `origin`, `reference` (`chief` or `centroid`), `showStats`, `showAiry`, `scale`, `half`, `unit` and `width`; the wrapper's `label` names the figure; without `panels` it draws the sample by `colorBy`. Neither has a color option:
+
+```svelte
+<CurvePlot
+  panels={[{ title: '1.0° · Py', series: [{ points: [[-1, 2], [0, 0], [1, -3]], index: 0 }] }]}
+  columns={3}
+  x={{ label: 'Pupil', range: [-1, 1] }}
+  y={{ label: 'Ray error', unit: 'µm' }}
+/>
+<SpotDiagram
+  panels={[{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }], airy: 2.4 }]}
+  origin="chief ray" reference="centroid" unit="µm" half={5}
+/>
+```
+
 `Legend` takes `kind` (`field`, `wavelength`, `ts`, `rays`) and `n` (`field` and `wavelength` need `n` when there is no sample), or `kind="glass"` with `data`, a recorded layout or a system carrying one: one swatch key per drawn glass, by name, in order of first use, in the fill `Layout2D` gives its lenses (`glassLegend` in `@eleoptics/plots`):
 
 ```svelte

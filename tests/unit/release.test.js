@@ -245,3 +245,22 @@ test('curve-typed changeset asks a plots minor', { skip: curveTypedConsumed && '
 test('curve-typed changeset became a plots minor', { skip: !curveTypedConsumed && 'changesets not yet versioned' }, () => {
   assert.equal(entry('plots', CURVE_ENTRY).kind, 'Minor');
 });
+
+// Plan #232 (agent_docs/plans/232-panels-spot.md), O4, issue #242; #245 adds the changeset, #246 unskips.
+// oracle: spec roadmap Constraints (a typed API added alongside the old ships as a minor); semver 0.x.
+// Read as the curve-typed pair above: the file, or once `changeset version` deleted it, the CHANGELOG entry (#279).
+const PANELS_ENTRY = /Curve panels and a typed spot/;
+const panelsSpotConsumed = !existsSync(join(repo, '.changeset', 'panels-spot.md'))
+  && PANELS_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'));
+
+test('panels-spot changeset asks a plots minor', { skip: panelsSpotConsumed && 'consumed by changeset version' }, () => {
+  const text = readFileSync(join(repo, '.changeset', 'panels-spot.md'), 'utf8');
+  const m = text.match(/^---\n([\s\S]*?)\n---\n/);
+  assert.ok(m, '.changeset/panels-spot.md has no front matter');
+  const bumps = Object.fromEntries(m[1].split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((r) => [r[1], r[2]]));
+  assert.deepEqual(bumps, { '@eleoptics/plots': 'minor' });
+});
+
+test('panels-spot changeset became a plots minor', { skip: !panelsSpotConsumed && 'changesets not yet versioned' }, () => {
+  assert.equal(entry('plots', PANELS_ENTRY).kind, 'Minor');
+});
