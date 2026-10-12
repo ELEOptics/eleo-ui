@@ -220,3 +220,4 @@ Proves: O3, O4
 - 2026-10-11 review M1 round 2: 0 blocking. Backlog #255 (findings 1-3) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
 - 2026-10-11 review M1 round 3: 0 blocking. Backlog #256 (findings 1, 3) into M1 (headless: backlog into M1, row: milestone acceptance within the plan); #257 (finding 2, typed-array ranges outside the contract) stays a plain issue.
 - 2026-10-11 review M1 round 4: 0 blocking, nothing pulled in; #258 stays a plain issue (after round 3). M1 done, pending the user's demo.
+- 2026-10-11 (user, M1 demo): go. The paneled fan tiles are row E's fan baseline.
