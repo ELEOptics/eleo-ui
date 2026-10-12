@@ -8,6 +8,8 @@ function niceHalf(v) {
   var e = Math.pow(10, Math.floor(Math.log10(v))), m = [1, 2, 2.5, 4, 5, 10].find(function (k) { return k * e >= v * (1 - 1e-12); });
   return m * e;
 }
+/* 3 significant digits below 1000, whole numbers from there up; never an exponent. */
+var sig3 = function (v) { return Math.abs(v) < 1000 ? v.toPrecision(3) : v.toFixed(0); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
@@ -20,7 +22,7 @@ function typedSpot(o) {
     var mx = cen && k ? sx / k : 0, my = cen && k ? sy / k : 0;
     var q2 = 0, geo = 0, np = 0;
     var drawn = series.map(function (se) { return Object.assign({}, se, { points: (se.points || []).map(function (q) { if (!live(q)) return q; var x = q[0] - mx, y = q[1] - my; q2 += x * x + y * y; geo = Math.max(geo, Math.hypot(x, y)); np++; return [x, y]; }) }); });
-    var stats = o.showStats !== false && np ? ["RMS " + Math.sqrt(q2 / np).toPrecision(3) + (o.unit ? " " + o.unit : ""), "GEO " + geo.toPrecision(3) + (o.unit ? " " + o.unit : "")] : [];
+    var stats = o.showStats !== false && np ? ["RMS " + sig3(Math.sqrt(q2 / np)) + (o.unit ? " " + o.unit : ""), "GEO " + sig3(geo) + (o.unit ? " " + o.unit : "")] : [];
     if (stats.length) anyStats = true;
     return Object.assign({}, p, { series: drawn, notes: stats.concat(p.notes || []) });
   }), n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
@@ -28,12 +30,12 @@ function typedSpot(o) {
   /* One caption line per active setting, each at x=0 and short enough for a one-panel figure. */
   var radii = panels.map(airyOf).filter(Boolean), r3 = function (r) { return +r.toPrecision(3); };
   var cap = ["Reference: " + ref];
-  if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return r3(r) === r3(radii[0]); }) ? "Airy radius " + r3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
+  if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return r3(r) === r3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
   if (anyStats) cap.push("RMS, GEO");
   var foot = 28 + 15 * notesMax + 1 + 15 * cap.length, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
   if (o.height) side = Math.min(side, o.height - foot - 8);
   side = Math.max(side, 1);
-  var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * Math.max.apply(null, cap.map(function (t) { return t.length; }))), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
+  var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * Math.max.apply(null, cap.map(function (t) { return t.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
   var ext = panels.map(function (p) { var m = airyOf(p); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
   var common = isFinite(o.half) && o.half > 0 ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {

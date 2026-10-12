@@ -305,4 +305,15 @@ test('spot caption stays inside the viewBox', async ({ page }) => {
     expect(got.lines.length, `${theme}: caption lines`).toBeGreaterThanOrEqual(2);
     for (const l of got.lines) expect(l.ok, `${theme}: "${l.text}" inside the viewBox`).toBe(true);
   }
+  const lone = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.innerHTML = window.ELEO.spot({ panels: [{ series: [{ points: [[1, 2], [-1, 0.5]] }], airy: 2.87 }], unit: 'µm', origin: 'paraxial chief ray' });
+    document.body.appendChild(host);
+    const svg = host.querySelector('svg[viewBox]'), [vx, vy, vw, vh] = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+    const lines = [...svg.querySelectorAll(':scope > text')].filter((t) => /^(Reference|Airy|RMS, GEO)/.test(t.textContent)).map((t) => { const b = t.getBBox(); return { text: t.textContent, ok: b.x >= vx - 0.5 && b.y >= vy && b.x + b.width <= vx + vw + 0.5 && b.y + b.height <= vy + vh + 0.5 }; });
+    host.remove();
+    return lines;
+  });
+  expect(lone.length, 'one-panel caption lines').toBeGreaterThanOrEqual(3);
+  for (const l of lone) expect(l.ok, `one panel: "${l.text}" inside the viewBox`).toBe(true);
 });

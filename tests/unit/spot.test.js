@@ -266,7 +266,10 @@ test('caption lines and stats labels', async () => {
   const eq = texts(ELEO.spot({ panels: [{ series: pts, airy: 2.87 }, { series: pts, airy: 2.87 + 2 * Number.EPSILON * 2.87 }], unit: 'µm' }));
   assert.ok(eq.includes('Airy radius 2.87 µm') && !eq.includes('Airy circle'), 'radii equal at the printed precision print one radius: ' + eq);
   const lone = ELEO.spot({ panels: [{ series: pts }], origin: 'paraxial chief ray' });
-  texts(lone).filter((t) => /^Reference/.test(t)).forEach((t) => assert.ok(6 * t.length <= vbw(lone), `one-panel "${t}" fits ${vbw(lone)} px`));
+  texts(lone).filter((t) => /^Reference/.test(t)).forEach((t) => assert.ok(6 * t.length + 12 <= vbw(lone), `one-panel "${t}" fits ${vbw(lone)} px`));
+  const big = texts(ELEO.spot({ panels: [{ series: [{ points: [[1234, 0], [-1234, 0]] }], airy: 4 }], unit: 'µm' }));
+  assert.ok(big.includes('GEO 1234 µm') && big.includes('RMS 1234 µm'), 'no exponent from 1000 up: ' + big);
+  assert.ok(big.includes('Airy radius 4.00 µm'), 'the Airy radius prints through the same formatter: ' + big);
   const mixed = texts(ELEO.spot({ panels: [{ series: pts, airy: 2.87 }, { series: pts }], unit: 'µm' }));
   assert.ok(mixed.includes('Airy circle') && !mixed.some((t) => /^Airy radius/.test(t)), 'mixed panels say Airy circle: ' + mixed);
   const cross = texts(ELEO.spot({ panels: [{ series: [{ points: [[3, 0], [-3, 0], [0, 4], [0, -4]] }] }], unit: 'µm' }));
