@@ -78,7 +78,7 @@
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
-    // The MTF, field curvature and distortion tiles: the recorded achromat (tests/fixtures/phos-core/README.md)
+    // The MTF, field curvature, distortion and spot tiles: the recorded achromat (tests/fixtures/phos-core/README.md)
     // through ELEOAdapters, one fixture each. Filled by fetch() below; if the script or a recording fails, that
     // key stays unset and only its tile draws nothing.
     var REC = {};
@@ -89,19 +89,21 @@
       try { return ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
       catch (e) { console.error('merit-' + k + ':', e); return ''; }
     }
+    // A recorded tile: draws REC[k] (the adapter's result) through the renderer `render`; blank while REC[k] is unset.
+    function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d) { return render(d); } }; }
     var SVG = {
       'layout2D': { need: sampleBox, draw: function (box) { return ELEO.layout2D({ width: 1000, box: box }); } },
       'layout2D-fan': { need: sampleBox, draw: function (box) { return ELEO.layout2D({ width: 1000, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
       'merit-before': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('before'); } },
       'merit-after': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('after'); } },
       'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d) { return ELEO.layout2D({ data: d, width: 1000, marks: false }); } },
-      'spot': { need: sampleBox, draw: function () { return ELEO.spot(); } },
+      'spot': recTile('spot', ELEO.spot),
       'throughFocus': { need: sampleBox, draw: function () { return ELEO.throughFocus(); } },
       'rayFan': { need: sampleBox, draw: function () { return ELEO.rayFan(); } },
       'rayFan-opd': { need: sampleBox, draw: function () { return ELEO.rayFan({ kind: 'opd' }); } },
-      'mtf': { need: function () { return REC.mtf; }, draw: function (d) { return ELEO.curve(d); } },
-      'fieldCurvature': { need: function () { return REC.fieldCurvature; }, draw: function (d) { return ELEO.curve(d); } },
-      'distortion': { need: function () { return REC.distortion; }, draw: function (d) { return ELEO.curve(d); } },
+      'mtf': recTile('mtf', ELEO.curve),
+      'fieldCurvature': recTile('fieldCurvature', ELEO.curve),
+      'distortion': recTile('distortion', ELEO.curve),
       'chromaticFocus': { need: sampleBox, draw: function () { return ELEO.curve({ kind: 'chromaticFocus' }); } }
     };
     function airyTile(canvas) {
@@ -185,7 +187,8 @@
     var phos = Promise.all([
       recorded('mtf', 'mtf', function (d) { REC.mtf = globalThis.ELEOAdapters.mtf(d, { diffraction: true }); }),
       recorded('fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }),
-      recorded('distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); })
+      recorded('distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); }),
+      recorded('spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); })
     ]);
     Promise.all([glasses, merit, phos]).then(function () {
       draw();

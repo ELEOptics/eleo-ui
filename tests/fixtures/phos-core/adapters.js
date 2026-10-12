@@ -1,4 +1,4 @@
-/* Adapters from phos-core recordings (README.md) to the typed curve call of ELEO.curve (plan #162, #174, #179).
+/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve and ELEO.spot (plan #162, #174, #179).
    A classic script: the gallery loads it with a <script> tag and the unit tests with import(), so it has no
    import or export and assigns globalThis.ELEOAdapters. */
 (function () {
@@ -44,6 +44,26 @@
         return { points: pts, index: 0, role: role };
       }
       return { series: [line('tangential', 'tangential'), line('sagittal', 'sagittal')], x: { label: 'Focus shift', unit: 'mm' }, y: yAxis(rec) };
+    },
+    /* spot(recording) -> { panels, unit }: one panel per field titled with its angle, a series per wavelength (index k) with
+       the points in µm (the recording is in mm), the Airy radius in µm at the reference wavelength and working f-number as
+       the circle, and the polychromatic enclosing radius as a `100 %` note. No RMS or GEO. */
+    spot: function (rec) {
+      var fo = rec.firstOrder, N = fo.workingFNumber != null ? fo.workingFNumber : fo.fNumber;
+      var airy = globalThis.ELEO.airyRadius(rec.referenceWavelengthNm * 1e-3, N);
+      return {
+        unit: 'µm',
+        panels: rec.sources.map(function (s) {
+          return {
+            title: s.fieldAngleDeg.toFixed(1) + '°',
+            series: s.points.map(function (pts, k) {
+              return { points: pts.map(function (q) { return [q[0] * 1000, q[1] * 1000]; }), index: k };
+            }),
+            circle: airy,
+            notes: ['100 % ' + (s.enclosingRadiusAll * 1000).toFixed(2) + ' µm']
+          };
+        })
+      };
     },
     /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
     distortion: function (rec) {
