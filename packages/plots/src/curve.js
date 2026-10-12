@@ -53,10 +53,10 @@ export function scales(o, groups, panel) {
   if (shown.length) R = Math.max(R, 3 * Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length);
   return { xr: xr, yr: yr, xt: xt, yt: yt, R: R };
 }
-/* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
-/* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* The frame's left and bottom margins in px; bars reads them to place its category labels. */
 export var PLOT_L = 46, PLOT_B = 36;
+/* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
+/* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 export function plotCell(sc, series, w, h, T, panel, body) {
   var L = PLOT_L, Bm = PLOT_B, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var pw = w - L - sc.R, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);

@@ -100,8 +100,8 @@ el.innerHTML = bars({
 - **Bars:** each is a `<rect>` in the data-space `<g transform="matrix(...)">`, in category order then series order, with `y = min(0, v)` and `height = |v|` in data units, so inverting the transform recovers `v`. Category k occupies x from k to k + 1; bars fill 80 % of it.
 - **`total`:** a string appends a group of per-series sums after a half-band gap, labelled with that string.
 - **Range:** `y.range`, else the nice range of the values and 0; a zero line is drawn only when the range straddles 0. When a band is under 14 px, only every k-th category label is drawn, at its band centre.
-- **Key:** one entry for each series with a `label`. The row starts a new line when an entry would pass the frame's right edge, and each extra line takes 14 px from the drawing's bottom margin, so every series stays named. An `index` that is not a non-negative integer, or a `null` or non-object entry in `series`, throws a `TypeError`.
-- **Skipped values:** a value that is not a finite number (`NaN`, a string, `undefined`, `true`) draws no rect and is left out of the `total` sum and the range.
+- **Key:** one entry for each series with a `label`. The row starts a new line when an entry would pass the frame's right edge, and each extra line takes 14 px from the plot area's height, down to a frame 1 px taller than its margins (a very small drawing stops wrapping and the row runs past the right edge), so every series stays named. An `index` that is not a non-negative integer, or a `null` or non-object entry in `series`, throws a `TypeError`.
+- **Skipped values:** a value that is not a finite number (`NaN`, a string, `undefined`, `true`) draws no rect and is left out of the `total` sum and the range. A series with no finite value still draws a zero-height Σ bar, which keeps the Σ group's order fixed per series.
 
 ## Spot diagrams
 

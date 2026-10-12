@@ -31,7 +31,9 @@ test('recorded Seidel round trip (U9)', async () => {
     for (const s of series) assert.equal(s.values.length, categories.length, `${lens} ${s.label}: one value per surface, the total stripped`);
     // The recorded total of each term, at the reference wavelength (names are not exact: the nearest wavelength).
     const res = rec.results.reduce((a, r) => (Math.abs(r.wavelengthNm - rec.referenceWavelengthNm) < Math.abs(a.wavelengthNm - rec.referenceWavelengthNm) ? r : a));
-    const totals = Object.values(res.terms).map((t) => t.at(-1));
+    // Paired by term name, not by key order: the labels SI..CT stand for these keys.
+    const names = { SI: 'spherical', SII: 'coma', SIII: 'astigmatism', SIV: 'fieldCurvature', SV: 'distortion', CL: 'axialColor', CT: 'lateralColor' };
+    const totals = series.map((s) => res.terms[names[s.label]].at(-1));
     for (const [width, height] of SIZES) {
       const svg = ELEO.bars({ categories, series, total: 'Σ', y, width, height });
       const group = seriesGroup(svg);
@@ -162,4 +164,14 @@ test('seidel adapter labels by term name', async () => {
     assert.equal(s.index, i, `${k}: index ${i}`);
     assert.deepEqual(s.values, res.terms[k].slice(0, -1), `${k}: its own values`);
   });
+});
+
+// Plan #284 #309. oracle: property: the key row never takes the frame below TOP + PLOT_B + 1, so every height stays positive.
+test('a small drawing keeps a positive frame', () => {
+  const series = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'].map((label, index) => ({ label, index, values: [1, -2] }));
+  const svg = ELEO.bars({ categories: ['1', '2'], series, total: 'Σ', y: { label: 'n' }, width: 120, height: 120 });
+  const heights = [...svg.matchAll(/<(?:rect|svg)\b[^>]*\bheight="([^"]+)"/g)].map((m) => Number(m[1]));
+  assert.ok(heights.length > 0);
+  assert.ok(heights.every((h) => h > 0), `every height is positive: ${heights.join(', ')}`);
+  assert.ok(series.every((s) => svg.includes('>' + s.label + '</text>')), 'every series is still named');
 });
