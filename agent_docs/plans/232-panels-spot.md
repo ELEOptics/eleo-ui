@@ -185,6 +185,7 @@ fixture blanks only that tile. Proves: O2
 | #264 | CR (#261's worker, stale doc): the README's spot section names the optional `label` | forced (stale doc since #261) | `packages/plots/README.md` | none: doc only | #261 |
 | #265 | CR (review M2 round 2 findings 1, 3): `label` escaped; a non-finite `circle` ignored | the findings' named fixes in one item, because both are `spot.js` input guards; considered escaping in `common.js`'s `svg()` (every renderer's label, outside M2's files) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::typed spot hardening` extended | #261 |
 | #266 | CR (finding 2): the README's half rule names the circle | forced (stale doc since #260) | `packages/plots/README.md` | none: doc only | #265 |
+| #267 | Backlog (review M2 round 3 finding 1): a non-finite `half` is ignored | the finding's named fix, as #265 did for `circle`; considered clamping to a maximum (an arbitrary bound) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::typed spot hardening` extended | #265 |
 
 ### M3: The typed API, the redraw budget and the release GitHub: `P232 M3: Typed API and release`
 
@@ -231,3 +232,4 @@ Proves: O3, O4
 - 2026-10-11 review M2 round 1: 1 blocking (CR #259, accepted by the orchestrator: a test comment). Backlog #260 (finding 2), #261 (findings 3, 4, 6, 8) and #262 (finding 5) into M2 (headless: backlog into M2, row: milestone acceptance within the plan); #263 (finding 7, shared helpers outside M2's files) stays a plain issue. Finding 9: the M2 demo line and the Risks row said the recorded spots would be larger; they match the sample's size, corrected here.
 - 2026-10-11 CR #264 (accepted, orchestrator: a non-Core doc): the README's spot section, stale since #261. `index.d.ts`'s `label?` on `SpotDiagramProps` goes into #243 (Core, approved with the plan's typed spot props).
 - 2026-10-12 review M2 round 2: 2 blocking (CRs #265, with backlog finding 3, and #266, accepted by the orchestrator: an input guard in the milestone's file and a non-Core doc).
+- 2026-10-12 review M2 round 3: 0 blocking. Backlog #267 into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
