@@ -7,7 +7,10 @@ import ELEO from '../../packages/plots/src/index.js';
 // adapters.js reads ELEO from globalThis when seidel() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 import { TOL_PX, SIZES, fixture, seriesGroup, marks, toPx, toData, frame } from './helpers/svg.js';
 
@@ -333,4 +336,28 @@ test('BarPlot.svelte wraps bars and is exported', () => {
   assert.match(comp, /BarPlot needs @eleoptics\/plots 0\.5\.0 or later/);
   const index = readFileSync(new URL('index.js', lib), 'utf8');
   assert.match(index, /export\s*\{\s*default as BarPlot\s*\}\s*from\s*'\.\/BarPlot\.svelte'/);
+});
+
+// oracle: spec, review M3 round 2 finding 1 (plan #284 #335). The component is compiled for the server against a stub plots, in a temp dir.
+test('BarPlot throws a named error without bars and renders with it', async () => {
+  const { compile } = await import('svelte/compiler');
+  const { render } = await import('svelte/server');
+  const src = readFileSync(new URL('../../packages/plots-svelte/src/lib/BarPlot.svelte', import.meta.url), 'utf8');
+  const dir = mkdtempSync(join(tmpdir(), 'barplot-'));
+  try {
+    const stubs = { old: 'export const bars = undefined;', current: "export const bars = () => '<svg></svg>';" };
+    let js = compile(src, { generate: 'server', filename: 'BarPlot.svelte' }).js.code;
+    js = js.replace("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')));
+    const load = async (name) => {
+      writeFileSync(join(dir, `${name}.js`), stubs[name]);
+      writeFileSync(join(dir, `BarPlot-${name}.js`), js.replace("'@eleoptics/plots'", JSON.stringify(`./${name}.js`)));
+      return (await import(pathToFileURL(join(dir, `BarPlot-${name}.js`)).href)).default;
+    };
+    const Old = await load('old');
+    assert.throws(() => render(Old, { props: { categories: ['a'], series: [] } }).body, /BarPlot needs @eleoptics\/plots 0\.5\.0 or later \(bars\)/);
+    const { body } = render(await load('current'), { props: { categories: ['a'], series: [], label: 'Seidel sums' } });
+    assert.match(body, /role="img"/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
