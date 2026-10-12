@@ -9,7 +9,7 @@ import { niceRange } from '../../packages/plots/src/axis.js';
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-import { TOL_PX, SIZES, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned } from './helpers/svg.js';
+import { TOL_PX, SIZES, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
 
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
@@ -428,6 +428,60 @@ test('helpers skip a path with no data', () => {
   const svg = '<svg x="0" width="10" height="10"><g transform="matrix(1 0 0 1 0 0)"><path/><polyline class="s"/></g></svg>';
   assert.deepEqual(seriesGroup(svg).paths, [], 'a bare <path/> reads as no series');
   assert.deepEqual(panelGroups(svg)[0].paths, [], 'and in a panel');
+});
+
+// Plan #284, issue #291. oracle: property: synthetic limits recovered through the inverse transform within 0.5 px; an auto range contains every limit; a given range clips them.
+test('limits draw single and paneled', () => {
+  const series = [
+    { points: [[0, 1], [100, 0.6], [200, 0.3], [400, 0.05]], index: 0, role: 'tangential' },
+    { points: [[0, 1], [100, 0.7], [200, 0.4], [400, 0.1]], index: 0, role: 'sagittal' },
+    { points: [[0, 1], [100, 0.5], [400, 0]], index: 1 },
+    { points: [[0, 0.9], [400, 0.2]], index: 1, role: 'sagittal' },
+  ];
+  const limits = [{ y: 0.3, label: 'MTF ≥ 0.3' }, { x: 50 }, { y: [0.3, 0] }];
+  const x = { label: 'f', range: [0, 400] }, y = { label: 'm', range: [0, 1] };
+  const near = (M, v, w, msg) => assert.ok(Math.hypot(...toPx(M, v).map((c, i) => c - toPx(M, w)[i])) <= TOL_PX, msg);
+  const check = (g, msg) => {
+    const lines = marks(g, 'line').filter((l) => l.limit), rects = marks(g, 'rect').filter((r) => r.limit);
+    assert.equal(lines.length, 2, `${msg}: a line per number`);
+    assert.equal(rects.length, 1, `${msg}: a rect per pair`);
+    const h = lines.find((l) => l.y1 === l.y2), v = lines.find((l) => l.x1 === l.x2);
+    near(g.M, [h.x1, h.y1], [0, 0.3], `${msg}: y line at 0.3, from the range start`);
+    near(g.M, [h.x2, h.y2], [400, 0.3], `${msg}: y line to the range end`);
+    near(g.M, [v.x1, v.y1], [50, 0], `${msg}: x line at 50`);
+    near(g.M, [v.x2, v.y2], [50, 1], `${msg}: x line spans y`);
+    near(g.M, [rects[0].x, rects[0].y], [0, 0], `${msg}: band corner`);
+    near(g.M, [rects[0].x + rects[0].width, rects[0].y + rects[0].height], [400, 0.3], `${msg}: band far corner`);
+    const at = [...g.body.matchAll(/<(?:path|polyline)\b/g)].map((m) => m.index);
+    assert.ok(at.length > 0 && g.body.indexOf('<rect') < at[0] && g.body.indexOf('<line') > at.at(-1), `${msg}: band under, lines over`);
+  };
+  for (const [width, height] of SIZES) {
+    let svg = ELEO.curve({ series, x, y, limits, width, height });
+    check(seriesGroup(svg), `${width}px single`);
+    assert.match(svg, /<text class="eleo-tick"[^>]*>MTF ≥ 0.3<\/text>/, 'the label is a text of its own');
+    assert.match(svg, /<line class="eleo-limit"[^>]*stroke="var\(--ink\)"[^>]*stroke-dasharray="6 3 1 3"/, 'a line takes the limit role style');
+    // Auto ranges contain every limit.
+    const { range: _x, ...xa } = x, { range: _y, ...ya } = y;
+    svg = ELEO.curve({ series, x: xa, y: ya, limits: [...limits, { y: 1.6 }, { x: [-20, 500] }], width, height });
+    const f = frame(svg), g = seriesGroup(svg);
+    const [xlo, ylo] = toData(g.M, [0, f.ph]), [xhi, yhi] = toData(g.M, [f.pw, 0]);
+    assert.ok(ylo <= 0 && yhi >= 1.6 && xlo <= -20 && xhi >= 500, `${width}px auto range [${xlo},${xhi}]x[${ylo},${yhi}] contains the limits`);
+    // A given range clips: a limit outside it leaves the range alone and draws no label.
+    svg = ELEO.curve({ series, x, y, limits: [{ y: 9, label: 'far' }], width, height });
+    assertPinned(seriesGroup(svg).M, svg, x, y, `${width}px clipped`);
+    assert.ok(!svg.includes('far'), 'no label outside the range');
+    // Panels: the limits in every panel, through its own transform.
+    const panels = [{ title: 'a', series: series.slice(0, 2) }, { title: 'b', series: series.slice(2) }];
+    svg = ELEO.curve({ panels, columns: 2, x, y, limits, width, height });
+    const groups = panelGroups(svg);
+    assert.equal(groups.length, 2);
+    groups.forEach((pg, p) => check(pg, `${width}px panel ${p}`));
+    assert.equal(svg.split('MTF ≥ 0.3').length - 1, 2, 'a label per panel');
+  }
+  assert.ok(!ELEO.curve({ series, x, y }).includes('eleo-limit'), 'no limits, no marks');
+  for (const bad of [5, [null], [{}], [{ x: 1, y: 1 }], [{ y: NaN }], [{ y: [1] }], [{ y: 'a' }], [{ y: 1, label: 3 }]]) {
+    assert.throws(() => ELEO.curve({ series, x, y, limits: bad }), { name: 'TypeError', message: /^curve: / }, JSON.stringify(bad));
+  }
 });
 
 // Plan #284, outcome O2 (issue #290; #294 unskips). oracle: property: synthetic and recorded limits recovered through the inverse transform within 0.5 px; an auto range contains every limit.

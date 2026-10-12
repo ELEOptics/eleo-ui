@@ -2,6 +2,7 @@ import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
+import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
 
 /* Role to style (ADR-0001). Callers give a role and an index, never a color, font or stroke width. */
 function roleStyle(s) {
@@ -49,8 +50,10 @@ export function scales(o, groups, panel) {
   var all = [].concat.apply([], groups.map(function (g) { return g.map(function (s) { return s.points || []; }); })), x = o.x || {}, y = o.y || {};
   /* Panels leave out the points they don't draw; the single plot counts every point, as it always has, so its polyline stays inside the range. */
   var live = function (p) { return !panel || drawn(p); };
-  var xr = axisRange(x, [].concat.apply([], all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
-  var yr = axisRange(y, [].concat.apply([], all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
+  /* `o.limits`, when given, is checkLimits' output: an auto range contains every limit. */
+  var lim = o.limits || [];
+  var xr = axisRange(x, [].concat.apply(limitValues(lim, "x"), all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
+  var yr = axisRange(y, [].concat.apply(limitValues(lim, "y"), all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
   var xt = axisTicks(x, xr), yt = axisTicks(y, yr);
   /* The right margin: 12 px, or half the rightmost shown x label's width (6 px a character, as layout2D estimates) when that is more. */
   var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), R = 12;
@@ -61,7 +64,8 @@ export function scales(o, groups, panel) {
 export var PLOT_L = 46, PLOT_B = 36;
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
-export function plotCell(sc, series, w, h, T, panel, body) {
+/* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
+export function plotCell(sc, series, w, h, T, panel, body, limits) {
   var L = PLOT_L, Bm = PLOT_B, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var pw = w - L - sc.R, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
@@ -74,26 +78,39 @@ export function plotCell(sc, series, w, h, T, panel, body) {
   var M = [sx, 0, 0, -sy, -xr[0] * sx, ph + yr[0] * sy].map(String);
   g += '<svg x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"><g transform="matrix(' + M.join(" ") + ')">';
   if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
-  return g + "</g></svg>";
+  g += "</g></svg>";
+  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: L + pw, top: T });
+  return g;
+}
+/* The `limit` role's stroke, as attributes for a line. */
+export function limitStroke() {
+  var st = roleStyle({ role: "limit" });
+  return 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"';
+}
+/* A series group's markup with the limits: bands under `inner`, lines over it. */
+export function limitBody(limits, sc, inner) {
+  var m = limitMarks(limits, sc.xr, sc.yr, limitStroke());
+  return m.under + inner + m.over;
 }
 function typedCurve(o) {
   var W = o.width || 460, H = o.height || 260, x = o.x || {}, y = o.y || {};
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var labels = function () { return '<text class="eleo-tick" x="' + (W - sc.R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="10">' + lab(y) + "</text>"; };
-  var sc, g = "";
+  var sc, g = "", lim = checkLimits(o.limits, "curve");
+  var cell = function (series, w, h, T, panel) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel); }).join("")), lim); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
     var top = 14, cw = W / cols, ch = (H - top) / rows, T = 22;
-    sc = scales(o, panels.map(function (p) { return p.series || []; }), true);
+    sc = scales({ x: x, y: y, limits: lim }, panels.map(function (p) { return p.series || []; }), true);
     panels.forEach(function (p, i) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
-      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="46" y="' + (T - 6) + '">' + esc(p.title) + "</text>" : "") + plotCell(sc, p.series || [], cw, ch, T, true) + "</g>";
+      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="46" y="' + (T - 6) + '">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true) + "</g>";
     });
     return svg(W, H, g + labels(), lab(y) + " against " + lab(x) + " plot");
   }
-  sc = scales(o, [o.series]);
-  g = plotCell(sc, o.series, W, H, 14, false) + labels();
+  sc = scales({ x: x, y: y, limits: lim }, [o.series]);
+  g = cell(o.series, W, H, 14, false) + labels();
   return svg(W, H, g, lab(y) + " against " + lab(x) + " plot");
 }
 
