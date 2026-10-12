@@ -1,7 +1,7 @@
 // Layout2DProps.labels accepts null entries and still rejects non-text, under tsc --strict (#72, CR #71).
 // RecordedSurface.glass takes a {name, nd, vd} Glass and rejects a bare catalog name (#96, tests/types/glass.ts).
 // curve.ts: CurvePlotProps takes typed series, rejects a color option and an unknown role (#178).
-// SpotSampleProps docs state the centroid default (#282).
+// panels.ts: SpotPanelsProps and SpotSampleProps accept their documented options under --strict (#280, #283).
 // oracle: spec #67's shipped layout2D: a null label skips that fan (packages/plots/src/layout2d.js)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

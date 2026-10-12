@@ -80,7 +80,7 @@ export interface SpotPanelsProps {
   panels: SpotPanel[];
   /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
   origin?: string;
-  /** "chief" keeps the dots as given, labelled with origin. Default "centroid": every panel is recentred on the centroid of its dots. */
+  /** "centroid" recentres every panel on the centroid of its dots. Default "chief": dots stay as given, labelled with origin. */
   reference?: "chief" | "centroid";
   /** RMS and GEO radius lines under each panel. Default true. */
   showStats?: boolean;
@@ -110,9 +110,9 @@ export interface SpotSampleProps {
   half?: number;
   /** Airy circle. Default true. */
   airy?: boolean;
-  /** Names the zero point in the caption. Default "chief ray". */
+  /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
   origin?: string;
-  /** "centroid" recenters every panel on the centroid of its dots. Default "chief": dots stay as given. */
+  /** "chief" keeps the dots as given, labelled with origin. Default "centroid": every panel is recentred on the centroid of its dots. */
   reference?: "chief" | "centroid";
   /** RMS and GEO radius lines under each panel. Default true. */
   showStats?: boolean;
