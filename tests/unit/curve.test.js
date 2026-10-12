@@ -354,7 +354,7 @@ test('a non-numeric range falls back to the data (#207)', () => {
   const series = [{ points: [[0, 0], [10, 1]], index: 0 }];
   const want = ELEO.curve({ series, x: { label: 'a' }, y: { label: 'b' } });
   assert.ok(!/NaN|Infinity/.test(want));
-  for (const range of [[], ['a', 'b'], [NaN, 1], [1], [0, Infinity]]) {
+  for (const range of [[], ['a', 'b'], [NaN, 1], [1], [0, Infinity], 5, '0,1', { lo: 0, hi: 1 }]) {
     const got = ELEO.curve({ series, x: { label: 'a', range }, y: { label: 'b', range } });
     assert.ok(!/NaN|Infinity/.test(got), `range ${JSON.stringify(range)} draws finite numbers`);
     assert.equal(got, want, `range ${JSON.stringify(range)} equals no range`);

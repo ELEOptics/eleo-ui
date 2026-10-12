@@ -11,7 +11,7 @@ function roleStyle(s) {
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */
 function axisRange(a, vals) {
-  var r = a.range && a.range.map(Number);
+  var r = Array.isArray(a.range) ? a.range.map(Number) : null;
   /* A range that is not two finite numbers is dropped: the axis falls back to the data. */
   if (r && !(r.length >= 2 && isFinite(r[0]) && isFinite(r[1]))) r = null;
   if (!r) { var lo = Infinity, hi = -Infinity; vals.forEach(function (v) { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); r = lo <= hi ? [lo, hi] : [0, 1]; if (lo < hi) { var nr = niceRange(lo, hi, 6); r = [nr.lo, nr.hi]; } }
@@ -28,7 +28,7 @@ function axisTicks(a, r) {
 function seriesPath(pts) {
   var d = "", run = [];
   function flush() { if (run.length) d += (d ? " " : "") + "M" + run.join(" L") + (run.length === 1 ? " h0" : ""); run = []; }
-  pts.forEach(function (p) { if (p[0] === null || p[1] === null || p[0] === undefined || p[1] === undefined || !isFinite(p[0]) || !isFinite(p[1])) flush(); else run.push(String(+p[0]) + "," + String(+p[1])); });
+  pts.forEach(function (p) { if (p[0] === null || p[1] === null || !isFinite(p[0]) || !isFinite(p[1])) flush(); else run.push(String(+p[0]) + "," + String(+p[1])); });
   flush();
   return d;
 }
@@ -51,7 +51,7 @@ function scales(o, groups, panel) {
   if (shown.length) R = Math.max(R, 3 * Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length);
   return { xr: xr, yr: yr, xt: xt, yt: yt, R: R };
 }
-/* One plot: the frame, ticks, zero lines and series, in a box of w by h; ox, oy is its corner. */
+/* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 function plotCell(sc, series, w, h, T, panel) {
   var L = 46, Bm = 36, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var pw = w - L - sc.R, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
@@ -70,7 +70,7 @@ function plotCell(sc, series, w, h, T, panel) {
 function typedCurve(o) {
   var W = o.width || 460, H = o.height || 260, x = o.x || {}, y = o.y || {};
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
-  var labels = function (top) { return '<text class="eleo-tick" x="' + (W - sc.R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="' + top + '">' + lab(y) + "</text>"; };
+  var labels = function () { return '<text class="eleo-tick" x="' + (W - sc.R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="10">' + lab(y) + "</text>"; };
   var sc, g = "";
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
@@ -81,10 +81,10 @@ function typedCurve(o) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
       g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="46" y="' + (T - 6) + '">' + esc(p.title) + "</text>" : "") + plotCell(sc, p.series || [], cw, ch, T, true) + "</g>";
     });
-    return svg(W, H, g + labels(10), lab(y) + " against " + lab(x) + " plot");
+    return svg(W, H, g + labels(), lab(y) + " against " + lab(x) + " plot");
   }
   sc = scales(o, [o.series]);
-  g = plotCell(sc, o.series, W, H, 14, false) + labels(10);
+  g = plotCell(sc, o.series, W, H, 14, false) + labels();
   return svg(W, H, g, lab(y) + " against " + lab(x) + " plot");
 }
 
