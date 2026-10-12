@@ -39,7 +39,7 @@ export function limitMarks(norm, xr, yr, style) {
   });
   return { under: under, over: over };
 }
-/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line. `px` is { X, Y, right, top }, the cell's data to px functions and edges. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
+/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line, end-anchored left of it when the line is past the plot's midpoint. `px` is { X, Y, right, top }, the cell's data to px functions and edges. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
 export function limitLabels(norm, xr, yr, px) {
   var g = "";
   norm.forEach(function (l) {
@@ -49,7 +49,8 @@ export function limitLabels(norm, xr, yr, px) {
       g += '<text class="eleo-tick" x="' + (px.right - 4) + '" y="' + px.Y(Math.min(l.hi, yr[1])) + '" dy="-3" text-anchor="end">' + esc(l.label) + "</text>";
     } else {
       if (l.hi < xr[0] || l.lo > xr[1]) return;
-      g += '<text class="eleo-tick" x="' + (+px.X(Math.max(l.lo, xr[0])) + 4) + '" y="' + (px.top + 10) + '">' + esc(l.label) + "</text>";
+      var xp = +px.X(Math.max(l.lo, xr[0])), late = xp > (+px.X(xr[0]) + +px.X(xr[1])) / 2;
+      g += '<text class="eleo-tick" x="' + (late ? xp - 4 : xp + 4) + '" y="' + (px.top + 10) + '"' + (late ? ' text-anchor="end"' : "") + ">" + esc(l.label) + "</text>";
     }
   });
   return g;

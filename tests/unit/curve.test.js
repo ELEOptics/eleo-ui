@@ -484,6 +484,14 @@ test('limits draw single and paneled', () => {
     assert.ok(ty && tx, `${width}px: a partly drawn band keeps its label`);
     assert.ok(Math.abs(+ty[1] - bx.y - toPx(gp.M, [0, 1])[1]) <= TOL_PX, `${width}px: the y band's label sits at the range top`);
     assert.ok(Math.abs(+tx[1] - 4 - bx.x - toPx(gp.M, [0, 0])[0]) <= TOL_PX, `${width}px: the x band's label sits at the range start`);
+    // An x limit past the plot's midpoint has its label end-anchored left of its line, inside the viewBox.
+    svg = ELEO.curve({ series, x, y, limits: [{ x: 400, label: 'Nyquist 400' }, { x: 50, label: 'early' }], width, height });
+    const ny = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>Nyquist 400<\/text>/), ea = svg.match(/<text class="eleo-tick"([^>]*)>early<\/text>/);
+    assert.ok(ny, `${width}px: the Nyquist label is drawn`);
+    assert.match(ny[2], /text-anchor="end"/, `${width}px: a label past the midpoint is end-anchored`);
+    assert.ok(+ny[1] <= width, `${width}px: the label's anchor is inside the viewBox`);
+    assert.ok(Math.abs(+ny[1] + 4 - panelGroups(svg)[0].box.x - toPx(seriesGroup(svg).M, [400, 0])[0]) <= TOL_PX, `${width}px: the label sits 4 px left of its line`);
+    assert.ok(!/text-anchor/.test(ea[1]), `${width}px: a label before the midpoint keeps the start anchor`);
     // A band wholly outside the range has none.
     svg = ELEO.curve({ series, x, y, limits: [{ y: [2, 9], label: 'gone' }, { x: [500, 600], label: 'gone' }], width, height });
     assert.ok(!svg.includes('gone'), 'no label for a band outside the range');
