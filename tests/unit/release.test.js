@@ -265,7 +265,7 @@ test('panels-spot changeset became a plots minor', { skip: !panelsSpotConsumed &
   assert.equal(entry('plots', PANELS_ENTRY).kind, 'Minor');
 });
 
-// Plan #284 (agent_docs/plans/284-bars-limits.md), O4, issue #295; #299 adds the changesets, #300 unskips.
+// Plan #284 (agent_docs/plans/284-bars-limits.md), O4, issue #295.
 // oracle: spec roadmap Constraints (a typed API added alongside the old one ships as a minor); semver 0.x.
 // Each file test has a consumed twin reading the CHANGELOG once `changeset version` deleted the file (#279).
 // The plots changeset starts **Breaking:** (README.md, Changing things): it names #199's throws.
@@ -286,7 +286,7 @@ const barsBumps = (file) => {
 };
 
 test('bars-limits changesets ask plots and plots-svelte minors',
-  { skip: (barsPlotsConsumed && barsSvelteConsumed && 'consumed by changeset version') || 'plan #284 O4 (#295): the changesets arrive in #299; #300 unskips' }, () => {
+  { skip: (barsPlotsConsumed && barsSvelteConsumed && 'consumed by changeset version') }, () => {
     const plots = barsBumps('bars-limits.md');
     assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
     assert.ok(plots.body.startsWith('**Breaking:**'), 'bars-limits.md body must start with **Breaking:**');
@@ -295,7 +295,7 @@ test('bars-limits changesets ask plots and plots-svelte minors',
   });
 
 test('bars-limits changesets became a plots minor and a plots-svelte minor',
-  { skip: (!(barsPlotsConsumed && barsSvelteConsumed) && 'changesets not yet versioned') || 'plan #284 O4 (#295): #300 unskips' }, () => {
+  { skip: (!(barsPlotsConsumed && barsSvelteConsumed) && 'changesets not yet versioned') }, () => {
     assert.equal(entry('plots', BARS_PLOTS_ENTRY).kind, 'Minor');
     assert.equal(entry('plots-svelte', BARS_SVELTE_ENTRY).kind, 'Minor');
   });
