@@ -135,7 +135,7 @@ lines and bands on `curve` and `bars`.
 
 ## Milestones
 
-### M1: Seidel bars from the recorded achromat GitHub: `P284 M1: Seidel bars`
+### M1: Seidel bars from the recorded achromat (done 2026-10-12) GitHub: `P284 M1: Seidel bars`
 
 Demo: before the first change, the orchestrator screenshots main's gallery at the plan's base (every tile,
 both themes, standard and both vision palettes) and uploads them with `gh release upload review-assets --clobber` (never committed). At the demo, `npm run gallery` shows the new Seidel tile (the achromat's seven
@@ -213,3 +213,4 @@ Proves: O3, O4
 - 2026-10-12 review M1 round 4: 0 blocking, nothing pulled in; #310 and #311 stay plain issues (after round 3). M1 done, pending the user's demo (O1's oracle includes `user`).
 - 2026-10-12 (user, M1 demo): no-go. CR #312 (the user's feedback): "The title 'Seidel sum, mm' is too close to the top of the axis" and thin dotted dividers between the x-axis groups. `bars` only; `curve`'s matching title spacing left unchanged unless the user asks.
 - 2026-10-12 review M1 round 5 (after CR #312): 1 blocking (CR #313, accepted by the orchestrator), findings 2 and 3 folded in (they bear on the user's dividers).
+- 2026-10-12 review M1 round 6: 0 blocking, nothing pulled in; #314 stays a plain issue. M1 done again after CR #312, pending the user's demo.
