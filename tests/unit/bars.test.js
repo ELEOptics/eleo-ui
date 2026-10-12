@@ -19,7 +19,7 @@ import { TOL_PX, SIZES, fixture, seriesGroup, marks, toPx, toData, frame } from 
 //  - The test reads the stripped total back from the recording itself: the last element of each term at that wavelength.
 // What #287's bars({ categories, series, total: 'Σ', y, width, height }) must draw: one <rect> per category and series, then one per series for the
 // Σ group, in the series group's data space: y = min(0, v) and height = |v|, so the transform inverts to the value.
-test('recorded Seidel round trip (U9)', { skip: 'plan #284: waits on #286 (fixtures), #287 (bars), #288 (adapter); #289 unskips' }, async () => {
+test('recorded Seidel round trip (U9)', async () => {
   await import('../fixtures/phos-core/adapters.js');
   const { ELEOAdapters } = globalThis;
   assert.ok(ELEOAdapters && typeof ELEOAdapters.seidel === 'function', 'adapters.js assigns globalThis.ELEOAdapters.seidel');
