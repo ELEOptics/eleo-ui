@@ -322,3 +322,13 @@ test('bar limits draw and x limits throw', () => {
   assert.ok(!ELEO.bars(call).includes('eleo-limit'), 'no limits, no marks');
   assert.throws(() => ELEO.bars({ ...call, limits: [{ x: 1 }] }), { name: 'TypeError', message: 'bars: x limits are not supported' });
 });
+
+// oracle: spec, plan #284 #297
+test('BarPlot.svelte wraps bars and is exported', () => {
+  const lib = new URL('../../packages/plots-svelte/src/lib/', import.meta.url);
+  const comp = readFileSync(new URL('BarPlot.svelte', lib), 'utf8');
+  assert.match(comp, /import\s*\{[^}]*\bbars\b[^}]*\}\s*from\s*'@eleoptics\/plots'/);
+  assert.match(comp, /\bbars\(/);
+  const index = readFileSync(new URL('index.js', lib), 'utf8');
+  assert.match(index, /export\s*\{\s*default as BarPlot\s*\}\s*from\s*'\.\/BarPlot\.svelte'/);
+});

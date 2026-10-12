@@ -1,6 +1,6 @@
 # @eleoptics/plots-svelte
 
-Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleoptics/plots): `PlotCard`, `Layout2D`, `Layout3D`, `SpotDiagram`, `RayFan`, `CurvePlot`, `Map2D`, `Icon`, `Legend` and `Colorbar`. Canvas plots redraw when their props, the theme or the palette change.
+Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleoptics/plots): `PlotCard`, `Layout2D`, `Layout3D`, `SpotDiagram`, `RayFan`, `CurvePlot`, `BarPlot`, `Map2D`, `Icon`, `Legend` and `Colorbar`. Canvas plots redraw when their props, the theme or the palette change.
 
 ```bash
 npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
@@ -64,6 +64,19 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 <SpotDiagram
   panels={[{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }], airy: 2.4 }]}
   origin="chief ray" reference="centroid" unit="µm" half={5}
+/>
+```
+
+`BarPlot` draws signed, grouped bars: a group per category, a bar per series (`values`, `index`, `label`), with `total` appending a group of per-series sums and `y` the value axis (`label`, `unit`, `range`, `ticks`). `limits` pass through as in `CurvePlot`, y only (`[{ y: number | [lo, hi], label? }]`): a category axis has no x value, so an `x` limit throws. There is no color option:
+
+```svelte
+<BarPlot
+  categories={['1', '2', '3']}
+  series={[{ values: [0.012, -0.004, 0.001], index: 0, label: 'SI' }]}
+  total="Σ"
+  y={{ label: 'Seidel sum', unit: 'mm' }}
+  limits={[{ y: [-0.005, 0.005], label: 'tolerance' }]}
+  label="Seidel sums"
 />
 ```
 
