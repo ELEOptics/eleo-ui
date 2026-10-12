@@ -9,12 +9,12 @@ globalThis.ELEO = ELEO;
 
 import { TOL_PX, SIZES, fixture, panelGroups, toPx, toData } from './helpers/svg.js';
 
-// What #238, #226 and #239 must provide (the shapes this test assumes):
-//  - #238: tests/fixtures/phos-core/{achromat,cooke}-spot.json. Per source rec.sources[i]: fieldAngleDeg, wavelengths (nm, one per
+// The shapes this test assumes:
+//  - tests/fixtures/phos-core/{achromat,cooke}-spot.json. Per source rec.sources[i]: fieldAngleDeg, wavelengths (nm, one per
 //    entry of points), points (per wavelength, an array of [x, y] in mm), enclosingRadius (per wavelength and polychromatic).
-//  - #226: ELEOAdapters.spot(rec) in tests/fixtures/phos-core/adapters.js returns { panels, unit, scale? }: one panel per source,
-//    { title (the field angle), series: [{ points: [[x, y] in µm, …], index: wavelength k }], airy (the Airy radius, µm), notes }, unit 'µm'.
-//  - #239: ELEO.spot({ panels, scale, half, unit, width, height }) draws one nested <svg> and matrix <g> per panel; each series is
+//  - tests/fixtures/phos-core/adapters.js: ELEOAdapters.spot(rec) returns { unit, origin, panels }: one panel per source,
+//    { title (the field angle), series: [{ points: [[x, y] in µm, …], index: wavelength k }], airy (the Airy radius, µm) }, unit 'µm'.
+//  - ELEO.spot({ panels, scale, half, unit, width, height }) draws one nested <svg> and matrix <g> per panel; each series is
 //    one <path> of `M x y h0` dots in the group's data coordinates, and a panel's `airy` is a <circle r="…"> in that group
 //    (r in data units, centred on the origin, inside the matrix <g>). scale 'common' gives every panel one scale, 'auto' fits each.
 test('recorded spot round trip (U7)', async () => {
@@ -75,7 +75,7 @@ test('recorded spot round trip (U7)', async () => {
   }
 });
 
-// #239: spot({ panels }) on synthetic points (the recorded round trip above waits on #238, #226 and #241).
+// #239: spot({ panels }) on synthetic points (the recorded round trip is above).
 test('typed points round trip, common and auto scale', () => {
   const panels = [
     { title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3], [-0.7, 0.9]], index: 0 }, { points: [[-2.5, 2.2], [0, 0]], index: 2 }], airy: 2.87, notes: ['100 % 6.53 µm'] },
@@ -208,15 +208,15 @@ test('stats about the reference', () => {
   const off = pts.map((q) => [q[0] + 1, q[1] + 1]);
   const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
   const chief = texts(ELEO.spot({ panels: [{ series: [{ points: pts }], notes: ['mine'] }], unit: 'µm' }));
-  assert.ok(chief.includes('RMS 3.54 µm') && chief.includes('GEO 4.00 µm'), 'stats about the origin: ' + chief);
-  assert.ok(chief.indexOf('RMS 3.54 µm') < chief.indexOf('GEO 4.00 µm') && chief.indexOf('GEO 4.00 µm') < chief.indexOf('mine'), 'stats come before the caller\'s notes');
-  assert.ok(chief.some((t) => /^Reference: chief ray · RMS, GEO about chief ray$/.test(t)), 'caption: ' + chief);
+  assert.ok(chief.includes('RMS 3.54 µm') && chief.includes('GEO 4 µm'), 'stats about the origin: ' + chief);
+  assert.ok(chief.indexOf('RMS 3.54 µm') < chief.indexOf('GEO 4 µm') && chief.indexOf('GEO 4 µm') < chief.indexOf('mine'), 'stats come before the caller\'s notes');
+  assert.ok(chief.includes('Reference: chief ray') && chief.includes('RMS, GEO'), 'caption: ' + chief);
   const cen = texts(ELEO.spot({ panels: [{ series: [{ points: off }] }], reference: 'centroid', unit: 'µm' }));
-  assert.ok(cen.includes('RMS 3.54 µm') && cen.includes('GEO 4.00 µm'), 'stats about the centroid: ' + cen);
-  assert.ok(cen.includes('Reference: centroid · RMS, GEO about centroid'));
+  assert.ok(cen.includes('RMS 3.54 µm') && cen.includes('GEO 4 µm'), 'stats about the centroid: ' + cen);
+  assert.ok(cen.includes('Reference: centroid') && cen.includes('RMS, GEO'));
   const off1 = texts(ELEO.spot({ panels: [{ series: [{ points: pts }], notes: ['mine'] }], showStats: false, unit: 'µm' }));
   assert.ok(!off1.some((t) => /^(RMS|GEO)\b/.test(t)) && off1.includes('mine'), 'showStats false omits the notes');
-  assert.ok(off1.every((t) => !/RMS, GEO/.test(t)), 'and the caption clause');
+  assert.ok(off1.every((t) => t !== 'RMS, GEO'), 'and the caption clause');
   const none = texts(ELEO.spot({ panels: [{ series: [{ points: [[NaN, 1], null] }] }] }));
   assert.ok(!none.some((t) => /^(RMS|GEO)\b/.test(t)), 'no drawn points, no stats');
 });
@@ -231,10 +231,38 @@ test('Airy circle toggled and labelled', () => {
   const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(on);
   assert.ok(r, 'the circle is drawn');
   assert.ok(Math.abs(Math.abs(g.M[0]) * (+r[1] - 2.87)) <= TOL_PX, 'its radius maps to 2.87');
-  assert.ok(texts(on).includes('Reference: chief ray · Airy radius 2.87 µm · RMS, GEO about chief ray'), 'caption: ' + texts(on));
+  assert.ok(['Reference: chief ray', 'Airy radius 2.87 µm', 'RMS, GEO'].every((t) => texts(on).includes(t)), 'caption: ' + texts(on));
   const off = ELEO.spot({ panels: [{ series, airy: 2.87 }], unit: 'µm', showAiry: false, width: 300, height: 200 });
   assert.ok(!/<circle/.test(off) && !texts(off).some((t) => /Airy/.test(t)), 'showAiry false: no circle, no clause');
   assert.equal(off, ELEO.spot({ panels: [{ series }], unit: 'µm', width: 300, height: 200 }), 'and the radius no longer counts toward the half');
   const mixed = ELEO.spot({ panels: [{ series, airy: 1 }, { series, airy: 2 }], unit: 'µm' });
   assert.ok(texts(mixed).some((t) => t.includes('Airy circle') && !t.includes('radius')), 'differing radii: Airy circle');
+});
+
+// #275 (CR #270): the caption is one line per active setting, inside the figure; stats at 3 significant digits; centroid default for the sample.
+// oracle: property: each caption line's estimated width (6 px a character, as layout2D estimates) <= the viewBox width; radii equal at 3 digits print once.
+test('caption lines and stats labels', async () => {
+  const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  const vbw = (svg) => +/viewBox="0 0 ([\d.]+)/.exec(svg)[1];
+  const series = [{ points: [[0.4, -1.2], [1.1, 0.3]] }];
+  const one = ELEO.spot({ panels: [{ series, airy: 2.87 }], unit: 'µm', reference: 'centroid' });
+  const cap = texts(one).filter((t) => /^(Reference|Airy|RMS, GEO)/.test(t));
+  assert.deepEqual(cap, ['Reference: centroid', 'Airy radius 2.87 µm', 'RMS, GEO'], 'one line per clause');
+  cap.forEach((t) => assert.ok(6 * t.length <= vbw(one), `caption line "${t}" fits ${vbw(one)} px`));
+  const ys = [...one.matchAll(/<text[^>]*\by="([\d.]+)"[^>]*>(Reference|Airy radius|RMS, GEO)/g)].map((m) => +m[1]);
+  assert.ok(ys[1] - ys[0] === 15 && ys[2] - ys[1] === 15, 'lines 15 px apart');
+  const H = +/viewBox="0 0 [\d.]+ ([\d.]+)/.exec(one)[1];
+  assert.ok(ys[2] < H, 'last line inside the height');
+  const mm = texts(ELEO.spot({ panels: [{ series: [{ points: [[0.001234, 0], [-0.001234, 0]] }] }], unit: 'mm' }));
+  assert.ok(mm.includes('RMS 0.00123 mm') && mm.includes('GEO 0.00123 mm'), 'three significant digits: ' + mm);
+  const { spotPanels } = await import('../../packages/plots/src/spot.js');
+  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  assert.equal(spotPanels(sample).reference, 'centroid', 'the sample is centroid-referenced');
+  assert.equal(spotPanels(sample, { reference: 'chief' }).reference, 'chief', 'a given reference wins');
+  const pts = [{ points: [[3, 1], [5, 3]] }];
+  assert.equal(ELEO.spot({ panels: [{ series: pts }], reference: ' Centroid ' }), ELEO.spot({ panels: [{ series: pts }], reference: 'centroid' }), 'a mis-cased reference re-centres');
+  assert.ok(!texts(ELEO.spot({ panels: [{ series: [{ points: [[NaN, 1]] }] }] })).includes('RMS, GEO'), 'no stats line for empty points');
+  assert.ok(!texts(ELEO.spot({ panels: [] })).includes('RMS, GEO'), 'nor for no panels');
+  const eq = texts(ELEO.spot({ panels: [{ series: pts, airy: 2.87 }, { series: pts, airy: 2.87 + 2 * Number.EPSILON * 2.87 }], unit: 'µm' }));
+  assert.ok(eq.includes('Airy radius 2.87 µm') && !eq.includes('Airy circle'), 'radii equal at the printed precision print one radius: ' + eq);
 });

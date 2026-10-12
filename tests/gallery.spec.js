@@ -291,3 +291,18 @@ test('standalone label style (#112)', async ({ page }) => {
     await ref.close();
   }
 });
+
+// Plan #232 #275: the spot caption is one line per setting and stays inside the figure. oracle: property, getBBox of each caption text within the viewBox.
+test('spot caption stays inside the viewBox', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const got = await page.locator(`.theme[data-theme="${theme}"] [data-tile="spot"] .eleo-plot__body svg[viewBox]`).evaluate((svg) => {
+      const [vx, vy, vw, vh] = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+      const lines = [...svg.querySelectorAll(':scope > text')].filter((t) => /^(Reference|Airy|RMS, GEO)/.test(t.textContent));
+      return { vw, lines: lines.map((t) => { const b = t.getBBox(); return { text: t.textContent, ok: b.x >= vx - 0.5 && b.y >= vy && b.x + b.width <= vx + vw + 0.5 && b.y + b.height <= vy + vh + 0.5 }; }) };
+    });
+    expect(got.lines.length, `${theme}: caption lines`).toBeGreaterThanOrEqual(2);
+    for (const l of got.lines) expect(l.ok, `${theme}: "${l.text}" inside the viewBox`).toBe(true);
+  }
+});
