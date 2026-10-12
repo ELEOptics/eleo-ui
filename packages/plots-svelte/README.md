@@ -41,7 +41,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 <Layout2D data={after} {box} {labels} marks={false} label="Layout after optimization" />
 ```
 
-`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal`, `reference` or `limit`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role draws 1 px, the plot area clips, and a range left out is the nice range of the data. There is no color option:
+`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal`, `reference` or `limit`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role draws 1 px, the plot area clips, and a range left out is the nice range of the data. `BarPlot` needs `@eleoptics/plots` 0.5.0 or later (`bars`); with an older plots it throws that error when rendered, and the other components still work. There is no color option:
 
 ```svelte
 <CurvePlot

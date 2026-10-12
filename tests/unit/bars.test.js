@@ -327,8 +327,10 @@ test('bar limits draw and x limits throw', () => {
 test('BarPlot.svelte wraps bars and is exported', () => {
   const lib = new URL('../../packages/plots-svelte/src/lib/', import.meta.url);
   const comp = readFileSync(new URL('BarPlot.svelte', lib), 'utf8');
-  assert.match(comp, /import\s*\{[^}]*\bbars\b[^}]*\}\s*from\s*'@eleoptics\/plots'/);
-  assert.match(comp, /\bbars\(/);
+  assert.match(comp, /import\s*\*\s*as\s+plots\s+from\s*'@eleoptics\/plots'/);
+  assert.doesNotMatch(comp, /import\s*\{[^}]*\bbars\b[^}]*\}\s*from\s*'@eleoptics\/plots'/);
+  assert.match(comp, /plots\.bars\b/);
+  assert.match(comp, /BarPlot needs @eleoptics\/plots 0\.5\.0 or later/);
   const index = readFileSync(new URL('index.js', lib), 'utf8');
   assert.match(index, /export\s*\{\s*default as BarPlot\s*\}\s*from\s*'\.\/BarPlot\.svelte'/);
 });
