@@ -208,6 +208,8 @@ Proves: O3, O4
 | #244 | U14 for `curve` with panels (6 panels, 3 series of 41 points) and `spot` (3 panels, 10 000 points in total) | the existing `PERF=1` spec, because U14's oracle names it; considered a Node benchmark (U14 names headless Chromium). Stop: a median over 16 ms is reported (kill criterion D–J / U14), not fixed | `tests/perf.spec.js` | `perf.spec.js::spot redraw (U14)`, `::curve panels redraw (U14)` | #241 |
 | #245 | Changeset: plots minor | forced (CLAUDE.md: a changeset per user-facing change; roadmap: minors until J) | `.changeset/panels-spot.md`, `tests/unit/release.test.js` | O4 | #242 |
 | #246 | Unskip O3, O4 | forced (`workflow.md`, TDD) | `tests/unit/types.test.js`, `tests/unit/release.test.js` | O3, O4 | #242, #243, #244, #245 |
+| #279 | CR (review M3 round 1 finding 1, with 5): the panels-spot changeset test skips once consumed, with a CHANGELOG twin; the changeset's layout wording | forced (`release.test.js:212`: `changeset version` deletes the file; the curve-typed pattern) | `tests/unit/release.test.js`, `.changeset/panels-spot.md` | `release.test.js::panels-spot changeset became a plots minor` | #246 |
+| #280 | Backlog findings 2–4: `SpotSampleProps` types what the sample call honours; `SpotSeries.points`' doc | the findings' named fixes in one item, because all are the spot types; considered three items (one file) | `packages/plots/src/index.d.ts`, `tests/types/panels.ts` | `types.test.js::panels and spot points type-check under --strict` extended | #243 |
 
 ## Risks and spikes
 
@@ -250,3 +252,4 @@ Proves: O3, O4
 - 2026-10-12 (user, M2 demo after CR #270): go. The spot tile and its settings are row E's spot baseline.
 - 2026-10-12 (orchestrator): #243 unskips O3 itself, because the pre-commit hook needs a test beside the `index.d.ts` change; #246 unskips O4 only.
 - 2026-10-12: U14 (headless Chromium, median of 20 redraws, 3 runs): `curve` with 6 panels of 3 × 41 points 0.85–0.90 ms; `spot` with 10 000 points, stats and Airy on, 3.15–3.30 ms; `curve` 1.20 ms. All under 16 ms.
+- 2026-10-12 review M3 round 1: 1 blocking (CR #279, accepted by the orchestrator, with finding 5). Backlog #280 (findings 2–4) into M3 (headless: backlog into M3, row: milestone acceptance within the plan); #281 (finding 6, optional) a plain issue.
