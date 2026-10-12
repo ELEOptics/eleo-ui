@@ -188,14 +188,16 @@ test('layouts changeset became a plots minor and a plots-svelte patch', { skip: 
   assert.ok(!/data\.layout/.test(readFileSync(join(repo, 'packages/plots-svelte/CHANGELOG.md'), 'utf8')), 'the plots-svelte changelog carries the layouts body');
 });
 
+// The one front-matter parser: a changeset file's bumps and its trimmed body.
+const parse = (file) => {
+  const text = readFileSync(join(repo, '.changeset', file), 'utf8');
+  const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  assert.ok(m, `.changeset/${file} has no front matter`);
+  const bumps = Object.fromEntries(m[1].split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((r) => [r[1], r[2]]));
+  return { bumps, body: m[2].trim() };
+};
+
 test('layouts changeset asks plots minor, plots-svelte patch', { skip: consumed && 'consumed by changeset version' }, () => {
-  const parse = (file) => {
-    const text = readFileSync(join(repo, '.changeset', file), 'utf8');
-    const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-    assert.ok(m, `.changeset/${file} has no front matter`);
-    const bumps = Object.fromEntries(m[1].split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((r) => [r[1], r[2]]));
-    return { bumps, body: m[2] };
-  };
   const plots = parse('layouts.md');
   const svelte = parse('layouts-svelte-peer.md');
   assert.deepEqual({ ...plots.bumps, ...svelte.bumps }, { '@eleoptics/plots': 'minor', '@eleoptics/plots-svelte': 'patch' });
@@ -270,28 +272,19 @@ test('panels-spot changeset became a plots minor', { skip: !panelsSpotConsumed &
 // Each file test has a consumed twin reading the CHANGELOG once `changeset version` deleted the file (#279).
 // The plots changeset starts **Breaking:** (README.md, Changing things): it names #199's throws.
 const BARS_PLOTS_ENTRY = /New: `bars` draws grouped bars/;
-const BARS_SVELTE_ENTRY = /BarPlot/;
+const BARS_SVELTE_ENTRY = /New `BarPlot` component/;
 const barsConsumed = (file, dir, re) => !existsSync(join(repo, '.changeset', file))
   && re.test(readFileSync(join(repo, 'packages', dir, 'CHANGELOG.md'), 'utf8'));
 const barsPlotsConsumed = barsConsumed('bars-limits.md', 'plots', BARS_PLOTS_ENTRY);
 const barsSvelteConsumed = barsConsumed('bars-limits-svelte.md', 'plots-svelte', BARS_SVELTE_ENTRY);
-const barsBumps = (file) => {
-  const text = readFileSync(join(repo, '.changeset', file), 'utf8');
-  const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  assert.ok(m, `.changeset/${file} has no front matter`);
-  return {
-    bumps: Object.fromEntries(m[1].split('\n').map((l) => l.match(/^"([^"]+)":\s*(\w+)\s*$/)).filter(Boolean).map((r) => [r[1], r[2]])),
-    body: m[2].trim(),
-  };
-};
 
 test('bars-limits changesets ask plots and plots-svelte minors',
   { skip: (barsPlotsConsumed && barsSvelteConsumed && 'consumed by changeset version') }, () => {
-    const plots = barsBumps('bars-limits.md');
+    const plots = parse('bars-limits.md');
     assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
     assert.ok(plots.body.startsWith('**Breaking:**'), 'bars-limits.md body must start with **Breaking:**');
     assert.match(plots.body, /TypeError/);
-    assert.deepEqual(barsBumps('bars-limits-svelte.md').bumps, { '@eleoptics/plots-svelte': 'minor' });
+    assert.deepEqual(parse('bars-limits-svelte.md').bumps, { '@eleoptics/plots-svelte': 'minor' });
   });
 
 test('bars-limits changesets became a plots minor and a plots-svelte minor',
