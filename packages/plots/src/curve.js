@@ -12,6 +12,8 @@ var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */
 function axisRange(a, vals) {
   var r = a.range && a.range.map(Number);
+  /* A range that is not two finite numbers is dropped: the axis falls back to the data. */
+  if (r && !(r.length >= 2 && isFinite(r[0]) && isFinite(r[1]))) r = null;
   if (!r) { var lo = Infinity, hi = -Infinity; vals.forEach(function (v) { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); r = lo <= hi ? [lo, hi] : [0, 1]; if (lo < hi) { var nr = niceRange(lo, hi, 6); r = [nr.lo, nr.hi]; } }
   return r[0] < r[1] ? [r[0], r[1]] : [r[0] - 1, r[0] + 1];
 }

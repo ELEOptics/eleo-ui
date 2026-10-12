@@ -341,3 +341,16 @@ test('sample fans round trip through panels (U6)', { skip: '#233: written ahead 
     }
   }
 });
+
+// Issue #207: a range that does not coerce to two finite numbers is dropped, so the axis falls back to the data.
+// oracle: spec #207
+test('a non-numeric range falls back to the data (#207)', () => {
+  const series = [{ points: [[0, 0], [10, 1]], index: 0 }];
+  const want = ELEO.curve({ series, x: { label: 'a' }, y: { label: 'b' } });
+  assert.ok(!/NaN|Infinity/.test(want));
+  for (const range of [[], ['a', 'b'], [NaN, 1], [1], [0, Infinity]]) {
+    const got = ELEO.curve({ series, x: { label: 'a', range }, y: { label: 'b', range } });
+    assert.ok(!/NaN|Infinity/.test(got), `range ${JSON.stringify(range)} draws finite numbers`);
+    assert.equal(got, want, `range ${JSON.stringify(range)} equals no range`);
+  }
+});
