@@ -248,7 +248,7 @@ test('curve-typed changeset became a plots minor', { skip: !curveTypedConsumed &
 
 // Plan #232 (agent_docs/plans/232-panels-spot.md), O4, issue #242; #245 adds the changeset, #246 unskips.
 // oracle: spec roadmap Constraints (a typed API added alongside the old ships as a minor); semver 0.x.
-test('panels-spot changeset asks a plots minor', { skip: 'plan #232 O4 (#242): the changeset arrives in #245; #246 unskips' }, () => {
+test('panels-spot changeset asks a plots minor', () => {
   const text = readFileSync(join(repo, '.changeset', 'panels-spot.md'), 'utf8');
   const m = text.match(/^---\n([\s\S]*?)\n---\n/);
   assert.ok(m, '.changeset/panels-spot.md has no front matter');
