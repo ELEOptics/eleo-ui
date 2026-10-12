@@ -12,10 +12,10 @@ import vm from 'node:vm';
 import { TOL_PX, SIZES, fixture, seriesGroup, marks, toPx, toData, frame } from './helpers/svg.js';
 
 // What #288's adapter (tests/fixtures/phos-core/adapters.js) must return, from the recording #286 writes:
-//  - seidel(rec): { categories, series, y } at the system's reference wavelength (the recording's `referenceWavelengthNm`). `categories` are the
+//  - seidel(rec): { categories, series, total, y } at the system's reference wavelength (the recording's `referenceWavelengthNm`). `categories` are the
 //    surface numbers as strings; `series` has one { values, index, label } per Seidel term (SI…SV, CL, CT; index 0–6), each with one
 //    value per surface, in phos-core's sign and mm. phos-core's recorded total (the last element of each term) is STRIPPED: bars()
-//    recomputes the sum from `total`. y is { label: 'Seidel sum', unit: 'mm' }.
+//    recomputes the sum from `total`, which is 'Σ'. y is { label: 'Seidel sum', unit: 'mm' }.
 //  - The test reads the stripped total back from the recording itself: the last element of each term at that wavelength.
 // What #287's bars({ categories, series, total: 'Σ', y, width, height }) must draw: one <rect> per category and series, then one per series for the
 // Σ group, in the series group's data space: y = min(0, v) and height = |v|, so the transform inverts to the value.
@@ -25,7 +25,8 @@ test('recorded Seidel round trip (U9)', async () => {
   assert.ok(ELEOAdapters && typeof ELEOAdapters.seidel === 'function', 'adapters.js assigns globalThis.ELEOAdapters.seidel');
   for (const lens of ['achromat', 'cooke']) {
     const rec = fixture(`${lens}-seidel`);
-    const { categories, series, y } = ELEOAdapters.seidel(rec);
+    const { categories, series, y, total } = ELEOAdapters.seidel(rec);
+    assert.equal(total, 'Σ', `${lens}: the adapter asks for the Σ group`);
     assert.equal(series.length, 7, `${lens}: seven terms`);
     for (const s of series) assert.equal(s.values.length, categories.length, `${lens} ${s.label}: one value per surface, the total stripped`);
     // The recorded total of each term, at the reference wavelength (names are not exact: the nearest wavelength).

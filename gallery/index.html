@@ -42,8 +42,10 @@
     <section class="eleo-plot" data-tile="layout2D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
     <div class="row">
       <section class="eleo-plot" data-tile="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
-      <section class="eleo-plot" data-tile="seidel"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums, mm</span></div><div class="eleo-plot__body" data-svg="seidel"></div></section>
       <section class="eleo-plot" data-tile="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
+    </div>
+    <div class="row">
+      <section class="eleo-plot" data-tile="seidel"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums, mm</span></div><div class="eleo-plot__body" data-svg="seidel"></div></section>
     </div>
     <div class="row">
       <section class="eleo-plot" data-tile="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">TRA, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="ts"></div></section>
@@ -99,7 +101,7 @@
       'merit-after': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('after'); } },
       'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d) { return ELEO.layout2D({ data: d, width: 1000, marks: false }); } },
       'spot': recTile('spot', ELEO.spot),
-      'seidel': recTile('seidel', function (d) { return ELEO.bars(Object.assign({ total: 'Σ' }, d)); }),
+      'seidel': recTile('seidel', ELEO.bars),
       'throughFocus': { need: sampleBox, draw: function () { return ELEO.throughFocus(); } },
       'rayFan': { need: sampleBox, draw: function () { return ELEO.rayFan(); } },
       'rayFan-opd': { need: sampleBox, draw: function () { return ELEO.rayFan({ kind: 'opd' }); } },
