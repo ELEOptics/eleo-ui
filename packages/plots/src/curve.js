@@ -24,11 +24,13 @@ function axisTicks(a, r) {
   while (d < 20 && !ts.every(function (v) { return Math.abs(Number(v.toFixed(d)) - v) <= 1e-9 * Math.abs(v); })) d++;
   return { ticks: ts, decimals: d };
 }
+/* Whether a panel point is drawn: not a null entry, no null coordinate, both finite. One rule for the path and the range. */
+function drawn(p) { return !!p && p[0] !== null && p[1] !== null && isFinite(p[0]) && isFinite(p[1]); }
 /* A series as path data in data coordinates: a point with a null or non-finite coordinate ends the run, and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
 function seriesPath(pts) {
   var d = "", run = [];
   function flush() { if (run.length) d += (d ? " " : "") + "M" + run.join(" L") + (run.length === 1 ? " h0" : ""); run = []; }
-  pts.forEach(function (p) { if (p[0] === null || p[1] === null || !isFinite(p[0]) || !isFinite(p[1])) flush(); else run.push(String(+p[0]) + "," + String(+p[1])); });
+  pts.forEach(function (p) { if (!drawn(p)) flush(); else run.push(String(+p[0]) + "," + String(+p[1])); });
   flush();
   return d;
 }
@@ -42,7 +44,7 @@ function seriesMarkup(s, panel) {
 function scales(o, groups, panel) {
   var all = [].concat.apply([], groups.map(function (g) { return g.map(function (s) { return s.points || []; }); })), x = o.x || {}, y = o.y || {};
   /* Panels leave out the points they don't draw; the single plot counts every point, as it always has, so its polyline stays inside the range. */
-  var live = function (p) { return !panel || (p[0] !== null && p[1] !== null); };
+  var live = function (p) { return !panel || drawn(p); };
   var xr = axisRange(x, [].concat.apply([], all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
   var yr = axisRange(y, [].concat.apply([], all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
   var xt = axisTicks(x, xr), yt = axisTicks(y, yr);

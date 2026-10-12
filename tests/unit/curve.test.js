@@ -406,6 +406,15 @@ test('non-finite points break panel series', () => {
   assert.ok(!/NaN|Infinity/.test(d), `no NaN or Infinity in the path data: ${d}`);
   // runs: [-1,1] | [0,2] | [0.5,3] [0.75,4] | [1,6]
   assert.equal((d.match(/M/g) || []).length, 4, `a non-finite coordinate ends the run: ${d}`);
+  // a point that is not drawn doesn't set the shared range either
+  const auto = (points) => ELEO.curve({ panels: [{ series: [{ points, index: 0 }] }], width: 460, height: 260 });
+  const base = [[0, 0], [1, 1]];
+  assert.equal(auto([...base, [50, NaN]]), auto([...base, [50, null]]), 'NaN and null drop the point alike');
+  assert.equal(auto([...base, [50, NaN]]), auto(base), 'a point not drawn leaves the range alone');
+  // a null entry is a break
+  let two;
+  assert.doesNotThrow(() => { two = auto([[0, 0], null, [1, 1]]); });
+  assert.equal((two.match(/<path d="([^"]*)"/)[1].match(/M/g) || []).length, 2, 'a null entry breaks the run');
 });
 
 test('single plot range unchanged by nulls', () => {
