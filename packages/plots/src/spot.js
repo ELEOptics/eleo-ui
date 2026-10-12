@@ -17,7 +17,7 @@ function typedSpot(o) {
   if (o.height) side = Math.min(side, o.height - foot - 8);
   side = Math.max(side, 1);
   var W = o.width || Math.max(0, n * side + (n - 1) * gap), H = o.height || side + 8 + foot, top = 4;
-  var ext = panels.map(function (p) { var m = Math.max(0, +p.circle || 0); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
+  var ext = panels.map(function (p) { var m = isFinite(p.circle) && p.circle > 0 ? +p.circle : 0; (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
   var common = +o.half > 0 ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {
     var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common, s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
@@ -28,14 +28,14 @@ function typedSpot(o) {
       var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
       g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="2.2" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
     });
-    if (p.circle > 0) g += '<circle cx="0" cy="0" r="' + +p.circle + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
+    if (isFinite(p.circle) && p.circle > 0) g += '<circle cx="0" cy="0" r="' + +p.circle + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     if (live(p.centroid)) { var c = [+p.centroid[0], +p.centroid[1]], k = 4 / s; g += '<line x1="' + (c[0] - k) + '" y1="' + c[1] + '" x2="' + (c[0] + k) + '" y2="' + c[1] + '" stroke="var(--ink)" ' + NS + '/><line x1="' + c[0] + '" y1="' + (c[1] - k) + '" x2="' + c[0] + '" y2="' + (c[1] + k) + '" stroke="var(--ink)" ' + NS + "/>"; }
     g += "</g></svg>";
     var ty = top + side + 18;
     g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + +half.toPrecision(6) + unit + "</text>";
     (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick" x="' + ox + '" y="' + (ty + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
   });
-  return svg(+W.toFixed(2), +H.toFixed(2), g, o.label || "Spot diagrams");
+  return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
 /* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as the circle, RMS and GEO as notes. */
 export function spotPanels(D, o) {

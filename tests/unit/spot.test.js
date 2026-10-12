@@ -177,4 +177,11 @@ test('typed spot hardening', async () => {
   assert.ok(ELEO.spot({}).includes('aria-label="Spot diagrams, colored by wavelength"'), 'sample label names colorBy');
   assert.ok(ELEO.spot({ colorBy: 'field' }).includes('colored by field'));
   assert.ok(ELEO.spot({ panels: [{ series: [] }], label: 'Mine' }).includes('aria-label="Mine"'), 'typed call takes a label');
+  const ev = ELEO.spot({ panels: [{ series: [] }], label: 'x" onfocus="a<b' });
+  assert.ok(ev.includes('aria-label="x&quot; onfocus=&quot;a&lt;b"'), 'label is escaped inside aria-label');
+  const pts = [{ points: [[0.5, 0.2]] }];
+  const base = ELEO.spot({ panels: [{ series: pts }] });
+  const inf = ELEO.spot({ panels: [{ series: pts, circle: Infinity }] });
+  assert.equal(inf, base, 'a non-finite circle is neither drawn nor counted');
+  assert.ok(!/<circle/.test(inf) && !/Infinity/.test(inf), 'no circle drawn for Infinity');
 });
