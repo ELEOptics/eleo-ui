@@ -95,7 +95,7 @@ el.innerHTML = spot({
 ```
 
 - **`panels`:** `{ title?, series: [{ points: [[x, y], ...], index? }], circle?, centroid?, notes? }` each. `index` k takes the k-th series color. `circle` is a radius in data units, centred on the origin; `centroid` is a `[x, y]` you computed, drawn as a cross; `notes` are text lines under the panel. A point that is not two finite numbers is skipped.
-- **`scale`, `half`, `unit`:** `common` (the default) gives every panel one half-width, `half` if given, else the next nice step above the largest coordinate of any panel; `auto` fits each panel (`half` is ignored). Each panel is labelled `±half unit`. `width` and `height` size the figure. `label` is the SVG's `aria-label` (default `Spot diagrams`).
+- **`scale`, `half`, `unit`:** `common` (the default) gives every panel one half-width, `half` if given, else the next nice step above the largest coordinate or `circle` of any panel; `auto` fits each panel's points and circle (`half` is ignored). A `circle` counts only when finite and above 0. Each panel is labelled `±half unit`. `width` and `height` size the figure. `label` is the SVG's `aria-label` (default `Spot diagrams`).
 - **Drawing:** each panel is a nested `<svg>` holding one `<g transform="matrix(...)">` in data coordinates, with the same scale on both axes and a non-scaling stroke; inverting the matrix recovers the points. A series is one `<path>` of dots, each `M x,y h0` under a round cap (2.2 px across).
 
 ## Palettes
