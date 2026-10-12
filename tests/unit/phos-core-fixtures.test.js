@@ -96,6 +96,7 @@ test('spot recorded per source and wavelength', () => {
     assert.equal(f.sources.length, mtf.sources.length, `${lens}: one entry per source`);
     const h = f.firstOrder.paraxialImageHeight;
     f.sources.forEach((s, i) => {
+      assert.equal(s.sourceIndex, i, `${lens} source ${i}: sourceIndex is its position`);
       assert.equal(s.fieldAngleDeg, mtf.fieldAnglesDeg[i], `${lens} source ${i}: angle`);
       assert.equal(s.points.length, f.wavelengthsNm.length, `${lens} source ${i}: points per wavelength`);
       assert.equal(s.wavelengths.length, f.wavelengthsNm.length, `${lens} source ${i}: wavelengths`);
