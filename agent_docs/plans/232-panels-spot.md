@@ -163,7 +163,7 @@ beside their baselines, every other tile unchanged. Proves: O1
 | #255 | Backlog (review M1 round 2 findings 1-3): a non-array range falls back; `plotCell`'s comment; dead conditions dropped | the findings' named fixes in one item, because all are `curve.js` and none changes valid output; considered three items | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::a non-numeric range falls back to the data (#207)` with non-arrays | #252 |
 | #256 | Backlog (review M1 round 3 findings 1, 3): panel points not drawn don't set the range; a null entry breaks | one `drawn(p)` rule for the path and the range, because the two had drifted; considered two separate checks | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::non-finite points break panel series` extended | #255 |
 
-### M2: Spot on typed points from the recorded SpotDiagram GitHub: `P232 M2: Spot on typed points`
+### M2: Spot on typed points from the recorded SpotDiagram (done 2026-10-12) GitHub: `P232 M2: Spot on typed points`
 
 Demo: `npm run gallery`: the spot tile draws the recorded achromat (three fields, colored by wavelength, the
 Airy circle, the 100 % radius as a note); its spots are about the sample's size (100 % radius 6.5, 13.1, 33.0 µm
@@ -235,3 +235,4 @@ Proves: O3, O4
 - 2026-10-12 review M2 round 2: 2 blocking (CRs #265, with backlog finding 3, and #266, accepted by the orchestrator: an input guard in the milestone's file and a non-Core doc).
 - 2026-10-12 review M2 round 3: 0 blocking. Backlog #267 into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
 - 2026-10-12 CR #268 (accepted, orchestrator: a non-Core doc): the README's half rule, stale since #267.
+- 2026-10-12 review M2 round 4: 0 blocking, nothing pulled in; #269 stays a plain issue (after round 3). M2 done, pending the user's demo.
