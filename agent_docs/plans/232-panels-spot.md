@@ -161,6 +161,7 @@ beside their baselines, every other tile unchanged. Proves: O1
 | #253 | Backlog finding 5: O1 runs a pass with one fan value nulled | as the finding names | `tests/unit/curve.test.js` | O1 with the extra pass | #236 |
 | #254 | CR (#252's worker, stale doc): the README's `panels` bullet names NaN and infinite breaks | forced (stale doc: `packages/plots/README.md:82` since #252) | `packages/plots/README.md` | none: doc only | #252 |
 | #255 | Backlog (review M1 round 2 findings 1-3): a non-array range falls back; `plotCell`'s comment; dead conditions dropped | the findings' named fixes in one item, because all are `curve.js` and none changes valid output; considered three items | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::a non-numeric range falls back to the data (#207)` with non-arrays | #252 |
+| #256 | Backlog (review M1 round 3 findings 1, 3): panel points not drawn don't set the range; a null entry breaks | one `drawn(p)` rule for the path and the range, because the two had drifted; considered two separate checks | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `curve.test.js::non-finite points break panel series` extended | #255 |
 
 ### M2: Spot on typed points from the recorded SpotDiagram GitHub: `P232 M2: Spot on typed points`
 
@@ -217,3 +218,4 @@ Proves: O3, O4
 - 2026-10-11 review M1 round 1: 2 blocking (CRs #250, #251, accepted by the orchestrator: a regression fix in #208's file and a non-Core doc). Backlog #252 (findings 3, 4) and #253 (finding 5) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
 - 2026-10-11 CR #254 (accepted, orchestrator: a non-Core doc): the README's panels bullet, stale since #252.
 - 2026-10-11 review M1 round 2: 0 blocking. Backlog #255 (findings 1-3) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
+- 2026-10-11 review M1 round 3: 0 blocking. Backlog #256 (findings 1, 3) into M1 (headless: backlog into M1, row: milestone acceptance within the plan); #257 (finding 2, typed-array ranges outside the contract) stays a plain issue.
