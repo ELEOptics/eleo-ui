@@ -28,8 +28,8 @@ export function niceTicks(lo, hi, n) {
     return { ticks: [lo, hi], decimals: endDecimals(lo, hi) };
   }
   for (var k = a; k <= b; k++) ticks.push(Number((k * d).toFixed(decimals)));
-  // A span of a few hundred ulps rounds ticks onto each other or short of the data: the same fallback.
-  var bad = ticks[0] > lo || ticks[ticks.length - 1] < hi;
+  // A span of a few hundred ulps rounds ticks onto each other or short of the data by more than 1e-6 of a step: the same fallback.
+  var tol = 1e-6 * d, bad = ticks[0] - lo > tol || hi - ticks[ticks.length - 1] > tol;
   for (var i = 1; i < ticks.length && !bad; i++) bad = ticks[i] <= ticks[i - 1];
   if (bad) return { ticks: [lo, hi], decimals: endDecimals(lo, hi) };
   return { ticks: ticks, decimals: decimals };

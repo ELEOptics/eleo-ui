@@ -73,3 +73,11 @@ test('spans of a few hundred ulps cover the data without repeats (#208)', () => 
     }
   }
 });
+
+// #250: one ulp of float noise at the ends must not trigger the #208 fallback
+// oracle: property (the #208 cases still cover and strictly increase); the base's output
+test('float noise at the ends keeps nice ticks', () => {
+  const r = niceTicks(6.94, 7.6000000000000005, 6);
+  assert.deepEqual(r.ticks, [6.8, 7, 7.2, 7.4, 7.6]);
+  assert.equal(r.decimals, 1);
+});
