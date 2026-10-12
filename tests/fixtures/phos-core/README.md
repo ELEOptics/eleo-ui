@@ -16,6 +16,7 @@ digits.
 | `<lens>-mtf.json` | polychromatic MTF (uniform weights), per source: `tangential` and `sagittal`, each `[cycles/mm, modulus][]`. Pupil sampling 64, zero pad 64. phos-core has no diffraction-limit curve: use `firstOrder.workingFNumber` (else `fNumber`) and `referenceWavelengthNm` |
 | `<lens>-field-curvature.json` | per source, `results[]` per wavelength: `tangential`, `sagittal` focus shift (mm), `chiefHeight` (mm), `astigmatism` |
 | `<lens>-distortion.json` | per source, `results[]` per wavelength: `realHeight`, `paraxialHeight` (mm), `percent` |
+| `<lens>-spot.json` | SpotDiagram per source (the lens's own sources, as in the MTF file; pupil sampling 32 x 32), per source: `wavelengths` (nm), `points[w]` = `[x, y][]` in mm (the rays alive at the image, so fewer than 32 x 32 where vignetted; relative to the paraxial chief ray at the reference wavelength, the same origin for every wavelength, not the centroid), `enclosingRadius[w]` (smallest enclosing circle, mm) and `enclosingRadiusAll` (polychromatic). No centroid or RMS. Top-level `reference` and `pupilSampling`. About 180 kB (achromat) and 160 kB (Cooke); the gallery fetches the achromat one |
 
 The MTF files hold one source per lens field, with the angles read from each source's rotation. The field curvature
 and distortion files hold an 11-source sweep: 11 sources evenly from 0 to the lens's largest field (0 to 2 deg for the

@@ -80,3 +80,32 @@ test('field curvature and distortion sweep 11 fields', () => {
     });
   }
 });
+
+// Plan #232 M2, work item #238. oracle: reference sample.json and the MTF recordings for the sources, angles and wavelengths
+test('spot recorded per source and wavelength', () => {
+  for (const lens of ['achromat', 'cooke']) {
+    const mtf = read(`../fixtures/phos-core/${lens}-mtf.json`);
+    const f = read(`../fixtures/phos-core/${lens}-spot.json`);
+    assert.equal(f.analysis, 'spot', `${lens}: analysis`);
+    assert.equal(f.lengthUnit, 'mm');
+    assert.equal(f.pupilSampling, 32);
+    assert.match(f.reference, /paraxial chief ray/);
+    assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+    assert.deepEqual(f.wavelengthsNm, mtf.wavelengthsNm, `${lens}: wavelengths are the MTF recording's`);
+    assert.deepEqual(f.fieldAnglesDeg, mtf.fieldAnglesDeg, `${lens}: sources are the MTF recording's`);
+    assert.equal(f.sources.length, mtf.sources.length, `${lens}: one entry per source`);
+    const h = f.firstOrder.paraxialImageHeight;
+    f.sources.forEach((s, i) => {
+      assert.equal(s.fieldAngleDeg, mtf.fieldAnglesDeg[i], `${lens} source ${i}: angle`);
+      assert.equal(s.points.length, f.wavelengthsNm.length, `${lens} source ${i}: points per wavelength`);
+      assert.equal(s.wavelengths.length, f.wavelengthsNm.length, `${lens} source ${i}: wavelengths`);
+      s.wavelengths.forEach((w, k) => assert.ok(Math.abs(w - f.wavelengthsNm[k]) <= 1e-3, `${lens} source ${i}: wavelength ${k}`));
+      assert.equal(s.enclosingRadius.length, s.points.length, `${lens} source ${i}: a radius per wavelength`);
+      s.points.forEach((pts, k) => {
+        assert.ok(pts.length > 0 && pts.length <= 32 * 32, `${lens} source ${i} wavelength ${k}: 0 < ${pts.length} <= 1024`);
+        for (const [x, y] of pts) assert.ok(Math.abs(x) <= h && Math.abs(y) <= h, `${lens} source ${i} wavelength ${k}: (${x}, ${y}) within paraxialImageHeight ${h}`);
+        assert.ok(s.enclosingRadiusAll >= s.enclosingRadius[k], `${lens} source ${i}: polychromatic radius >= wavelength ${k}'s`);
+      });
+    });
+  }
+});
