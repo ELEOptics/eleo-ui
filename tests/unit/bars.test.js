@@ -200,3 +200,58 @@ test('group dividers and title room', () => {
   const cuts = [...many.matchAll(/<line\b[^>]*stroke="var\(--plot-grid\)"[^>]*>/g)].map((m) => m[0]).filter(isVertical).length;
   assert.equal(cuts, Math.floor(39 / step) + 1, `a divider every ${step} boundaries, plus the gap before the total`);
 });
+
+// Plan #284 #317 (CR #315). oracle: fixture phos-core SeidelCoefficients (every bar's height, the Σ series included, within 0.5 px); metamorphic: a value drawn grouped by surface, by coefficient or in a subset has the same height at one fixed y range.
+test('recorded Seidel grouped by coefficient and as a subset', () => {
+  const names = { SI: 'spherical', SII: 'coma', SIII: 'astigmatism', SIV: 'fieldCurvature', SV: 'distortion', CL: 'axialColor', CT: 'lateralColor' };
+  const terms = Object.keys(names);
+  for (const lens of ['achromat', 'cooke']) {
+    const rec = fixture(`${lens}-seidel`);
+    const res = rec.results.reduce((a, r) => (Math.abs(r.wavelengthNm - rec.referenceWavelengthNm) < Math.abs(a.wavelengthNm - rec.referenceWavelengthNm) ? r : a));
+    // v[t][s]: term t at surface s; sums[t]: phos-core's recorded total of term t (the last element).
+    const v = terms.map((t) => res.terms[names[t]].slice(0, -1));
+    const sums = terms.map((t) => res.terms[names[t]].at(-1));
+    const surfaces = v[0].map((_, s) => String(s + 1));
+    const all = [...v.flat(), ...sums];
+    const lo = Math.min(0, ...all), hi = Math.max(0, ...all), pad = (hi - lo) * 0.1;
+    const y = { label: 'Seidel sum', unit: 'mm', range: [lo - pad, hi + pad] };
+    // Caller-built calls, no gallery adapter.
+    const bySurface = { categories: surfaces, series: terms.map((label, i) => ({ label, index: i, values: v[i] })), total: 'Σ', y };
+    const byCoef = { categories: terms, series: [...surfaces.map((_, s) => ({ label: surfaces[s], index: s, values: terms.map((__, t) => v[t][s]) })), { label: 'Σ', index: surfaces.length, values: sums }], y };
+    const pick = [0, 1], tPick = [0, 1, 2];
+    const subset = { categories: tPick.map((t) => terms[t]), series: pick.map((s) => ({ label: surfaces[s], index: s, values: tPick.map((t) => v[t][s]) })), y };
+    for (const [width, height] of SIZES) {
+      // Each bar's height in data units, from its pixel height and the group's own scale, keyed by what it shows.
+      const draw = (opts, key) => {
+        const svg = ELEO.bars({ ...opts, width, height });
+        const group = seriesGroup(svg), rects = marks(group, 'rect').filter((r) => !r.limit);
+        const pxPerUnit = Math.abs(toPx(group.M, [0, 1])[1] - toPx(group.M, [0, 0])[1]);
+        const n = opts.series.length;
+        assert.equal(rects.length, opts.categories.length * n, `${lens} ${width}px: a bar per category and series`);
+        const out = new Map();
+        rects.forEach((r, i) => {
+          const px = Math.abs(toPx(group.M, [r.x, r.y + r.height])[1] - toPx(group.M, [r.x, r.y])[1]);
+          const [c, s] = [Math.floor(i / n), i % n];
+          out.set(key(c, s), { px, pxPerUnit });
+        });
+        return out;
+      };
+      const full = draw(byCoef, (c, s) => `${terms[c]}/${s}`);
+      const grouped = draw({ ...bySurface, total: undefined }, (c, s) => `${terms[s]}/${c}`);
+      const sub = draw(subset, (c, s) => `${terms[tPick[c]]}/${pick[s]}`);
+      const near = (a, b, msg) => assert.ok(Math.abs(a.px - b.px) <= TOL_PX && a.pxPerUnit === b.pxPerUnit, msg);
+      terms.forEach((t, ti) => {
+        // Every surface bar of every term, and the Σ series (index = surfaces.length), against the fixture.
+        surfaces.forEach((_, s) => {
+          const g = full.get(`${t}/${s}`);
+          assert.ok(Math.abs(g.px - Math.abs(v[ti][s]) * g.pxPerUnit) <= TOL_PX, `${lens} ${width}px ${t} surface ${s + 1}: height recovers ${v[ti][s]} within ${TOL_PX} px`);
+          near(g, grouped.get(`${t}/${s}`), `${lens} ${width}px ${t} surface ${s + 1}: the same height grouped by surface`);
+        });
+        const sg = full.get(`${t}/${surfaces.length}`);
+        assert.ok(Math.abs(sg.px - Math.abs(sums[ti]) * sg.pxPerUnit) <= TOL_PX, `${lens} ${width}px ${t} Σ: height recovers the recorded total ${sums[ti]} within ${TOL_PX} px`);
+      });
+      for (const [k, b] of sub) near(full.get(k), b, `${lens} ${width}px subset ${k}: the same height as in the full call`);
+      assert.equal(sub.size, 6, 'two surfaces, three terms');
+    }
+  }
+});

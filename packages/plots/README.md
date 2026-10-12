@@ -104,6 +104,25 @@ el.innerHTML = bars({
 - **Key:** one entry for each series with a `label`. The row starts a new line when an entry would pass the frame's right edge, and each extra line takes 14 px from the plot area's height, down to a frame 1 px taller than its margins (a very small drawing stops wrapping and the row runs past the right edge), so every series stays named. An `index` that is not a non-negative integer, or a `null` or non-object entry in `series`, throws a `TypeError`.
 - **Skipped values:** a value that is not a finite number (`NaN`, a string, `undefined`, `true`) draws no rect and is left out of the `total` sum and the range. A series with no finite value still draws a zero-height Σ bar, which keeps the Σ group's order fixed per series.
 
+### Other groupings and subsets
+
+`bars` takes any `categories` and `series`, so grouping and subsetting are your call. Group by Seidel coefficient instead of surface by making the terms the categories and a surface each series. `total` sums per series, so it would add a surface's terms; a total per coefficient is a series you build yourself, here phos-core's recorded totals:
+
+```js
+const terms = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'];
+// v[t][s]: term t at surface s (phos-core's values); sums[t]: its recorded total
+bars({
+  categories: terms,
+  series: [
+    ...surfaces.map((name, s) => ({ label: name, index: s, values: v.map((row) => row[s]) })),
+    { label: 'Σ', index: surfaces.length, values: sums },
+  ],
+  y: { label: 'Seidel sum', unit: 'mm', range },
+});
+```
+
+A subset is the same call with fewer categories or series (`categories: terms.slice(0, 3)`, `series` filtered to two surfaces). Pass the same `y.range` to every call you want to compare: a value then has the same height in each. The key row can wrap differently when the number of series differs, which changes the plot height, so compare at one `width` and `height`.
+
 ## Spot diagrams
 
 `spot({ data })` draws the sample's spots. `spot({ panels })` draws points you give it, one square panel each. RMS and GEO are computed from each panel's drawn points about the reference:
