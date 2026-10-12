@@ -1,7 +1,7 @@
 # Plan #232: Paneled curves for the fans, and spot on typed points
 
 Status: approved 2026-10-11
-Branch: `plan/232-panels-spot` PR: #<pr> Depends on: plan #162 (done) Roadmap: `agent_docs/roadmap.md`, row E
+Branch: `plan/232-panels-spot` PR: #247 Depends on: plan #162 (done) Roadmap: `agent_docs/roadmap.md`, row E
 
 ## Problem
 
