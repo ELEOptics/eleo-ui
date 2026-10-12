@@ -176,7 +176,7 @@ test('a small drawing keeps a positive frame', () => {
   assert.ok(series.every((s) => svg.includes('>' + s.label + '</text>')), 'every series is still named');
 });
 
-// Plan #284 #312 (CR from the M1 demo). oracle: property: dotted dividers at band boundaries 1, 2 and the Σ gap's middle, full frame height, outside the series group; the frame sits 14 px under the title baseline.
+// Plan #284 #312 (CR from the M1 demo). oracle: property: dotted dividers at band boundaries 1, 2 and the Σ gap's middle, full frame height, outside the series group; the frame sits at least 14 px under the title baseline; with thinned labels, a divider only every step boundaries.
 test('group dividers and title room', () => {
   const svg = ELEO.bars({ categories: ['1', '2', '3'], series: [{ values: [1, -2, 3], index: 0 }], total: 'Σ', y: { label: 'Seidel sum', unit: 'mm' }, width: 460, height: 260 });
   const group = seriesGroup(svg), { L, ph } = frame(svg), T = Number(/<svg\b[^>]*\by="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg)[1]), B = T + ph;
@@ -190,5 +190,11 @@ test('group dividers and title room', () => {
     assert.ok(Math.abs(attr(d, 'y1') - T) <= TOL_PX && Math.abs(attr(d, 'y2') - B) <= TOL_PX, 'spans the frame');
   });
   assert.equal(marks(group, 'line').length, 0, 'no dividers in the data group');
-  assert.ok(T >= 10 + 14, `frame top ${T} is 14 px under the title baseline`);
+  assert.ok(T >= 10 + 14, `frame top ${T} is at least 14 px under the title baseline`);
+  const many = ELEO.bars({ categories: Array.from({ length: 40 }, (_, i) => String(i + 1)), series: [{ values: Array.from({ length: 40 }, () => 1), index: 0 }], total: 'Σ', width: 460, height: 260 });
+  const ticks = [...many.matchAll(/<text class="eleo-tick"[^>]*text-anchor="middle">/g)].length - 1;
+  const step = Math.ceil(40 / ticks);
+  assert.ok(step > 1, 'labels are thinned');
+  const cuts = [...many.matchAll(/<line\b[^>]*stroke-dasharray="1 3"/g)].length;
+  assert.equal(cuts, Math.floor(39 / step) + 1, `a divider every ${step} boundaries, plus the gap before the total`);
 });
