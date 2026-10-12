@@ -7,7 +7,9 @@ import ELEO from '../../packages/plots/src/index.js';
 // adapters.js reads ELEO from globalThis when seidel() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-import { TOL_PX, SIZES, fixture, seriesGroup, marks, toPx, toData } from './helpers/svg.js';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { TOL_PX, SIZES, fixture, seriesGroup, marks, toPx, toData, frame } from './helpers/svg.js';
 
 // What #288's adapter (tests/fixtures/phos-core/adapters.js) must return, from the recording #286 writes:
 //  - seidel(rec): { categories, series, y } at the system's reference wavelength (the recording's `referenceWavelengthNm`). `categories` are the
@@ -49,4 +51,55 @@ test('recorded Seidel round trip (U9)', { skip: 'plan #284: waits on #286 (fixtu
       });
     }
   }
+});
+
+// Plan #284 #287. oracle: property: synthetic values recovered within 0.5 px; an unsigned set's range starts at 0 and draws no zero line;
+// total bars are the series sums; thinned labels sit at their band centre; a bad index throws; `bars` is on every entry.
+const labelsOf = (svg) => [...svg.matchAll(/<text class="eleo-tick"([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ x: Number(/\bx="([\d.\-]+)"/.exec(m[1])?.[1]), text: m[2], attrs: m[1] }));
+const heightsPx = (group, rects) => rects.map((r) => Math.abs(toPx(group.M, [0, r.y + r.height])[1] - toPx(group.M, [0, r.y])[1]));
+
+test('synthetic bars round trip, signed and unsigned', async () => {
+  const categories = ['1', '2', '3'];
+  const series = [{ values: [0.012, -0.004, 0.001], index: 0, label: 'SI' }, { values: [0.003, 0.005, -0.002], index: 1, label: 'SII' }];
+  for (const [width, height] of SIZES) {
+    const svg = ELEO.bars({ categories, series, total: 'Σ', y: { label: 'Seidel sum', unit: 'mm' }, width, height });
+    assert.match(svg, /<svg [^>]*role="img" aria-label="Seidel sum, mm by category bar plot"/);
+    const group = seriesGroup(svg), rects = marks(group, 'rect');
+    assert.equal(rects.length, series.length * (categories.length + 1), 'a bar per series and category, then the Σ group');
+    const want = [...categories.flatMap((_, c) => series.map((s) => s.values[c])), ...series.map((s) => s.values.reduce((a, b) => a + b, 0))];
+    rects.forEach((r, i) => {
+      assert.ok(Math.abs(r.height - Math.abs(want[i])) <= 1e-12, `bar ${i}: height is |v|`);
+      assert.ok(Math.abs(r.y - Math.min(0, want[i])) <= 1e-12, `bar ${i}: y is min(0, v)`);
+      assert.ok(Math.abs(heightsPx(group, [r])[0] - Math.abs(toPx(group.M, [0, want[i]])[1] - toPx(group.M, [0, 0])[1])) <= TOL_PX, `bar ${i} recovered within ${TOL_PX} px`);
+    });
+    const text = labelsOf(svg).map((l) => l.text);
+    for (const t of ['1', '2', '3', 'Σ', 'SI', 'SII']) assert.ok(text.includes(t), `label ${t} drawn`);
+    assert.ok(svg.includes('stroke="var(--plot-axis)"'), 'a signed set draws a zero line');
+  }
+  // Unsigned: the range starts at 0 and no zero line is drawn.
+  const svg = ELEO.bars({ categories: ['a', 'b'], series: [{ values: [2, 5] }], y: { label: 'n' } });
+  const group = seriesGroup(svg);
+  assert.ok(Math.abs(toData(group.M, [0, frame(svg).ph])[1]) <= 1e-9, 'the range starts at 0');
+  assert.ok(!svg.includes('var(--plot-axis)'), 'an unsigned set draws no zero line');
+  // 50 categories at 460 px: every k-th label, at its band centre.
+  const cats = Array.from({ length: 50 }, (_, i) => String(i + 1));
+  const big = ELEO.bars({ categories: cats, series: [{ values: cats.map((_, i) => Math.sin(i)) }], y: { label: 's' }, width: 460 });
+  const g = seriesGroup(big), cat = labelsOf(big).filter((l) => cats.includes(l.text) && !/dy=/.test(l.attrs));
+  assert.ok(cat.length > 1 && cat.length < 50, 'labels are thinned');
+  const k = Number(cat[1].text) - Number(cat[0].text);
+  assert.ok(k > 1);
+  const { L } = frame(big);
+  cat.forEach((l, j) => {
+    assert.equal(Number(l.text), 1 + j * k, 'every k-th label');
+    assert.ok(Math.abs(l.x - L - toPx(g.M, [Number(l.text) - 1 + 0.5, 0])[0]) <= TOL_PX, `label ${l.text} at its band centre`);
+  });
+  // Bad indexes throw.
+  for (const index of [-1, 1.5, '2', NaN]) assert.throws(() => ELEO.bars({ categories: ['a'], series: [{ values: [1], index }], y: { label: 'n' } }), /index must be a non-negative integer/);
+  // On every entry.
+  const named = await import('../../packages/plots/src/index.js');
+  assert.equal(typeof named.bars, 'function');
+  assert.equal(named.default.bars, named.bars);
+  const win = {};
+  vm.runInNewContext(readFileSync(new URL('../../packages/plots/dist/eleo-plots.js', import.meta.url), 'utf8'), { window: win });
+  assert.equal(typeof win.ELEO.bars, 'function', 'window.ELEO.bars');
 });

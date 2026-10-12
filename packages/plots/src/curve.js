@@ -41,7 +41,7 @@ function seriesMarkup(s, panel) {
   return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;
 }
 /* The ranges and ticks, computed once over every series of every panel, and the right margin they need. */
-function scales(o, groups, panel) {
+export function scales(o, groups, panel) {
   var all = [].concat.apply([], groups.map(function (g) { return g.map(function (s) { return s.points || []; }); })), x = o.x || {}, y = o.y || {};
   /* Panels leave out the points they don't draw; the single plot counts every point, as it always has, so its polyline stays inside the range. */
   var live = function (p) { return !panel || drawn(p); };
@@ -54,7 +54,8 @@ function scales(o, groups, panel) {
   return { xr: xr, yr: yr, xt: xt, yt: yt, R: R };
 }
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
-function plotCell(sc, series, w, h, T, panel) {
+/* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
+export function plotCell(sc, series, w, h, T, panel, body) {
   var L = 46, Bm = 36, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var pw = w - L - sc.R, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
@@ -66,7 +67,7 @@ function plotCell(sc, series, w, h, T, panel) {
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
   var M = [sx, 0, 0, -sy, -xr[0] * sx, ph + yr[0] * sy].map(String);
   g += '<svg x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"><g transform="matrix(' + M.join(" ") + ')">';
-  series.forEach(function (s) { g += seriesMarkup(s, panel); });
+  if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
   return g + "</g></svg>";
 }
 function typedCurve(o) {

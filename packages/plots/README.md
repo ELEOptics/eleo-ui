@@ -17,7 +17,7 @@ map2D(psfCanvas, { data: system, kind: 'psf', scale: 'log' });
 colorbarEl.style.background = gradient('ember');
 ```
 
-- **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `rayFan`, `curve`, `legend`, `icon`) return markup whose colors are CSS variables: one drawing works in both themes. `legend` needs no sample: without one, `field`/`wavelength` draw `n` index keys without values (`F1`.., `λ1`..), and none when `n` is omitted; `ts` and `rays` are unchanged.
+- **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `rayFan`, `curve`, `bars`, `legend`, `icon`) return markup whose colors are CSS variables: one drawing works in both themes. `legend` needs no sample: without one, `field`/`wavelength` draw `n` index keys without values (`F1`.., `λ1`..), and none when `n` is omitted; `ts` and `rays` are unchanged.
 - **Canvas renderers** (`map2D`, `layout3D`) read the variables when they draw: call them again after a theme or palette change.
 - **Data:** pass your traced system as `data`. To try things out, `import '@eleoptics/plots/sample'` makes a traced achromat the default (190 KB, so it is opt-in).
 - **Fonts:** Fira Sans and Fira Code. Load them yourself.
@@ -82,6 +82,25 @@ el.innerHTML = curve({
 - **`panels`:** `curve({ panels: [{ title?, series }], columns?, x, y, width?, height? })` draws a grid of plots (`columns` defaults to one row) on one x and one y range: the given `range`, else the nice range over every panel's data. Each panel has its own nested `<svg>` and `<g transform="matrix(...)">` in data coordinates, its `title` above it, and the axis labels are drawn once. A series is a `<path>`: a point with a `null`, NaN or infinite coordinate breaks it, and the next point starts a new subpath (`M`); a run of one point is a dot. Without `panels`, a series is a `<polyline>` as before.
 - **`rayFan`:** draws the sample's ray fans (`kind: 'opd'` for optical path difference) through `curve`'s `panels`: tangential (`Py`) above sagittal (`Px`), a column per field (`fields` picks them), one shared y range of ±`fullScale` (default: the next step above the largest value). `panelWidth` (default 170) is each plot area's width in px.
 - **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromaticFocus' })` still draws from the sample.
+
+## Bars
+
+`bars` draws signed, grouped bars in `curve`'s frame: a group per category, a bar per series. Pass data, labels and an `index` per series; there is no color, font or width option.
+
+```js
+import { bars } from '@eleoptics/plots';
+el.innerHTML = bars({
+  categories: ['1', '2', '3'],
+  series: [{ values: [0.012, -0.004, 0.001], index: 0, label: 'SI' }],
+  total: 'Σ',
+  y: { label: 'Seidel sum', unit: 'mm' },
+});
+```
+
+- **Bars:** each is a `<rect>` in the data-space `<g transform="matrix(...)">`, in category order then series order, with `y = min(0, v)` and `height = |v|` in data units, so inverting the transform recovers `v`. Category k occupies x from k to k + 1; bars fill 80 % of it.
+- **`total`:** a string appends a group of per-series sums after a half-band gap, labelled with that string.
+- **Range:** `y.range`, else the nice range of the values and 0; a zero line is drawn only when the range straddles 0. When a band is under 14 px, only every k-th category label is drawn, at its band centre.
+- **Key:** one entry for each series with a `label`. An `index` that is not a non-negative integer throws a `TypeError`.
 
 ## Spot diagrams
 

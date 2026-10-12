@@ -10,6 +10,6 @@ Object.assign(ELEO, physics, { layoutBounds: layout.layoutBounds, glassLegend: g
 
 export default ELEO;
 export const {
-  layout2D, layout3D, spot, throughFocus, rayFan, map2D, curve, legend, icon, icons, gradient, fmt, css, maps, useSample, layoutBounds, glassLegend,
+  layout2D, layout3D, spot, throughFocus, rayFan, map2D, curve, bars, legend, icon, icons, gradient, fmt, css, maps, useSample, layoutBounds, glassLegend,
 } = ELEO;
 export * from './physics.js';

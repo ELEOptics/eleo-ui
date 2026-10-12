@@ -4,6 +4,7 @@
 import { layout2D as recordedLayout2D } from "./layout2d.js";
 import { state, data, useSample } from "./data.js";
 import { curve } from "./curve.js";
+import { bars } from "./bars.js";
 import { legend } from "./legend.js";
 import { spot, throughFocus } from "./spot.js";
 import { layout3D } from "./layout3d.js";
@@ -19,7 +20,7 @@ const ELEO = (function () {
   function layout2D(o) { o = o || {}; return recordedLayout2D(Object.assign({}, o, { data: data(o) })); }
 
 
-  var api = { useSample: useSample, icon: icon, icons: ICONS, get sample() { return state.sample; }, fmt: fmt, css: css, gradient: gradient, layout2D: layout2D, layout3D: layout3D, spot: spot, throughFocus: throughFocus, rayFan: rayFan, map2D: map2D, curve: curve, legend: legend, maps: { viridis: VIRIDIS, gray: GRAY } };
+  var api = { useSample: useSample, icon: icon, icons: ICONS, get sample() { return state.sample; }, fmt: fmt, css: css, gradient: gradient, layout2D: layout2D, layout3D: layout3D, spot: spot, throughFocus: throughFocus, rayFan: rayFan, map2D: map2D, curve: curve, bars: bars, legend: legend, maps: { viridis: VIRIDIS, gray: GRAY } };
   return api;
 })();
 
