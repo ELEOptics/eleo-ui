@@ -32,11 +32,11 @@ test('panels and spot points type-check under --strict', () => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
-// Plan #284, O3 (issue #295; #296 types bars and limits and unskips). tests/types/bars.ts is written by #296:
+// Plan #284, O3 (issue #295; #296 types bars and limits and unskips). tests/types/bars.ts:
 // a Seidel call, a merit-share call (one unsigned series by operand name), a curve call with limits and role 'limit',
 // and @ts-expect-error on a color key and on an x limit in bars.
 // oracle: spec roadmap Constraints (typed API alongside the old one)
-test('bars and limits type-check under --strict', { skip: 'plan #284 O3 (#295): tests/types/bars.ts and the index.d.ts types arrive in #296, which unskips' }, () => {
+test('bars and limits type-check under --strict', () => {
   const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/bars.ts', import.meta.url))], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);

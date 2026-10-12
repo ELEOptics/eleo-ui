@@ -41,7 +41,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 <Layout2D data={after} {box} {labels} marks={false} label="Layout after optimization" />
 ```
 
-`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal` or `reference`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role draws 1 px, the plot area clips, and a range left out is the nice range of the data. There is no color option:
+`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal`, `reference` or `limit`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role draws 1 px, the plot area clips, and a range left out is the nice range of the data. There is no color option:
 
 ```svelte
 <CurvePlot
@@ -52,7 +52,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 />
 ```
 
-`CurvePlot` also takes `panels` (each with a `title` and `series`) and `columns`: a grid of plots on one shared scale with the axis labels drawn once. `SpotDiagram` takes typed `panels` (`title`, `series` of `points` and `index`, `airy` radius), with `origin`, `reference` (`chief` or `centroid`), `showStats`, `showAiry`, `scale`, `half`, `unit` and `width`; the wrapper's `label` names the figure; without `panels` it draws the sample by `colorBy`. Neither has a color option:
+`CurvePlot` also takes `panels` (each with a `title` and `series`) and `columns`: a grid of plots on one shared scale with the axis labels drawn once. Both take `limits`, `[{ x | y: number | [lo, hi], label? }]`: a number draws a limit line across the plot and a pair a band, in every panel, e.g. `limits={[{ y: 0.5, label: 'spec' }]}`; a range left out grows to contain them. `SpotDiagram` takes typed `panels` (`title`, `series` of `points` and `index`, `airy` radius), with `origin`, `reference` (`chief` or `centroid`), `showStats`, `showAiry`, `scale`, `half`, `unit` and `width`; the wrapper's `label` names the figure; without `panels` it draws the sample by `colorBy`. Neither has a color option:
 
 ```svelte
 <CurvePlot

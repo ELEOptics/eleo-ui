@@ -3,6 +3,7 @@
     x={{ label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400] }} y={{ label: 'Modulus', range: [0, 1] }} />
   Panels: <CurvePlot panels={[{ title: '1.0° · Py', series: [{ points: [[-1, 2], [0, 0], [0.5, null], [1, -3]], index: 0 }] }, { series: [{ points: [[-1, 1], [1, -1]], index: 1 }] }]}
     columns={3} x={{ label: 'Pupil', range: [-1, 1] }} y={{ label: 'Ray error', unit: 'µm' }} width={460} />
+  Limits: <CurvePlot series={[...]} limits={[{ y: 0.5, label: 'spec' }, { x: [100, 200] }]} /> draws a line (a number) or a band (a pair) in the `limit` style; on panels, in every panel. A series may take role: 'limit' for a dash-dot ink line of its own.
   Panels share one scale and draw the axis labels once; a null coordinate breaks the line.
   Every role draws 1 px; the plot area clips; ranges default to the nice range of the data. No color option. -->
 <script>
