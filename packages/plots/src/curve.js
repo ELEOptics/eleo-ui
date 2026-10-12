@@ -61,7 +61,7 @@ export function scales(o, groups, panel) {
   return { xr: xr, yr: yr, xt: xt, yt: yt, R: R };
 }
 /* The frame's left and bottom margins in px; bars reads them to place its category labels. */
-export var PLOT_L = 46, PLOT_B = 36;
+export var PLOT_L = 46, PLOT_B = 36, PLOT_T = 26;
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
@@ -110,7 +110,7 @@ function typedCurve(o) {
     return svg(W, H, g + labels(), lab(y) + " against " + lab(x) + " plot");
   }
   sc = scales({ x: x, y: y, limits: lim }, [o.series]);
-  g = cell(o.series, W, H, 14, false) + labels();
+  g = cell(o.series, W, H, PLOT_T, false) + labels();
   return svg(W, H, g, lab(y) + " against " + lab(x) + " plot");
 }
 

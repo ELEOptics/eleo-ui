@@ -121,6 +121,13 @@ test('recorded field curvature and distortion round trip (U6)', async () => {
   }
 });
 
+// Plan #284 #329 (CR from the M2 demo). oracle: property: a single plot's frame top sits at least 14 px under the y-axis title's baseline (y = 10), as bars.test.js checks for bars.
+test('the y-axis title has room above the frame', () => {
+  const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], index: 0 }], x: { label: 'Frequency', unit: 'cy/mm' }, y: { label: 'Modulus' }, width: 460, height: 260 });
+  const T = Number(/<svg\b[^>]*\by="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg)[1]);
+  assert.ok(T >= 10 + 14, 'frame top ' + T + ' is under the title baseline by at least 14 px');
+});
+
 // Plan #162, issue #172: the typed call. Synthetic points, no fixture.
 // oracle: the points handed in (data space); the series group's transform is inverted and the drawn points must land within 0.5 px of them.
 test('series round trip', () => {

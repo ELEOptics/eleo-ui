@@ -1,8 +1,8 @@
 import { idx, svg, esc } from "./common.js";
-import { scales, plotCell, limitBody, PLOT_L, PLOT_B } from "./curve.js";
+import { scales, plotCell, limitBody, PLOT_L, PLOT_B, PLOT_T } from "./curve.js";
 import { checkLimits } from "./limits.js";
 
-var GAP = 0.5, FILL = 0.8, MIN_BAND_PX = 14, TOP = 26, KEY_LINE = 14;
+var GAP = 0.5, FILL = 0.8, MIN_BAND_PX = 14, KEY_LINE = 14;
 
 /* Signed grouped bars in curve's frame (ADR-0001: roles and indexes, no colors). Category k occupies x in [k, k + 1] in data units;
    bars fill 80 % of it, split among the series; `total` appends a group of per-series sums after a half-band gap.
@@ -27,8 +27,8 @@ export function bars(o) {
   var all = [0].concat(hasTotal ? sums : []);
   series.forEach(function (s) { cats.forEach(function (_, c) { all.push(val((s.values || [])[c])); }); });
   var sc = scales({ x: { range: [0, span], ticks: [] }, y: y, limits: lim }, [[{ points: all.map(function (v) { return [0, v]; }) }]], false);
-  /* The key row starts a new line when an entry would pass the frame's right edge; each extra line takes KEY_LINE px from the frame, down to a frame TOP + PLOT_B + 1 px tall; past that the row runs on. */
-  var maxRow = Math.max(0, Math.floor((H - TOP - PLOT_B - 1) / KEY_LINE));
+  /* The key row starts a new line when an entry would pass the frame's right edge; each extra line takes KEY_LINE px from the frame, down to a frame PLOT_T + PLOT_B + 1 px tall; past that the row runs on. */
+  var maxRow = Math.max(0, Math.floor((H - PLOT_T - PLOT_B - 1) / KEY_LINE));
   var keyed = series.filter(function (s) { return s.label; }), kx = PLOT_L, row = 0, place = [];
   keyed.forEach(function (s) {
     var wd = 12 + 6 * Array.from(String(s.label)).length;
@@ -46,17 +46,17 @@ export function bars(o) {
   cats.forEach(function (_, c) { series.forEach(function (s, j) { bar(c, s, j, (s.values || [])[c]); }); });
   if (hasTotal) series.forEach(function (s, j) { bar(n + GAP, s, j, sums[j]); });
   /* Category labels in px at each band centre, every k-th when a band is under 14 px; the total's label is always drawn. */
-  var pw = W - PLOT_L - sc.R, px = pw / span, ph = Hf - TOP - PLOT_B, step = Math.max(1, Math.ceil(MIN_BAND_PX / px));
+  var pw = W - PLOT_L - sc.R, px = pw / span, ph = Hf - PLOT_T - PLOT_B, step = Math.max(1, Math.ceil(MIN_BAND_PX / px));
   /* Solid dividers, frame decoration in px outside the data group, drawn before plotCell so they sit with the gridlines under the data and the limit labels: at every step-th boundary between category groups (each separates labelled groups) and mid-gap before the total. */
   var cuts = cats.map(function (_, c) { return c + 1; }).slice(0, -1).filter(function (k) { return k % step === 0; });
   if (hasTotal && n > 0) cuts.push(n + GAP / 2);
   var g = "";
   cuts.forEach(function (k) {
     var dx = (PLOT_L + k * px).toFixed(1);
-    g += '<line x1="' + dx + '" y1="' + TOP + '" x2="' + dx + '" y2="' + (Hf - PLOT_B) + '" stroke="var(--plot-grid)"/>';
+    g += '<line x1="' + dx + '" y1="' + PLOT_T + '" x2="' + dx + '" y2="' + (Hf - PLOT_B) + '" stroke="var(--plot-grid)"/>';
   });
-  g += plotCell(sc, [], W, Hf, TOP, false, limitBody(lim, sc, rects), lim);
-  var label = function (k, t) { return '<text class="eleo-tick" x="' + (PLOT_L + (k + 0.5) * px).toFixed(1) + '" y="' + (TOP + ph + 13) + '" text-anchor="middle">' + esc(t) + "</text>"; };
+  g += plotCell(sc, [], W, Hf, PLOT_T, false, limitBody(lim, sc, rects), lim);
+  var label = function (k, t) { return '<text class="eleo-tick" x="' + (PLOT_L + (k + 0.5) * px).toFixed(1) + '" y="' + (PLOT_T + ph + 13) + '" text-anchor="middle">' + esc(t) + "</text>"; };
   cats.forEach(function (t, c) { if (c % step === 0) g += label(c, t); });
   if (hasTotal) g += label(n + GAP, o.total);
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
