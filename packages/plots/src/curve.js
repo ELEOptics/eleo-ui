@@ -31,7 +31,7 @@ function axisTicks(a, r) {
 }
 /* Whether a panel point is drawn: not a null entry, no null coordinate, both finite. One rule for the path and the range. */
 function drawn(p) { return !!p && p[0] !== null && p[1] !== null && isFinite(p[0]) && isFinite(p[1]); }
-/* A series as path data in data coordinates: a point with a null or non-finite coordinate ends the run, and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
+/* A series as path data in data coordinates: a null entry, or a point with a null or non-finite coordinate, ends the run (and doesn't count toward the range), and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
 function seriesPath(pts) {
   var d = "", run = [];
   function flush() { if (run.length) d += (d ? " " : "") + "M" + run.join(" L") + (run.length === 1 ? " h0" : ""); run = []; }

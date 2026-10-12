@@ -266,7 +266,7 @@ test('recorded Seidel grouped by coefficient and as a subset', async () => {
 // Plan #284, outcome O2 (issue #290; #294 unskips). oracle: property: recorded limits recovered through the inverse transform within 0.5 px; an auto range contains every limit.
 // bars({ …, limits: [{ y: number | [lo, hi], label? }] }) draws a number as <line class="eleo-limit"> and a pair as <rect class="eleo-limit"> in the
 // data-space group (data units), the band before the bars and the line after them; an x limit throws.
-test.skip('bar limits round trip (U9)', async () => {
+test('bar limits round trip (U9)', async () => {
   await import('../fixtures/phos-core/adapters.js');
   const { ELEOAdapters } = globalThis;
   for (const lens of ['achromat', 'cooke']) {

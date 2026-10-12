@@ -488,7 +488,7 @@ test('limits draw single and paneled', () => {
 // What the limits items must provide: curve({ series | panels, limits: [{ x? | y?: number | [lo, hi], label? }] }) draws, inside the data-space group, a number as
 // <line class="eleo-limit"> across the plot (x1 y1 x2 y2 in data units) and a pair as <rect class="eleo-limit"> (x y width height in data units), bands before the
 // series and lines after them; a limit's label is px-space text. A limit counts toward an auto range.
-test.skip('limit lines and bands round trip (U9)', async () => {
+test('limit lines and bands round trip (U9)', async () => {
   const { marks } = await import('./helpers/svg.js');
   await import('../fixtures/phos-core/adapters.js');
   const { series, x, y } = globalThis.ELEOAdapters.mtf(fixture('achromat-mtf'));
@@ -511,7 +511,9 @@ test.skip('limit lines and bands round trip (U9)', async () => {
     near(rects[0].y + rects[0].height, 0.3, g.M, 'y', `${msg}: the band ends at 0.3`);
     assert.ok(rects[0].x <= lo + 1e-9 && rects[0].x + rects[0].width >= hi - 1e-9, `${msg}: the band spans the x range`);
     // Bands under the series, lines over them.
-    const first = g.body.indexOf('<path'), last = g.body.lastIndexOf('<path');
+    // A single plot draws its series as <polyline>, a panel as <path>.
+    const at = (f) => Math.max(...['<path', '<polyline'].map((t) => g.body[f](t)));
+    const first = [g.body.indexOf('<path'), g.body.indexOf('<polyline')].filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? -1, last = at('lastIndexOf');
     assert.ok(first >= 0, `${msg}: the series are drawn`);
     assert.ok(g.body.indexOf('<rect') < first, `${msg}: the band is under the series`);
     assert.ok(g.body.indexOf('<line') > last, `${msg}: the lines are over the series`);
