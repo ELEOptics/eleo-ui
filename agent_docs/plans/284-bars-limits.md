@@ -136,7 +136,7 @@ lines and bands on `curve` and `bars`.
 
 ## Milestones
 
-### M1: Seidel bars from the recorded achromat GitHub: `P284 M1: Seidel bars`
+### M1: Seidel bars from the recorded achromat (done 2026-10-12) GitHub: `P284 M1: Seidel bars`
 
 Demo: before the first change, the orchestrator screenshots main's gallery at the plan's base (every tile,
 both themes, standard and both vision palettes) and uploads them with `gh release upload review-assets --clobber` (never committed). At the demo, `npm run gallery` shows the new Seidel tile (the achromat's seven
@@ -221,3 +221,4 @@ Proves: O3, O4
 - 2026-10-12 review M1 round 6: 0 blocking, nothing pulled in; #314 stays a plain issue. M1 done again after CR #312, pending the user's demo.
 - 2026-10-12 (user, M1 demo again): no-go. CR #315 (the user's decision): "The divider lines are too light. Let's try solid lines instead." Asked whether `bars` is fixed to its column labels: no, categories and series come from the caller, and the Seidel layout is the gallery adapter's. The user wants subsets and grouping by coefficient shown to work. Chosen in the demo thread: "caller, tile". A by-coefficient total is a caller-built Σ series (no new option), and the gallery gets a second Seidel tile grouped by coefficient. Work items #316–#318 in M1; #314 folded into #316; M2's tile count moves to 20 (#293).
 - 2026-10-12 review M1 round 7 (after CR #315): 1 blocking (CR #319, accepted by the orchestrator), findings 2–4 folded in (they bear on the user's CR #315).
+- 2026-10-12 review M1 round 8: 0 blocking, nothing pulled in; #320 stays a plain issue. M1 done again after CR #315, pending the user's demo.
