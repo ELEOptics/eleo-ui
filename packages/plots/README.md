@@ -75,7 +75,7 @@ el.innerHTML = curve({
 });
 ```
 
-- **`series`:** `{ points: [[x, y], ...], index?, role? }` each, drawn in order. `index` k takes the k-th series color. `role`: `tangential` (solid, the default), `sagittal` (dash `5 3`), or `reference` (`--ink`, dash `1 3`; ignores `index`). Every role draws a 1 px stroke.
+- **`series`:** `{ points: [[x, y], ...], index?, role? }` each, drawn in order. `index` k takes the k-th series color. `role`: `tangential` (solid, the default), `sagittal` (dash `5 3`), `reference` (`--ink`, dash `1 3`; ignores `index`), or `limit` (`--ink`, dash `6 3 1 3`). Every role draws a 1 px stroke. An unknown `role`, or an `index` that is not a non-negative integer, throws a `TypeError`.
 - **`x`, `y`:** `{ label, unit?, range?, ticks? }`, drawn as `label, unit`. `range` defaults to the nice range of the data and `ticks` to nice ticks over the range. A range that is not two finite numbers (empty, or with a NaN or infinite end) is dropped and the axis uses the data's nice range; a reversed or zero-width range is widened to a unit either side of its start. Every point is drawn and the plot area clips what lies outside the range.
 - **Zero line:** an axis range that straddles 0 draws a line at 0 in `--plot-axis`.
 - **Drawing:** the series sit in a nested `<svg>` that clips them, inside one `<g transform="matrix(...)">` in data coordinates under a non-scaling stroke. Inverting that matrix recovers the data.
