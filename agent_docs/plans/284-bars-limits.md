@@ -135,7 +135,7 @@ lines and bands on `curve` and `bars`.
 
 ## Milestones
 
-### M1: Seidel bars from the recorded achromat (done 2026-10-12) GitHub: `P284 M1: Seidel bars`
+### M1: Seidel bars from the recorded achromat GitHub: `P284 M1: Seidel bars`
 
 Demo: before the first change, the orchestrator screenshots main's gallery at the plan's base (every tile,
 both themes, standard and both vision palettes) and uploads them with `gh release upload review-assets --clobber` (never committed). At the demo, `npm run gallery` shows the new Seidel tile (the achromat's seven
@@ -156,6 +156,7 @@ unchanged. Proves: O1
 | #307 | CR (review M1 round 2 finding 1, with 3–5): the README names skipped values; the key row wraps; a null series throws; `bars.js` tidied | the findings' named fixes in one item, because all are `bars.js` and its README section; wrap rather than clip, because every series stays named; considered stopping at the edge | `packages/plots/src/bars.js`, `packages/plots/README.md`, `tests/unit/bars.test.js` | `bars.test.js::key row wraps inside the viewBox and null series throw` | #305 |
 | #308 | Backlog finding 2: the Seidel adapter labels terms by name | the finding's named fix, because labels must follow names; considered relying on the recorder's order | `tests/fixtures/phos-core/adapters.js` | `bars.test.js::seidel adapter labels by term name` | #304 |
 | #309 | CR (review M1 round 3 finding 1, with 2, 3, 4, 6): the README's key line wording and zero Σ bar; a small drawing keeps a positive frame; O1 pairs totals by name; `TOP` and comment order | the findings' named fixes in one item, because all are `bars` and its docs and tests; document the zero Σ bar, because the Σ group keeps one rect per series; considered skipping it (shifts rects read by position) | `packages/plots/src/bars.js`, `packages/plots/README.md`, `packages/plots/src/curve.js` (comment order), `tests/unit/bars.test.js` | `bars.test.js::a small drawing keeps a positive frame` | #307, #308 |
+| #312 | CR #312 (user, M1 demo): dotted dividers between category groups and before Σ; more room under the y-axis title | dividers in px space beside the gridlines, because they are frame decoration and keep the series group to data; a larger top margin in `bars` only, because a `curve` change would move every curve tile; considered `<line>`s in the data group and `curve`'s shared margin (user) | `packages/plots/src/bars.js`, `packages/plots/README.md`, `tests/unit/bars.test.js` | `bars.test.js::group dividers and title room` | #309 |
 
 ### M2: Limit lines and bands GitHub: `P284 M2: Limits`
 
@@ -209,3 +210,4 @@ Proves: O3, O4
 - 2026-10-12 review M1 round 2: 1 blocking (CR #307, accepted by the orchestrator: a non-Core doc, with backlog findings 3–5 in the same file). Backlog #308 (finding 2) into M1 (headless: backlog into M1, row: milestone acceptance within the plan).
 - 2026-10-12 review M1 round 3: 1 blocking (CR #309, accepted by the orchestrator: a non-Core doc, with backlog findings 2, 3, 4, 6 in the same files). Finding 5 (BarPlot in the package lists) added to #297 in M3, which edits the Svelte docs (headless: row: milestone acceptance within the plan).
 - 2026-10-12 review M1 round 4: 0 blocking, nothing pulled in; #310 and #311 stay plain issues (after round 3). M1 done, pending the user's demo (O1's oracle includes `user`).
+- 2026-10-12 (user, M1 demo): no-go. CR #312 (the user's feedback): "The title 'Seidel sum, mm' is too close to the top of the axis" and thin dotted dividers between the x-axis groups. `bars` only; `curve`'s matching title spacing left unchanged unless the user asks.
