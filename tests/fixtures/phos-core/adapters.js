@@ -47,7 +47,7 @@
     },
     /* spot(recording) -> { panels, unit }: one panel per field titled with its angle, a series per wavelength (index k) with
        the points in µm (the recording is in mm), the Airy radius in µm at the reference wavelength and working f-number as
-       the circle, and the polychromatic enclosing radius as a `100 %` note. No RMS or GEO. */
+       the `airy` field, and the polychromatic enclosing radius as a `100 %` note. No RMS or GEO. */
     spot: function (rec) {
       var fo = rec.firstOrder, N = fo.workingFNumber != null ? fo.workingFNumber : fo.fNumber;
       var airy = globalThis.ELEO.airyRadius(rec.referenceWavelengthNm * 1e-3, N);
@@ -59,7 +59,7 @@
             series: s.points.map(function (pts, k) {
               return { points: pts.map(function (q) { return [q[0] * 1000, q[1] * 1000]; }), index: k };
             }),
-            circle: airy,
+            airy: airy,
             notes: ['100 % ' + (s.enclosingRadiusAll * 1000).toFixed(2) + ' µm']
           };
         })

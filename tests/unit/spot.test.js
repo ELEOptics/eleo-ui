@@ -13,9 +13,9 @@ import { TOL_PX, SIZES, fixture, panelGroups, toPx, toData } from './helpers/svg
 //  - #238: tests/fixtures/phos-core/{achromat,cooke}-spot.json. Per source rec.sources[i]: fieldAngleDeg, wavelengths (nm, one per
 //    entry of points), points (per wavelength, an array of [x, y] in mm), enclosingRadius (per wavelength and polychromatic).
 //  - #226: ELEOAdapters.spot(rec) in tests/fixtures/phos-core/adapters.js returns { panels, unit, scale? }: one panel per source,
-//    { title (the field angle), series: [{ points: [[x, y] in µm, …], index: wavelength k }], circle (the Airy radius, µm), notes }, unit 'µm'.
+//    { title (the field angle), series: [{ points: [[x, y] in µm, …], index: wavelength k }], airy (the Airy radius, µm), notes }, unit 'µm'.
 //  - #239: ELEO.spot({ panels, scale, half, unit, width, height }) draws one nested <svg> and matrix <g> per panel; each series is
-//    one <path> of `M x y h0` dots in the group's data coordinates, and a panel's `circle` is a <circle r="…"> in that group
+//    one <path> of `M x y h0` dots in the group's data coordinates, and a panel's `airy` is a <circle r="…"> in that group
 //    (r in data units, centred on the origin, inside the matrix <g>). scale 'common' gives every panel one scale, 'auto' fits each.
 test('recorded spot round trip (U7)', async () => {
   await import('../fixtures/phos-core/adapters.js');
@@ -34,7 +34,7 @@ test('recorded spot round trip (U7)', async () => {
         assert.equal(s.points.length, src.points[w].length, `${lens} panel ${i} series ${w}: every recorded point`);
         s.points.forEach(([x, y], j) => assert.ok(Math.abs(x - src.points[w][j][0] * 1000) < 1e-6 && Math.abs(y - src.points[w][j][1] * 1000) < 1e-6, `${lens} panel ${i} series ${w} point ${j} is the recorded mm value in µm`));
       });
-      assert.ok(p.circle > 0, `${lens} panel ${i}: an Airy circle radius`);
+      assert.ok(p.airy > 0, `${lens} panel ${i}: an Airy circle radius`);
     });
     for (const scale of ['common', 'auto']) {
       for (const [width, height] of SIZES) {
@@ -64,7 +64,7 @@ test('recorded spot round trip (U7)', async () => {
           const body = svg.slice(starts[p], starts[p + 1] ?? svg.length);
           const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(body);
           assert.ok(r, `${label} panel ${p}: the reference circle is drawn`);
-          assert.ok(Math.abs(Math.abs(a) * (+r[1] - panels[p].circle)) <= TOL_PX, `${label} panel ${p}: the circle's radius maps to the given radius within ${TOL_PX} px`);
+          assert.ok(Math.abs(Math.abs(a) * (+r[1] - panels[p].airy)) <= TOL_PX, `${label} panel ${p}: the circle's radius maps to the given radius within ${TOL_PX} px`);
         });
         if (scale === 'common') {
           const a0 = Math.abs(groups[0].M[0]);
@@ -78,8 +78,8 @@ test('recorded spot round trip (U7)', async () => {
 // #239: spot({ panels }) on synthetic points (the recorded round trip above waits on #238, #226 and #241).
 test('typed points round trip, common and auto scale', () => {
   const panels = [
-    { title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3], [-0.7, 0.9]], index: 0 }, { points: [[-2.5, 2.2], [0, 0]], index: 2 }], circle: 2.87, notes: ['100 % 6.53 µm'] },
-    { title: '1.0°', series: [{ points: [[8, -12], [-14, 3.5], [Infinity, 1], [5, NaN]], index: 0 }], circle: 2.87, notes: [] },
+    { title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3], [-0.7, 0.9]], index: 0 }, { points: [[-2.5, 2.2], [0, 0]], index: 2 }], airy: 2.87, notes: ['100 % 6.53 µm'] },
+    { title: '1.0°', series: [{ points: [[8, -12], [-14, 3.5], [Infinity, 1], [5, NaN]], index: 0 }], airy: 2.87, notes: [] },
     { title: '2.0°', series: [{ points: [[0.1, 0.2]], index: 1 }] },
   ];
   for (const scale of ['common', 'auto']) {
@@ -107,7 +107,7 @@ test('typed points round trip, common and auto scale', () => {
         });
         const body = svg.slice(starts[p], starts[p + 1] ?? svg.length);
         const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(body);
-        if (panels[p].circle) assert.ok(r && Math.abs(Math.abs(a) * (+r[1] - panels[p].circle)) <= TOL_PX, `${label} panel ${p}: the circle's radius maps to the given radius`);
+        if (panels[p].airy) assert.ok(r && Math.abs(Math.abs(a) * (+r[1] - panels[p].airy)) <= TOL_PX, `${label} panel ${p}: the circle's radius maps to the given radius`);
         else assert.ok(!r, `${label} panel ${p}: no circle unless given`);
         assert.ok(!/<line\b/.test(body), `${label} panel ${p}: no caller-given cross`);
       });
@@ -132,28 +132,28 @@ test('spotPanels carries the sample\'s spots', async () => {
   assert.equal(o.panels.length, sample.spots.length, 'a panel per field');
   o.panels.forEach((p, fi) => {
     assert.equal(p.title, `${sample.fields[fi].toFixed(1)}°`);
-    assert.equal(p.circle, sample.airy, 'the Airy radius is the circle');
+    assert.equal(p.airy, sample.airy, 'the Airy radius is the circle');
     assert.deepEqual(p.series.map((s) => s.points), sample.spots[fi], 'a series per wavelength, the sample\'s points');
     assert.deepEqual(p.series.map((s) => s.index), sample.spots[fi].map((_, w) => w));
     const st = sample.spotStats[fi];
     assert.deepEqual(p.notes, [`RMS ${st.rms.toFixed(2)} µm`, `GEO ${st.geo.toFixed(2)} µm`]);
   });
   assert.ok(spotPanels(sample, { colorBy: 'field' }).panels.every((p, fi) => p.series.every((s) => s.index === fi)), 'colorBy field: index = field');
-  assert.equal(spotPanels(sample, { airy: false }).panels[0].circle, undefined, 'airy: false draws no circle');
+  assert.equal(spotPanels(sample, { airy: false }).panels[0].airy, undefined, 'airy: false draws no circle');
 });
 
 // #260: a panel's reference circle counts toward its half, so a circle beyond the spot is not clipped.
 // oracle: property: for every panel, circle radius <= half, where half = (box side / 2) / |scale|
 test('the half holds the reference circle', () => {
   const panels = [
-    { series: [{ points: [[0.5, 0.2], [-0.3, 0.4]] }], circle: 2.87 },
-    { series: [{ points: [[0.1, 0.1]] }], circle: 1.2 },
+    { series: [{ points: [[0.5, 0.2], [-0.3, 0.4]] }], airy: 2.87 },
+    { series: [{ points: [[0.1, 0.1]] }], airy: 1.2 },
   ];
   for (const scale of ['common', 'auto']) {
     const groups = panelGroups(ELEO.spot({ panels, scale, width: 400, height: 200 }));
     groups.forEach((g, p) => {
       const half = (g.box.pw / 2) / Math.abs(g.M[0]);
-      assert.ok(panels[p].circle <= half * (1 + 1e-9), `${scale} panel ${p}: circle ${panels[p].circle} within half ${half}`);
+      assert.ok(panels[p].airy <= half * (1 + 1e-9), `${scale} panel ${p}: circle ${panels[p].airy} within half ${half}`);
     });
   }
 });
@@ -173,7 +173,7 @@ test('typed spot hardening', async () => {
   assert.ok(ev.includes('aria-label="x&quot; onfocus=&quot;a&lt;b"'), 'label is escaped inside aria-label');
   const pts = [{ points: [[0.5, 0.2]] }];
   const base = ELEO.spot({ panels: [{ series: pts }] });
-  const inf = ELEO.spot({ panels: [{ series: pts, circle: Infinity }] });
+  const inf = ELEO.spot({ panels: [{ series: pts, airy: Infinity }] });
   assert.equal(inf, base, 'a non-finite circle is neither drawn nor counted');
   assert.ok(!/<circle/.test(inf) && !/Infinity/.test(inf), 'no circle drawn for Infinity');
   assert.equal(ELEO.spot({ panels: [{ series: pts }], half: Infinity }), base, 'a non-finite half is ignored');
@@ -219,4 +219,22 @@ test('stats about the reference', () => {
   assert.ok(off1.every((t) => !/RMS, GEO/.test(t)), 'and the caption clause');
   const none = texts(ELEO.spot({ panels: [{ series: [{ points: [[NaN, 1], null] }] }] }));
   assert.ok(!none.some((t) => /^(RMS|GEO)\b/.test(t)), 'no drawn points, no stats');
+});
+
+// #273 (CR #270): a panel's `airy` radius is drawn about the origin when showAiry (default true) and named in the caption.
+// oracle: property: with airy 2.87 the circle's radius maps to 2.87 within 0.5 px and the caption says `Airy radius 2.87 µm`; showAiry false leaves no <circle and no clause.
+test('Airy circle toggled and labelled', () => {
+  const series = [{ points: [[0.5, 0.2], [-0.3, 0.4]] }];
+  const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  const on = ELEO.spot({ panels: [{ series, airy: 2.87 }], unit: 'µm', width: 300, height: 200 });
+  const [g] = panelGroups(on);
+  const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(on);
+  assert.ok(r, 'the circle is drawn');
+  assert.ok(Math.abs(Math.abs(g.M[0]) * (+r[1] - 2.87)) <= TOL_PX, 'its radius maps to 2.87');
+  assert.ok(texts(on).includes('Reference: chief ray · Airy radius 2.87 µm · RMS, GEO about chief ray'), 'caption: ' + texts(on));
+  const off = ELEO.spot({ panels: [{ series, airy: 2.87 }], unit: 'µm', showAiry: false, width: 300, height: 200 });
+  assert.ok(!/<circle/.test(off) && !texts(off).some((t) => /Airy/.test(t)), 'showAiry false: no circle, no clause');
+  assert.equal(off, ELEO.spot({ panels: [{ series }], unit: 'µm', width: 300, height: 200 }), 'and the radius no longer counts toward the half');
+  const mixed = ELEO.spot({ panels: [{ series, airy: 1 }, { series, airy: 2 }], unit: 'µm' });
+  assert.ok(texts(mixed).some((t) => t.includes('Airy circle') && !t.includes('radius')), 'differing radii: Airy circle');
 });

@@ -12,6 +12,7 @@ var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0]
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
   var cen = o.reference === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
+  var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
     series.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { sx += +q[0]; sy += +q[1]; k++; } }); });
@@ -26,7 +27,7 @@ function typedSpot(o) {
   if (o.height) side = Math.min(side, o.height - foot - 8);
   side = Math.max(side, 1);
   var W = o.width || Math.max(0, n * side + (n - 1) * gap), H = o.height || side + 8 + foot, top = 4;
-  var ext = panels.map(function (p) { var m = isFinite(p.circle) && p.circle > 0 ? +p.circle : 0; (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
+  var ext = panels.map(function (p) { var m = airyOf(p); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
   var common = isFinite(o.half) && o.half > 0 ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {
     var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common, s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
@@ -37,16 +38,17 @@ function typedSpot(o) {
       var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
       g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="2.2" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
     });
-    if (isFinite(p.circle) && p.circle > 0) g += '<circle cx="0" cy="0" r="' + +p.circle + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
+    if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
     var ty = top + side + 18;
     g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + +half.toPrecision(6) + unit + "</text>";
     (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick" x="' + ox + '" y="' + (ty + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
   });
-  g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15) + '">' + esc("Reference: " + ref + (o.showStats !== false ? " · RMS, GEO about " + ref : "")) + "</text>";
+  var radii = panels.map(airyOf).filter(Boolean), airyCap = !radii.length ? "" : " · " + (radii.every(function (r) { return r === radii[0]; }) ? "Airy radius " + +radii[0].toPrecision(3) + (o.unit ? " " + o.unit : "") : "Airy circle");
+  g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15) + '">' + esc("Reference: " + ref + airyCap + (o.showStats !== false ? " · RMS, GEO about " + ref : "")) + "</text>";
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
-/* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as the circle, RMS and GEO as notes. */
+/* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`, RMS and GEO as notes. */
 export function spotPanels(D, o) {
   o = o || {}; var byField = o.colorBy === "field";
   var panels = D.spots.map(function (per, fi) {
@@ -55,11 +57,11 @@ export function spotPanels(D, o) {
       series: per.map(function (pts, wi) { return { points: pts, index: byField ? fi : wi }; }),
       notes: ["RMS " + st.rms.toFixed(2) + " µm", "GEO " + st.geo.toFixed(2) + " µm"]
     };
-    if (o.airy !== false) p.circle = D.airy;
+    if (o.airy !== false) p.airy = D.airy;
     return p;
   });
   var r = { panels: panels, unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height", "origin", "reference"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  ["scale", "half", "width", "height", "origin", "reference", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
   return r;
 }
 export function spot(o) {
