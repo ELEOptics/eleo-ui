@@ -22,8 +22,6 @@ export function draws() {
     'layout2D-glasses': () => ELEO.layout2D({ data: glasses, width: 1000, marks: false }),
     'spot': () => ELEO.spot(),
     'throughFocus': () => ELEO.throughFocus(),
-    'rayFan': () => ELEO.rayFan(),
-    'rayFan-opd': () => ELEO.rayFan({ kind: 'opd' }),
     'legend-field': () => ELEO.legend('field'),
     'legend-wavelength': () => ELEO.legend('wavelength'),
     'legend-ts': () => ELEO.legend('ts'),

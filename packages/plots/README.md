@@ -80,6 +80,7 @@ el.innerHTML = curve({
 - **Zero line:** an axis range that straddles 0 draws a line at 0 in `--plot-axis`.
 - **Drawing:** the series sit in a nested `<svg>` that clips them, inside one `<g transform="matrix(...)">` in data coordinates under a non-scaling stroke. Inverting that matrix recovers the data.
 - **`panels`:** `curve({ panels: [{ title?, series }], columns?, x, y, width?, height? })` draws a grid of plots (`columns` defaults to one row) on one x and one y range: the given `range`, else the nice range over every panel's data. Each panel has its own nested `<svg>` and `<g transform="matrix(...)">` in data coordinates, its `title` above it, and the axis labels are drawn once. A series is a `<path>`: a point with a `null` coordinate breaks it, and the next point starts a new subpath (`M`); a run of one point is a dot. Without `panels`, a series is a `<polyline>` as before.
+- **`rayFan`:** draws the sample's ray fans (`kind: 'opd'` for optical path difference) through `curve`'s `panels`: tangential (`Py`) above sagittal (`Px`), a column per field (`fields` picks them), one shared y range of ±`fullScale` (default: the next step above the largest value). `fanPanels(sample, o)` returns the `{ panels, columns, x, y }` for your own `curve` call. `panelWidth` (default 170) is each plot area's width in px.
 - **`kind`:** the older `curve({ kind: 'mtf' | 'fieldCurvature' | 'distortion' | 'chromaticFocus' })` still draws from the sample.
 
 ## Palettes
