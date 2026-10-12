@@ -166,8 +166,8 @@ beside their baselines, every other tile unchanged. Proves: O1
 ### M2: Spot on typed points from the recorded SpotDiagram GitHub: `P232 M2: Spot on typed points`
 
 Demo: `npm run gallery`: the spot tile draws the recorded achromat (three fields, colored by wavelength, the
-Airy circle, the 100 % radius as a note); expect larger spots than today's tile (the recording's focus is
-phos-core's paraxial image, not the sample's best focus). The through-focus tile is unchanged, and a missing spot
+Airy circle, the 100 % radius as a note); its spots are about the sample's size (100 % radius 6.5, 13.1, 33.0 µm
+against the sample's GEO 6.5, 13.7, 34.8 µm). The through-focus tile is unchanged, and a missing spot
 fixture blanks only that tile. Proves: O2
 
 | Issue | Work item | Approach | Files | Test | After |
@@ -178,6 +178,10 @@ fixture blanks only that tile. Proves: O2
 | #240 | `spot()` on the sample becomes an adapter (`spotPanels(sample, o)`): panels from `spots`, `airy` as the circle, `spotStats` as RMS and GEO notes (the sample's own values), `colorBy`, `scale`, `half`; its entry leaves `renderers-baseline.json` and `draws()`; the palette test reads the dot paths' `stroke` | forced (roadmap Constraints: the sample call stays until J; the palette test reads `circle` fills that no longer exist); considered re-recording the baseline (the code as its own oracle) | `packages/plots/src/spot.js`, `scripts/record-renderers.mjs`, `tests/fixtures/renderers-baseline.json`, `tests/unit/spot.test.js`, `tests/gallery.spec.js` | `spot.test.js::spotPanels carries the sample's spots` (oracle: reference packages/plots/src/sample.json: points, Airy radius and stats are the sample's); `gallery.spec.js::palette switch recolors both themes` on `path[stroke^="var(--series-k"]` | #239 |
 | #226 reuse | Gallery spot tile from the recorded achromat: `ELEOAdapters.spot(rec)` (panels per field titled with its angle, a series per wavelength in µm, the Airy circle from `airyRadius` at the reference wavelength and working f-number, the polychromatic enclosing radius as a `100 %` note), drawn `spot(REC.spot)`; the recorded tiles go through one `recTile(k)` helper (#226); the tile joins `ownData` and the missing-fixture loop, 17 tiles kept | the classic-script adapter as for MTF (U11 keeps adapters out of `packages/`), and #226's helper because the spot tile is the fourth copy it names; considered adapting in the page (the unit tests couldn't reuse it) | `tests/fixtures/phos-core/adapters.js`, `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js::a missing phos-core fixture blanks only its tile: spot` (new, red first); `::a missing sample script blanks only the sample tiles` with `spot` in `ownData`; O2 covers the points | #238, #239, #240 |
 | #241 | Unskip O2 | forced (`workflow.md`, TDD) | `tests/unit/spot.test.js` | O2 | #237, #238, #239, #240, #226 |
+| #259 | CR (review M2 round 1 finding 1): `gallery.spec.js`'s comment names spot among the own-data tiles | forced (stale comment since #226) | `tests/gallery.spec.js` | none: comment only | #226 |
+| #260 | Backlog finding 2: the half holds the reference circle | the finding's named fix, because a circle beyond the spot was clipped away; considered a fixed 5 µm floor as the old rule (unit-bound) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::the half holds the reference circle` | #239 |
+| #261 | Backlog findings 3, 4, 6, 8: centroid coerced, empty panels, no fill-opacity, aria-label names colorBy | the findings' named fixes in one item, because all are `spot.js` markup hardening; considered four items (one file) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::typed spot hardening` | #260 |
+| #262 | Backlog finding 5: spot sources recorded in source order | as the finding names | `tests/unit/phos-core-fixtures.test.js` | the fixtures test's order check | #238 |
 
 ### M3: The typed API, the redraw budget and the release GitHub: `P232 M3: Typed API and release`
 
@@ -202,7 +206,7 @@ Proves: O3, O4
 | `ray_errors()` unit or reference unclear | O2's fixture can't be read | the recorder item's stop |
 | The paneled fan tiles differ from their baselines in look (ticks, frames) | kill criterion D–J fires | M1 demo by eye against main's screenshots: the user approves or rejects the diff, as at D's M1 |
 | A shared y range across 6 fan panels squeezes the small field's fan | fans unreadable | `fullScale` stays an option; the demo decides |
-| The recorded achromat's spots are larger than the sample tile's (paraxial focus, about 94 µm from the sample's best focus) | the M2 demo reads it as a regression | named in the M2 demo; kill criterion D–J excludes data; the fixtures test never compares with `sample.spotStats` |
+| The recorded achromat's spots differ from the sample tile's | the M2 demo reads it as a regression | measured at M2 review round 1: the 100 % radii (6.5, 13.1, 33.0 µm) match the sample's GEO (6.5, 13.7, 34.8 µm); the planner's 94 µm defocus estimate was wrong |
 
 ## Change log
 
@@ -221,3 +225,4 @@ Proves: O3, O4
 - 2026-10-11 review M1 round 3: 0 blocking. Backlog #256 (findings 1, 3) into M1 (headless: backlog into M1, row: milestone acceptance within the plan); #257 (finding 2, typed-array ranges outside the contract) stays a plain issue.
 - 2026-10-11 review M1 round 4: 0 blocking, nothing pulled in; #258 stays a plain issue (after round 3). M1 done, pending the user's demo.
 - 2026-10-11 (user, M1 demo): go. The paneled fan tiles are row E's fan baseline.
+- 2026-10-11 review M2 round 1: 1 blocking (CR #259, accepted by the orchestrator: a test comment). Backlog #260 (finding 2), #261 (findings 3, 4, 6, 8) and #262 (finding 5) into M2 (headless: backlog into M2, row: milestone acceptance within the plan); #263 (finding 7, shared helpers outside M2's files) stays a plain issue. Finding 9: the M2 demo line and the Risks row said the recorded spots would be larger; they match the sample's size, corrected here.
