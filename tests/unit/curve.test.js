@@ -354,3 +354,40 @@ test('a non-numeric range falls back to the data (#207)', () => {
     assert.equal(got, want, `range ${JSON.stringify(range)} equals no range`);
   }
 });
+
+// Issue #234: curve({ panels, columns, x, y }) draws a grid on one scale, and a null breaks a series.
+// oracle: property: synthetic points round-trip within 0.5 px; every panel maps the same ranges to its box
+test('panels share ranges and break at nulls', () => {
+  const panels = [
+    { title: '1.0° · Py', series: [{ points: [[-1, 2], [0, 0], [0.5, null], [1, -3]], index: 0 }] },
+    { title: '2.0° · Py', series: [{ points: [[-1, 8], [-0.5, 1], [0, null], [0.25, null], [0.5, 4], [1, 6], [1, null]], index: 1 }, { points: [[-1, -4], [1, 5]], index: 2, role: 'sagittal' }] },
+    { title: '3.0° · Py', series: [{ points: [[-1, 0], [1, 1]], index: 0 }] },
+  ];
+  const x = { label: 'Pupil', range: [-1, 1] }, y = { label: 'Ray error', unit: 'µm' };
+  for (const [width, height] of SIZES) {
+    const svg = ELEO.curve({ panels, columns: 2, x, y, width, height });
+    const groups = panelGroups(svg);
+    assert.equal(groups.length, 3, `${width}px: one nested <svg> and group per panel`);
+    assert.equal((svg.match(/>Ray error, µm</g) || []).length, 1, 'the axis labels once');
+    for (const p of panels) assert.ok(svg.includes(`>${p.title}</text>`), `title ${p.title}`);
+    // y was not given: the nice range of every panel's data, one for all (here -4..8 covers them).
+    const nr = niceRange(-4, 8, 6), yr = [nr.lo, nr.hi];
+    groups.forEach((g, p) => {
+      const [x0, y0] = toPx(g.M, [-1, yr[0]]), [x1, y1] = toPx(g.M, [1, yr[1]]);
+      assert.ok(Math.hypot(x0, y0 - g.box.ph) <= TOL_PX && Math.hypot(x1 - g.box.pw, y1) <= TOL_PX, `${width}px panel ${p}: the shared ranges map to its box`);
+      assert.equal(g.paths.length, panels[p].series.length, `panel ${p}: one path per series`);
+      panels[p].series.forEach((s, k) => {
+        const live = s.points.filter((pt) => pt[1] !== null), drawn = g.paths[k].flat();
+        assert.equal(drawn.length, live.length, `panel ${p} series ${k}: every non-null point drawn`);
+        live.forEach((pt, i) => {
+          const [ex, ey] = toPx(g.M, pt), [gx, gy] = toPx(g.M, toData(g.M, toPx(g.M, drawn[i])));
+          assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX && Math.hypot(drawn[i][0] - pt[0], drawn[i][1] - pt[1]) < 1e-9, `panel ${p} series ${k} point ${i}`);
+        });
+        let runs = 0, prev = false;
+        for (const pt of s.points) { const on = pt[1] !== null; if (on && !prev) runs++; prev = on; }
+        assert.equal(g.paths[k].length, runs, `panel ${p} series ${k}: a null splits the series`);
+      });
+    });
+    assert.ok(/<path d="M[^"]*M[^"]*"/.test(svg), 'a break is an M inside one path');
+  }
+});
