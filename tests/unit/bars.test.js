@@ -262,3 +262,43 @@ test('recorded Seidel grouped by coefficient and as a subset', async () => {
     }
   }
 });
+
+// Plan #284, outcome O2 (issue #290; #294 unskips). oracle: property: recorded limits recovered through the inverse transform within 0.5 px; an auto range contains every limit.
+// bars({ …, limits: [{ y: number | [lo, hi], label? }] }) draws a number as <line class="eleo-limit"> and a pair as <rect class="eleo-limit"> in the
+// data-space group (data units), the band before the bars and the line after them; an x limit throws.
+test.skip('bar limits round trip (U9)', async () => {
+  await import('../fixtures/phos-core/adapters.js');
+  const { ELEOAdapters } = globalThis;
+  for (const lens of ['achromat', 'cooke']) {
+    const call = ELEOAdapters.seidel(fixture(`${lens}-seidel`));
+    const m = Math.max(...call.series.flatMap((s) => s.values.map(Math.abs)));
+    assert.ok(m > 0, `${lens}: the recording has a nonzero term`);
+    const limits = [{ y: m / 2, label: 'limit' }, { y: [-m / 4, m / 4] }];
+    const px = (M, v) => toPx(M, [0, v])[1];
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.bars({ ...call, limits, width, height });
+      assert.ok(svg.includes('>limit<'), `${lens} ${width}px: the label is drawn`);
+      const g = seriesGroup(svg);
+      const lines = marks(g, 'line').filter((l) => l.limit), rects = marks(g, 'rect').filter((r) => r.limit);
+      assert.equal(lines.length, 1, `${lens} ${width}px: one line`);
+      assert.equal(rects.length, 1, `${lens} ${width}px: one band`);
+      assert.equal(lines[0].y1, lines[0].y2, `${lens} ${width}px: the line is horizontal`);
+      assert.ok(Math.abs(px(g.M, lines[0].y1) - px(g.M, m / 2)) <= TOL_PX, `${lens} ${width}px: the line sits at ${m / 2}`);
+      assert.ok(Math.abs(px(g.M, rects[0].y) - px(g.M, -m / 4)) <= TOL_PX, `${lens} ${width}px: the band starts at ${-m / 4}`);
+      assert.ok(Math.abs(px(g.M, rects[0].y + rects[0].height) - px(g.M, m / 4)) <= TOL_PX, `${lens} ${width}px: the band ends at ${m / 4}`);
+      // The marks cross the plot: the x range is the group's, the box's width in px.
+      const f = frame(svg), [xlo] = toData(g.M, [0, f.ph]), [xhi] = toData(g.M, [f.pw, 0]);
+      assert.ok(Math.min(lines[0].x1, lines[0].x2) <= xlo + 1e-9 && Math.max(lines[0].x1, lines[0].x2) >= xhi - 1e-9, `${lens} ${width}px: the line spans the plot`);
+      assert.ok(rects[0].x <= xlo + 1e-9 && rects[0].x + rects[0].width >= xhi - 1e-9, `${lens} ${width}px: the band spans the plot`);
+      // The band is under the bars, the line over them.
+      assert.ok(g.body.search(/<rect\b[^>]*class="eleo-limit"/) < g.body.search(/<rect\b(?![^>]*eleo-limit)/), `${lens} ${width}px: the band comes before the bars`);
+      assert.ok(g.body.search(/<line\b[^>]*class="eleo-limit"/) > g.body.lastIndexOf('<rect'), `${lens} ${width}px: the line comes after the bars`);
+      // An auto range contains every limit: y limits beyond the bars in both directions.
+      const far = ELEO.bars({ ...call, limits: [{ y: 3 * m }, { y: [-5 * m, -4 * m] }], width, height });
+      const fg = seriesGroup(far), ff = frame(far);
+      const ylo = toData(fg.M, [0, ff.ph])[1], yhi = toData(fg.M, [ff.pw, 0])[1];
+      assert.ok(ylo <= -5 * m && yhi >= 3 * m, `${lens} ${width}px auto: the y range [${ylo}, ${yhi}] contains ${-5 * m} and ${3 * m}`);
+    }
+    assert.throws(() => ELEO.bars({ ...call, limits: [{ x: 1 }] }), { name: 'TypeError', message: /bars: x limits are not supported/ }, `${lens}: an x limit throws`);
+  }
+});

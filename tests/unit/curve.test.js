@@ -429,3 +429,59 @@ test('helpers skip a path with no data', () => {
   assert.deepEqual(seriesGroup(svg).paths, [], 'a bare <path/> reads as no series');
   assert.deepEqual(panelGroups(svg)[0].paths, [], 'and in a panel');
 });
+
+// Plan #284, outcome O2 (issue #290; #294 unskips). oracle: property: synthetic and recorded limits recovered through the inverse transform within 0.5 px; an auto range contains every limit.
+// What the limits items must provide: curve({ series | panels, limits: [{ x? | y?: number | [lo, hi], label? }] }) draws, inside the data-space group, a number as
+// <line class="eleo-limit"> across the plot (x1 y1 x2 y2 in data units) and a pair as <rect class="eleo-limit"> (x y width height in data units), bands before the
+// series and lines after them; a limit's label is px-space text. A limit counts toward an auto range.
+test.skip('limit lines and bands round trip (U9)', async () => {
+  const { marks } = await import('./helpers/svg.js');
+  await import('../fixtures/phos-core/adapters.js');
+  const { series, x, y } = globalThis.ELEOAdapters.mtf(fixture('achromat-mtf'));
+  const limits = [{ y: 0.3, label: 'MTF ≥ 0.3' }, { x: 50 }, { y: [0, 0.3] }];
+  const near = (a, b, M, axis, msg) => assert.ok(Math.abs(toPx(M, axis === 'x' ? [a, 0] : [0, a])[axis === 'x' ? 0 : 1] - toPx(M, axis === 'x' ? [b, 0] : [0, b])[axis === 'x' ? 0 : 1]) <= TOL_PX, msg);
+  // The limit marks of one group: the horizontal line, the vertical line and the band, each recovered through the group's transform.
+  const check = (g, ranges, msg) => {
+    const lines = marks(g, 'line').filter((l) => l.limit), rects = marks(g, 'rect').filter((r) => r.limit);
+    assert.equal(lines.length, 2, `${msg}: a line per number limit`);
+    assert.equal(rects.length, 1, `${msg}: a rect per pair limit`);
+    const h = lines.find((l) => l.y1 === l.y2), v = lines.find((l) => l.x1 === l.x2);
+    assert.ok(h && v, `${msg}: one horizontal and one vertical line`);
+    near(h.y1, 0.3, g.M, 'y', `${msg}: the y line sits at 0.3`);
+    near(v.x1, 50, g.M, 'x', `${msg}: the x line sits at 50`);
+    // Each line crosses the whole plot: its ends lie at or beyond the range ends.
+    const [lo, hi] = ranges.x, [ylo, yhi] = ranges.y;
+    assert.ok(Math.min(h.x1, h.x2) <= lo + 1e-9 && Math.max(h.x1, h.x2) >= hi - 1e-9, `${msg}: the y line spans the x range`);
+    assert.ok(Math.min(v.y1, v.y2) <= ylo + 1e-9 && Math.max(v.y1, v.y2) >= yhi - 1e-9, `${msg}: the x line spans the y range`);
+    near(rects[0].y, 0, g.M, 'y', `${msg}: the band starts at 0`);
+    near(rects[0].y + rects[0].height, 0.3, g.M, 'y', `${msg}: the band ends at 0.3`);
+    assert.ok(rects[0].x <= lo + 1e-9 && rects[0].x + rects[0].width >= hi - 1e-9, `${msg}: the band spans the x range`);
+    // Bands under the series, lines over them.
+    const first = g.body.indexOf('<path'), last = g.body.lastIndexOf('<path');
+    assert.ok(first >= 0, `${msg}: the series are drawn`);
+    assert.ok(g.body.indexOf('<rect') < first, `${msg}: the band is under the series`);
+    assert.ok(g.body.indexOf('<line') > last, `${msg}: the lines are over the series`);
+  };
+  for (const [width, height] of SIZES) {
+    // Single plot, caller ranges.
+    let svg = ELEO.curve({ series, x, y, limits, width, height });
+    assert.ok(svg.includes('MTF ≥ 0.3'), `${width}px: the limit's label is drawn`);
+    check(seriesGroup(svg), { x: x.range, y: y.range }, `${width}px single`);
+    // Single plot, auto ranges: the range contains every limit, here two beyond the data.
+    const wide = [...limits, { y: 1.6 }, { x: [-20, 400] }];
+    const { range: _x, ...xAuto } = x, { range: _y, ...yAuto } = y;
+    svg = ELEO.curve({ series, x: xAuto, y: yAuto, limits: wide, width, height });
+    const f = frame(svg), g = seriesGroup(svg);
+    const [xlo, ylo] = toData(g.M, [0, f.ph]), [xhi, yhi] = toData(g.M, [f.pw, 0]);
+    assert.ok(ylo <= 0 && yhi >= 1.6, `${width}px auto: the y range [${ylo}, ${yhi}] contains the limits 0 and 1.6`);
+    assert.ok(xlo <= -20 && xhi >= 400, `${width}px auto: the x range [${xlo}, ${xhi}] contains the band -20 to 400`);
+    // Panels: every panel carries the limits, recovered through its own transform.
+    const panels = [];
+    for (let i = 0; i < series.length; i += 2) panels.push({ title: `field ${i / 2}`, series: series.slice(i, i + 2).map((s) => ({ points: s.points, index: s.index })) });
+    assert.ok(panels.length >= 2, 'panels for each field');
+    svg = ELEO.curve({ panels, columns: 2, x, y, limits, width, height });
+    const groups = panelGroups(svg);
+    assert.equal(groups.length, panels.length, `${width}px: one group per panel`);
+    groups.forEach((pg, p) => check({ ...pg }, { x: x.range, y: y.range }, `${width}px panel ${p}`));
+  }
+});
