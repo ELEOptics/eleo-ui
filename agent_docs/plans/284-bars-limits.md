@@ -202,6 +202,7 @@ Proves: O3, O4
 | #299 | Changesets: `bars-limits.md` (plots minor), `bars-limits-svelte.md` (plots-svelte minor), each test with its consumed twin | forced (CLAUDE.md: a changeset per user-facing change; #85: one file per package; #279: the consumed twin) | `.changeset/bars-limits.md` (starts **Breaking:** for #199's throws: review M2 round 1 finding 2), `.changeset/bars-limits-svelte.md`, `tests/unit/release.test.js` | O4 | #295 |
 | #300 | Unskip O4 | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | O4 | #295, #296, #297, #298, #299 |
 | #331 | Backlog (review M3 round 1 findings 1–3): `CurveKindProps` rejects `limits`; the O4 twin's regex is specific; the changeset lists `PlotLimitX`/`PlotLimitY` | the findings' named fixes in one item, because all are M3's types, release test and changeset; considered three items | `packages/plots/src/index.d.ts`, `tests/types/bars.ts`, `tests/unit/release.test.js`, `.changeset/bars-limits.md` | `types.test.js::bars and limits type-check under --strict` extended | #300 |
+| #332 | CR #332 (review M3 round 2 finding 1; user: peer): plots-svelte peers `@eleoptics/plots` `>=0.5.0 <1`, the first plots with `bars` if this PR merges before Version Packages (#231) | the peer range (user); considered a guard in `BarPlot` | `packages/plots-svelte/package.json`, `.changeset/bars-limits-svelte.md`, `tests/unit/release.test.js` | `release.test.js::plots-svelte peers the first plots with bars` | #331 |
 
 ## Risks and spikes
 
@@ -243,3 +244,4 @@ Proves: O3, O4
 - 2026-10-12 (user, M2 demo): go after CR #329.
 - 2026-10-12: U14 (headless Chromium, median of 20 redraws, 3 runs): `bars` with 50 categories x 7 series plus the total and one limit 1.20-1.60 ms; `curve` 1.30 ms; `curve` panels 0.80-1.00 ms; `spot` 3.25-3.30 ms. All under 16 ms.
 - 2026-10-12 review M3 round 1: 0 blocking. Backlog #331 (findings 1–3) into M3 (headless: backlog into M3, row: milestone acceptance within the plan).
+- 2026-10-12 review M3 round 2: 1 blocking. BarPlot imports `bars`, but plots-svelte's peer admits plots 0.4.0, which lacks it. The user chose `peer` over a guard in BarPlot (the manifest is a security trigger, so it was the user's call): CR #332. It holds only if this PR merges before Version Packages (#231); the PR body says so, and the orchestrator re-checks npm's latest plots at plan end. The manifest edit means `merge.sh` will refuse, so the user merges.
