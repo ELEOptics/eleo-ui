@@ -86,3 +86,32 @@ if (process.env.PERF === '1') test('spot redraw (U14)', async ({ page }) => {
   console.log(`spot redraw median: ${median.toFixed(2)} ms`);
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });
+
+// U14 for bars (plan #284): 50 categories x 7 series plus the total, with one y limit, same method as above.
+if (process.env.PERF === '1') test('bars redraw (U14)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  const median = await page.evaluate(() => {
+    const categories = Array.from({ length: 50 }, (_, c) => `S${c}`);
+    const series = Array.from({ length: 7 }, (_, s) => ({
+      index: s,
+      label: `T${s}`,
+      values: categories.map((_, c) => 0.01 * Math.sin(c / 5 + s) * (s + 1)),
+    }));
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const times = [];
+    for (let r = 0; r < 20; r++) {
+      const t0 = performance.now();
+      host.innerHTML = window.ELEO.bars({ categories, series, total: 'Σ', limits: [{ y: 0.05, label: 'limit' }], y: { label: 'y' }, width: 600, height: 400 });
+      host.getBoundingClientRect();
+      if (!host.querySelector('svg')) throw new Error('bars drew no svg');
+      times.push(performance.now() - t0);
+    }
+    host.remove();
+    times.sort((a, b) => a - b);
+    return (times[9] + times[10]) / 2;
+  });
+  console.log(`bars redraw median: ${median.toFixed(2)} ms`);
+  test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
+});
