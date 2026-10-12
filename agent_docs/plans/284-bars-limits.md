@@ -184,6 +184,7 @@ palettes; every other tile unchanged. Proves: O2
 | #324 | CR (review M2 round 2 finding 1, with 2, 3): the bars README names limit marks in the group; x limit labels stay inside; README role wording | the findings' named fixes in one item, because all are the limits docs and label placement; considered three items | `packages/plots/README.md`, `packages/plots/src/limits.js`, `tests/unit/curve.test.js` | `curve.test.js::limits draw single and paneled` extended | #322 |
 | #325 | Backlog (review M2 round 3 findings 1–3): x band labels inside the band; bars dividers under the limit labels; a zero-width band throws | the findings' named fixes in one item, because all are limit-label placement and validation; dividers first by appending `limitLabels` in `bars`; considered a `plotCell` argument for dividers | `packages/plots/src/limits.js`, `packages/plots/src/bars.js`, `tests/unit/curve.test.js`, `tests/unit/bars.test.js` | `curve.test.js::limits draw single and paneled`, `bars.test.js::bar limits draw and x limits throw` extended | #324 |
 | #326 | CR (#325's worker, stale doc): the README's limit bullets name the zero-width throw, the x band label and dividers under labels | forced (stale doc since #325) | `packages/plots/README.md` | none: doc only | #325 |
+| #327 | CR (review M2 round 4 finding 1): `bars` draws dividers before `plotCell`, dropping the copied px maths | the reviewer's sketch, because it removes two copied functions and an import and adds nothing; considered #325's shape | `packages/plots/src/bars.js`, `packages/plots/README.md`, `tests/unit/bars.test.js` | `bars.test.js::bar limits draw and x limits throw`, `::group dividers and title room` | #326 |
 
 ### M3: The typed API, the Svelte wrapper, the redraw budget and the release GitHub: `P284 M3: Typed API and release`
 
@@ -233,3 +234,4 @@ Proves: O3, O4
 - 2026-10-12 review M2 round 2: 1 blocking (CR #324, accepted by the orchestrator, with backlog findings 2, 3 in the same files).
 - 2026-10-12 review M2 round 3: 0 blocking. Backlog #325 (findings 1–3) into M2 (headless: backlog into M2, row: milestone acceptance within the plan).
 - 2026-10-12 CR #326 (accepted, orchestrator: a non-Core doc): the README's limit bullets, stale since #325.
+- 2026-10-12 review M2 round 4: 1 blocking (CR #327, accepted by the orchestrator: necessity, in #325's files); #328 (finding 2, after round 3) a plain issue.
