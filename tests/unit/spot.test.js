@@ -146,3 +146,19 @@ test('spotPanels carries the sample\'s spots', async () => {
   assert.ok(spotPanels(sample, { colorBy: 'field' }).panels.every((p, fi) => p.series.every((s) => s.index === fi)), 'colorBy field: index = field');
   assert.equal(spotPanels(sample, { airy: false }).panels[0].circle, undefined, 'airy: false draws no circle');
 });
+
+// #260: a panel's reference circle counts toward its half, so a circle beyond the spot is not clipped.
+// oracle: property: for every panel, circle radius <= half, where half = (box side / 2) / |scale|
+test('the half holds the reference circle', () => {
+  const panels = [
+    { series: [{ points: [[0.5, 0.2], [-0.3, 0.4]] }], circle: 2.87 },
+    { series: [{ points: [[0.1, 0.1]] }], circle: 1.2 },
+  ];
+  for (const scale of ['common', 'auto']) {
+    const groups = panelGroups(ELEO.spot({ panels, scale, width: 400, height: 200 }));
+    groups.forEach((g, p) => {
+      const half = (g.box.pw / 2) / Math.abs(g.M[0]);
+      assert.ok(panels[p].circle <= half * (1 + 1e-9), `${scale} panel ${p}: circle ${panels[p].circle} within half ${half}`);
+    });
+  }
+});

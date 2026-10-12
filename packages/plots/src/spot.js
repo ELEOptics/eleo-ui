@@ -17,7 +17,7 @@ function typedSpot(o) {
   if (o.height) side = Math.min(side, o.height - foot - 8);
   side = Math.max(side, 1);
   var W = o.width || n * side + (n - 1) * gap, H = o.height || side + 8 + foot, top = 4;
-  var ext = panels.map(function (p) { var m = 0; (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
+  var ext = panels.map(function (p) { var m = Math.max(0, +p.circle || 0); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
   var common = +o.half > 0 ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {
     var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common, s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
