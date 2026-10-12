@@ -184,4 +184,6 @@ test('typed spot hardening', async () => {
   const inf = ELEO.spot({ panels: [{ series: pts, circle: Infinity }] });
   assert.equal(inf, base, 'a non-finite circle is neither drawn nor counted');
   assert.ok(!/<circle/.test(inf) && !/Infinity/.test(inf), 'no circle drawn for Infinity');
+  assert.equal(ELEO.spot({ panels: [{ series: pts }], half: Infinity }), base, 'a non-finite half is ignored');
+  assert.equal(ELEO.spot({ panels: [{ series: pts }], half: '1e400' }), base, 'a string half beyond range is ignored');
 });
