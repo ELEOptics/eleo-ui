@@ -1,7 +1,7 @@
 # Plan #337: Ray status in layout2D
 
 Status: approved 2026-10-12
-Branch: `plan/337-ray-status` PR: #<pr> Depends on: plan #284 (done) Roadmap: `agent_docs/roadmap.md`, row M
+Branch: `plan/337-ray-status` PR: #348 Depends on: plan #284 (done) Roadmap: `agent_docs/roadmap.md`, row M
 
 ## Problem
 
@@ -130,3 +130,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-12 headless: scope from roadmap row M, absorbing #302 and #136 (row: Choose, add or reorder rows). Input shape `alive?: number[][]`, bounds over every point, a dotted chief and dash-only tails decided under the same row.
 - 2026-10-12 (user): plan approved; publish without starting work.
 - 2026-10-12: critique (general-purpose, claude-fable-5-1), all 22 findings applied: crown fills; dash-only tails (no `stroke-opacity`); rays cut at the first non-finite point; phos's build and two ELEOptics/phos#310 facts as the recorder's stop; the prescription in the header and checked against the TOML; O1 wording for `a = 0` and `a = len`; U16 reworded in the roadmap; #136 in O2; U14 cell; themes and palettes; the `achromat-` prefix; the adapter returns props; the size baseline re-recorded; the recorder's surface mapping; the changeset's body; `ELEOptics/phos#310`; O1's own reader; the TOML copied with `tomllib`.
+- 2026-10-12 #349 (user): accepted, fix phos-core first. phos-core's Python client saves `MaterialSpec.CONSTANT` glasses into a cloned config, so `visualize_system_2d` kills every Wandersleb ray at S1; the fix (private glasses resolvable in analyses, the stop's interface type) lands in ELEOptics/phos-core, and #339 waits on it, then runs unchanged.
