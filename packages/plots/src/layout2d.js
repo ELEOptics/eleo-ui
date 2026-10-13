@@ -76,6 +76,14 @@ export function layout2D(o) {
     });
   });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
+  // `alive[k][i]`: the number of leading alive points of rays[k][i], an integer in 0..len; absent means all.
+  if (L.alive != null) {
+    if (!Array.isArray(L.alive) || L.alive.length !== L.rays.length) throw new Error("layout2D: alive needs one array per fan (" + L.rays.length + ")");
+    L.alive.forEach(function (row, k) {
+      if (!Array.isArray(row) || row.length !== L.rays[k].length) throw new Error("layout2D: alive[" + k + "] needs one count per ray of fan " + k + " (" + L.rays[k].length + ")");
+      row.forEach(function (a, i) { if (!Number.isInteger(a) || a < 0 || a > L.rays[k][i].length) throw new Error("layout2D: alive[" + k + "][" + i + "] is not an integer in 0.." + L.rays[k][i].length); });
+    });
+  }
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
@@ -115,7 +123,11 @@ export function layout2D(o) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
-      g += '<polyline points="' + pts(rays[i]) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:1px" stroke-linecap="round" stroke-linejoin="round"' + (i === c && set !== "chief" ? ' stroke-dasharray="6 4"' : "") + " " + NS + "/>";
+      // A ray with a < len alive points is two polylines sharing point a - 1: [0, a) as before, [max(a - 1, 0), len) dotted.
+      var r = rays[i], a = L.alive ? L.alive[k][i] : r.length;
+      function part(q, dash) { return '<polyline points="' + pts(q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:1px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + " " + NS + "/>"; }
+      if (a > 0) g += part(r.slice(0, a), i === c && set !== "chief" ? "6 4" : "");
+      if (a < r.length) g += part(r.slice(Math.max(a - 1, 0)), "1 3");
     });
     ends[k] = rays[c][rays[c].length - 1];
   });
