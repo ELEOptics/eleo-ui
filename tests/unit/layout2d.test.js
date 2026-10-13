@@ -716,11 +716,15 @@ test('new defaults (#126)', () => {
 // Plan #144, O1, issue #147: the rays are 1 px, in one group at opacity .85 (crossings don't darken, unlike per-polyline stroke-opacity).
 // oracle: spec #126 (user): rays 1 px in a group at opacity .85; read from the drawn SVG's own tags
 test('rays are 1 px at .85', () => {
-  for (const [name, L] of [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]]) {
+  // Plan #337, #340: the same layouts with alive: a = 0, 0 < a < len and a = len by turns, so rays split into dotted tails.
+  const withAlive = (L) => ({ ...L, alive: L.rays.map((fan) => fan.map((r, i) => [0, Math.max(1, r.length >> 1), r.length][i % 3])) });
+  const layouts = [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]];
+  for (const [name, L] of [...layouts, ...layouts.map(([n, L]) => [n + ' + alive', withAlive(L)])]) {
     for (const rays of [undefined, 'chief', 'fan']) {
       const svg = ELEO.layout2D({ data: L, rays });
       const { body, polylines } = drawn(svg);
       const where = `${name} rays ${rays}`;
+      if (L.alive && rays === 'fan') assert.ok(polylines.some((a) => a['stroke-dasharray'] === '1 3'), `${where}: has dotted tails`);
       const groups = [...body.matchAll(/<g opacity="\.85">([\s\S]*?)<\/g>/g)];
       assert.equal(groups.length, 1, `${where}: one <g opacity=".85">`);
       assert.ok(!/<g\b/.test(groups[0][1]), `${where}: no nested <g> inside it`);
@@ -791,4 +795,41 @@ test('recorded Wandersleb ray status round trip (U16)', { skip: 'needs #339 (fix
     assert.ok(tails28 > 0, `width ${width}: a 28° ray has a dotted part`);
     assert.equal(polygons.length, 3, `width ${width}: three glass polygons`);
   }
+});
+
+// Plan #337, outcome O1, issue #340: layout2D draws `alive` (the number of leading alive points per ray).
+// oracle: property: synthetic layouts; the two parts share one point and recover the ray; a = 0 and a = len; a bad alive throws
+test('alive splits a ray at its last alive point', () => {
+  const surfaces = [{ z: 0, sd: 3, stop: true, profile: [[0, -3], [0, 3]] }, { z: 9, sd: 3, image: true }];
+  const mk = (rays, alive) => ({ surfaces, rays, ...(alive ? { alive } : {}) });
+  const rays = [[[[0, 0], [5, 1], [9, 2]], [[0, 1], [4, 1], [6, 2], [9, 3]], [[0, 0], [9, 1]]]];
+  const parts = (L) => {
+    const d = drawn(ELEO.layout2D({ data: L, rays: 'fan' }));
+    return d.polylines.map((a) => ({ pts: pairs(a.points), dash: a['stroke-dasharray'] }));
+  };
+  // Every a in 0..len of every ray: the head and tail recover the ray and share point a - 1.
+  for (let a0 = 0; a0 <= 3; a0++) for (let a1 = 0; a1 <= 4; a1++) for (let a2 = 0; a2 <= 2; a2++) {
+    const alive = [[a0, a1, a2]], got = parts(mk(rays, alive));
+    rays[0].forEach((ray, i) => {
+      const a = alive[0][i], tag = `ray ${i} a=${a}`;
+      const solid = got.filter((p) => p.dash !== '1 3' && p.pts.length === Math.min(a, ray.length) && a > 0 && samePath(p.pts, ray.slice(0, a)));
+      const dotted = got.filter((p) => p.dash === '1 3' && samePath(p.pts, ray.slice(Math.max(a - 1, 0))));
+      if (a === ray.length) { assert.equal(solid.length >= 1, true, `${tag}: one solid polyline`); assert.equal(dotted.length, 0, `${tag}: no tail`); }
+      else assert.ok(dotted.length >= 1, `${tag}: a dotted tail from point ${Math.max(a - 1, 0)}`);
+      if (a > 0 && a < ray.length) assert.ok(solid.length >= 1 && near(solid[0].pts.at(-1), dotted[0].pts[0]), `${tag}: parts share point a - 1`);
+      if (a === 0) assert.equal(got.some((p) => p.dash !== '1 3' && samePath(p.pts, ray)), false, `${tag}: no solid polyline at a = 0`);
+    });
+    const expected = alive[0].reduce((n, a, i) => n + (a > 0 ? 1 : 0) + (a < rays[0][i].length ? 1 : 0), 0);
+    assert.equal(got.length, expected, `alive ${alive[0]}: polyline count`);
+  }
+  // The issue's invocation, and one group at .85 holding both parts.
+  const svg = ELEO.layout2D({ data: { surfaces, rays: [[[[0, 0], [5, 1], [9, 2]]]], alive: [[2]] }, rays: 'fan' });
+  const g = [...svg.matchAll(/<g opacity="\.85">([\s\S]*?)<\/g>/g)];
+  assert.equal(g.length, 1);
+  assert.equal([...g[0][1].matchAll(/<polyline\b[^>]*>/g)].length, 2);
+  assert.ok(/<polyline points="0,0 5,1"(?![^>]*stroke-dasharray="1 3")/.test(g[0][1]) && /<polyline points="5,1 9,2"[^>]*stroke-dasharray="1 3"/.test(g[0][1]));
+  // A bad alive throws, naming itself.
+  for (const [bad, re] of [
+    [[[1, 1]], /alive/], [[[1, 1, 1], [1]], /alive/], [[[4, 1, 1]], /alive/], [[[-1, 1, 1]], /alive/], [[[1.5, 1, 1]], /alive/], [[['3', 1, 1]], /alive/], [{}, /alive/], [[3], /alive/],
+  ]) assert.throws(() => ELEO.layout2D({ data: mk(rays, bad) }), re, JSON.stringify(bad));
 });
