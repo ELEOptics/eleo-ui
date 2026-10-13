@@ -754,3 +754,41 @@ test('texts carry the tick style', () => {
     }
   }
 });
+
+// Plan #337 (agent_docs/plans/337-ray-status.md), outcome O1 (issue #338; #342 unskips).
+// oracle: fixture phos-core visualize_system_2d of the Wandersleb triplet (US 1,073,789) recorded by scripts/record-phos-core.py; inverting the ray group's transform recovers every point within 0.01 mm
+// A ray with alive count a < len is two polylines sharing its last alive point: points [0, a) solid, [max(a - 1, 0), len) dotted.
+// This reader joins them: it recovers a ray from its solid part, then its dotted part from the shared point on.
+test('recorded Wandersleb ray status round trip (U16)', { skip: 'needs #339 (fixture), #340 (alive), #341 (gallery); #342 unskips' }, () => {
+  const L = JSON.parse(readFileSync(new URL('../fixtures/phos-core/wandersleb-layout.json', import.meta.url)));
+  assert.ok(Array.isArray(L.alive) && L.alive.length === L.rays.length, 'the recording carries alive per field');
+  for (const width of [1000, 600]) {
+    const svg = ELEO.layout2D({ data: L, rays: 'fan', width });
+    const { M, polygons, polylines } = drawn(svg);
+    const toMm = inverse(M);
+    const parts = polylines.map((a) => ({ pts: pairs(a.points).map(toMm), dotted: a['stroke-dasharray'] === '1 3' }));
+    const solid = parts.filter((p) => !p.dotted), dotted = parts.filter((p) => p.dotted);
+    const startsWith = (got, want) => got.length === want.length && got.every((p, i) => near(p, want[i]));
+    let tails = 0, tails28 = 0, claimed = 0;
+    L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
+      const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
+      assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `${tag}: alive in 0..len`);
+      const head = a > 0 ? solid.find((p) => startsWith(p.pts, ray.slice(0, a))) : undefined;
+      const tail = a < ray.length ? dotted.find((p) => startsWith(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
+      if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
+      else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
+      if (a > 0 && a < ray.length) {
+        assert.ok(head, `${tag}: a solid part recovers points 0..a`);
+        assert.ok(near(head.pts[head.pts.length - 1], tail.pts[0]), `${tag}: the parts share the last alive point`);
+        assert.ok(near(tail.pts[0], ray[a - 1]), `${tag}: the shared point is point a - 1`);
+      }
+      if (a === 0) assert.ok(!solid.some((p) => startsWith(p.pts, ray)), `${tag}: no solid polyline at a = 0`);
+      claimed += (head ? 1 : 0) + (tail ? 1 : 0);
+      if (tail) { tails++; if (k === L.rays.length - 1) tails28++; }
+    }));
+    assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray's solid or dotted part`);
+    assert.ok(tails > 0, `width ${width}: some ray has a dotted part`);
+    assert.ok(tails28 > 0, `width ${width}: a 28° ray has a dotted part`);
+    assert.equal(polygons.length, 3, `width ${width}: three glass polygons`);
+  }
+});
