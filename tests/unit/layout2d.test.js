@@ -921,7 +921,7 @@ test('mirrors are drawn as bodies with a flat back', () => {
   assert.equal(bar(mk(mirror, [surf(5, { obscuration: true, sd: 5 })])).length, 1, 'a bar outside every body');
   assert.equal(bar(mk(mirror, [surf(-1, { obscuration: true, sd: 9 })])).length, 1, 'a bar wider than the mirror');
   // Review r5: a bad hole is a named error.
-  for (const hole of ['3', -1, 8, 9]) assert.throws(() => ELEO.layout2D({ data: mk({ ...mirror, hole }) }), /^Error: layout2D: surfaces\[0\]\.hole is not a number in 0\.\.sd/, 'hole ' + JSON.stringify(hole));
+  for (const hole of ['3', -1, 8, 9]) assert.throws(() => ELEO.layout2D({ data: mk({ ...mirror, hole }) }), /^Error: layout2D: surfaces\[0\]\.hole is not a number from 0 up to, but below, sd/, 'hole ' + JSON.stringify(hole));
   // A bar inside a holed mirror's hole is still drawn (|sd| < hole); one as wide as the hole is hidden.
   assert.equal(bar(mk({ ...mirror, hole: 2 }, [surf(-1, { obscuration: true, sd: 1 })])).length, 1, 'a bar inside the hole');
   assert.equal(bar(mk({ ...mirror, hole: 2 }, [surf(-1, { obscuration: true, sd: 5 })])).length, 0, 'no bar over the body');
@@ -931,6 +931,16 @@ test('mirrors are drawn as bodies with a flat back', () => {
   dying.alive = [[2, 4]];
   const dp = pairs(parts(dying).polygons.find((a) => /var\(--mech\)/.test(a.fill || '')).points);
   assert.ok(dp.some((p) => at(p[0], -2.5)) && dp.every((p) => p[0] >= -2.5 - TOL), 'the back stays on the side away from the light');
+  // Review r6 f1: a dead ray counts its blocking point, so it decides the direction ahead of a dotted tail running back toward the light.
+  const blocked = mk(mirror);
+  blocked.rays = [[[[-10, 1], [0, 1], [-5, 1]], [[-10, 1], [0, 1], [10, 1]]]];
+  blocked.alive = [[2, 2]];
+  blocked.dead = [[false, true]];
+  const bp = pairs(parts(blocked).polygons.find((a) => /var\(--mech\)/.test(a.fill || '')).points);
+  assert.ok(bp.some((p) => at(p[0], -2.5)) && bp.every((p) => p[0] >= -2.5 - TOL), 'a dead ray that passed the mirror decides the back side');
+  // Review r6 f2: layoutBounds with a badly shaped alive does not throw a bare TypeError.
+  const shaped = { surfaces: [mirror, surf(10, {}), { ...surf(20, {}), image: true }], rays: [[[[-10, 1], [0, 1], [10, 1], [20, 1]]], [[[-10, 1], [0, 1], [10, 1], [20, 1]]]], alive: [[2, 2]] };
+  try { layoutBounds([shaped]); } catch (e) { assert.ok(!(e instanceof TypeError), 'not a bare TypeError: ' + e.message); }
   // Bounds (#367): a body past the rays' z range stays inside layoutBounds.
   const past = { surfaces: [surf(5, { mirror: true }), surf(10, {}), { ...surf(15, {}), image: true }], rays: [[[[4, 1], [5, 1], [10, 1], [15, 1]]]] };
   assert.ok(layoutBounds([past]).zmin <= 3 + TOL, 'zmin covers the back, 2 mm behind a mirror at the rays\' first z');

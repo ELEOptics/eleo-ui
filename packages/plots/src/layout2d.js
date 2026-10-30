@@ -33,9 +33,10 @@ function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : Math.abs(S[i].p
 // a mirror with no next point takes its incoming step), from a ray alive past the mirror before any ray. A polygon per side of the hole, or one.
 function mirrorBodies(L, i) {
   var a = L.surfaces[i], t = a.sd / 4, dir = 0, h = a.hole > 0 ? a.hole : 0;
-  // A ray alive past the mirror (alive >= i + 3, or no `alive`) first: a dead ray's tail may run any way.
+  // A ray alive past the mirror first (alive plus its blocking point, if dead, >= i + 3; or no `alive`): a dead ray's dotted tail may run any way.
   [true, false].forEach(function (strict) { L.rays.forEach(function (fan, k) { fan.forEach(function (r, j) {
-    if (dir || (strict && L.alive && !(L.alive[k][j] >= i + 3))) return;
+    if (dir || (L.alive && !(L.alive[k] && L.alive[k][j] != null))) return;
+    if (strict && L.alive && !(L.alive[k][j] + (L.dead && L.dead[k] && L.dead[k][j] ? 1 : 0) >= i + 3)) return;
     if (r[i + 2]) dir = Math.sign(r[i + 2][0] - r[i + 1][0]);
     else if (!strict && r[i + 1] && !L.surfaces[i + 1]) dir = -Math.sign(r[i + 1][0] - r[i][0]);
   }); }); });
@@ -127,7 +128,7 @@ export function layout2D(o) {
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
   S.forEach(function (x, i) { var e = badProfile(x); if (e) throw new Error("layout2D: surface " + i + e); });
-  S.forEach(function (x, i) { if (x.hole != null && !(typeof x.hole === "number" && x.hole >= 0 && x.hole < x.sd)) throw new Error("layout2D: surfaces[" + i + "].hole is not a number in 0..sd"); });
+  S.forEach(function (x, i) { if (x.hole != null && !(typeof x.hole === "number" && x.hole >= 0 && x.hole < x.sd)) throw new Error("layout2D: surfaces[" + i + "].hole is not a number from 0 up to, but below, sd"); });
   var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
@@ -156,7 +157,7 @@ export function layout2D(o) {
     if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
     // A mirror is a --mech body with a flat back (CR #371), hatched at 45 degrees every 32 px (mock A); its clipPath id is a hash of its points, so it is
     // deterministic and one polygon never gets two ids. An obscuration is an opaque bar from -sd to +sd (CR #360; the image line's ink and width),
-    // left out when it lies within a mirror body (its z inside, its sd no larger).
+    // left out when it lies within a mirror body (its z inside, its sd from the mirror's hole up to the mirror's sd).
     if (a.mirror) mirrorBodies(L, i).forEach(function (b) {
       var P = pts(b), id = "eleo-m", zs = b.map(function (p) { return p[0]; }), ys = b.map(function (p) { return p[1]; }), z0 = Math.min.apply(null, zs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), d = "";
       for (var j = 0, h = 5381; j < P.length; j++) h = (h * 33 ^ P.charCodeAt(j)) >>> 0;
