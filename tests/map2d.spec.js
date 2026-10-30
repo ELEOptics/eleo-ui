@@ -113,6 +113,56 @@ test('typed map refuses bad grids', async ({ page }) => {
   expect(r.ok).toBe(null);
 });
 
+// #414 (CR #410): polar samples fill their annular sectors. oracle: closed-form, 3 rings at r = 1, 2, 3 and 4 spokes at 0, 90, 180, 270 deg
+// with value 4 * ring + spoke on [0, 11]: sector edges at r = 1.5, 2.5 (first from 0, last at 3.5) and at 45 deg + k * 90 deg; a pixel there is
+// step round(255 * v / 11), a pixel beyond r = 3.5 is alpha 0. Pixels within 1.5 px of an edge are not checked.
+test('polar samples fill their sectors', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
+    const radii = [1, 2, 3], angles = [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2], values = radii.map((_, i) => angles.map((_, k) => 4 * i + k));
+    el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, polar: { radii, angles }, extent: [-4, 4, -4, 4], map: 'ember', el }));
+    const svg = el.lastElementChild, imgs = svg.querySelectorAll('image'), img = imgs[0];
+    const bm = await createImageBitmap(await (await fetch(img.getAttribute('href'))).blob());
+    const g = new OffscreenCanvas(bm.width, bm.height).getContext('2d'); g.drawImage(bm, 0, 0);
+    const px = g.getImageData(0, 0, bm.width, bm.height).data, lut = window.ELEO.colormap('ember', el);
+    const pu = 8 / bm.width, b = img.getBoundingClientRect(), frame = svg.querySelector('rect').getBoundingClientRect();
+    let checked = 0, wrong = 0, outside = 0, outsideWrong = 0;
+    for (let j = 0; j < bm.height; j++) for (let i = 0; i < bm.width; i++) {
+      const x = -4 + (i + 0.5) * pu, y = 4 - (j + 0.5) * pu, rr = Math.hypot(x, y), o = (j * bm.width + i) * 4;
+      if (rr > 3.5 + 1.5 * pu) { outside++; if (px[o + 3] !== 0) outsideWrong++; continue; }
+      const th = Math.atan2(y, x), k = Math.round((th < 0 ? th + 2 * Math.PI : th) / (Math.PI / 2)) % 4;
+      const edgeA = Math.abs(((th < 0 ? th + 2 * Math.PI : th) % (Math.PI / 2)) - Math.PI / 4) * rr;
+      if (Math.min(Math.abs(rr - 1.5), Math.abs(rr - 2.5), Math.abs(rr - 3.5), edgeA) < 1.5 * pu) continue;
+      const ring = rr < 1.5 ? 0 : rr < 2.5 ? 1 : 2, c = lut[Math.round(255 * (4 * ring + k) / 11)];
+      checked++;
+      if (px[o + 3] !== 255 || [0, 1, 2].some((q) => Math.abs(px[o + q] - c[q]) > 1)) wrong++;
+    }
+    return { n: imgs.length, bw: bm.width, bh: bm.height, checked, wrong, outside, outsideWrong, w: b.width, h: b.height, fw: frame.width, fh: frame.height };
+  });
+  expect(r.n, 'one image').toBe(1);
+  expect(r.checked, 'sector pixels checked').toBeGreaterThan(500);
+  expect(r.wrong, 'sector pixels off their step').toBe(0);
+  expect(r.outside, 'pixels beyond the outer edge').toBeGreaterThan(100);
+  expect(r.outsideWrong, 'pixels beyond the outer edge are alpha 0').toBe(0);
+  expect(r.bw, 'bitmap within the plot area px').toBeLessThanOrEqual(Math.ceil(r.w));
+  expect(r.bh).toBeLessThanOrEqual(Math.ceil(r.h));
+});
+
+// #414: polar samples must be one row per radius and one value per angle, else a TypeError.
+test('typed map refuses bad polar samples', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.evaluate(() => {
+    const err = (o) => { try { window.ELEO.map2D({ extent: [-1, 1, -1, 1], ...o }); return null; } catch (e) { return e instanceof TypeError ? e.message : 'not a TypeError: ' + e.name; } };
+    const polar = { radii: [1, 2], angles: [0, 1, 2] };
+    return { rows: err({ values: [[1, 2, 3]], polar }), cols: err({ values: [[1, 2], [3, 4]], polar }), radii: err({ values: [[1, 2, 3], [4, 5, 6]], polar: { radii: [2, 1], angles: polar.angles } }),
+      angles: err({ values: [[1], [4]], polar: { radii: [1, 2], angles: [NaN] } }), ok: err({ values: [[1, 2, 3], [4, 5, 6]], polar }) };
+  });
+  for (const k of ['rows', 'cols', 'radii', 'angles']) expect(r[k], k).toMatch(/^map2D: polar/);
+  expect(r.ok).toBe(null);
+});
+
 // O1: the typed map places the recorded Cooke PSF. oracle: fixture, phos-core PointSpread recorded by
 // scripts/record-phos-core.py (roadmap U8).
 test('recorded PSF cells (U8)', async ({ page }) => {

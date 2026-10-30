@@ -14,6 +14,12 @@ function typedMap(o) {
   if (!Array.isArray(rows) || !nr || !Array.isArray(rows[0]) || !nc) throw new TypeError("map2D: values must be a non-empty array of non-empty rows");
   if (rows.some(function (r) { return !Array.isArray(r) || r.length !== nc; })) throw new TypeError("map2D: every row of values must have the same length");
   if (!Array.isArray(e) || e.length !== 4 || !e.every(live) || !(e[0] < e[1]) || !(e[2] < e[3])) throw new TypeError("map2D: extent must be [x0, x1, y0, y1] with x0 < x1 and y0 < y1");
+  var pol = o.polar, pr, pa;
+  if (pol) {
+    pr = pol.radii; pa = pol.angles;
+    if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); })) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite)");
+    if (nr !== pr.length || nc !== pa.length) throw new TypeError("map2D: polar values need one row per radius and one value per angle");
+  }
   var lo = Infinity, hi = -Infinity;
   rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
   /* Value range: the data's, symmetric about 0 for "wave" (a diverging map's middle step means 0); `range` overrides. */
@@ -42,17 +48,37 @@ function typedMap(o) {
     R = need;
   }
   var sc = { xr: xr, yr: yr, xt: axisTicks(x, xr), yt: axisTicks(y, yr), R: R };
-  var lut = colormap(o.map || "ember", o.el), cv = document.createElement("canvas"); cv.width = nc; cv.height = nr;
-  var ctx = cv.getContext("2d"), im = ctx.createImageData(nc, nr), span = hi - lo;
-  rows.forEach(function (r, j) { r.forEach(function (v, i) {
-    var k = (j * nc + i) * 4;
-    if (!live(v)) return;
-    var t = log ? (hi > 0 && v > hi * Math.pow(10, -dec) ? (Math.log10(v / hi) + dec) / dec : 0) : span > 0 ? (v - lo) / span : 0;
-    var c = lut[Math.max(0, Math.min(255, Math.round(t * 255)))];
-    im.data[k] = Math.round(c[0]); im.data[k + 1] = Math.round(c[1]); im.data[k + 2] = Math.round(c[2]); im.data[k + 3] = 255;
-  }); });
-  ctx.putImageData(im, 0, 0);
+  var lut = colormap(o.map || "ember", o.el), cv = document.createElement("canvas"), span = hi - lo;
   var sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
+  /* The cell's color: the value's step on the scale, null for a masked value. */
+  var paint = function (v) {
+    if (!live(v)) return null;
+    var t = log ? (hi > 0 && v > hi * Math.pow(10, -dec) ? (Math.log10(v / hi) + dec) / dec : 0) : span > 0 ? (v - lo) / span : 0;
+    return lut[Math.max(0, Math.min(255, Math.round(t * 255)))];
+  };
+  var bw = nc, bh = nr;
+  if (pol) {
+    /* Polar: the bitmap has one pixel per px the image shows (the plot area's px, so never more), which resolves a sector wherever it is at least a pixel wide at the outer ring. */
+    bw = Math.max(1, Math.round((e[1] - e[0]) * sx)); bh = Math.max(1, Math.round((e[3] - e[2]) * sy));
+  }
+  cv.width = bw; cv.height = bh;
+  var ctx = cv.getContext("2d"), im = ctx.createImageData(bw, bh), put = function (k, c) {
+    im.data[k] = Math.round(c[0]); im.data[k + 1] = Math.round(c[1]); im.data[k + 2] = Math.round(c[2]); im.data[k + 3] = 255;
+  };
+  if (pol) {
+    /* Nearest sample: radial edges midway between neighbouring radii (the first sector from 0, the last half a step past the outer radius), angular edges midway between spokes. Pixels in no sector stay alpha 0. */
+    var nrg = pr.length, rout = pr[nrg - 1] + (nrg > 1 ? pr[nrg - 1] - pr[nrg - 2] : pr[0]) / 2, TAU = 2 * Math.PI;
+    var cols = rows.map(function (r) { return r.map(paint); });
+    for (var j = 0; j < bh; j++) for (var i = 0; i < bw; i++) {
+      var qx = e[0] + (i + 0.5) * (e[1] - e[0]) / bw, qy = e[3] - (j + 0.5) * (e[3] - e[2]) / bh, rr = Math.hypot(qx, qy);
+      if (rr > rout) continue;
+      var ri = 0; while (ri < nrg - 1 && rr >= (pr[ri] + pr[ri + 1]) / 2) ri++;
+      var th = Math.atan2(qy, qx), ai = 0, ad = Infinity;
+      for (var q = 0; q < pa.length; q++) { var dd = Math.abs(th - pa[q]) % TAU; dd = Math.min(dd, TAU - dd); if (dd < ad) { ad = dd; ai = q; } }
+      if (cols[ri][ai]) put((j * bw + i) * 4, cols[ri][ai]);
+    }
+  } else rows.forEach(function (r, j) { r.forEach(function (v, i) { var c = paint(v); if (c) put((j * nc + i) * 4, c); }); });
+  ctx.putImageData(im, 0, 0);
   var X = function (v) { return +(PLOT_L + (v - xr[0]) * sx).toFixed(2); }, Y = function (v) { return +(PLOT_T + ph - (v - yr[0]) * sy).toFixed(2); };
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var g = plotCell(sc, [], W, H, PLOT_T, false, "");
