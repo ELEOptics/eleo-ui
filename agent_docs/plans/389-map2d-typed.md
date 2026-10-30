@@ -121,6 +121,8 @@ grid files and refuses a swapped Seidel or Cassegrain order. Proves: O1
 | #420 | Right margin from the padded x ticks, the larger of the two (review M1, finding 5) | recompute after padding because the drawn ticks are the padded ones; considered padding first, which needs the margin | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::padded x ticks stay inside the viewBox` | #419 |
 | #421 | Fixtures README: PSF and layout files in the common-keys exception; size in kB as the other rows (review M1, finding 6) | name the exceptions where the keys are defined; considered a note per row | `tests/fixtures/phos-core/README.md` | none (docs): `scripts/check.sh --fast` | |
 | #422 | `psf()`'s orientation and size refusals tested on stand-ins (review M1, finding 7) | stand-ins as for seidel because the real client never returns a bad grid; considered a broken fixture, data no source produced | `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::recorder guards refuse bad orders` | |
+| #426 | Source headers (`index.js`, `renderers.js`, `index.d.ts`) carry the README's carve-out: the typed map bakes its cells, redraw on a theme change (CR #425) | the README's wording because each file opens with that claim; considered dropping the claim, which leaves the canvas rule unstated | `packages/plots/src/index.js`, `packages/plots/src/renderers.js`, `packages/plots/src/index.d.ts` | none (comments): `scripts/check.sh --fast` | |
+| #427 | `map2d.js`'s margin-loop comment states the right reason (review M1 round 2, finding 2) | the reviewer's wording, which matches the code; considered deleting it, which leaves the loop unexplained | `packages/plots/src/map2d.js` | none (comment): `scripts/check.sh --fast` | #426 |
 
 ### M2: scales, aperture, colorbar; wavefront, log and irradiance tiles GitHub: `P389 M2: scales, colorbar, wavefront`
 
@@ -154,7 +156,7 @@ plots-svelte minors; the U14 median in the Change log. Proves: O3
 | #407 | Changesets: plots minor (typed `map2D`) and plots-svelte minor (`Map2D` typed props) | forced (roadmap Constraints: release on consumer pull, planned by changesets) | `.changeset/` | `tests/unit/release.test.js::map2D changeset asks minors` | #405, #333 |
 | #408 | Unskip O3 acceptance tests | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | all O3 tests | all above |
 
-28 items over 3 milestones (CR #410 split #391 and added two; review M1 round 1 added six): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
+30 items over 3 milestones (CR #410 split #391 and added two; review M1 added eight): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
 the colorbar and aperture; none is cut to fit.
 ## Risks and spikes
 
@@ -206,3 +208,6 @@ One bullet per entry (bare lines render as one paragraph).
   every invariant) as #417 and #418. Backlog pulled into M1 as small and named: #419 (bad grids), #420 (padded margin),
   #421 (fixtures README), #422 (psf refusals tested). Plain backlog: #423 (M2 props, fixed by M2), #424 (PNG bytes,
   deferred until a mismatch shows: a tolerance changes an approved oracle's form).
+- 2026-10-30 review M1 round 2: 1 blocking, CR #425 (source headers), accepted by the orchestrator (comments only;
+  `index.d.ts`'s header was in #393's approved Files) as #426; backlog #427 (loop comment) pulled in. Carried #410, #415,
+  #416 resolved.
