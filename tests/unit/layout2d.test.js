@@ -903,6 +903,9 @@ test('mirrors are drawn as bodies with a flat back', () => {
   assert.match(hatch[0].style, /stroke-width:var\(--stroke-hair\)/);
   const segs = [...hatch[0].d.matchAll(/M\s*([-\d.]+)[ ,]([-\d.]+)\s*L\s*([-\d.]+)[ ,]([-\d.]+)/g)].map((m) => m.slice(1).map(Number));
   assert.ok(segs.length > 2 && segs.every(([a, b, c, d]) => at(Math.abs(c - a), Math.abs(d - b)) && Math.abs(c - a) > 0), 'hatch lines run at 45 degrees');
+  // CR #371, issue #377: adjacent hatch lines are 32 px apart at render scale (mock A), light and sparse.
+  const sc = geometry(one.svg).M[0];
+  assert.ok(segs.length > 2 && segs.slice(1).every((g, i) => Math.abs((g[0] - segs[i][0]) * sc - 32) < 0.1), 'adjacent hatch lines are 32 px apart');
   assert.match(one.u, new RegExp(`clip-path="url\\(#${one.clips[0]}\\)"`), 'the hatch is clipped by the clipPath');
   assert.equal(parts(mk(mirror)).svg, one.svg, 'drawing twice gives the same SVG (ids are deterministic)');
   // Hole: |y| < hole is open, two bodies.
