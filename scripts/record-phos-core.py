@@ -31,7 +31,7 @@ does not rewrite them:
     field, as a RecordedLayout plus `alive`. Writes tests/fixtures/phos-core/wandersleb-layout.json.
     It also records phos-core's tutorial Cassegrain (models/src/example/cassegrain.rs: parabolic primary with an annular
     aperture, hyperbolic secondary, obscuration; fields 0/0.35/0.5 deg), built through InterfaceBuilder, in the same shape
-    without `glass`, as tests/fixtures/phos-core/cassegrain-layout.json. It exits non-zero unless the 0 degree chief is dead before the image.
+    without `glass` and with `mirror` on the two mirrors and `obscuration` on the obscuration, as tests/fixtures/phos-core/cassegrain-layout.json. It exits non-zero unless the 0 degree chief is dead before the image.
 """
 import argparse
 import json
@@ -348,6 +348,10 @@ def cassegrain(phos, outdir, header):
             sys.exit(f"cassegrain surface {i}: {len(prof)} finite profile points, expected {LAYOUT_SAMPLES}")
         surfaces.append({"z": prof[len(prof) // 2][0], "sd": max(abs(y) for _, y in prof), "stop": False, "image": i == len(profiles) - 1,
                          "glass": None, "profile": prof})
+    # CR #360: the flags come from what was built (surface 0 the obscuration, 1 and 2 the MIRROR primary and secondary),
+    # written only when true so the Wandersleb recording stays as it was.
+    surfaces[0]["obscuration"] = True
+    surfaces[1]["mirror"] = surfaces[2]["mirror"] = True
     rays, alive, status = layout_rays(phos, res, len(CASSEGRAIN_FIELDS), "cassegrain")
     chief = status[0][LAYOUT_RAYS // 2]
     if alive[0][LAYOUT_RAYS // 2] >= len(chief) - 1 or chief[-1] == "ALIVE":

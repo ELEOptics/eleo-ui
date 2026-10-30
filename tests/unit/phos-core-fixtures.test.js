@@ -195,4 +195,10 @@ test('recorded Cassegrain layout obscures its axial chief', () => {
     });
   });
   assert.ok(f.alive[0][5] < f.rays[0][5].length, 'the 0 degree chief is not alive at the end of its path');
+  // CR #360: the flags mark the optics, and are written only when true.
+  assert.deepEqual(f.surfaces.filter((s) => s.mirror).map((s) => Math.round(s.z)), [0, -75], 'the primary (z 0) and the secondary (z -75) are mirrors');
+  assert.deepEqual(f.surfaces.filter((s) => s.obscuration).map((s) => Math.round(s.z * 100) / 100), [-76.25], 'one obscuration, at z -76.25');
+  assert.ok(f.surfaces.every((s) => s.mirror !== false && s.obscuration !== false), 'flags are written only when true');
+  const w = read('../fixtures/phos-core/wandersleb-layout.json');
+  assert.ok(w.surfaces.every((s) => !('mirror' in s) && !('obscuration' in s)), 'the Wandersleb recording has neither flag');
 });
