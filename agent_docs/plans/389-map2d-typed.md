@@ -142,6 +142,15 @@ waves; a log PSF tile; a Gaussian irradiance tile marked synthetic; both themes 
 | #401 | Gallery wavefront tile (recorded Cooke WavefrontError as polar samples, `wave`, its pupil as `aperture`) and a log PSF tile; `gallery.spec.js`'s tile count and lists | an adapter, as item 6's (the recorded tiles go through `adapters.js`, [#226]) | `tests/fixtures/phos-core/adapters.js`, `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::recorded wavefront tile draws` | #412, #414 |
 | #402 | Gallery irradiance tile: a TEM00 Gaussian (w = 1 mm, 128² over ±2 mm), meta "synthetic"; the tile count | closed form because phos-core's irradiance needs a nonsequential trace (Non-goals); considered sample data, which has no irradiance | `gallery/index.html`, `tests/gallery.spec.js` | `tests/map2d.spec.js::gaussian irradiance tile` | #401 |
 | #403 | Unskip O2 acceptance tests | forced (`workflow.md`, TDD) | `tests/map2d.spec.js` | all O2 tests | all above |
+| #432 | O2 Gaussian test reads the gallery tile's 128² cells against exp(−2r²/w²) (CR #430) | read the tile because O2 names it; considered the self-drawn grid, which tests map2D, not the tile | `tests/map2d.spec.js` | `tests/map2d.spec.js::gaussian irradiance tile` | |
+| #433 | Fixtures README: each wavefront file's reference wavelength (CR #431) | name both because the files differ; considered dropping the number | `tests/fixtures/phos-core/README.md` | none (docs): `scripts/check.sh --fast` | |
+| #434 | U8 says spoke orientation is proven by the polar test, and asserts the fixture's per-ring symmetry (review M2, finding 3) | assert the symmetry the comment rests on; considered an off-axis recording | `tests/map2d.spec.js` | `tests/map2d.spec.js::recorded wavefront cells (U8)` | #432 |
+| #435 | Gallery test checks the wavefront tile's `wave` map and aperture and psf-log's decades (review M2, finding 4) | assert visible effects because the mutants passed; considered asserting adapter output | `tests/gallery.spec.js` | `tests/gallery.spec.js::recorded wavefront tile draws` | |
+| #436 | Colorbar test checks the bar runs lut[255] at the top to lut[0] at the bottom (review M2, finding 5) | decode the bar; considered a screenshot, which mixes in the outline | `tests/map2d.spec.js` | `tests/map2d.spec.js::colorbar ticks` | #434 |
+| #437 | Per-tick colorbar decimals; the PSF adapter normalizes to the peak (review M2, finding 6) | per-tick decimals because one precision pads every label; considered 10^k labels. Normalize so "relative" is true; considered dropping the unit | `packages/plots/src/map2d.js`, `tests/fixtures/phos-core/adapters.js` | `tests/map2d.spec.js::colorbar ticks sit at their values` | |
+| #438 | Polar sectors found by binary search; unsorted angles refused (review M2, finding 7) | binary search serves uneven spokes; considered a direct index for even spokes only | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::polar samples fill their sectors` | #437 |
+| #439 | Log scale spans `range` [lo, hi] when 0 < lo < hi (review M2, finding 8) | follow index.d.ts's existing promise (no Core change); considered documenting that log ignores lo | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::typed map log scale and wave range` | #438 |
+| #440 | Colorbar hardening: no ticks unless lo < hi; `cbw`; one color.js import (review M2, findings 9–11) | one item because all three are the colorbar block; considered three commits for a few lines | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::colorbar ticks sit at their values` | #439 |
 
 ### M3: Svelte, U14 and the release GitHub: `P389 M3: Svelte and release`
 
@@ -157,7 +166,7 @@ plots-svelte minors; the U14 median in the Change log. Proves: O3
 | #407 | Changesets: plots minor (typed `map2D`) and plots-svelte minor (`Map2D` typed props) | forced (roadmap Constraints: release on consumer pull, planned by changesets) | `.changeset/` | `tests/unit/release.test.js::map2D changeset asks minors` | #405, #333 |
 | #408 | Unskip O3 acceptance tests | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | all O3 tests | all above |
 
-31 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
+40 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine; review M2 added nine): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
 the colorbar and aperture; none is cut to fit.
 ## Risks and spikes
 
@@ -219,3 +228,8 @@ One bullet per entry (bare lines render as one paragraph).
   orchestrator (the plan is its file). Carried #410, #415, #416, #425 resolved.
 - 2026-10-30 M1 done: review round 5 says 0 blocking with nothing pulled in (rounds: 2+4, 1+1, 0+1, 1+0, 0+0); CI
   green on every pushed head; demo pending.
+- 2026-10-30 M1 demoed (user: go).
+- 2026-10-30 review M2 round 1: 2 blocking, CR #430 (Gaussian test reads the tile) and CR #431 (wavefront README
+  wavelength), accepted by the orchestrator as #432 and #433. Backlog pulled in: #434 (U8 symmetry), #435 (gallery
+  tile checks), #436 (colorbar colors), #437 (log labels, PSF normalized), #438 (polar binary search), #439 (log
+  honours range[0], as index.d.ts says), #440 (colorbar hardening). Plain backlog: #441 (roadmap U8, at plan end).
