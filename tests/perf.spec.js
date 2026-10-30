@@ -115,3 +115,38 @@ if (process.env.PERF === '1') test('bars redraw (U14)', async ({ page }) => {
   console.log(`bars redraw median: ${median.toFixed(2)} ms`);
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });
+
+// U14 for layout2D (plan #337, #345): 50 surfaces with 41-point profiles, 3 fields of 21 rays, half with a dotted tail (alive), same method as above.
+if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  const median = await page.evaluate(() => {
+    const surfaces = Array.from({ length: 50 }, (_, s) => {
+      const sd = 10, z = s * 5, c = 0.02 * Math.cos(s);
+      return {
+        z, sd, stop: s === 25, image: s === 49,
+        glass: s === 49 ? null : s % 2 ? null : (s % 4 === 0 ? 'crown' : 'flint'),
+        profile: Array.from({ length: 41 }, (_, i) => { const y = -sd + (2 * sd * i) / 40; return [z + c * y * y, y]; }),
+      };
+    });
+    const pts = (f, r) => Array.from({ length: 51 }, (_, k) => [k * 5, (r / 20 - 0.5) * 18 * (1 - k / 60) + f * k * 0.05]);
+    const rays = Array.from({ length: 3 }, (_, f) => Array.from({ length: 21 }, (_, r) => pts(f, r)));
+    const alive = rays.map((fan) => fan.map((_, r) => (r % 2 ? 30 : 51)));
+    const data = { surfaces, rays, alive };
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const times = [];
+    for (let r = 0; r < 20; r++) {
+      const t0 = performance.now();
+      host.innerHTML = window.ELEO.layout2D({ data, rays: 'fan', width: 800 });
+      host.getBoundingClientRect();
+      if (!host.querySelector('svg')) throw new Error('layout2D drew no svg');
+      times.push(performance.now() - t0);
+    }
+    host.remove();
+    times.sort((a, b) => a - b);
+    return (times[9] + times[10]) / 2;
+  });
+  console.log(`layout2D redraw median: ${median.toFixed(2)} ms`);
+  test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
+});
