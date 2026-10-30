@@ -124,7 +124,7 @@ non-alive tails dotted, in both themes and palettes; every other tile unchanged.
 | #382 | CR #381: collimated rays start on a pupil-centred arc, normal to each field, clear of the optics; mirror bodies over the rays; renderer baseline re-recorded | in `layout2D`, because for an object at infinity any point on the first segment is a valid start; considered phos-core's start plane (upstream, a re-record) | `packages/plots/src/layout2d.js`, `packages/plots/README.md`, `tests/unit/layout2d.test.js`, `tests/fixtures/renderers-baseline.json` | `layout2d.test.js::collimated rays start on a pupil-centred arc` | |
 | #384 | CR #383 (baseline provenance in the recorder and split oracle; `layoutBounds` comment) and review r7 findings 2-4 (no-geometry guard; collimation decided over the layout; the oracle cites the PR's mock numbers) | the review's named fixes; one item, because each comment edit needs a test beside it; considered separate items | `packages/plots/src/layout2d.js`, `scripts/record-renderers.mjs`, `tests/unit/split.test.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::collimated rays start on a pupil-centred arc` | |
 
-### M2: Types, #136, the redraw budget and the release GitHub: `P337 M2: Types and release`
+### M2: Types, #136, the redraw budget and the release (done 2026-10-30) GitHub: `P337 M2: Types and release`
 
 Demo: `npm run test:unit`: the types test accepts `alive` and rejects `[[true]]`; `layout2D` names a bad ray
 itself; the changeset plans a plots minor. `PERF=1 npx playwright test tests/perf.spec.js` prints the `layout2D`
@@ -175,3 +175,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30: U14 layout2D redraw median 2.10 ms (20 redraws; 50 surfaces with 41-point profiles, 3 fields of 21 rays, half dotted; budget 16 ms). Same run: curve 1.30, panels 0.90, spot 3.20, bars 1.20 ms.
 - 2026-10-30: review M2 round 1 (0 blocking, 3 backlog). All three pulled in as #386. The 2.10 ms U14 median did not run the collimated-start path, so it is re-measured there.
 - 2026-10-30: U14 layout2D re-measured on the collimated path (#386, starts moved, zmin -5.38): median 2.20 ms (runs 2.30, 2.20, 2.20; budget 16 ms). It replaces the 2.10 ms above, which skipped movedStarts.
+- 2026-10-30: M2 done. Review round 2 says 0 blocking with nothing pulled in (its one finding is backlog #387); CI green on 22a13b8. Demo requested.
