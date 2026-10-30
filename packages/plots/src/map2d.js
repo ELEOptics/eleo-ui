@@ -14,6 +14,10 @@ function typedMap(o) {
   if (!Array.isArray(e) || e.length !== 4 || !e.every(live) || !(e[0] < e[1]) || !(e[2] < e[3])) throw new TypeError("map2D: extent must be [x0, x1, y0, y1] with x0 < x1 and y0 < y1");
   var lo = Infinity, hi = -Infinity;
   rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
+  /* Value range: the data's, symmetric about 0 for "wave" (a diverging map's middle step means 0); `range` overrides. */
+  if (o.map === "wave" && lo <= hi) { var mx = Math.max(Math.abs(lo), Math.abs(hi)); lo = -mx; hi = mx; }
+  if (Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1])) { lo = o.range[0]; hi = o.range[1]; }
+  var log = o.scale === "log", dec = o.decades > 0 ? o.decades : 4;
   /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. */
   var R0 = scales({ x: { range: [e[0], e[1]], ticks: x.ticks }, y: { range: [e[2], e[3]] } }, [[]]).R, R = R0, pw, ph = H - PLOT_T - PLOT_B, dx = e[1] - e[0], dy = e[3] - e[2], xr, yr;
   for (var it = 0; it < 8; it++) {
@@ -30,7 +34,8 @@ function typedMap(o) {
   rows.forEach(function (r, j) { r.forEach(function (v, i) {
     var k = (j * nc + i) * 4;
     if (!live(v)) return;
-    var c = lut[span > 0 ? Math.round((v - lo) / span * 255) : 0];
+    var t = log ? (hi > 0 && v > hi * Math.pow(10, -dec) ? (Math.log10(v / hi) + dec) / dec : 0) : span > 0 ? (v - lo) / span : 0;
+    var c = lut[Math.max(0, Math.min(255, Math.round(t * 255)))];
     im.data[k] = Math.round(c[0]); im.data[k + 1] = Math.round(c[1]); im.data[k + 2] = Math.round(c[2]); im.data[k + 3] = 255;
   }); });
   ctx.putImageData(im, 0, 0);

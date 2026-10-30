@@ -337,6 +337,49 @@ test.skip('log decades', async ({ page }) => {
   expect(r[2], 'cells off their step at 2 decades').toBe(0);
 });
 
+// Typed map, log scale and wave range (#398): 10^-k on a D-decade log scale draws step (D - k)/D; values at or under max * 10^-D (zeros,
+// negatives) draw step 0; map 'wave' is symmetric about 0; range overrides both.
+test('typed map log scale and wave range', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(o2Helpers);
+  const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
+    const ELEO = window.ELEO, { grid } = window.__o2;
+    const draw = async (values, o) => {
+      el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], el, ...o }));
+      return grid(el.lastElementChild);
+    };
+    const near = (G, i, lut, s) => [Math.floor(s), Math.ceil(s)].some((q) => [0, 1, 2].every((c) => Math.abs(G.px[i * 4 + c] - lut[q][c]) <= 1));
+    const out = { log: 0, wave: 0, range: 0 };
+    const ember = ELEO.colormap('ember', el), wave = ELEO.colormap('wave', el);
+    const pool = [1, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 0, -1], ks = [0, 1, 2, 3, 4, 5, Infinity, Infinity];
+    const logRows = Array.from({ length: 4 }, (_, j) => pool.slice().reverse().map((_, i) => pool[(i + j) % pool.length]));
+    for (const D of [undefined, 2]) {
+      const dec = D ?? 4, G = await draw(logRows, { scale: 'log', map: 'ember', ...(D ? { decades: D } : {}) });
+      for (let j = 0; j < 4; j++) for (let i = 0; i < 8; i++) {
+        const k = ks[pool.indexOf(logRows[j][i])];
+        if (!near(G, j * G.w + i, ember, k >= dec ? 0 : ((dec - k) / dec) * 255)) out.log++;
+      }
+    }
+    // wave: [-3, 1] draws on [-3, 3]: -3 step 0, 0 step 127.5, 1 step 170
+    const W = await draw([[-3, 0, 1, 3]], { map: 'wave' });
+    [-3, 0, 1, 3].forEach((v, i) => { if (!near(W, i, wave, ((v + 3) / 6) * 255)) out.wave++; });
+    const W2 = await draw([[-3, 0, 1]], { map: 'wave' });
+    [-3, 0, 1].forEach((v, i) => { if (!near(W2, i, wave, ((v + 3) / 6) * 255)) out.wave++; });
+    // range overrides: linear [0, 10] on [2, 4, 6] draws steps 51, 102, 153; wave with range [0, 4] has 0 at step 0; log range max 100
+    const R = await draw([[2, 4, 6]], { map: 'ember', range: [0, 10] });
+    [2, 4, 6].forEach((v, i) => { if (!near(R, i, ember, (v / 10) * 255)) out.range++; });
+    const R2 = await draw([[0, 2, 4]], { map: 'wave', range: [0, 4] });
+    [0, 2, 4].forEach((v, i) => { if (!near(R2, i, wave, (v / 4) * 255)) out.range++; });
+    const R3 = await draw([[1, 10, 1000]], { map: 'ember', scale: 'log', decades: 2, range: [0, 100] });
+    [0, 0.5 * 255, 255].forEach((s, i) => { if (!near(R3, i, ember, s)) out.range++; });
+    return out;
+  });
+  expect(r.log, 'log cells off their step').toBe(0);
+  expect(r.wave, 'wave cells off a range symmetric about 0').toBe(0);
+  expect(r.range, 'cells off the given range').toBe(0);
+});
+
 // O2, colorbar: each colorbar tick sits at its value within 0.5 px. oracle: property, colorbar tick round trip: a tick labelled v is at
 // y = bottom - (v - lo) / (hi - lo) * height of the colorbar image, for the range given and for the range of the data; the bar is 1 x 256
 // and carries the value's label and unit.
