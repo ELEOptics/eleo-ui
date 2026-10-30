@@ -1,6 +1,6 @@
 # Plan #337: Ray status in layout2D
 
-Status: approved 2026-10-12
+Status: done 2026-10-30
 Branch: `plan/337-ray-status` PR: #348 Depends on: plan #284 (done) Roadmap: `agent_docs/roadmap.md`, row M
 
 ## Problem
@@ -176,3 +176,6 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30: review M2 round 1 (0 blocking, 3 backlog). All three pulled in as #386. The 2.10 ms U14 median did not run the collimated-start path, so it is re-measured there.
 - 2026-10-30: U14 layout2D re-measured on the collimated path (#386, starts moved, zmin -5.38): median 2.20 ms (runs 2.30, 2.20, 2.20; budget 16 ms). It replaces the 2.10 ms above, which skipped movedStarts.
 - 2026-10-30: M2 done. Review round 2 says 0 blocking with nothing pulled in (its one finding is backlog #387); CI green on 22a13b8. Demo requested.
+- 2026-10-30 (user): M2 go.
+- 2026-10-30: caught up with main (catchup.sh: clean, merge db93388; gate green). CLAUDE.md commands re-verified: `npm run build`, `npm run test:unit` (150 pass, 0 fail, 6 skipped), `scripts/check.sh` and `--fast` green, `npm run gallery` and `npx changeset` present, hooks path `.githooks`.
+- 2026-10-30: plan done; roadmap row M done.
