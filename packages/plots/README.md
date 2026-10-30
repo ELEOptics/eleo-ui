@@ -18,7 +18,7 @@ mapEl.innerHTML = map2D({ values, extent: [-0.02, 0.02, -0.02, 0.02], x: { label
 colorbarEl.style.background = gradient('ember');
 ```
 
-- **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `rayFan`, `curve`, `bars`, `legend`, `icon`, and `map2D` given a typed grid) return markup whose colors are CSS variables: one drawing works in both themes. `legend` needs no sample: without one, `field`/`wavelength` draw `n` index keys without values (`F1`.., `λ1`..), and none when `n` is omitted; `ts` and `rays` are unchanged.
+- **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `rayFan`, `curve`, `bars`, `legend`, and `icon`) return markup whose colors are CSS variables: one drawing works in both themes. `legend` needs no sample: without one, `field`/`wavelength` draw `n` index keys without values (`F1`.., `λ1`..), and none when `n` is omitted; `ts` and `rays` are unchanged.
 - **`map2D` on a typed grid** takes `values` (rows, row 0 at the top), `extent: [x0, x1, y0, y1]`, `x`/`y` axes, `map`, `scale`, `decades`, `range`, `aperture: { x, y, r }`, `value` (the colorbar's axis), `el`, `width`, `height` and `label`, and returns SVG: curve's frame and ticks with the grid baked into one pixelated `<image>`, colored from `el`'s tokens at draw time (call it again after a theme or palette change). Masked cells (not finite numbers) show the page's `--surface`.
 - **Canvas renderers** (`map2D(canvas, { kind })` on the sample, `layout3D`) read the variables when they draw: call them again after a theme or palette change.
 - **Data:** pass your traced system as `data`. To try things out, `import '@eleoptics/plots/sample'` makes a traced achromat the default (190 KB, so it is opt-in).
