@@ -42,9 +42,9 @@ test('bars and limits type-check under --strict', () => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
-// Plan #337, O1 (issue #361; CR #360). tests/types/layout2d-mirror.ts: a layout with mirror and obscuration surfaces,
-// and @ts-expect-error on mirror: "yes".
-// oracle: CR #360 (RecordedSurface gains optional mirror and obscuration)
+// Plan #337, O1 (issues #361, #373; CR #360, #371, #372). tests/types/layout2d-mirror.ts: a layout with mirror, obscuration
+// and annular (hole) surfaces and dead rays, and @ts-expect-error on mirror: "yes" and dead: [[1]].
+// oracle: CR #360, #371, #372 (RecordedSurface gains optional mirror, obscuration and hole; RecordedLayout gains dead)
 test('layout mirror and obscuration type-check under --strict', () => {
   const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/layout2d-mirror.ts', import.meta.url))], { encoding: 'utf8' });

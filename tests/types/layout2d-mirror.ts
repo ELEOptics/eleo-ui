@@ -13,7 +13,15 @@ const surfaces: RecordedSurface[] = [
 const layout: RecordedLayout = { surfaces, rays: [] };
 layout2D({ data: layout });
 
+// an annular mirror (CR #371) and dead rays (CR #372); `dead` is meant for use with `alive`, typed in M2
+const annular: RecordedSurface = { z: 0, sd: 55, stop: false, image: false, glass: null, profile, mirror: true, hole: 10 };
+const withDead: RecordedLayout = { surfaces: [annular], rays: [], dead: [[true, false]] };
+layout2D({ data: withDead });
+
+// @ts-expect-error dead is a boolean per ray, not a number
+const badDead: RecordedLayout = { surfaces, rays: [], dead: [[1]] };
+
 // @ts-expect-error mirror is a boolean, not text
 const bad: RecordedSurface = { z: 0, sd: 1, stop: false, image: false, glass: null, profile, mirror: 'yes' };
 
-export { bad };
+export { bad, badDead };

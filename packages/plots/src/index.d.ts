@@ -22,6 +22,8 @@ export interface RecordedSurface {
   mirror?: boolean;
   /** An opaque disc at `z` of semi-diameter `sd`: layout2D draws it as an opaque bar. */
   obscuration?: boolean;
+  /** The inner semi-diameter of an annular surface, e.g. a Cassegrain primary: layout2D leaves `|y| < hole` open. */
+  hole?: number;
 }
 /** A layout as eleoptics.com's scripts/layout.py records it, in mm. */
 export interface RecordedLayout {
@@ -30,6 +32,8 @@ export interface RecordedLayout {
   rays: [number, number][][][];
   /** One ray index per fan; without it, the chief is the middle ray, floor(n / 2). */
   chief?: number[];
+  /** dead[field][ray] is true when that ray's first non-alive status is Dead (vignetted or obscured): layout2D draws it solid through point `alive[field][ray]` with no tail. Valid only with `alive`. */
+  dead?: boolean[][];
 }
 /** A traced system carrying recorded layouts: `layout` by field, `layoutWl` by wavelength. */
 export interface LayoutSystem { layout?: RecordedLayout; layoutWl?: RecordedLayout; [key: string]: unknown }
