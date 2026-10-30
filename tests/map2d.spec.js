@@ -52,6 +52,21 @@ test('typed map places its extent', async ({ page }) => {
   expect(r.text).toContain('mm');
 });
 
+// #418 (CR #416): given x.ticks and y.ticks are drawn. oracle: closed-form, ticks [-0.5, 0.5] over [-1, 1] print exactly those labels.
+test('typed map draws given ticks', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values: [[1]], extent: [-1, 1, -1, 1], x: { ticks: [-0.5, 0.5] }, y: { ticks: [0.25] } }));
+    return [...el.lastElementChild.querySelectorAll('text.eleo-tick')].map((t) => t.textContent.trim().replace('\u2212', '-'));
+  });
+  expect(r).toContain('-0.5');
+  expect(r).toContain('0.5');
+  expect(r).toContain('0.25');
+  expect(r).not.toContain('0');
+  expect(r).not.toContain('1');
+});
+
 // O1: the typed map places the recorded Cooke PSF. oracle: fixture, phos-core PointSpread recorded by
 // scripts/record-phos-core.py (roadmap U8).
 test('recorded PSF cells (U8)', async ({ page }) => {

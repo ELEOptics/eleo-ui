@@ -1,8 +1,7 @@
 import { data } from "./data.js";
 import { css, rgb, ramp, mapStops } from "./color.js";
 import { svg, esc } from "./common.js";
-import { niceTicks } from "./axis.js";
-import { scales, plotCell, PLOT_L, PLOT_B, PLOT_T } from "./curve.js";
+import { scales, axisTicks, plotCell, PLOT_L, PLOT_B, PLOT_T } from "./curve.js";
 import { colormap } from "./physics.js";
 
 /* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px.
@@ -13,11 +12,11 @@ function typedMap(o) {
   var lo = Infinity, hi = -Infinity;
   rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
   /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin is the one the extent's x ticks need. */
-  var R = scales({ x: { range: [e[0], e[1]] }, y: { range: [e[2], e[3]] } }, [[]]).R;
+  var R = scales({ x: { range: [e[0], e[1]], ticks: x.ticks }, y: { range: [e[2], e[3]] } }, [[]]).R;
   var pw = W - PLOT_L - R, ph = H - PLOT_T - PLOT_B, dx = e[1] - e[0], dy = e[3] - e[2], xr = [e[0], e[1]], yr = [e[2], e[3]];
   if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [e[0] - (px - dx) / 2, e[1] + (px - dx) / 2]; }
   else { var py = dx * ph / pw; yr = [e[2] - (py - dy) / 2, e[3] + (py - dy) / 2]; }
-  var sc = { xr: xr, yr: yr, xt: niceTicks(xr[0], xr[1], 6), yt: niceTicks(yr[0], yr[1], 6), R: R };
+  var sc = { xr: xr, yr: yr, xt: axisTicks(x, xr), yt: axisTicks(y, yr), R: R };
   var lut = colormap(o.map || "ember", o.el), cv = document.createElement("canvas"); cv.width = nc; cv.height = nr;
   var ctx = cv.getContext("2d"), im = ctx.createImageData(nc, nr), span = hi - lo;
   rows.forEach(function (r, j) { r.forEach(function (v, i) {
