@@ -268,7 +268,7 @@ test('recorded PSF cells (U8)', async ({ page }) => {
   expect(mismatch, 'cells where image difference disagrees with token difference').toBe(0);
 });
 
-// ---- O2 (plan #389, M2): scales, aperture, colorbar, wavefront. Skipped until #403 unskips them, once #398-#402, #412-#414 land.
+// ---- O2 (plan #389, M2): scales, aperture, colorbar, wavefront.
 // The props `polar`, `scale`, `decades`, `range`, `aperture`, `value` and the colorbar are the plan's described shapes (#393, #398-#400, #413):
 //  - `polar: { radii, angles }`: `values[ring][spoke]` are samples about the extent's origin; angles in radians from +x, counter-clockwise, y up.
 //  - the grid is the largest `<image>` in the SVG (the colorbar's is 1 x 256) and covers the extent, row 0 at the top.
@@ -295,8 +295,7 @@ const o2Helpers = () => {
 // O2, wavefront: the typed map draws the recorded Cooke WavefrontError (polar samples, CR #410). oracle: fixture, phos-core WavefrontError
 // recorded by scripts/record-phos-core.py (64 rings x 64 spokes) (roadmap U8). Each sample's annular sector (edges midway between neighbouring
 // radii and spokes) is its value's step on [-m, m], m = max |value|; every pixel outside the aperture circle is --surface on the page.
-test.skip('recorded wavefront cells (U8)', async ({ page }) => {
-  // unskipped by #403
+test('recorded wavefront cells (U8)', async ({ page }) => {
   const wf = fixture('phos-core/cooke-wavefront.json');
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -318,7 +317,7 @@ test.skip('recorded wavefront cells (U8)', async ({ page }) => {
       let checked = 0, wrong = 0;
       for (let j = 0; j < G.h; j++) for (let i = 0; i < G.w; i++) {
         const x = x0 + (i + 0.5) * pu, y = y1 - (j + 0.5) * pu, rr = Math.hypot(x, y);
-        if (rr < p.radii[0] || rr > p.radii[p.radii.length - 1]) continue;
+        if (rr > p.radii[p.radii.length - 1]) continue; // the inner disc is ring 0 (#414)
         const dr = p.radii.map((q, k) => [Math.abs(q - rr), k]).sort((a, b) => a[0] - b[0]);
         if (dr[1][0] - dr[0][0] < diag) continue;
         const th = Math.atan2(y, x), da = p.angles.map((q, k) => [circ(q, th), k]).sort((a, b) => a[0] - b[0]);
@@ -347,6 +346,7 @@ test.skip('recorded wavefront cells (U8)', async ({ page }) => {
       let n = 0, bad = 0;
       for (let j = 0; j < bm.height; j++) for (let i = 0; i < bm.width; i++) {
         if (Math.hypot(i + 0.5 - cx, j + 0.5 - cy) < a.rpx + 2) continue;
+        if (Math.min(i, j, bm.width - 1 - i, bm.height - 1 - j) < 2) continue; // the plot frame's 1 px stroke and the clip's rounding
         n++;
         if ([0, 1, 2].some((k) => Math.abs(d[(j * bm.width + i) * 4 + k] - a.surface[k]) > 1)) bad++;
       }
@@ -359,8 +359,7 @@ test.skip('recorded wavefront cells (U8)', async ({ page }) => {
 
 // O2, log: given values 10^-k on a D-decade log scale, each draws step (D - k)/D; values at or below 10^-D of the max (zeros, negatives included)
 // draw step 0. oracle: property, log steps over a 32 x 32 grid cycling k = 0..5, 0 and -1 (max 1), at the default D = 4 and at decades: 2.
-test.skip('log decades', async ({ page }) => {
-  // unskipped by #403
+test('log decades', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.evaluate(o2Helpers);
@@ -475,28 +474,28 @@ test('aperture masks outside', async ({ page }) => {
 // O2, colorbar: each colorbar tick sits at its value within 0.5 px. oracle: property, colorbar tick round trip: a tick labelled v is at
 // y = bottom - (v - lo) / (hi - lo) * height of the colorbar image, for the range given and for the range of the data; the bar is 1 x 256
 // and carries the value's label and unit.
-test.skip('colorbar ticks', async ({ page }) => {
-  // unskipped by #403
+test('colorbar ticks', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
     const ELEO = window.ELEO, out = [];
-    const values = Array.from({ length: 16 }, (_, j) => Array.from({ length: 16 }, (_, i) => (i + 16 * j) / 255 * 3.7));
-    for (const [range, hi] of [[[0, 4], 4], [[-2, 6], 6], [undefined, 3.7]]) {
-      el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], map: 'ember', ...(range ? { range } : {}), value: { label: 'irradiance', unit: 'W/mm²' }, el }));
-      const svg = el.lastElementChild, imgs = [...svg.querySelectorAll('image')];
-      const bar = imgs.find((q) => q.getAttribute('height') && q.getAttribute('width') && q.getAttribute('href'));
-      const bars = [];
-      for (const q of imgs) { const bm = await createImageBitmap(await (await fetch(q.getAttribute('href'))).blob()); bars.push([q, bm.width, bm.height]); }
-      const cb = bars.find(([, w, h]) => w === 1 && h === 256)?.[0] ?? bar;
+    const values = Array.from({ length: 16 }, (_, j) => Array.from({ length: 16 }, (_, i) => 1 + ((i + 16 * j) / 255) * 2.7));
+    const cases = [{ range: [0, 4], lo: 0, top: 4 }, { range: [-2, 6], lo: -2, top: 6 }, { lo: 1, top: 3.7 },
+      { scale: 'log', decades: 3, top: 3.7, log: true }];
+    for (const c of cases) {
+      const { lo, top, log, ...props } = c;
+      el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], map: 'ember', ...props, value: { label: 'irradiance', unit: 'W/mm²' }, el }));
+      const svg = el.lastElementChild;
+      let cb = null;
+      for (const q of svg.querySelectorAll('image')) { const bm = await createImageBitmap(await (await fetch(q.getAttribute('href'))).blob()); if (bm.width === 1 && bm.height === 256) cb = q; }
       const by = +cb.getAttribute('y'), bh = +cb.getAttribute('height'), bx = +cb.getAttribute('x') + +cb.getAttribute('width');
-      const lo = range ? range[0] : 0, top = range ? range[1] : hi;
       const ticks = [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && /^[−-]?[\d.]+$/.test(t.textContent.trim()))
         .map((t) => {
           const v = parseFloat(t.textContent.trim().replace('−', '-'));
-          return { v, err: Math.abs(+t.getAttribute('y') - (by + bh - ((v - lo) / (top - lo)) * bh)) };
+          const pos = log ? (Math.log10(v / top) + props.decades) / props.decades : (v - lo) / (top - lo);
+          return { v, err: Math.abs(+t.getAttribute('y') - (by + bh - pos * bh)) };
         });
-      out.push({ n: ticks.length, maxErr: Math.max(...ticks.map((q) => q.err)), text: svg.textContent });
+      out.push({ log: !!log, n: ticks.length, vs: ticks.map((t) => t.v), maxErr: Math.max(...ticks.map((q) => q.err)), text: svg.textContent });
     }
     return out;
   });
@@ -505,6 +504,7 @@ test.skip('colorbar ticks', async ({ page }) => {
     expect(q.maxErr, 'tick off its value (px)').toBeLessThan(0.5);
     expect(q.text).toContain('irradiance');
     expect(q.text).toContain('W/mm²');
+    if (q.log) for (const v of q.vs) expect(Math.abs(Math.log10(v) - Math.round(Math.log10(v))), `log tick ${v} at a whole decade`).toBeLessThan(1e-9);
   }
 });
 
@@ -548,11 +548,10 @@ test('colorbar ticks sit at their values', async ({ page }) => {
 
 // O2, irradiance: each Gaussian cell is the step of exp(-2 r^2 / w^2). oracle: closed-form, TEM00 irradiance with w = 1 mm, 128 x 128 cells
 // over +-2 mm (plan item #402), linear over the grid's [min, max]; the gallery says the tile is synthetic.
-test.skip('gaussian irradiance tile', async ({ page }) => {
-  // unskipped by #403
+test('gaussian irradiance tile', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  await expect(page.locator('body')).toContainText(/synthetic/i);
+  await expect(page.locator('[data-tile="irradiance-gaussian"] .eleo-plot__meta')).toHaveText([/synthetic/i, /synthetic/i]);
   await page.evaluate(o2Helpers);
   const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
     const ELEO = window.ELEO, { grid } = window.__o2, lut = ELEO.colormap('ember', el);
