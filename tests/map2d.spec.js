@@ -490,8 +490,15 @@ test('colorbar ticks', async ({ page }) => {
       const { lo, top, log, ...props } = c;
       el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], map: 'ember', ...props, value: { label: 'irradiance', unit: 'W/mm²' }, el }));
       const svg = el.lastElementChild;
-      let cb = null;
-      for (const q of svg.querySelectorAll('image')) { const bm = await createImageBitmap(await (await fetch(q.getAttribute('href'))).blob()); if (bm.width === 1 && bm.height === 256) cb = q; }
+      let cb = null, barPx = null;
+      for (const q of svg.querySelectorAll('image')) {
+        const bm = await createImageBitmap(await (await fetch(q.getAttribute('href'))).blob());
+        if (bm.width === 1 && bm.height === 256) { cb = q; const g = new OffscreenCanvas(1, 256).getContext('2d'); g.drawImage(bm, 0, 0); barPx = Array.from(g.getImageData(0, 0, 1, 256).data); }
+      }
+      // the bar runs high at the top: row r is lut[255 - r] (row 0 the top of the range, row 255 the bottom)
+      const lut = ELEO.colormap('ember', el);
+      const barWrong = [];
+      for (let r = 0; r < 256; r++) { const c = lut[255 - r]; if ([0, 1, 2].some((k) => Math.abs(barPx[r * 4 + k] - c[k]) > 1)) barWrong.push(r); }
       const by = +cb.getAttribute('y'), bh = +cb.getAttribute('height'), bx = +cb.getAttribute('x') + +cb.getAttribute('width');
       const ticks = [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && /^[−-]?[\d.]+$/.test(t.textContent.trim()))
         .map((t) => {
@@ -499,12 +506,13 @@ test('colorbar ticks', async ({ page }) => {
           const pos = log ? (Math.log10(v / top) + props.decades) / props.decades : (v - lo) / (top - lo);
           return { v, err: Math.abs(+t.getAttribute('y') - (by + bh - pos * bh)) };
         });
-      out.push({ log: !!log, n: ticks.length, vs: ticks.map((t) => t.v), maxErr: Math.max(...ticks.map((q) => q.err)), text: svg.textContent });
+      out.push({ log: !!log, n: ticks.length, vs: ticks.map((t) => t.v), maxErr: Math.max(...ticks.map((q) => q.err)), barWrong: barWrong.length, text: svg.textContent });
     }
     return out;
   });
   for (const q of r) {
     expect(q.n, 'colorbar ticks drawn').toBeGreaterThanOrEqual(3);
+    expect(q.barWrong, 'colorbar rows off lut[255 - row] (row 0 is the top of the range)').toBe(0);
     expect(q.maxErr, 'tick off its value (px)').toBeLessThan(0.5);
     expect(q.text).toContain('irradiance');
     expect(q.text).toContain('W/mm²');
