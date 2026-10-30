@@ -36,5 +36,6 @@ curvature and distortion files the sweep angles), `wavelengthsNm`,
 `referenceWavelengthNm`, `firstOrder` (`efl`, `bfl`, `epd`, `fNumber`, `workingFNumber`, `paraxialImageHeight`, mm),
 `lengthUnit`, `phosCore.sha`, `script`, `args`. The Seidel files carry only `referenceWavelengthNm`, `lengthUnit` and
 the header keys (`phosCore.sha`, `script`, `args`, `lens`, `analysis`, `kind`): no `fieldAnglesDeg`, `wavelengthsNm` or
-`firstOrder`, their wavelengths being in `results[].wavelengthNm`. phos-core's results give image heights, not angles; each
+`firstOrder`, their wavelengths being in `results[].wavelengthNm`. The PSF files (one field, `fieldAngleDeg`) and the layout
+files (`fieldsDeg`) carry none of `fieldAnglesDeg`, `wavelengthsNm`, `referenceWavelengthNm` or `firstOrder` either. phos-core's results give image heights, not angles; each
 `sources[i].fieldAngleDeg` is that source's angle (the sweep angle in the field curvature and distortion files).
