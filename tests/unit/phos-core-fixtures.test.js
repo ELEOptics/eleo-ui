@@ -3,6 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const read = (url) => JSON.parse(readFileSync(new URL(url, import.meta.url), 'utf8'));
 const sample = read('../../packages/plots/src/sample.json');
@@ -235,4 +237,56 @@ test('psf recorded as grids', () => {
     const px = (best[1] + 0.5) / 192 * (x1 - x0) + x0, py = y1 - (best[0] + 0.5) / 192 * (y1 - y0);
     assert.ok(Math.abs(px) < 0.1 * (x1 - x0) && Math.abs(py) < 0.1 * (y1 - y0), `${lens}: the 0 deg peak at (${px}, ${py}) mm is near the origin`);
   }
+});
+
+// Plan #389 work item #392 (absorbs #310, #370). oracle: the recorder's own refusals, run on stand-ins for phos-core: the Seidel
+// term length must be the surface count plus one, and the Cassegrain obscuration is told from the secondary by its flat profile.
+test('recorder guards refuse bad orders', () => {
+  const py = String.raw`
+import importlib.util, json, sys, tempfile
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("rec", "scripts/record-phos-core.py")
+rec = importlib.util.module_from_spec(spec); spec.loader.exec_module(rec)
+
+class R:
+    wavelength = 0.55
+    def __init__(self, n):
+        for k in rec.SEIDEL_TERMS: setattr(self, k, [1.0] * n)
+class Run:
+    def __init__(self, n): self.n = n
+    def results(self): return [R(self.n)]
+class Settings:
+    n = 0
+    def set_system_index(self, i): pass
+    def run(self, model): return Run(Settings.n)
+class Phos: SeidelSettings = Settings
+
+def seidel(n, want):
+    Settings.n = n
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            rec.seidel(Phos, "lens", None, 550.0, Path(d), {}, want); return "ok"
+        except SystemExit as e: return str(e)
+
+flat = [[0.0, y] for y in (-1.0, 0.0, 1.0)]
+bowl = [[y * y, y] for y in (-1.0, 0.0, 1.0)]
+def surf(prof, sd): return {"sd": sd, "profile": prof}
+def order(s):
+    try: rec.check_cassegrain_order(s, 10.0); return "ok"
+    except SystemExit as e: return str(e)
+
+print(json.dumps({
+  "seidelRight": seidel(4, 4), "seidelLong": seidel(5, 4), "seidelShort": seidel(3, 4),
+  "orderRight": order([surf(flat, 10.0), surf(bowl, 55.0), surf(bowl, 10.0)]),
+  "orderSwapped": order([surf(bowl, 10.0), surf(bowl, 55.0), surf(flat, 10.0)]),
+}))
+`;
+  const r = spawnSync('python3', ['-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.seidelRight, 'ok', 'the expected term length passes');
+  assert.match(out.seidelLong, /5 values.*plus one \(4\)/, 'a term one longer than the surface count plus one is refused');
+  assert.match(out.seidelShort, /3 values.*plus one \(4\)/, 'a short term is refused');
+  assert.equal(out.orderRight, 'ok', 'obscuration first, secondary third passes');
+  assert.match(out.orderSwapped, /obscuration.*flat/, 'the secondary in the obscuration\'s place is refused though its sd matches');
 });

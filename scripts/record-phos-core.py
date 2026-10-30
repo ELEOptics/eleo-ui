@@ -168,29 +168,38 @@ def camel(name):
     return head + "".join(w.capitalize() for w in rest)
 
 
-def seidel(phos, lens, model, ref_nm, outdir, header):
+def seidel(phos, lens, model, ref_nm, outdir, header, terms_len):
     # SeidelCoefficients.results(): one entry per wavelength (the default chromatic lines), each term a list of values per
-    # surface with phos-core's total as the last element.
+    # surface with phos-core's total as the last element. terms_len is the surface count plus one, from the prescription (#310).
     s = phos.SeidelSettings()
     s.set_system_index(0)
     run = s.run(model)
     results = run.results()
     if not results:
         sys.exit(f"{lens} seidel: no results")
-    n = None
     out = []
     for r in results:
         terms = {camel(k): [rnd(v) for v in getattr(r, k)] for k in SEIDEL_TERMS}
         for k, t in terms.items():
-            n = len(t) if n is None else n
-            if len(t) != n or n < 2:
-                sys.exit(f"{lens} seidel {k} at {r.wavelength} um: {len(t)} values, expected the surface count plus one ({n})")
+            if len(t) != terms_len:
+                sys.exit(f"{lens} seidel {k} at {r.wavelength} um: {len(t)} values, expected the surface count plus one ({terms_len})")
         out.append({"wavelengthNm": rnd(r.wavelength * 1000), "terms": terms})
     doc = {**header, "lens": lens, "analysis": "seidel", "referenceWavelengthNm": ref_nm, "lengthUnit": "mm",
            "kind": "per wavelength, per term one value per surface then phos-core's total", "results": out}
     path = outdir / f"{lens}-seidel.json"
     path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
     return path
+
+
+def check_cassegrain_order(surfaces, semi):
+    # The visualization's element order: surface 0 is the obscuration (sd = semi, a flat profile: one distinct z), surface 1 the
+    # primary (sd = its 55 mm outer radius). The secondary has the obscuration's sd, so only the flat profile tells them apart
+    # (#370). rnd's 6 digits bound the sd difference.
+    for i, want in ((0, semi), (1, 55.0)):
+        if abs(surfaces[i]["sd"] - want) > 1e-5 * want:
+            sys.exit(f"cassegrain: recorded surface {i} has sd {surfaces[i]['sd']}, expected {want}")
+    if len({z for z, _ in surfaces[0]["profile"]}) != 1:
+        sys.exit("cassegrain: recorded surface 0 is not the obscuration: its profile is not flat")
 
 
 def psf(phos, lens, model, outdir, header):
@@ -411,11 +420,8 @@ def cassegrain(phos, outdir, header):
     width = model.interface(0, 0).aperture().extent().width
     if abs(width - 2 * semi) > 1e-9 * semi:
         sys.exit(f"cassegrain: interface 0 has aperture width {width}, expected the obscuration's {2 * semi}")
-    # The recorded surfaces that get the flags are checked too, so the visualization's element order is: surface 0 is the
-    # obscuration (sd = semi), surface 1 the primary (sd = its 55 mm outer radius). rnd's 6 digits bound the difference.
-    for i, want in ((0, semi), (1, 55.0)):
-        if abs(surfaces[i]["sd"] - want) > 1e-5 * want:
-            sys.exit(f"cassegrain: recorded surface {i} has sd {surfaces[i]['sd']}, expected {want}")
+    # The recorded surfaces that get the flags are checked too (check_cassegrain_order).
+    check_cassegrain_order(surfaces, semi)
     surfaces[0]["obscuration"] = True
     surfaces[1]["mirror"] = surfaces[2]["mirror"] = True
     surfaces[1]["hole"] = PRIMARY_HOLE  # CR #371: the inner radius of the annular aperture the primary was built with
@@ -492,6 +498,8 @@ def main():
     if abs(efl - sample["efl"]) / sample["efl"] > 0.001:
         sys.exit(f"the lens table is not the sample achromat: efl {efl} vs sample.efl {sample['efl']}")
     cooke = phos.OpticalModel.cooke_triplet_kingslake()
+    # Seidel term length = surface count plus phos-core's total: the achromat's numeric rows, the Cooke's six surfaces.
+    terms_len = {"achromat": len([r for r in sample["rx"] if isinstance(r["R"], (int, float))]) + 1, "cooke": 7}
 
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -505,7 +513,7 @@ def main():
             written.append(psf(phos, lens, model, outdir, header))
             continue
         if args.only == "seidel":
-            written.append(seidel(phos, lens, model, rnd(ref_um * 1000), outdir, header))
+            written.append(seidel(phos, lens, model, rnd(ref_um * 1000), outdir, header, terms_len[lens]))
             continue
         written += list(record(phos, lens, model, {"referenceNm": rnd(ref_um * 1000)}, outdir, header))
     if args.only in ("seidel", "maps"):
