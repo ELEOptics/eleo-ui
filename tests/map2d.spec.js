@@ -67,6 +67,20 @@ test('typed map draws given ticks', async ({ page }) => {
   expect(r).not.toContain('1');
 });
 
+// #420 (review M1 round 1): the margin follows the padded ticks. oracle: closed form, a label of n characters centred at x ends at x + 3n (6 px a character).
+test('padded x ticks stay inside the viewBox', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values: [[1]], extent: [9000000, 9900000, 0, 10000000], x: { ticks: [9000000, 15950000] } }));
+    const svg = el.lastElementChild, W = +svg.getAttribute('viewBox').split(' ')[2];
+    return [...svg.querySelectorAll('text.eleo-tick')].map((t) => ({ t: t.textContent, edge: +t.getAttribute('x') + 3 * [...t.textContent].length, W }));
+  });
+  const last = r.find((q) => q.t.includes('1595'));
+  expect(last).toBeTruthy();
+  expect(last.edge).toBeLessThanOrEqual(last.W);
+});
+
 // #419 (review M1 round 1): the typed map refuses an empty, ragged or reversed grid with a TypeError naming it.
 test('typed map refuses bad grids', async ({ page }) => {
   await page.goto('/gallery/');
