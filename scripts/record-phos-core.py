@@ -26,6 +26,11 @@ Run from the repo root:
 does not rewrite them:
   `seidel`: SeidelCoefficients, default chromatic lines, per wavelength the seven terms per surface with phos-core's
     total last. Writes tests/fixtures/phos-core/{achromat,cooke}-seidel.json.
+  `maps`: PointSpread at the 0 degree source (pupil sampling 64, zero pad 64: a 192 x 192 grid, the pad added on both sides),
+    polychromatic as the client gives it. Writes tests/fixtures/phos-core/{achromat,cooke}-psf.json: `values` rows top-down as
+    coordinates() gives them (row 0 at the largest y), `extent` [x0, x1, y0, y1] mm (the cell edges, half a pitch beyond the
+    outer coordinates). It exits non-zero unless the grid is rows x columns as num_y() x num_x() and coordinates() is
+    row-major with rows descending in y and columns ascending in x.
   `layout`: the Wandersleb triplet (US 1,073,789, from phos's fixtures/triplet.toml, which it copies to
     tests/fixtures/phos-core/wandersleb.toml; --triplet gives another path, and a missing one falls back to that committed copy) drawn by visualize_system_2d with 11 rays per
     field, as a RecordedLayout plus `alive` and `dead` (true when a ray's first non-ALIVE status is DEAD_E). Writes tests/fixtures/phos-core/wandersleb-layout.json.
@@ -45,6 +50,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SIG = 6
 PUPIL_SAMPLING = 64  # pupil samples and zero pads of the MTF, per axis
 SPOT_SAMPLING = 32  # pupil samples of the spot diagram, per axis
+PSF_PAD = 64  # zero pad of the PointSpread, per axis (the grid is pupil sampling + 2 * pad, the pad on both sides)
 SWEEP = 11  # field angles of field curvature and distortion, evenly from 0 to the lens's largest field
 
 
@@ -183,6 +189,47 @@ def seidel(phos, lens, model, ref_nm, outdir, header):
     doc = {**header, "lens": lens, "analysis": "seidel", "referenceWavelengthNm": ref_nm, "lengthUnit": "mm",
            "kind": "per wavelength, per term one value per surface then phos-core's total", "results": out}
     path = outdir / f"{lens}-seidel.json"
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    return path
+
+
+def psf(phos, lens, model, outdir, header):
+    # PointSpread.irradiance() and coordinates() are row-major, num_y rows of num_x cells, row 0 at the largest y. Source 0 is
+    # the lens's 0 degree field (checked below). The extent is the cell edges: half a pitch beyond the outer coordinates.
+    angle = field_angle_deg(model.sources(0)[0])
+    if angle != 0:
+        sys.exit(f"{lens} psf: source 0 is at {angle} deg, expected 0")
+    s = phos.PointSpreadSettings()
+    s.set_system_index(0)
+    for axis in "xy":
+        getattr(s, f"set_pupil_sampling_{axis}")(PUPIL_SAMPLING)
+        getattr(s, f"set_zero_padding_{axis}")(PSF_PAD)
+    s.set_sources(model.relative_sources(0)[:1])
+    runs = s.run(model)
+    if len(runs) != 1:
+        sys.exit(f"{lens} psf: {len(runs)} results for one source")
+    a = runs[0]
+    nx, ny = a.num_x(), a.num_y()
+    irr, xy = a.irradiance(), [(p[0], p[1]) for p in a.coordinates()]
+    if len(irr) != nx * ny or len(xy) != nx * ny:
+        sys.exit(f"{lens} psf: {len(irr)} values and {len(xy)} coordinates for {ny} x {nx}, expected one each per cell")
+    if nx != ny or nx != PUPIL_SAMPLING + 2 * PSF_PAD:
+        sys.exit(f"{lens} psf: {ny} x {nx} grid, expected {PUPIL_SAMPLING + 2 * PSF_PAD} square")
+    dx, dy = xy[1][0] - xy[0][0], xy[0][1] - xy[nx][1]
+    tol = 1e-6 * abs(dx)
+    for r in range(ny):
+        for c in range(nx):
+            x, y = xy[r * nx + c]
+            if abs(x - (xy[0][0] + c * dx)) > tol or abs(y - (xy[0][1] - r * dy)) > tol:
+                sys.exit(f"{lens} psf: coordinate {r * nx + c} is ({x}, {y}), expected row-major, columns ascending in x and rows descending in y")
+    if dx <= 0 or dy <= 0:
+        sys.exit(f"{lens} psf: pitch {dx} x {dy}, expected positive")
+    values = [[rnd(irr[r * nx + c]) for c in range(nx)] for r in range(ny)]
+    extent = [rnd(xy[0][0] - dx / 2), rnd(xy[nx - 1][0] + dx / 2), rnd(xy[-1][1] - dy / 2), rnd(xy[0][1] + dy / 2)]
+    doc = {**header, "lens": lens, "analysis": "psf", "fieldAngleDeg": 0.0, "pupilSampling": PUPIL_SAMPLING, "zeroPad": PSF_PAD,
+           "lengthUnit": "mm", "kind": "PointSpread at the 0 degree source: values[row][column] irradiance, row 0 at the largest y; extent [x0, x1, y0, y1] mm",
+           "extent": extent, "values": values}
+    path = outdir / f"{lens}-psf.json"
     path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
     return path
 
@@ -421,7 +468,7 @@ def main():
     ap.add_argument("--phos", required=True, help="<phos-core>/clients/python/src")
     default_out = str(ROOT / "tests/fixtures/phos-core")
     ap.add_argument("--out", default=default_out)
-    ap.add_argument("--only", choices=["seidel", "layout"], help="record only this analysis; the other fixtures are left as they are")
+    ap.add_argument("--only", choices=["seidel", "layout", "maps"], help="record only this analysis; the other fixtures are left as they are")
     ap.add_argument("--triplet", default=str(DEFAULT_TRIPLET), help="phos's fixtures/triplet.toml (--only layout)")
     args = ap.parse_args()
     sys.path.insert(0, args.phos)
@@ -454,12 +501,15 @@ def main():
         ref_um = model.system(0).reference_wavelength()
         if ref_um is None:
             sys.exit(f"{lens}: the model has no reference wavelength")
+        if args.only == "maps":
+            written.append(psf(phos, lens, model, outdir, header))
+            continue
         if args.only == "seidel":
             written.append(seidel(phos, lens, model, rnd(ref_um * 1000), outdir, header))
             continue
         written += list(record(phos, lens, model, {"referenceNm": rnd(ref_um * 1000)}, outdir, header))
-    if args.only == "seidel":
-        print(f"wrote {shown}/{{achromat,cooke}}-seidel.json (phos-core {sha[:10]})")
+    if args.only in ("seidel", "maps"):
+        print(f"wrote {shown}/{{achromat,cooke}}-{'seidel' if args.only == 'seidel' else 'psf'}.json (phos-core {sha[:10]})")
         return
     print(f"wrote {shown}/{{achromat,cooke}}-{{mtf,field-curvature,distortion,spot}}.json (phos-core {sha[:10]})")
 

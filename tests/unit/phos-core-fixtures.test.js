@@ -213,3 +213,26 @@ test('recorded Cassegrain layout obscures its axial chief', () => {
   const w = read('../fixtures/phos-core/wandersleb-layout.json');
   assert.ok(w.surfaces.every((s) => !('mirror' in s) && !('obscuration' in s)), 'the Wandersleb recording has neither flag');
 });
+
+// Plan #389 work item #411. oracle: phos-core PointSpread at 0 deg (pupil 64, zero pad 64: 192 x 192), rows top-down as coordinates() gives them
+test('psf recorded as grids', () => {
+  for (const lens of ['achromat', 'cooke']) {
+    const file = `${lens}-psf.json`;
+    assert.ok(existsSync(new URL(file, dir)), `${file} is recorded`);
+    const f = read(`../fixtures/phos-core/${file}`);
+    assert.equal(f.analysis, 'psf', `${lens}: analysis`);
+    assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+    assert.equal(f.values.length, 192, `${lens}: 192 rows`);
+    for (const row of f.values) {
+      assert.equal(row.length, 192, `${lens}: 192 columns`);
+      for (const v of row) assert.ok(Number.isFinite(v) && v >= 0, `${lens}: irradiance ${v} is finite and non-negative`);
+    }
+    const [x0, x1, y0, y1] = f.extent;
+    assert.ok(x1 > x0 && y1 > y0, `${lens}: extent ${f.extent} is increasing`);
+    assert.ok(x0 < 0 && x1 > 0 && y0 < 0 && y1 > 0, `${lens}: the on-axis PSF is inside its extent`);
+    let best = [0, 0];
+    f.values.forEach((row, r) => row.forEach((v, c) => { if (v > f.values[best[0]][best[1]]) best = [r, c]; }));
+    const px = (best[1] + 0.5) / 192 * (x1 - x0) + x0, py = y1 - (best[0] + 0.5) / 192 * (y1 - y0);
+    assert.ok(Math.abs(px) < 0.1 * (x1 - x0) && Math.abs(py) < 0.1 * (y1 - y0), `${lens}: the 0 deg peak at (${px}, ${py}) mm is near the origin`);
+  }
+});
