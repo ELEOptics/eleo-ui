@@ -1,0 +1,5 @@
+---
+"@eleoptics/plots": minor
+---
+
+**Visible change:** every collimated `layout2D` drawing changes. Collimated ray starts now move onto a pupil-centred arc, normal to each field and clear of the optics, so the rays no longer start inside the first surface. `layoutBounds` frames the moved starts, every ray point and the mirror bodies, so the drawing's box changes too. New: `RecordedLayout` takes `alive?: number[][]`, the per-ray alive points: a ray's non-alive tail is drawn dotted `1 3`, and a chief's dotted part replaces its `6 4` dash. `RecordedLayout` also takes `dead?: boolean[][]`: a dead ray stops at its blocking point with no tail, and a dead chief keeps its `6 4` dash. `RecordedSurface` takes `mirror?`, `obscuration?` and `hole?`: a mirror is a hatched `--mech` body with a flat back at D/8 away from the light, an annulus leaves its hole open, and an obscuration bar is hidden inside a body. The new validation errors for `alive`, `dead` and `hole` name `layout2D`. Message change (#136): an unboxed non-finite ray point is now reported as `layout2D: fan K ray I has a non-finite point`, where it was `layoutBounds: layouts[0].rays[K][I] …`.
