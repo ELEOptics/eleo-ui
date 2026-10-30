@@ -84,7 +84,7 @@ not the image's decode), recorded in the Change log (a measurement, not a gate; 
   palette change redraws it (`Map2D.svelte` already redraws on `themeTick`; the gallery draws it per column with that
   column's tile).
 - Fixture size: one source (0 deg) per lens, PointSpread at pupil 64, pad 64 (a 192 × 192 grid: the pad adds to the
-  sampling, CR #410), about 430 kB per file at 6 significant digits; the README row states it.
+  sampling, CR #410), about 440 kB per file at 6 significant digits; the README row states it.
 - [#333] edits `packages/plots-svelte/package.json`, a dependency manifest: a security trigger, so `director/merge.sh`
   refuses and the user merges this PR.
 - Public lenses only: the achromat and the Cooke triplet.
@@ -115,6 +115,12 @@ grid files and refuses a swapped Seidel or Cassegrain order. Proves: O1
 | #394 | Typed `map2D(props)`: cells through `colormap(map, el)` (physics.js) into one offscreen canvas, `toDataURL`, placed in px after `plotCell`'s frame (`body: ""`) as `<image x=X(x0) y=Y(y1) width height style="image-rendering: pixelated">`; the axes' ranges are the extent padded on the shorter side so px per unit is equal, ticks by `niceTicks` over the padded ranges; masked cells alpha 0, so the tile's `--surface` ground shows through; linear over [min, max]. Invocation: `map2D({ values, extent: [-0.02, 0.02, -0.02, 0.02], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', el })` → `<svg viewBox="0 0 460 360" role="img" aria-label="Map">` with the frame, ticks and one `<image>` | one `<image>` because a rect per cell is 65 536 elements at 256²; in px, not in plotCell's data group, because that group flips y and would draw row 0 at the bottom; considered `<foreignObject>` with a canvas, which breaks standalone SVG (row I); masked cells alpha 0 rather than baked `--surface` (user, approval: one token read and one baked color fewer) | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::typed map places its extent` | #390, #393 |
 | #395 | Gallery PSF tile from the recorded Cooke PointSpread through an adapter, drawn per theme column with the tile as `el`; `gallery.spec.js`'s tile list, `ownData`, missing-fixture loop and the theme test move to the typed map (corner pixel of the decoded image per column) | an adapter in `adapters.js` because the recorded tiles go through it ([#226]); considered inlining in the gallery page, which the other recorded tiles moved away from | `tests/fixtures/phos-core/adapters.js`, `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::recorded PSF tile draws`, `::maps follow their theme` | #411, #394 |
 | #396 | Unskip O1 acceptance tests | forced (`workflow.md`, TDD: the last item unskips them) | `tests/map2d.spec.js` | `tests/map2d.spec.js::recorded PSF cells (U8)` | all above |
+| #417 | Plots README: the typed map is not in the theme-independent SVG sentence (CR #415) | one sentence because the next bullet owns the typed map; considered a parenthesis on the SVG line, which says it twice | `packages/plots/README.md` | none (docs): `scripts/check.sh --fast` | |
+| #418 | Typed map draws given `x.ticks`/`y.ticks` through `axisTicks` exported from `curve.js` (CR #416) | reuse `axisTicks` because `curve` resolves a `CurveAxis` that way; considered a copy in map2d.js, two rules for one type | `packages/plots/src/curve.js`, `packages/plots/src/map2d.js` | `tests/map2d.spec.js::typed map draws given ticks` | |
+| #419 | Typed map throws a `TypeError` on an empty, ragged or reversed grid (review M1, finding 4) | a TypeError as `curve` throws on bad roles; considered drawing what it can, which shifts every step | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::typed map refuses bad grids` | #418 |
+| #420 | Right margin from the padded x ticks, the larger of the two (review M1, finding 5) | recompute after padding because the drawn ticks are the padded ones; considered padding first, which needs the margin | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::padded x ticks stay inside the viewBox` | #419 |
+| #421 | Fixtures README: PSF and layout files in the common-keys exception; size in kB as the other rows (review M1, finding 6) | name the exceptions where the keys are defined; considered a note per row | `tests/fixtures/phos-core/README.md` | none (docs): `scripts/check.sh --fast` | |
+| #422 | `psf()`'s orientation and size refusals tested on stand-ins (review M1, finding 7) | stand-ins as for seidel because the real client never returns a bad grid; considered a broken fixture, data no source produced | `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::recorder guards refuse bad orders` | |
 
 ### M2: scales, aperture, colorbar; wavefront, log and irradiance tiles GitHub: `P389 M2: scales, colorbar, wavefront`
 
@@ -148,7 +154,7 @@ plots-svelte minors; the U14 median in the Change log. Proves: O3
 | #407 | Changesets: plots minor (typed `map2D`) and plots-svelte minor (`Map2D` typed props) | forced (roadmap Constraints: release on consumer pull, planned by changesets) | `.changeset/` | `tests/unit/release.test.js::map2D changeset asks minors` | #405, #333 |
 | #408 | Unskip O3 acceptance tests | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | all O3 tests | all above |
 
-22 items over 3 milestones (CR #410 split #391 and added two): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
+28 items over 3 milestones (CR #410 split #391 and added two; review M1 round 1 added six): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
 the colorbar and aperture; none is cut to fit.
 ## Risks and spikes
 
@@ -195,4 +201,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-30 CR #410 (user): WavefrontError is 64 rings × 64 spokes of polar samples, not a grid. Polar renderer:
   #391 split into #411 (PSF, M1) and #412 (wavefront polar samples, M2); #413 adds `polar` to `Map2DGridProps` (Core,
   through the CR) and #414 draws the sectors; O2's wavefront acceptance reads sectors, not cells. PSF kept at pupil 64,
-  pad 64, which is 192 × 192 (about 430 kB), not 128 × 128.
+  pad 64, which is 192 × 192 (about 440 kB), not 128 × 128.
+- 2026-10-30 review M1 round 1: 2 blocking, CR #415 (README) and CR #416 (ticks), accepted by the orchestrator (keep
+  every invariant) as #417 and #418. Backlog pulled into M1 as small and named: #419 (bad grids), #420 (padded margin),
+  #421 (fixtures README), #422 (psf refusals tested). Plain backlog: #423 (M2 props, fixed by M2), #424 (PNG bytes,
+  deferred until a mismatch shows: a tolerance changes an approved oracle's form).
