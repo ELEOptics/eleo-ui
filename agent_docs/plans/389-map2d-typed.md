@@ -100,7 +100,7 @@ the plan).
 
 `After` cites work-item issues.
 
-### M1: a recorded PSF through the typed SVG map GitHub: `P389 M1: typed map, recorded PSF`
+### M1: a recorded PSF through the typed SVG map (done 2026-10-30) GitHub: `P389 M1: typed map, recorded PSF`
 
 Demo: `npm run gallery`; the PSF tile is the recorded Cooke PSF at 0 deg, crisp cells, mm ticks on both axes, square
 cells, right in both theme columns; `python3 scripts/record-phos-core.py --phos <client> --only maps` writes the four
@@ -217,3 +217,5 @@ One bullet per entry (bare lines render as one paragraph).
   header drift round 2 found.
 - 2026-10-30 review M1 round 4: 1 blocking, CR #429 (row #427 named the test #428 renamed), fixed here by the
   orchestrator (the plan is its file). Carried #410, #415, #416, #425 resolved.
+- 2026-10-30 M1 done: review round 5 says 0 blocking with nothing pulled in (rounds: 2+4, 1+1, 0+1, 1+0, 0+0); CI
+  green on every pushed head; demo pending.
