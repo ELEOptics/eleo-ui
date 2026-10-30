@@ -297,6 +297,10 @@ const o2Helpers = () => {
 // radii and spokes) is its value's step on [-m, m], m = max |value|; every pixel outside the aperture circle is --surface on the page.
 test('recorded wavefront cells (U8)', async ({ page }) => {
   const wf = fixture('phos-core/cooke-wavefront.json');
+  // The Cooke 0 deg wavefront is rotationally symmetric (each ring constant), so this test proves the radial mapping only; spoke orientation
+  // is proven by `polar samples fill their sectors`. Asserted here so that claim cannot go stale silently.
+  const spread = wf.values.map((ring) => Math.max(...ring) - Math.min(...ring));
+  expect(Math.max(...spread), 'every ring of the fixture is constant across spokes').toBe(0);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.evaluate(o2Helpers);
