@@ -281,7 +281,7 @@ print(json.dumps({
   "orderSwapped": order([surf(bowl, 10.0), surf(bowl, 55.0), surf(flat, 10.0)]),
 }))
 `;
-  const r = spawnSync('python3', ['-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
+  const r = spawnSync('python3', ['-B', '-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const out = JSON.parse(r.stdout);
   assert.equal(out.seidelRight, 'ok', 'the expected term length passes');
