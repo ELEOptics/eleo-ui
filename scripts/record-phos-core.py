@@ -350,6 +350,16 @@ def cassegrain(phos, outdir, header):
                          "glass": None, "profile": prof})
     # CR #360: the flags come from what was built (surface 0 the obscuration, 1 and 2 the MIRROR primary and secondary),
     # written only when true so the Wandersleb recording stays as it was.
+    # Each flagged interface is checked against what phos-core reports, so a change of its element order fails here: the
+    # mirrors by material name, the obscuration by its aperture (extent width 2 * semi, the one built above, not the
+    # primary's 110 mm; the client does not expose is_opaque).
+    for i in (1, 2):
+        name = model.interface(0, i).interior_material().name()
+        if name != "MIRROR":
+            sys.exit(f"cassegrain: interface {i} has material {name}, expected MIRROR")
+    width = model.interface(0, 0).aperture().extent().width
+    if abs(width - 2 * semi) > 1e-9 * semi:
+        sys.exit(f"cassegrain: interface 0 has aperture width {width}, expected the obscuration's {2 * semi}")
     surfaces[0]["obscuration"] = True
     surfaces[1]["mirror"] = surfaces[2]["mirror"] = True
     rays, alive, status = layout_rays(phos, res, len(CASSEGRAIN_FIELDS), "cassegrain")
