@@ -28,10 +28,10 @@ does not rewrite them:
     total last. Writes tests/fixtures/phos-core/{achromat,cooke}-seidel.json.
   `layout`: the Wandersleb triplet (US 1,073,789, from phos's fixtures/triplet.toml, which it copies to
     tests/fixtures/phos-core/wandersleb.toml; --triplet gives another path, and a missing one falls back to that committed copy) drawn by visualize_system_2d with 11 rays per
-    field, as a RecordedLayout plus `alive`. Writes tests/fixtures/phos-core/wandersleb-layout.json.
+    field, as a RecordedLayout plus `alive` and `dead` (true when a ray's first non-ALIVE status is DEAD_E). Writes tests/fixtures/phos-core/wandersleb-layout.json.
     It also records phos-core's tutorial Cassegrain (models/src/example/cassegrain.rs: parabolic primary with an annular
     aperture, hyperbolic secondary, obscuration; fields 0/0.35/0.5 deg), built through InterfaceBuilder, in the same shape
-    without `glass` and with `mirror` on the two mirrors and `obscuration` on the obscuration, as tests/fixtures/phos-core/cassegrain-layout.json. It exits non-zero unless the 0 degree chief is dead before the image.
+    without `glass` and with `mirror` on the two mirrors, `hole` (10 mm) on the primary and `obscuration` on the obscuration, as tests/fixtures/phos-core/cassegrain-layout.json. It exits non-zero unless the 0 degree chief is dead before the image.
 """
 import argparse
 import json
@@ -198,13 +198,13 @@ def finite(*xs):
 
 def layout_rays(phos, res, n_fields, tag):
     # Per field, per ray: the points kept up to the first non-finite one, the index of the first kept point whose status is not
-    # ALIVE (else the count), and every point's status name.
-    rays, alive, status = [], [], []
+    # ALIVE (else the count), every point's status name, and whether that first non-ALIVE status is a Dead kind (DEAD_E; CR #372).
+    rays, alive, status, dead = [], [], [], []
     sources = res.ray_data.sources
     if len(sources) != n_fields:
         sys.exit(f"{tag}: {len(sources)} sources for {n_fields} fields")
     for src in sources:
-        fan, fan_alive, fan_status = [], [], []
+        fan, fan_alive, fan_status, fan_dead = [], [], [], []
         for ray in src.rays:
             kept = []
             for p in ray.interfaces:
@@ -216,10 +216,13 @@ def layout_rays(phos, res, n_fields, tag):
             fan.append([[rnd(p.x), rnd(p.y)] for p in kept])
             fan_alive.append(next((k for k, p in enumerate(kept) if not isinstance(p.status, phos.RayStatus.ALIVE)), len(kept)))
             fan_status.append([type(p.status).__name__.split(".")[-1] for p in ray.interfaces])
+            first = next((p for p in kept if not isinstance(p.status, phos.RayStatus.ALIVE)), None)
+            fan_dead.append(first is not None and isinstance(first.status, phos.RayStatus.DEAD_E))
         rays.append(fan)
         alive.append(fan_alive)
         status.append(fan_status)
-    return rays, alive, status
+        dead.append(fan_dead)
+    return rays, alive, status, dead
 
 
 def wandersleb(phos, triplet, outdir, header):
@@ -268,7 +271,7 @@ def wandersleb(phos, triplet, outdir, header):
         surfaces.append({"z": prof[len(prof) // 2][0], "sd": max(abs(y) for _, y in prof), "stop": i == stop, "image": i == len(rows),
                          "glass": "crown" if i < len(rows) and rows[i]["index"] != 1 else None, "profile": prof})
 
-    rays, alive, status = layout_rays(phos, res, len(t["fields_deg"]), "wandersleb")
+    rays, alive, status, dead = layout_rays(phos, res, len(t["fields_deg"]), "wandersleb")
 
     # phos#310's two facts, which the Python client must reproduce for the fixture to show anything.
     lower = lambda fan: min(range(len(fan)), key=lambda j: fan[j][0][1])
@@ -282,12 +285,13 @@ def wandersleb(phos, triplet, outdir, header):
            "prescription": {"source": t["source"], "epd": t["epd"], "wavelengthNm": t["wavelength_nm"], "stop": t["stop"],
                             "surfaces": rows, "file": "wandersleb.toml"},
            "fieldsDeg": [rnd(f) for f in t["fields_deg"]], "rayCount": LAYOUT_RAYS, "lengthUnit": "mm",
-           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive}
+           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive, "dead": dead}
     path = outdir / "wandersleb-layout.json"
     path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
     return path
 
 
+PRIMARY_HOLE = 10.0  # mm, the primary's annular aperture inner radius
 CASSEGRAIN_FIELDS = [0.0, 0.35, 0.5]  # degrees; phos-core's tutorial Cassegrain
 
 
@@ -330,7 +334,7 @@ def cassegrain(phos, outdir, header):
             b.set_insert_at(at)
         b.insert(model)
 
-    insert(phos.Surface.conic(-187.5, -1.0), mirror, phos.Aperture.annular("primary aperture", [0.0, 0.0], 10.0, 55.0, False, False, None))
+    insert(phos.Surface.conic(-187.5, -1.0), mirror, phos.Aperture.annular("primary aperture", [0.0, 0.0], PRIMARY_HOLE, 55.0, False, False, None))
     insert(phos.Surface.conic(600.0 / 13.0, -361.0 / 169.0), mirror, ref=0, dz=75.0)
     insert(ref=1, dz=100.0)
     semi = model.interface(0, 1).aperture().extent().width / 2  # the secondary's auto-sized aperture
@@ -367,7 +371,8 @@ def cassegrain(phos, outdir, header):
             sys.exit(f"cassegrain: recorded surface {i} has sd {surfaces[i]['sd']}, expected {want}")
     surfaces[0]["obscuration"] = True
     surfaces[1]["mirror"] = surfaces[2]["mirror"] = True
-    rays, alive, status = layout_rays(phos, res, len(CASSEGRAIN_FIELDS), "cassegrain")
+    surfaces[1]["hole"] = PRIMARY_HOLE  # CR #371: the inner radius of the annular aperture the primary was built with
+    rays, alive, status, dead = layout_rays(phos, res, len(CASSEGRAIN_FIELDS), "cassegrain")
     chief = status[0][LAYOUT_RAYS // 2]
     if alive[0][LAYOUT_RAYS // 2] >= len(chief) - 1 or chief[-1] == "ALIVE":
         sys.exit(f"cassegrain: the 0 degree chief ray stays alive before the image (statuses {chief}), expected the obscuration to stop it")
@@ -378,7 +383,7 @@ def cassegrain(phos, outdir, header):
                             "secondary": {"radius": rnd(600.0 / 13.0), "conic": rnd(-361.0 / 169.0), "distanceFromPrimary": 75.0, "material": "MIRROR"},
                             "imageDistanceFromSecondary": 100.0, "obscuration": "circular, the secondary's semi-diameter, in front of the primary"},
            "fieldsDeg": CASSEGRAIN_FIELDS, "rayCount": LAYOUT_RAYS, "lengthUnit": "mm",
-           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive}
+           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive, "dead": dead}
     path = outdir / "cassegrain-layout.json"
     path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
     return path

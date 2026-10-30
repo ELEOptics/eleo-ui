@@ -176,6 +176,13 @@ test('recorded Wandersleb layout is phos-core\'s trace of phos\'s triplet', () =
   const l14 = lower(f.rays[1]);
   assert.ok(f.alive[1][l14] < f.rays[1][l14].length, 'the 14 degree lower ray is vignetted: it does not reach the image alive');
   assert.deepEqual(f.alive[0].filter((a, j) => j > 0 && j < 10 && a !== f.rays[0][j].length), [], 'the on-axis fan is alive but for its marginal rays');
+  // CR #372: dead[field][ray] is true when the first non-ALIVE status is a Dead kind (not Virtual or Missed).
+  assert.equal(f.dead.length, 3);
+  f.dead.forEach((fan) => assert.equal(fan.length, 11));
+  assert.equal(f.dead[1][l14], true, 'the 14 degree lower ray is dead');
+  assert.equal(f.dead.flat().filter(Boolean).length, 1, 'no other ray is dead');
+  assert.equal(f.dead[2][l28], false, 'the 28 degree lower ray is virtual, not dead');
+  assert.deepEqual(f.dead[0].filter((d, j) => j > 0 && j < 10 && d), [], 'the on-axis marginals are not dead');
 });
 
 // Plan #337 work item #357 (CR #352). oracle: user the tutorial Cassegrain of phos-core's models/src/example/cassegrain.rs: its
@@ -195,6 +202,10 @@ test('recorded Cassegrain layout obscures its axial chief', () => {
     });
   });
   assert.ok(f.alive[0][5] < f.rays[0][5].length, 'the 0 degree chief is not alive at the end of its path');
+  // CR #371, #372: the primary's hole, and the obscured rays 4-6 of each field are dead.
+  assert.equal(f.surfaces[1].hole, 10, 'the primary\'s annular aperture starts at 10 mm');
+  assert.equal(f.surfaces.filter((s) => 'hole' in s).length, 1, 'only the primary has a hole');
+  assert.deepEqual(f.dead.map((fan) => fan.map((d, j) => (d ? j : -1)).filter((j) => j >= 0)), [[4, 5, 6], [4, 5, 6], [4, 5, 6]], 'rays 4-6 of each field are dead');
   // CR #360: the flags mark the optics, and are written only when true.
   assert.deepEqual(f.surfaces.filter((s) => s.mirror).map((s) => Math.round(s.z)), [0, -75], 'the primary (z 0) and the secondary (z -75) are mirrors');
   assert.deepEqual(f.surfaces.filter((s) => s.obscuration).map((s) => Math.round(s.z * 100) / 100), [-76.25], 'one obscuration, at z -76.25');
