@@ -57,9 +57,10 @@ function mirrorBodies(L, i) {
 // CR #381: a collimated fan (every ray's first segment parallel to the first ray's within 1e-3 rad) starts on a line normal to its direction d. Every such
 // line is R from c, the entrance pupil's centre (the mean axis crossing of the off-axis chiefs' first-segment lines, else the first surface's vertex);
 // R clears every non-image profile point and mirror-body vertex, plus 0.5 x the largest non-image sd. Each start moves along its first segment's line;
-// the other points stay. A fan that is not collimated keeps its starts. Returns the rays, the layout's own when nothing moves.
+// the other points stay. A fan that is not collimated keeps its starts. Collimation is decided over the layout: a one-ray fan moves only when some fan of two or
+// more rays is collimated. With no non-image geometry nothing moves. Returns the rays, the layout's own when nothing moves.
 function movedStarts(L) {
-  var S = L.surfaces, dirs = [], cz = [], geo = [], sd = 0, R = -Infinity, any = false;
+  var S = L.surfaces, dirs = [], cz = [], geo = [], sd = 0, R = -Infinity, multi = false;
   L.rays.forEach(function (fan, k) {
     var d = null, ok = fan.length > 0;
     fan.forEach(function (r) {
@@ -70,19 +71,22 @@ function movedStarts(L) {
       else if (Math.abs(d[0] * e[1] - d[1] * e[0]) >= 1e-3 || d[0] * e[0] + d[1] * e[1] <= 0) ok = false;
     });
     dirs[k] = ok ? d : null;
-    if (!ok) return;
-    any = true;
+    if (ok && fan.length > 1) multi = true;
+  });
+  if (!multi) return L.rays;
+  L.rays.forEach(function (fan, k) {
+    if (!dirs[k]) return;
     var ci = L.chief && L.chief[k], r = fan[Number.isInteger(ci) && fan[ci] ? ci : Math.floor(fan.length / 2)];
     var h = Math.hypot(r[1][0] - r[0][0], r[1][1] - r[0][1]), dy = (r[1][1] - r[0][1]) / h; // the chief's own first segment
     if (Math.abs(dy) > 1e-9) cz.push(r[0][0] - r[0][1] * (r[1][0] - r[0][0]) / (r[1][1] - r[0][1]));
   });
-  if (!any) return L.rays;
   S.forEach(function (s, i) {
     if (s.image) return;
     if (s.sd > sd) sd = s.sd;
     geo = geo.concat(s.profile);
     if (s.mirror) mirrorBodies(L, i).forEach(function (b) { geo = geo.concat(b); });
   });
+  if (!geo.length) return L.rays;
   var c = [cz.length ? cz.reduce(function (a, b) { return a + b; }) / cz.length : S[0].z, 0];
   dirs.forEach(function (d) { if (d) geo.forEach(function (g) { R = Math.max(R, -((g[0] - c[0]) * d[0] + (g[1] - c[1]) * d[1])); }); });
   R += sd / 2;
@@ -95,7 +99,7 @@ function movedStarts(L) {
   });
 }
 
-/* A port of eleo-website@39d19e4 public/layout.js bounds(), widened for mirrors: z from every ray point, every non-image profile and every mirror body (#367); y from 0, the rays and every
+/* A port of eleo-website@39d19e4 public/layout.js bounds(), widened for mirrors: z from every ray point (the drawn, moved starts), every non-image profile and every mirror body (#367); y from 0, the rays and every
    surface but the image (a standalone stop reaches sd + 2.5, a lens |profile[0][1]|), padded 4%. */
 export function layoutBounds(layouts) {
   if (!Array.isArray(layouts) || !layouts.length) throw new Error("layoutBounds: no layouts");

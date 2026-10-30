@@ -1,6 +1,7 @@
 // Records every SVG renderer's output on the sample, with the gallery's options, from packages/plots/dist.
 // Run it against a build of the plan's base (agent_docs/plans/162-curve-typed.md, O2); tests/unit/split.test.js
-// then asserts the current build draws the same strings. Never re-record from code under test.
+// then asserts the current build draws the same strings. Never re-record from code under test,
+// except that the layout2D entries were re-recorded at plan #337 #382 by the user's choice (CR #381).
 //   node scripts/record-renderers.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import ELEO from '../packages/plots/dist/index.js';

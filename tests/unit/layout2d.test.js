@@ -849,10 +849,9 @@ test('alive splits a ray at its last alive point', () => {
   const g = [...svg.matchAll(/<g opacity="\.85">([\s\S]*?)<\/g>/g)];
   assert.equal(g.length, 1);
   assert.equal([...g[0][1].matchAll(/<polyline\b[^>]*>/g)].length, 2);
-  // (A fan of one ray is collimated, CR #381: c is the stop's vertex, R = 3 sin(atan(1/5)) + 1.5 = 2.0882, and the start moves back along the first segment to (p - c).d = -R.)
-  const R = 3 / Math.hypot(5, 1) + 1.5, st = [-R * 5 / Math.hypot(5, 1), -R / Math.hypot(5, 1)].map((v) => +v.toFixed(3)).join(',');
+  // (Review r7 f3: a layout of one-ray fans has no collimated fan of two or more rays, so the start stays at 0,0.)
   const solid = g[0][1].match(/<polyline points="[^"]*"[^>]*>/g)[0];
-  assert.ok(solid.startsWith('<polyline points="' + st + ' 5,1"') && !solid.includes('stroke-dasharray="1 3"'), 'the solid part starts at ' + st);
+  assert.ok(solid.startsWith('<polyline points="0,0 5,1"') && !solid.includes('stroke-dasharray="1 3"'), 'the solid part keeps its start');
   assert.ok(/<polyline points="5,1 9,2"[^>]*stroke-dasharray="1 3"/.test(g[0][1]));
   // A bad alive throws, naming itself.
   for (const [bad, re] of [
@@ -1025,7 +1024,7 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
 });
 
 // CR #381, issue #382: a collimated fan's rays start on a line normal to the fan, every fan's line the same distance R from the pupil's centre c.
-// oracle: property: synthetic layouts plus every fixture and both phos-core recordings; fixture: the user-approved mock's numbers (starts.mjs: Wandersleb c.z 6.38, R 13.96; Cassegrain c.z 0, R 106.55)
+// oracle: property: synthetic layouts plus every fixture and both phos-core recordings; fixture: the user-approved mock's numbers (https://github.com/ELEOptics/eleo-ui/pull/348#issuecomment-6518338727: Wandersleb c.z 6.38, R 13.96; Cassegrain c.z 0, R 106.55)
 const unit = (a, b) => { const m = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[0] - a[0]) / m, (b[1] - a[1]) / m]; };
 // A fan's common direction, or null when its first segments are not parallel (1e-3 rad: the recordings round their points to 4 decimals over first segments about 1 mm long, up to 6e-5 rad) or it has no rays.
 const fanDir = (fan) => {
@@ -1096,4 +1095,13 @@ test('collimated rays start on a pupil-centred arc', () => {
   assert.deepEqual(drawnStarts(axial, drawn(ELEO.layout2D({ data: axial, rays: 'fan' })).polylines), [[[-1.5, -1], [-1.5, 1]]]);
   // The box frames what is drawn: layoutBounds reaches the moved starts.
   assert.ok(layoutBounds([axial]).zmin <= -1.5 + 1e-9 && layoutBounds([axial]).zmin > -5, 'layoutBounds uses the moved starts');
+  // Review r7 f2: no non-image geometry, nothing to clear: the rays stay and the box is finite.
+  for (const bare of [[], [{ z: 9, sd: 3, image: true }]]) {
+    const B = layoutBounds([{ surfaces: bare, rays: axial.rays }]);
+    assert.ok(Object.values(B).every(Number.isFinite), `layoutBounds on ${bare.length} surfaces is finite`);
+    assert.ok(B.zmin <= -6 && B.zmin > -7, `layoutBounds on ${bare.length} surfaces: the box is as before #382`);
+  }
+  // Review r7 f3: collimation is decided over the layout; one-ray fans of a finite object keep their starts.
+  const finite = { surfaces, rays: [[[[-20, 0], [0, 0], [9, 0]]], [[[-20, 2], [0, 0], [9, -1]]]] };
+  assert.deepEqual(drawnStarts(finite, drawn(ELEO.layout2D({ data: finite, rays: 'fan' })).polylines), [[[-20, 0]], [[-20, 2]]]);
 });
