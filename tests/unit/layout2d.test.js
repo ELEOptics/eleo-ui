@@ -833,24 +833,60 @@ test('alive splits a ray at its last alive point', () => {
   ]) assert.throws(() => ELEO.layout2D({ data: mk(rays, bad) }), re, JSON.stringify(bad));
 });
 
-// CR #360, issue #363: a mirror is a stroked profile, an obscuration an opaque bar, both under the rays.
-test('mirrors are stroked and obscurations drawn opaque', () => {
-  const surf = (z, extra) => ({ z, sd: 5, stop: false, image: false, glass: null, profile: [[z, -5], [z, 5]], ...extra });
-  const mk = (a, b) => ({ surfaces: [a, b, { ...surf(10, {}), image: true }], rays: [[[[-5, 1], [0, 1], [10, 1]]]] });
-  const rays = (body) => body.indexOf('<g opacity');
-  const mirror = surf(0, { mirror: true, profile: [[0.1, -5], [0, 0], [0.1, 5]] });
-  const { body } = geometry(ELEO.layout2D({ data: mk(mirror, surf(5, {})) }));
-  const lines = [...body.matchAll(/<polyline\b[^>]*>/g)].filter((m) => m.index < rays(body)).map((m) => attrs(m[0]));
-  assert.equal(lines.length, 1, 'one mirror polyline under the rays');
-  assert.deepEqual(pairs(lines[0].points), [[0.1, -5], [0, 0], [0.1, 5]]);
-  assert.match(lines[0].stroke, /var\(--ink\)/);
-  const bar = geometry(ELEO.layout2D({ data: mk(surf(3, { obscuration: true }), surf(5, {})) })).body;
-  const bars = [...bar.matchAll(/<line\b[^>]*>/g)].filter((m) => m.index < rays(bar)).map((m) => attrs(m[0]))
-    .filter((a) => vertical(a) && at(+a.x1, 3));
-  assert.equal(bars.length, 1, 'one obscuration bar under the rays');
-  assert.ok(at(Math.min(+bars[0].y1, +bars[0].y2), -5) && at(Math.max(+bars[0].y1, +bars[0].y2), 5), 'from -sd to +sd');
-  assert.match(bars[0].stroke, /var\(--ink\)/);
-  assert.throws(() => ELEO.layout2D({ data: mk(surf(0, {}), { ...surf(5, {}), image: true, mirror: true, profile: undefined }) }), /^Error: layout2D: /, 'a profileless mirror image is a named error');
+// CR #371, issue #375: a mirror is a body (the profile plus a flat back at D/8 away from the light), hatched, with its hole open;
+// an obscuration inside a body draws no bar. Replaces #363's stroked profile.
+test('mirrors are drawn as bodies with a flat back', () => {
+  const surf = (z, extra) => ({ z, sd: 8, stop: false, image: false, glass: null, profile: [[z, -8], [z, 8]], ...extra });
+  const prof = [[0, -8], [-0.25, -4], [-0.5, 0], [-0.25, 4], [0, 8]];
+  // Light travels toward +z after surface 0: the back is on the -z side, D/8 = 2 mm past the profile's far z.
+  const mk = (mirror, extra = []) => ({ surfaces: [mirror, surf(10, {}), ...extra, { ...surf(20, {}), image: true }], rays: [[[[-10, 1], [0, 1], [10, 1], ...extra.map(() => [15, 1]), [20, 1]]]] });
+  const under = (body) => body.slice(0, body.indexOf('<g opacity'));
+  const parts = (L, extra) => {
+    const svg = ELEO.layout2D({ data: L, ...extra });
+    const { body } = geometry(svg), u = under(body);
+    const tags = (t) => [...u.matchAll(new RegExp(`<${t}\\b[^>]*>`, 'g'))].map((m) => attrs(m[0]));
+    return { svg, u, polygons: tags('polygon'), lines: tags('line'), polylines: tags('polyline'), paths: tags('path'), clips: [...u.matchAll(/<clipPath\b[^>]*id="([^"]*)"/g)].map((m) => m[1]) };
+  };
+  const mirror = { ...surf(0, { mirror: true, profile: prof }) };
+  const one = parts(mk(mirror));
+  const bodies = one.polygons.filter((a) => /var\(--mech\)/.test(a.fill || ''));
+  assert.equal(bodies.length, 1, 'one mirror body');
+  const poly = pairs(bodies[0].points);
+  assert.ok(prof.every((p) => poly.some((q) => near(p, q))), 'the body keeps the whole profile');
+  const back = poly.filter((p) => at(p[0], -2.5));
+  assert.equal(back.length, 2, 'a flat back at the profile\'s far z minus D/8 on the side away from the light');
+  assert.ok(back.some((p) => at(p[1], -8)) && back.some((p) => at(p[1], 8)), 'the back spans the profile');
+  assert.ok(poly.every((p) => p[0] >= -2.5 - TOL), 'nothing lies behind the back');
+  assert.match(bodies[0].stroke, /var\(--mech-edge\)/);
+  assert.match(bodies[0].style, /stroke-width:var\(--stroke-edge\)/);
+  assert.equal(one.polylines.length, 0, 'no stroked profile any more');
+  // Hatching: one hairline mech-edge path under a clip that holds the body, at 45 degrees.
+  assert.equal(one.clips.length, 1);
+  const hatch = one.paths.filter((a) => a['clip-path'] !== undefined && /var\(--mech-edge\)/.test(a.stroke || ''));
+  assert.equal(hatch.length, 1, 'one hatch path');
+  assert.match(hatch[0].style, /stroke-width:var\(--stroke-hair\)/);
+  const segs = [...hatch[0].d.matchAll(/M\s*([-\d.]+)[ ,]([-\d.]+)\s*L\s*([-\d.]+)[ ,]([-\d.]+)/g)].map((m) => m.slice(1).map(Number));
+  assert.ok(segs.length > 2 && segs.every(([a, b, c, d]) => at(Math.abs(c - a), Math.abs(d - b)) && Math.abs(c - a) > 0), 'hatch lines run at 45 degrees');
+  assert.match(one.u, new RegExp(`clip-path="url\\(#${one.clips[0]}\\)"`), 'the hatch is clipped by the clipPath');
+  assert.equal(parts(mk(mirror)).svg, one.svg, 'drawing twice gives the same SVG (ids are deterministic)');
+  // Hole: |y| < hole is open, two bodies.
+  const holed = parts(mk({ ...mirror, hole: 2 }));
+  const hb = holed.polygons.filter((a) => /var\(--mech\)/.test(a.fill || '')).map((a) => pairs(a.points));
+  assert.equal(hb.length, 2, 'two bodies around the hole');
+  assert.ok(hb.every((b) => b.every((p) => Math.abs(p[1]) >= 2 - TOL)), 'no body inside |y| < hole');
+  assert.ok(hb.some((b) => b.every((p) => p[1] > 0)) && hb.some((b) => b.every((p) => p[1] < 0)), 'one body per side');
+  assert.equal(new Set(holed.clips).size, 2, 'two distinct clip ids');
+  // An obscuration inside a body is not drawn; one outside is.
+  const bar = (L) => parts(L).lines.filter((a) => vertical(a) && a.stroke === 'var(--ink)' && at(+a.x1, L.surfaces.find((s) => s.obscuration).z));
+  assert.equal(bar(mk(mirror, [surf(-1, { obscuration: true, sd: 5 })])).length, 0, 'no bar within the body');
+  assert.equal(bar(mk(mirror, [surf(5, { obscuration: true, sd: 5 })])).length, 1, 'a bar outside every body');
+  assert.equal(bar(mk(mirror, [surf(-1, { obscuration: true, sd: 9 })])).length, 1, 'a bar wider than the mirror');
+  // Bounds (#367): a body past the rays' z range stays inside layoutBounds.
+  const past = { surfaces: [surf(5, { mirror: true }), surf(10, {}), { ...surf(15, {}), image: true }], rays: [[[[4, 1], [5, 1], [10, 1], [15, 1]]]] };
+  assert.ok(layoutBounds([past]).zmin <= 3 + TOL, 'zmin covers the back, 2 mm behind a mirror at the rays\' first z');
+  const wide = { surfaces: [surf(5, { mirror: true, sd: 20, profile: [[5, -20], [5, 20]] }), surf(10, {}), { ...surf(15, {}), image: true }], rays: [[[[4.9, 1], [5, 1], [10, 1], [15, 1]]]] };
+  assert.ok(layoutBounds([wide]).zmin <= 0 + TOL, 'a body of D/8 = 5 mm reaches 0');
+  assert.throws(() => ELEO.layout2D({ data: { ...mk(surf(0, {})), surfaces: [surf(0, {}), surf(5, {}), { ...surf(10, {}), image: true, mirror: true, profile: undefined }] } }), /^Error: layout2D: /, 'a profileless mirror image is a named error');
 });
 
 // CR #352, issue #358: the recorded Cassegrain, a folded path (rays reverse in z) whose 0° chief the obscuration stops.
@@ -861,7 +897,7 @@ test('recorded Cassegrain draws its obscured chief dotted', () => {
   assert.equal(L.alive[0][L.chief[0]], 1, 'the 0° chief has one alive point');
   for (const width of [1000, 600]) {
     const svg = ELEO.layout2D({ data: L, rays: 'fan', width });
-    const { M, body, polylines } = drawn(svg);
+    const { M, body, polygons, polylines } = drawn(svg);
     inverse(M);
     const under = (m) => m.index < body.indexOf('<g opacity');
     const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke }));
@@ -882,13 +918,19 @@ test('recorded Cassegrain draws its obscured chief dotted', () => {
     const chief = L.rays[0][L.chief[0]];
     assert.ok(chief.some((p, j) => j > 0 && p[0] > chief[j - 1][0]) && chief.some((p, j) => j > 0 && p[0] < chief[j - 1][0]),
       'the chief path reverses in z (folded)');
-    const mirrors = parts.filter((p) => !p.dotted && /var\(--ink\)/.test(p.stroke || '') && p.pts.length === primary.profile.length);
-    assert.ok(mirrors.some((p) => samePath(p.pts, primary.profile)), `width ${width}: the primary's profile is stroked`);
-    assert.ok(mirrors.some((p) => samePath(p.pts, secondary.profile)), `width ${width}: the secondary's profile is stroked`);
-    assert.equal(polylines.length, claimed + 2, `width ${width}: every other polyline is a ray part or a mirror`);
+    assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray part`);
+    // CR #371: the primary is two bodies around its hole, the secondary one; each has its flat back D/8 away from the light.
+    const bodies = polygons.filter((a) => /var\(--mech\)/.test(a.fill || '')).map((a) => pairs(a.points));
+    assert.equal(bodies.length, 3, `width ${width}: two primary bodies and one secondary`);
+    assert.ok(bodies.every((b) => b.every((p) => !(Math.abs(p[1]) < primary.hole - TOL && p[0] > -20))), `width ${width}: the hole is open`);
+    const zs = (b) => b.map((p) => p[0]);
+    const back = bodies.filter((b) => Math.max(...zs(b)) > primary.profile[0][0] + 1);
+    assert.equal(back.length, 2, `width ${width}: the primary's bodies reach back toward +z`);
+    assert.ok(back.every((b) => at(Math.max(...zs(b)), Math.max(...primary.profile.map((p) => p[0])) + primary.sd / 4)), `width ${width}: the primary's back is D/8 = sd/4 thick`);
+    const sec = bodies.find((b) => Math.min(...zs(b)) < secondary.profile[0][0] - 1);
+    assert.ok(sec && at(Math.min(...zs(sec)), Math.min(...secondary.profile.map((p) => p[0])) - secondary.sd / 4), `width ${width}: the secondary's back is D/8 behind it, toward -z`);
     const bars = [...body.matchAll(/<line\b[^>]*>/g)].filter(under).map((m) => attrs(m[0]))
-      .filter((a) => vertical(a) && at(+a.x1, obs.z));
-    assert.equal(bars.length, 1, `width ${width}: one obscuration bar`);
-    assert.ok(at(Math.min(+bars[0].y1, +bars[0].y2), -obs.sd) && at(Math.max(+bars[0].y1, +bars[0].y2), obs.sd), 'from -sd to +sd');
+      .filter((a) => vertical(a) && at(+a.x1, obs.z) && a.stroke === 'var(--ink)');
+    assert.equal(bars.length, 0, `width ${width}: no obscuration bar, it sits within the secondary's body`);
   }
 });
