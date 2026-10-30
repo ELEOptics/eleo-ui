@@ -174,3 +174,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30 M1 demo (user): go. On field labels at the image plane: "A standard legend may be the right call, but at this level (3 fields) I'm okay with it", added to #70 (deferred label hardening).
 - 2026-10-30: U14 layout2D redraw median 2.10 ms (20 redraws; 50 surfaces with 41-point profiles, 3 fields of 21 rays, half dotted; budget 16 ms). Same run: curve 1.30, panels 0.90, spot 3.20, bars 1.20 ms.
 - 2026-10-30: review M2 round 1 (0 blocking, 3 backlog). All three pulled in as #386. The 2.10 ms U14 median did not run the collimated-start path, so it is re-measured there.
+- 2026-10-30: U14 layout2D re-measured on the collimated path (#386, starts moved, zmin -5.38): median 2.20 ms (runs 2.30, 2.20, 2.20; budget 16 ms). It replaces the 2.10 ms above, which skipped movedStarts.
