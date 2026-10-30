@@ -458,6 +458,44 @@ test.skip('colorbar ticks', async ({ page }) => {
   }
 });
 
+// #400: the colorbar is a 1 x 256 image right of the plot; each tick sits at its value (linear, with and without a range; log at whole decades).
+test('colorbar ticks sit at their values', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
+    const ELEO = window.ELEO, out = [];
+    const values = Array.from({ length: 16 }, (_, j) => Array.from({ length: 16 }, (_, i) => 1 + (i + 16 * j) / 255 * 2.7));
+    const cases = [{ range: [0, 4], lo: 0, top: 4 }, { range: [-2, 6], lo: -2, top: 6 }, { lo: 1, top: 3.7 },
+      { scale: 'log', decades: 3, lo: 0.0037, top: 3.7, log: true }];
+    for (const c of cases) {
+      const { lo, top, log, ...props } = c;
+      el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], map: 'ember', ...props, value: { label: 'irradiance', unit: 'W/mm²' }, el }));
+      const svg = el.lastElementChild, vb = svg.getAttribute('viewBox').split(' ').map(Number);
+      let cb = null;
+      for (const q of svg.querySelectorAll('image')) { const bm = await createImageBitmap(await (await fetch(q.getAttribute('href'))).blob()); if (bm.width === 1 && bm.height === 256) cb = q; }
+      const by = +cb.getAttribute('y'), bh = +cb.getAttribute('height'), bx = +cb.getAttribute('x') + +cb.getAttribute('width');
+      const fr = svg.querySelector('rect'), frameRight = +fr.getAttribute('x') + +fr.getAttribute('width');
+      const ticks = [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && /^[−-]?[\d.]+$/.test(t.textContent.trim()))
+        .map((t) => {
+          const v = parseFloat(t.textContent.trim().replace('−', '-'));
+          const pos = log ? (Math.log10(v / top) + 3) / 3 : (v - lo) / (top - lo);
+          return { v, err: Math.abs(+t.getAttribute('y') - (by + bh - pos * bh)), inside: +t.getAttribute('x') + 3 * t.textContent.length <= vb[2] };
+        });
+      out.push({ n: ticks.length, vs: ticks.map((t) => t.v), maxErr: Math.max(...ticks.map((q) => q.err)), inside: ticks.every((t) => t.inside), text: svg.textContent, right: bx > frameRight });
+    }
+    return out;
+  });
+  for (const q of r) {
+    expect(q.n, 'colorbar ticks drawn').toBeGreaterThanOrEqual(3);
+    expect(q.maxErr, 'tick off its value (px)').toBeLessThan(0.5);
+    expect(q.text).toContain('irradiance');
+    expect(q.text).toContain('W/mm²');
+    expect(q.right, 'bar right of the plot frame').toBe(true);
+    expect(q.inside, 'labels inside the viewBox').toBe(true);
+  }
+  expect(r[3].vs, 'log ticks are whole decades').toEqual([0.01, 0.1, 1]);
+});
+
 // O2, irradiance: each Gaussian cell is the step of exp(-2 r^2 / w^2). oracle: closed-form, TEM00 irradiance with w = 1 mm, 128 x 128 cells
 // over +-2 mm (plan item #402), linear over the grid's [min, max]; the gallery says the tile is synthetic.
 test.skip('gaussian irradiance tile', async ({ page }) => {

@@ -1,8 +1,10 @@
 import { data } from "./data.js";
 import { css, rgb, ramp, mapStops } from "./color.js";
 import { svg, esc } from "./common.js";
+import { niceTicks } from "./axis.js";
 import { scales, axisTicks, plotCell, PLOT_L, PLOT_B, PLOT_T } from "./curve.js";
 import { colormap } from "./physics.js";
+import { fmt } from "./color.js";
 
 /* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px.
    Not in plotCell's data group: that group flips y and would draw row 0 at the bottom. Masked cells are alpha 0. */
@@ -18,13 +20,24 @@ function typedMap(o) {
   if (o.map === "wave" && lo <= hi) { var mx = Math.max(Math.abs(lo), Math.abs(hi)); lo = -mx; hi = mx; }
   if (Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1])) { lo = o.range[0]; hi = o.range[1]; }
   var log = o.scale === "log", dec = o.decades > 0 ? o.decades : 4;
+  /* Colorbar (only with `value`): ticks over the color scale, whole decades on log. Its width joins the right margin: 12 px gap, 10 px bar, 4 px, the widest label (6 px a character), 4 px. */
+  var vb = o.value, cbt = null, CB = 0;
+  if (vb) {
+    var cl = log ? hi * Math.pow(10, -dec) : lo, vt;
+    if (vb.ticks) vt = axisTicks(vb, [cl, hi]);
+    else if (log) { vt = { ticks: [], decimals: 0 }; if (hi > 0) for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = Math.max(0, -Math.floor(Math.log10(cl))); }
+    else vt = niceTicks(cl, hi, 6);
+    var cbpos = function (v) { return log ? (Math.log10(v / hi) + dec) / dec : hi > cl ? (v - cl) / (hi - cl) : 0; };
+    cbt = vt.ticks.filter(function (v) { var t = cbpos(v); return t >= -1e-9 && t <= 1 + 1e-9; }).map(function (v) { return { t: cbpos(v), s: fmt(v, vt.decimals) }; });
+    CB = 12 + 10 + 4 + 6 * Math.max.apply(null, [0].concat(cbt.map(function (q) { return Array.from(q.s).length; }))) + 4;
+  }
   /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. */
-  var R0 = scales({ x: { range: [e[0], e[1]], ticks: x.ticks }, y: { range: [e[2], e[3]] } }, [[]]).R, R = R0, pw, ph = H - PLOT_T - PLOT_B, dx = e[1] - e[0], dy = e[3] - e[2], xr, yr;
+  var R0 = scales({ x: { range: [e[0], e[1]], ticks: x.ticks }, y: { range: [e[2], e[3]] } }, [[]]).R + CB, R = R0, pw, ph = H - PLOT_T - PLOT_B, dx = e[1] - e[0], dy = e[3] - e[2], xr, yr;
   for (var it = 0; it < 8; it++) {
     pw = W - PLOT_L - R; xr = [e[0], e[1]]; yr = [e[2], e[3]];
     if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [e[0] - (px - dx) / 2, e[1] + (px - dx) / 2]; }
     else { var py = dx * ph / pw; yr = [e[2] - (py - dy) / 2, e[3] + (py - dy) / 2]; }
-    var need = Math.max(R0, scales({ x: { range: xr, ticks: x.ticks }, y: { range: yr } }, [[]]).R);
+    var need = Math.max(R0, scales({ x: { range: xr, ticks: x.ticks }, y: { range: yr } }, [[]]).R + CB);
     if (need <= R) break;
     R = need;
   }
@@ -50,6 +63,17 @@ function typedMap(o) {
     var ax = X(ap.x), ay = Y(ap.y), ar = +(ap.r * sx).toFixed(2), ix0 = X(e[0]), ix1 = X(e[1]), iy0 = Y(e[3]), iy1 = Y(e[2]);
     g += '<path fill-rule="evenodd" fill="var(--surface)" d="M' + ix0 + " " + iy0 + "H" + ix1 + "V" + iy1 + "H" + ix0 + "ZM" + +(ax - ar).toFixed(2) + " " + ay + "a" + ar + " " + ar + " 0 1 0 " + 2 * ar + " 0a" + ar + " " + ar + " 0 1 0 " + -2 * ar + ' 0Z"/>';
     g += '<circle cx="' + ax + '" cy="' + ay + '" r="' + ar + '" fill="none" stroke="var(--plot-axis)" stroke-width="1"/>';
+  }
+  if (cbt) {
+    var bc = document.createElement("canvas"); bc.width = 1; bc.height = 256;
+    var bctx = bc.getContext("2d"), bim = bctx.createImageData(1, 256);
+    for (var r = 0; r < 256; r++) { var cc = lut[255 - r]; bim.data[r * 4] = Math.round(cc[0]); bim.data[r * 4 + 1] = Math.round(cc[1]); bim.data[r * 4 + 2] = Math.round(cc[2]); bim.data[r * 4 + 3] = 255; }
+    bctx.putImageData(bim, 0, 0);
+    var bx = W - CB + 12, bw = 10;
+    g += '<image x="' + bx + '" y="' + PLOT_T + '" width="' + bw + '" height="' + ph + '" preserveAspectRatio="none" style="image-rendering: pixelated" href="' + bc.toDataURL("image/png") + '"/>';
+    g += '<rect x="' + bx + '" y="' + PLOT_T + '" width="' + bw + '" height="' + ph + '" fill="none" stroke="var(--plot-grid)"/>';
+    cbt.forEach(function (q) { var ty = +(PLOT_T + ph - q.t * ph).toFixed(2); g += '<line x1="' + (bx + bw) + '" y1="' + ty + '" x2="' + (bx + bw + 3) + '" y2="' + ty + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + (bx + bw + 4) + '" y="' + ty + '" dy="3">' + q.s + "</text>"; });
+    g += '<text class="eleo-tick" x="' + (W - 4) + '" y="' + (PLOT_T - 8) + '" text-anchor="end">' + lab(vb) + "</text>";
   }
   g += '<text class="eleo-tick" x="' + (W - R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="10">' + lab(y) + "</text>";
   return svg(W, H, g, esc(o.label || "Map"));
