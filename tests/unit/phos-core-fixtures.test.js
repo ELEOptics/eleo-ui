@@ -177,3 +177,22 @@ test('recorded Wandersleb layout is phos-core\'s trace of phos\'s triplet', () =
   assert.ok(f.alive[1][l14] < f.rays[1][l14].length, 'the 14 degree lower ray is vignetted: it does not reach the image alive');
   assert.deepEqual(f.alive[0].filter((a, j) => j > 0 && j < 10 && a !== f.rays[0][j].length), [], 'the on-axis fan is alive but for its marginal rays');
 });
+
+// Plan #337 work item #357 (CR #352). oracle: user the tutorial Cassegrain of phos-core's models/src/example/cassegrain.rs: its
+// secondary and the obscuration stop the on-axis chief, so the recorded 0 degree chief is not alive at the image.
+test('recorded Cassegrain layout obscures its axial chief', () => {
+  const f = read('../fixtures/phos-core/cassegrain-layout.json');
+  assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+  assert.equal(f.analysis, 'layout');
+  assert.equal(f.rays.length, 3, 'fields 0, 0.35 and 0.5 degrees');
+  assert.deepEqual(f.chief, [5, 5, 5]);
+  f.rays.forEach((fan, i) => {
+    assert.equal(fan.length, 11);
+    assert.equal(f.alive[i].length, 11);
+    fan.forEach((ray, j) => {
+      assert.ok(ray.length > 0 && ray.every((p) => p.every(Number.isFinite)), `field ${i} ray ${j}: non-empty, finite points`);
+      assert.ok(Number.isInteger(f.alive[i][j]) && f.alive[i][j] >= 0 && f.alive[i][j] <= ray.length, `field ${i} ray ${j}: alive in 0..len`);
+    });
+  });
+  assert.ok(f.alive[0][5] < f.rays[0][5].length, 'the 0 degree chief is not alive at the end of its path');
+});

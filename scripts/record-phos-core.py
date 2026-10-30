@@ -29,6 +29,9 @@ does not rewrite them:
   `layout`: the Wandersleb triplet (US 1,073,789, from phos's fixtures/triplet.toml, which it copies to
     tests/fixtures/phos-core/wandersleb.toml; --triplet gives another path, and a missing one falls back to that committed copy) drawn by visualize_system_2d with 11 rays per
     field, as a RecordedLayout plus `alive`. Writes tests/fixtures/phos-core/wandersleb-layout.json.
+    It also records phos-core's tutorial Cassegrain (models/src/example/cassegrain.rs: parabolic primary with an annular
+    aperture, hyperbolic secondary, obscuration; fields 0/0.35/0.5 deg), built through InterfaceBuilder, in the same shape
+    without `glass`, as tests/fixtures/phos-core/cassegrain-layout.json. It exits non-zero unless the 0 degree chief is dead before the image.
 """
 import argparse
 import json
@@ -193,6 +196,32 @@ def finite(*xs):
     return all(math.isfinite(x) for x in xs)
 
 
+def layout_rays(phos, res, n_fields, tag):
+    # Per field, per ray: the points kept up to the first non-finite one, the index of the first kept point whose status is not
+    # ALIVE (else the count), and every point's status name.
+    rays, alive, status = [], [], []
+    sources = res.ray_data.sources
+    if len(sources) != n_fields:
+        sys.exit(f"{tag}: {len(sources)} sources for {n_fields} fields")
+    for src in sources:
+        fan, fan_alive, fan_status = [], [], []
+        for ray in src.rays:
+            kept = []
+            for p in ray.interfaces:
+                if not finite(p.x, p.y):
+                    break
+                kept.append(p)
+            if not kept:
+                sys.exit(f"{tag}: field {len(rays)} ray {len(fan)} has a non-finite first point, expected every kept ray non-empty")
+            fan.append([[rnd(p.x), rnd(p.y)] for p in kept])
+            fan_alive.append(next((k for k, p in enumerate(kept) if not isinstance(p.status, phos.RayStatus.ALIVE)), len(kept)))
+            fan_status.append([type(p.status).__name__.split(".")[-1] for p in ray.interfaces])
+        rays.append(fan)
+        alive.append(fan_alive)
+        status.append(fan_status)
+    return rays, alive, status
+
+
 def wandersleb(phos, triplet, outdir, header):
     # Built as phos does (phos src-tauri/src/prescription.rs lens_table): radius 0 is plano (inf), the glasses are constant
     # index, the TOML's 1-based `stop` is a position in `surfaces`, and a plano stop is typed Aperture. Without that type
@@ -239,26 +268,7 @@ def wandersleb(phos, triplet, outdir, header):
         surfaces.append({"z": prof[len(prof) // 2][0], "sd": max(abs(y) for _, y in prof), "stop": i == stop, "image": i == len(rows),
                          "glass": "crown" if i < len(rows) and rows[i]["index"] != 1 else None, "profile": prof})
 
-    rays, alive, status = [], [], []
-    sources = res.ray_data.sources
-    if len(sources) != len(t["fields_deg"]):
-        sys.exit(f"wandersleb: {len(sources)} sources for {len(t['fields_deg'])} fields")
-    for src in sources:
-        fan, fan_alive, fan_status = [], [], []
-        for ray in src.rays:
-            kept = []
-            for p in ray.interfaces:
-                if not finite(p.x, p.y):
-                    break
-                kept.append(p)
-            if not kept:
-                sys.exit(f"wandersleb: field {len(rays)} ray {len(fan)} has a non-finite first point, expected every kept ray non-empty")
-            fan.append([[rnd(p.x), rnd(p.y)] for p in kept])
-            fan_alive.append(next((k for k, p in enumerate(kept) if not isinstance(p.status, phos.RayStatus.ALIVE)), len(kept)))
-            fan_status.append([type(p.status).__name__.split(".")[-1] for p in ray.interfaces])
-        rays.append(fan)
-        alive.append(fan_alive)
-        status.append(fan_status)
+    rays, alive, status = layout_rays(phos, res, len(t["fields_deg"]), "wandersleb")
 
     # phos#310's two facts, which the Python client must reproduce for the fixture to show anything.
     lower = lambda fan: min(range(len(fan)), key=lambda j: fan[j][0][1])
@@ -274,6 +284,83 @@ def wandersleb(phos, triplet, outdir, header):
            "fieldsDeg": [rnd(f) for f in t["fields_deg"]], "rayCount": LAYOUT_RAYS, "lengthUnit": "mm",
            "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive}
     path = outdir / "wandersleb-layout.json"
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    return path
+
+
+CASSEGRAIN_FIELDS = [0.0, 0.35, 0.5]  # degrees; phos-core's tutorial Cassegrain
+
+
+def cassegrain(phos, outdir, header):
+    # Built as phos-core's models/src/example/cassegrain.rs builds it (the client has no cassegrain() constructor, and
+    # insert_interface_direct takes an Interface the client cannot construct, so the equivalent InterfaceBuilder.insert):
+    # EPD 100, 1.55 um, three sources, the parabolic primary with an annular aperture, the hyperbolic secondary 75 mm
+    # in front of it, the image 100 mm behind the secondary and the secondary's obscuration inserted first.
+    wl = 1.55
+    air = phos.material("AIR", "FICTIONAL")
+    mirror = phos.material("MIRROR", "FICTIONAL")  # MaterialSpec.MIRROR's database entry
+    model = phos.empty_model_with_system()
+    model.set_system_aperture(0, phos.SystemAperture.entrance_pupil_diameter(100.0))
+    model.set_reference_wavelength(0, wl)
+    boundary = None
+    for deg in CASSEGRAIN_FIELDS:
+        src = phos.SourceBuilder()
+        src.set_wavelengths([wl])
+        if boundary is not None:  # each direction turns the previous source's frame; the boundary is set before the direction
+            src.set_boundary(boundary)
+        if deg:
+            src.set_direction(phos.spherical_vector(math.radians(deg), math.pi / 2))
+        i = model.add_source_builder(0, src)
+        if boundary is None:
+            boundary = model.source(0, i).boundary()
+
+    def insert(surface=None, material=air, aperture=None, ref=None, dz=None, at=None):
+        b = phos.InterfaceBuilder()
+        b.set_system_index(0)
+        if surface is not None:
+            b.set_surface(surface)
+        b.set_interior_material(material)
+        if aperture is not None:
+            b.set_aperture(aperture)
+        if ref is not None:
+            b.set_reference_interface(ref)
+        if dz is not None:
+            b.set_translation([0.0, 0.0, dz])
+        if at is not None:
+            b.set_insert_at(at)
+        b.insert(model)
+
+    insert(phos.Surface.conic(-187.5, -1.0), mirror, phos.Aperture.annular("primary aperture", [0.0, 0.0], 10.0, 55.0, False, False, None))
+    insert(phos.Surface.conic(600.0 / 13.0, -361.0 / 169.0), mirror, ref=0, dz=75.0)
+    insert(ref=1, dz=100.0)
+    semi = model.interface(0, 1).aperture().extent().width / 2  # the secondary's auto-sized aperture
+    sag = model.interface(0, 1).sag([0.0, semi])
+    insert(aperture=phos.Aperture.circular("obscuration", [0.0, 0.0], semi, False, True, None), ref=1, dz=-sag, at=0)
+
+    res = model.visualize_system_2d(0, LAYOUT_SAMPLES, LAYOUT_RAYS)
+    profiles = [e.interfaces[0].points for e in res.system.elements]
+    if len(profiles) != 4:
+        sys.exit(f"cassegrain: {len(profiles)} surfaces, expected the obscuration, primary, secondary and image")
+    surfaces = []
+    for i, prof in enumerate(profiles):
+        prof = [[rnd(x), rnd(y)] for x, y in prof if finite(x, y)]
+        if len(prof) != LAYOUT_SAMPLES:
+            sys.exit(f"cassegrain surface {i}: {len(prof)} finite profile points, expected {LAYOUT_SAMPLES}")
+        surfaces.append({"z": prof[len(prof) // 2][0], "sd": max(abs(y) for _, y in prof), "stop": False, "image": i == len(profiles) - 1,
+                         "glass": None, "profile": prof})
+    rays, alive, status = layout_rays(phos, res, len(CASSEGRAIN_FIELDS), "cassegrain")
+    chief = status[0][LAYOUT_RAYS // 2]
+    if alive[0][LAYOUT_RAYS // 2] >= len(chief) - 1 or chief[-1] == "ALIVE":
+        sys.exit(f"cassegrain: the 0 degree chief ray stays alive before the image (statuses {chief}), expected the obscuration to stop it")
+
+    doc = {**header, "lens": "cassegrain", "analysis": "layout", "kind": "visualize_system_2d, 11 rays per field, [z, y] mm",
+           "prescription": {"source": "phos-core models/src/example/cassegrain.rs", "epd": 100.0, "wavelengthNm": 1550.0,
+                            "primary": {"radius": -187.5, "conic": -1.0, "aperture": "annular 10..55 mm", "material": "MIRROR"},
+                            "secondary": {"radius": rnd(600.0 / 13.0), "conic": rnd(-361.0 / 169.0), "distanceFromPrimary": 75.0, "material": "MIRROR"},
+                            "imageDistanceFromSecondary": 100.0, "obscuration": "circular, the secondary's semi-diameter, in front of the primary"},
+           "fieldsDeg": CASSEGRAIN_FIELDS, "rayCount": LAYOUT_RAYS, "lengthUnit": "mm",
+           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive}
+    path = outdir / "cassegrain-layout.json"
     path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
     return path
 
@@ -324,8 +411,8 @@ def main():
         outdir = Path(args.out)
         outdir.mkdir(parents=True, exist_ok=True)
         shown = outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir
-        path = wandersleb(phos, Path(args.triplet), outdir, header)
-        print(f"wrote {shown}/{path.name} (phos-core {sha[:10]})")
+        for path in (wandersleb(phos, Path(args.triplet), outdir, header), cassegrain(phos, outdir, header)):
+            print(f"wrote {shown}/{path.name} (phos-core {sha[:10]})")
         return
     sample = json.loads((ROOT / "packages/plots/src/sample.json").read_text())
 
