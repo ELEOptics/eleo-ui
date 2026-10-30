@@ -81,6 +81,21 @@ test('padded x ticks stay inside the viewBox', async ({ page }) => {
   expect(last.edge).toBeLessThanOrEqual(last.W);
 });
 
+// #427 (review M1 round 2): the margin loop re-pads after it grows. oracle: closed form, the image spans the extent, so its width/height is dx/dy
+// (px per unit equal on both axes), it stays inside the frame and is centred in it (the extent is padded for the final plot width). Extent [9e6, 9.9e6] x [0, 1e7] grows the margin.
+test('margin growth keeps px per unit equal', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values: [[1]], extent: [9000000, 9900000, 0, 10000000] }));
+    const svg = el.lastElementChild, img = svg.querySelector('image').getBoundingClientRect(), f = svg.querySelector('rect').getBoundingClientRect();
+    return { w: img.width, h: img.height, left: img.left - f.left, right: f.right - img.right, top: img.top - f.top, bottom: f.bottom - img.bottom };
+  });
+  expect(Math.abs(r.w - r.h * 0.09)).toBeLessThan(0.5);
+  expect(Math.min(r.left, r.right, r.top, r.bottom)).toBeGreaterThanOrEqual(-0.5);
+  expect(Math.abs(r.left - r.right)).toBeLessThan(0.5);
+});
+
 // #419 (review M1 round 1): the typed map refuses an empty, ragged or reversed grid with a TypeError naming it.
 test('typed map refuses bad grids', async ({ page }) => {
   await page.goto('/gallery/');
