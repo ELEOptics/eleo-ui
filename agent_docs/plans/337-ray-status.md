@@ -166,3 +166,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30: review M1 round 5 (2 blocking, 4 backlog). CR #378 accepted. Findings 3 to 6 pulled in with it as #379. Carried CRs #371 and #372 closed.
 - 2026-10-30: review M1 round 6 (0 blocking, 4 backlog). Findings 1, 2 and 4 pulled in as #380. Finding 3 (`index.d.ts` wording, Core) added to M2's #344. All carried CRs closed. The user's ray-start feedback is mocked and awaits a decision.
 - 2026-10-30 (user): ray starts "layout2D, as mocked", scope "Always on" → CR #381, item #382. O1's byte-identical property reworded to "after the start", and the renderer baseline is re-recorded.
+- 2026-10-30: #382's collimation tolerance is 1e-3 rad, not the CR's 1e-6: the recordings round to 4 decimals (the orchestrator's spec error).
