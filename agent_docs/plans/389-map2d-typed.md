@@ -84,7 +84,7 @@ not the image's decode), recorded in the Change log (a measurement, not a gate; 
   palette change redraws it (`Map2D.svelte` already redraws on `themeTick`; the gallery draws it per column with that
   column's tile).
 - Fixture size: one source (0 deg) per lens, PointSpread at pupil 64, pad 64 (a 192 × 192 grid: the pad adds to the
-  sampling, CR #410), about 225 kB per file at 6 significant digits; the README row states it.
+  sampling, CR #410), about 430 kB per file at 6 significant digits; the README row states it.
 - [#333] edits `packages/plots-svelte/package.json`, a dependency manifest: a security trigger, so `director/merge.sh`
   refuses and the user merges this PR.
 - Public lenses only: the achromat and the Cooke triplet.
@@ -195,4 +195,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-30 CR #410 (user): WavefrontError is 64 rings × 64 spokes of polar samples, not a grid. Polar renderer:
   #391 split into #411 (PSF, M1) and #412 (wavefront polar samples, M2); #413 adds `polar` to `Map2DGridProps` (Core,
   through the CR) and #414 draws the sectors; O2's wavefront acceptance reads sectors, not cells. PSF kept at pupil 64,
-  pad 64, which is 192 × 192 (about 225 kB), not 128 × 128.
+  pad 64, which is 192 × 192 (about 430 kB), not 128 × 128.
