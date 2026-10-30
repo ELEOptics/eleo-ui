@@ -771,7 +771,7 @@ test('texts carry the tick style', () => {
 });
 
 // Plan #337, outcome O2 (issue #136; #347 unskips). oracle: spec #136: layout2D names a non-finite ray point itself, before layoutBounds, so the message is the same boxed or not.
-test('bad ray input is named by layout2D, boxed or not (#136)', { skip: '#347 unskips' }, () => {
+test('bad ray input is named by layout2D, boxed or not (#136)', () => {
   const L = fixture('tolerance');
   const bad = { ...L, rays: L.rays.map((fan, j) => (j === 2 ? fan.map((r, i) => (i === 1 ? [...r.slice(0, -1), [NaN, 0]] : r)) : fan)) };
   const box = layout2dModule.layoutBounds([L]);

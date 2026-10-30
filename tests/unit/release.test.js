@@ -302,12 +302,12 @@ const rayStatusConsumed = !existsSync(join(repo, '.changeset', 'ray-status.md'))
   && RAY_STATUS_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'));
 
 test('ray-status changeset asks a plots minor',
-  { skip: 'plan #337 #347 unskips' }, () => {
+  { skip: (rayStatusConsumed && 'consumed by changeset version') }, () => {
     assert.deepEqual(parse('ray-status.md').bumps, { '@eleoptics/plots': 'minor' });
   });
 
 test('ray-status changeset became a plots minor',
-  { skip: 'plan #337 #347 unskips' }, () => {
+  { skip: (!rayStatusConsumed && 'changesets not yet versioned') }, () => {
     assert.ok(rayStatusConsumed || !existsSync(join(repo, '.changeset', 'ray-status.md')), 'changesets not yet versioned');
     assert.equal(entry('plots', RAY_STATUS_ENTRY).kind, 'Minor');
   });
