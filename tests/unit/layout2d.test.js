@@ -851,3 +851,43 @@ test('mirrors are stroked and obscurations drawn opaque', () => {
   assert.ok(at(Math.min(+bars[0].y1, +bars[0].y2), -5) && at(Math.max(+bars[0].y1, +bars[0].y2), 5), 'from -sd to +sd');
   assert.match(bars[0].stroke, /var\(--ink\)/);
 });
+
+// CR #352, issue #358: the recorded Cassegrain, a folded path (rays reverse in z) whose 0° chief the obscuration stops.
+test('recorded Cassegrain draws its obscured chief dotted', () => {
+  const L = JSON.parse(readFileSync(new URL('../fixtures/phos-core/cassegrain-layout.json', import.meta.url)));
+  const [obs, primary, secondary] = L.surfaces;
+  assert.ok(obs.obscuration && primary.mirror && secondary.mirror, 'the recording flags the obscuration and both mirrors');
+  assert.equal(L.alive[0][L.chief[0]], 1, 'the 0° chief has one alive point');
+  for (const width of [1000, 600]) {
+    const svg = ELEO.layout2D({ data: L, rays: 'fan', width });
+    const { M, body, polylines } = drawn(svg);
+    inverse(M);
+    const under = (m) => m.index < body.indexOf('<g opacity');
+    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke }));
+    const solid = parts.filter((p) => !p.dotted && p.pts.length > 0), dotted = parts.filter((p) => p.dotted);
+    let claimed = 0;
+    L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
+      const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
+      const head = a > 0 ? solid.find((p) => samePath(p.pts, ray.slice(0, a))) : undefined;
+      const tail = a < ray.length ? dotted.find((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
+      if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
+      else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
+      if (a > 0 && a < ray.length) {
+        assert.ok(head, `${tag}: a solid part recovers points 0..a`);
+        assert.ok(near(head.pts.at(-1), tail.pts[0]), `${tag}: the parts share the last alive point`);
+      }
+      claimed += (head ? 1 : 0) + (tail ? 1 : 0);
+    }));
+    const chief = L.rays[0][L.chief[0]];
+    assert.ok(chief.some((p, j) => j > 0 && p[0] > chief[j - 1][0]) && chief.some((p, j) => j > 0 && p[0] < chief[j - 1][0]),
+      'the chief path reverses in z (folded)');
+    const mirrors = parts.filter((p) => !p.dotted && /var\(--ink\)/.test(p.stroke || '') && p.pts.length === primary.profile.length);
+    assert.ok(mirrors.some((p) => samePath(p.pts, primary.profile)), `width ${width}: the primary's profile is stroked`);
+    assert.ok(mirrors.some((p) => samePath(p.pts, secondary.profile)), `width ${width}: the secondary's profile is stroked`);
+    assert.equal(polylines.length, claimed + 2, `width ${width}: every other polyline is a ray part or a mirror`);
+    const bars = [...body.matchAll(/<line\b[^>]*>/g)].filter(under).map((m) => attrs(m[0]))
+      .filter((a) => vertical(a) && at(+a.x1, obs.z));
+    assert.equal(bars.length, 1, `width ${width}: one obscuration bar`);
+    assert.ok(at(Math.min(+bars[0].y1, +bars[0].y2), -obs.sd) && at(Math.max(+bars[0].y1, +bars[0].y2), obs.sd), 'from -sd to +sd');
+  }
+});
