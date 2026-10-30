@@ -18,6 +18,10 @@ export interface RecordedSurface {
   glass: "crown" | "flint" | Glass | null;
   /** The surface's section as [z, y] points (41 from eleoptics.com's layout.py). */
   profile: [number, number][];
+  /** The surface reflects: layout2D strokes its `profile`. */
+  mirror?: boolean;
+  /** An opaque disc at `z` of semi-diameter `sd`: layout2D draws it as an opaque bar. */
+  obscuration?: boolean;
 }
 /** A layout as eleoptics.com's scripts/layout.py records it, in mm. */
 export interface RecordedLayout {
