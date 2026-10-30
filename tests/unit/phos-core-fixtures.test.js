@@ -326,3 +326,84 @@ print(json.dumps({
   assert.match(out.psfFlipped, /pitch .* x -0\.5, expected positive/, 'coordinates ascending in y (a flipped grid) are refused');
   assert.match(out.psfSmall, /128 x 128 grid, expected 192 square/, 'a 128 x 128 grid is refused');
 });
+
+// Plan #389 work item #412. oracle: phos-core WavefrontError at 0 deg (pupil 64, reference wavelength): 64 rings x 64 spokes of live
+// (pupil x, pupil y, OPD waves) points; values[ring][spoke] are those samples, not resampled onto a grid (CR #410).
+test('wavefront recorded as polar samples', () => {
+  for (const lens of ['achromat', 'cooke']) {
+    const file = `${lens}-wavefront.json`;
+    assert.ok(existsSync(new URL(file, dir)), `${file} is recorded`);
+    const f = read(`../fixtures/phos-core/${file}`);
+    assert.equal(f.analysis, 'wavefront', `${lens}: analysis`);
+    assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+    assert.equal(f.radii.length, 64, `${lens}: 64 rings`);
+    assert.equal(f.angles.length, 64, `${lens}: 64 spokes`);
+    assert.equal(f.values.length, 64, `${lens}: values by ring`);
+    f.radii.forEach((r, i) => {
+      assert.ok(r > 0 && r <= f.pupilRadius, `${lens}: ring ${i} radius ${r} is inside the pupil ${f.pupilRadius}`);
+      if (i) assert.ok(r > f.radii[i - 1], `${lens}: radii ascend`);
+    });
+    f.angles.forEach((a, i) => {
+      assert.ok(a >= 0 && a < 2 * Math.PI, `${lens}: spoke ${i} angle ${a} is in [0, 2pi)`);
+      if (i) assert.ok(a > f.angles[i - 1], `${lens}: angles ascend`);
+    });
+    for (const row of f.values) {
+      assert.equal(row.length, 64, `${lens}: 64 spokes per ring`);
+      for (const v of row) assert.ok(Number.isFinite(v), `${lens}: OPD ${v} is finite`);
+    }
+  }
+  const c = read('../fixtures/phos-core/cooke-wavefront.json');
+  assert.ok(Math.abs(c.pupilRadius - 11.735) < 1e-3, `Cooke pupil radius ${c.pupilRadius}`);
+  assert.ok(Math.abs(c.radii[0] - 1.04) < 1e-3 && Math.abs(c.radii[63] - 11.734) < 1e-3, `Cooke rings ${c.radii[0]}..${c.radii[63]}`);
+  assert.ok(Math.abs(c.angles[1] - 2 * Math.PI / 64) < 1e-5, 'spokes are 2pi/64 apart, counter-clockwise from +x');
+});
+
+// The recorder's own refusals for wavefront(), on stand-ins for phos-core: samples that are not rings x spokes.
+test('wavefront recorder refuses samples that are not rings by spokes', () => {
+  const py = String.raw`
+import importlib.util, json, math, tempfile
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("rec", "scripts/record-phos-core.py")
+rec = importlib.util.module_from_spec(spec); spec.loader.exec_module(rec)
+
+class Model:
+    def sources(self, i): return [Src()]
+    def relative_sources(self, i): return [Src()]
+    def system(self, i): return self
+    def reference_wavelength(self): return 0.55
+class Boundary:
+    def rotation(self): return (0.0, 0.0, 0.0, 1.0)
+class Src:
+    def boundary(self): return Boundary()
+def samples(rings, spokes, drop=0, skew=False):
+    out = [[(1 + r) * math.cos(2 * math.pi * s / spokes + (0.01 * r if skew else 0)), (1 + r) * math.sin(2 * math.pi * s / spokes + (0.01 * r if skew else 0)), 0.1] for r in range(rings) for s in range(spokes)]
+    return out[drop:]
+class Run:
+    def __init__(self, pts): self.pts = pts
+    def wavelengths(self): return [0.45, 0.55]
+    def pupil_radius(self): return 64.0
+    def results(self): return [[[0.0, 0.0, 9.0]], self.pts]
+class S:
+    pts = []
+    def __getattr__(self, name):
+        if name.startswith("set_"): return lambda *a: None
+        raise AttributeError(name)
+    def run(self, model): return [Run(S.pts)]
+class Phos: WavefrontErrorSettings = S
+
+def wf(*a, **k):
+    S.pts = samples(*a, **k)
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            rec.wavefront(Phos, "lens", Model(), Path(d), {}); return "ok"
+        except SystemExit as e: return str(e)
+print(json.dumps({"ok": wf(64, 64), "dead": wf(64, 64, drop=1), "few": wf(32, 64), "skew": wf(64, 64, skew=True)}))
+`;
+  const r = spawnSync('python3', ['-B', '-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.ok, 'ok', '64 rings x 64 spokes passes');
+  assert.match(out.dead, /4095 samples.*expected 4096/, 'a dead ray is refused');
+  assert.match(out.few, /2048 samples.*expected 4096/, 'half the samples are refused');
+  assert.match(out.skew, /spoke/, 'rings whose spokes drift apart are refused');
+});
