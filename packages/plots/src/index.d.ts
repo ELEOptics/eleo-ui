@@ -160,8 +160,10 @@ export interface Map2DProps {
 }
 /** A grid drawn as a map: SVG in curve's frame with the grid as one nearest-neighbour `<image>`. Colors come from `map` read at `el`; there is no color option (ADR-0001). */
 export interface Map2DGridProps {
-  /** Rows of cells, row 0 at the top. A cell that is not a finite number is masked: it draws no color, so the page's `--surface` shows. Plain arrays. */
+  /** Rows of cells, row 0 at the top. A cell that is not a finite number is masked: it draws no color, so the page's `--surface` shows. Plain arrays. With `polar`, `values[ring][spoke]` are polar samples instead. */
   values: number[][];
+  /** Polar samples about the origin of `extent`: `radii` in extent units, `angles` in radians from +x, counter-clockwise (y up). `values[ring][spoke]` is the sample at `radii[ring]`, `angles[spoke]`. */
+  polar?: { radii: number[]; angles: number[] };
   /** [x0, x1, y0, y1] in data units: the grid's outer edges. Px per unit are equal on x and y. */
   extent: [number, number, number, number];
   /** Axis labels and ticks. `range` is ignored: the extent sets it. */

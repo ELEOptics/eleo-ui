@@ -31,6 +31,15 @@ const b: string = ELEO.map2D({
 // A log PSF over four decades.
 const c: string = map2D({ values: [[1, 0.01]], extent: [0, 1, 0, 1], scale: 'log', decades: 4 });
 
+// Recorded wavefront samples: values[ring][spoke] on polar radii (extent units) and angles (radians from +x, counter-clockwise).
+const d: string = map2D({
+  values: [[0.1, -0.1, 0.2], [0, 0.05, -0.05]],
+  polar: { radii: [0.5, 1], angles: [0, 2.0944, 4.18879] },
+  extent: [-1, 1, -1, 1],
+  map: 'wave',
+  aperture: { x: 0, y: 0, r: 1 },
+});
+
 // The sample call keeps its canvas signature and result.
 const r: { lo: number; hi: number } = map2D(document.createElement('canvas'), { kind: 'psf', scale: 'log' });
 
@@ -40,4 +49,6 @@ map2D({ values: [[1]] });
 map2D({ values: [['a']], extent: [0, 1, 0, 1] });
 // @ts-expect-error the map names a colormap, not a color
 map2D({ values: [[1]], extent: [0, 1, 0, 1], map: 'red' });
-export { a, b, c, r };
+// @ts-expect-error polar needs both radii and angles
+map2D({ values: [[1]], extent: [-1, 1, -1, 1], polar: { radii: [1] } });
+export { a, b, c, d, r };

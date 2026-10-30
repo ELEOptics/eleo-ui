@@ -60,8 +60,8 @@ test('layout alive type-checks under --strict', () => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
-// Plan #389, O1 (issue #393). tests/types/map2d.ts: a typed grid call (PSF, wavefront with aperture and colorbar, log),
-// the sample canvas call unchanged, and @ts-expect-error on a missing extent, non-numeric values and a color map.
+// Plan #389, O1 (issue #393). tests/types/map2d.ts: a typed grid call (PSF, wavefront with aperture and colorbar, log, polar samples),
+// the sample canvas call unchanged, and @ts-expect-error on a missing extent, non-numeric values, a color map and polar without angles.
 // oracle: spec roadmap Constraints (typed API alongside the old one)
 test('map2D typed grid type-checks', () => {
   const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck', '--lib', 'es2022,dom',
