@@ -832,3 +832,22 @@ test('alive splits a ray at its last alive point', () => {
     [[[1, 1]], /alive/], [[[1, 1, 1], [1]], /alive/], [[[4, 1, 1]], /alive/], [[[-1, 1, 1]], /alive/], [[[1.5, 1, 1]], /alive/], [[['3', 1, 1]], /alive/], [{}, /alive/], [[3], /alive/],
   ]) assert.throws(() => ELEO.layout2D({ data: mk(rays, bad) }), re, JSON.stringify(bad));
 });
+
+// CR #360, issue #363: a mirror is a stroked profile, an obscuration an opaque bar, both under the rays.
+test('mirrors are stroked and obscurations drawn opaque', () => {
+  const surf = (z, extra) => ({ z, sd: 5, stop: false, image: false, glass: null, profile: [[z, -5], [z, 5]], ...extra });
+  const mk = (a, b) => ({ surfaces: [a, b, { ...surf(10, {}), image: true }], rays: [[[[-5, 1], [0, 1], [10, 1]]]] });
+  const rays = (body) => body.indexOf('<g opacity');
+  const mirror = surf(0, { mirror: true, profile: [[0.1, -5], [0, 0], [0.1, 5]] });
+  const { body } = geometry(ELEO.layout2D({ data: mk(mirror, surf(5, {})) }));
+  const lines = [...body.matchAll(/<polyline\b[^>]*>/g)].filter((m) => m.index < rays(body)).map((m) => attrs(m[0]));
+  assert.equal(lines.length, 1, 'one mirror polyline under the rays');
+  assert.deepEqual(pairs(lines[0].points), [[0.1, -5], [0, 0], [0.1, 5]]);
+  assert.match(lines[0].stroke, /var\(--ink\)/);
+  const bar = geometry(ELEO.layout2D({ data: mk(surf(3, { obscuration: true }), surf(5, {})) })).body;
+  const bars = [...bar.matchAll(/<line\b[^>]*>/g)].filter((m) => m.index < rays(bar)).map((m) => attrs(m[0]))
+    .filter((a) => vertical(a) && at(+a.x1, 3));
+  assert.equal(bars.length, 1, 'one obscuration bar under the rays');
+  assert.ok(at(Math.min(+bars[0].y1, +bars[0].y2), -5) && at(Math.max(+bars[0].y1, +bars[0].y2), 5), 'from -sd to +sd');
+  assert.match(bars[0].stroke, /var\(--ink\)/);
+});

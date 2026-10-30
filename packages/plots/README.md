@@ -28,7 +28,7 @@ colorbarEl.style.background = gradient('ember');
 
 ```js
 {
-  surfaces: [{ z, sd, stop, image, glass, profile }],  // glass: null | 'crown' | 'flint' | { name, nd, vd }, the material after the surface
+  surfaces: [{ z, sd, stop, image, glass, profile, mirror?, obscuration? }],  // glass: null | 'crown' | 'flint' | { name, nd, vd }, the material after the surface
   rays: [[[[z, y], ...], ...], ...],                    // rays[fan][ray] is a polyline
   chief: [3, 3, 2],                                     // optional: one ray index per fan
   alive: [[41, 40, 12], ...],                           // optional: alive[fan][ray], the leading points of the ray that are alive
@@ -37,6 +37,7 @@ colorbarEl.style.background = gradient('ember');
 
 `profile` is the surface's section as `[z, y]` points. `data` is a recorded layout, or a system whose `layout` (colored by field) and `layoutWl` (colored by wavelength) are recorded layouts; `colorBy` picks which one.
 
+- **`mirror`, `obscuration`:** optional booleans on a surface. `mirror: true` strokes its `profile` as a polyline in `--ink` (`--stroke-curve`); `obscuration: true` draws an opaque `--ink` bar at `z` from `-sd` to `+sd`. Both sit under the rays, with the glass polygons. Without either flag the drawing is unchanged.
 - **`glass`:** `'crown'` and `'flint'` fill with `--glass-crown` and `--glass-flint`. A `{ name, nd, vd }` glass gets its own fill inside the glass-blue band (`--glass-band-hi` to `--glass-band-lo`): lower `vd` sits toward flint, the same name gets the same fill within a drawing, and up to 8 distinct glasses stay distinct. A fill depends on the drawing's whole glass set, so one glass can fill differently in designs with different glasses. The fill is a CSS color function on `style`, resolved per theme with no redraw.
 - **`alive`:** `alive[k][i]` is the number of leading alive points of `rays[k][i]`, an integer from 0 to its length; without `alive`, every point is alive. A ray with fewer alive points than points is drawn as two polylines sharing its last alive point: the alive part as before, the rest dotted (`stroke-dasharray="1 3"`), both 1 px in the same group at .85. With none alive the whole ray is dotted. A chief's dotted part replaces its `6 4` dash. `layoutBounds` still covers every point. A shape that does not match `rays`, or a count outside 0 to the ray's length, throws an error naming `alive`.
 - **Chief ray:** `chief[k]` for fan k; without `chief`, the fan's middle ray, `floor(n / 2)`. That is eleoptics.com's rule, and it can be wrong for a vignetted fan, so record `chief` when you know it. An index outside the fan throws an error naming the fan.

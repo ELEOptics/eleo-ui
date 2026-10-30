@@ -114,6 +114,9 @@ export function layout2D(o) {
   S.forEach(function (a, i) {
     var b = S[i + 1], obj = a.glass && typeof a.glass === "object";
     if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
+    // A mirror strokes its profile, an obscuration is an opaque bar from -sd to +sd (CR #360); the image line's ink and width.
+    if (a.mirror) g += '<polyline points="' + pts(a.profile) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round" stroke-linejoin="round" ' + NS + "/>";
+    if (a.obscuration) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var ends = [], img = S.filter(function (x) { return x.image; })[0];
