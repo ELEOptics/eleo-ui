@@ -87,7 +87,7 @@ those tails in one call.
 
 ## Milestones
 
-### M1: The recorded Wandersleb triplet drawn with ray status GitHub: `P337 M1: Ray status`
+### M1: The recorded Wandersleb triplet drawn with ray status (done 2026-10-30) GitHub: `P337 M1: Ray status`
 
 Demo: before the first change the orchestrator screenshots main's gallery (both themes, three palettes) to
 `review-assets`. At the demo, `npm run gallery` shows a new Layout2D tile of the Wandersleb triplet, its
@@ -149,3 +149,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-29: review M1 round 2 (1 blocking, 5 backlog). CR #364 accepted, with finding 3, as item #365. Finding 5 pulled in as #366. Finding 6: this file's Constraints line now reads 20 → 22. Findings 2 and 4 are backlog #367 and #368.
 - 2026-10-30: review M1 round 3 (0 blocking, 2 backlog). Both findings pulled in as #369. Carried CRs #349, #351, #352, #360 and #364 all closed.
 - 2026-10-30: #369 re-scoped to the recorder guard (566e4da). Review r3 finding 1 (`alive?` in `layout2d.js`'s header literal) moved to #136: the pre-commit hook refuses a source change without a test, and #136 edits `layout2d.js` with its test.
+- 2026-10-30: M1 done. Review round 4 says 0 blocking with nothing pulled in (its one finding, a speculative guard gap, is backlog #370); CI green on 2a3a54e.
