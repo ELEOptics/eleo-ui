@@ -42,6 +42,8 @@ function inverse(M) {
 
 const near = (p, q) => Math.abs(p[0] - q[0]) <= TOL && Math.abs(p[1] - q[1]) <= TOL;
 const samePath = (got, want) => got.length === want.length && got.every((p, i) => near(p, want[i]));
+// CR #381: a collimated fan's start point moves along its first segment, so rays compare from point 1 on; the start is checked by 'collimated rays start on a pupil-centred arc'.
+const samePathFrom1 = (got, want) => got.length === want.length && got.every((p, i) => i === 0 || near(p, want[i]));
 const at = (x, z) => Math.abs(x - z) <= TOL;
 
 function roundTrip(L, svg) {
@@ -85,10 +87,11 @@ function roundTrip(L, svg) {
   // Rays: every recorded ray is a polyline, and every polyline is a recorded ray.
   const rays = L.rays.flat();
   L.rays.forEach((fan, k) => fan.forEach((want, i) => {
-    assert.ok(polylines.some((got) => samePath(got, want)), `field ${k} ray ${i} recovered`);
-    assert.ok(want.every(visible), `field ${k} ray ${i} lies inside the viewBox`);
+    const got = polylines.find((g) => samePathFrom1(g, want));
+    assert.ok(got, `field ${k} ray ${i} recovered from point 1 on`);
+    assert.ok(got.every(visible), `field ${k} ray ${i} lies inside the viewBox`);
   }));
-  for (const got of polylines) assert.ok(rays.some((want) => samePath(got, want)), 'every polyline is a recorded ray');
+  for (const got of polylines) assert.ok(rays.some((want) => samePathFrom1(got, want)), 'every polyline is a recorded ray');
 }
 
 test('recorded layouts round-trip', async (t) => {
@@ -216,11 +219,18 @@ function bounds(layouts) {
     return { zmin: zmin, zmax: zmax, ylo: ylo - pad, yhi: yhi + pad };
   }
 
+// CR #381: the site's bounds() on the layout with the starts layout2D draws (the box frames what is drawn).
+function withDrawnStarts(L) {
+  const starts = drawnStarts(L, drawn(ELEO.layout2D({ data: L, rays: 'fan' })).polylines);
+  return { ...L, rays: L.rays.map((fan, k) => fan.map((r, i) => [starts[k][i], ...r.slice(1)])) };
+}
+
 test('layoutBounds ports the site', async (t) => {
   for (const name of FIXTURES) {
     await t.test(name, () => {
       const L = fixture(name);
-      assert.deepEqual(layout2dModule.layoutBounds([L]), bounds([L]), `${name}: the site's box`);
+      const got = layout2dModule.layoutBounds([L]), want = bounds([withDrawnStarts(L)]);
+      for (const key of Object.keys(want)) assert.ok(Math.abs(got[key] - want[key]) <= TOL, `${name}: the site's box, ${key} ${got[key]} vs ${want[key]}`);
     });
   }
 });
@@ -236,7 +246,8 @@ test('old shape is named', () => {
 test('empty fan is skipped', () => {
   const L = fixture('merit-before');
   const E = { ...L, rays: L.rays.map((fan, k) => (k === 1 ? [] : fan)) };
-  assert.deepEqual(layout2dModule.layoutBounds([E]), bounds([E]), "an empty fan leaves the site's box as the site computes it");
+  const got = layout2dModule.layoutBounds([E]), want = bounds([withDrawnStarts(E)]);
+  for (const key of Object.keys(want)) assert.ok(Math.abs(got[key] - want[key]) <= TOL, `an empty fan leaves the site's box as the site computes it (${key})`);
   for (const rays of ['fan', 'marginal-chief', 'chief']) {
     let svg;
     assert.doesNotThrow(() => { svg = ELEO.layout2D({ data: E, rays }); }, `${rays}: layout2D draws it`);
@@ -779,21 +790,21 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
       assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `${tag}: alive in 0..len`);
       if (L.dead[k][i]) {
         // CR #372: a dead ray is one solid polyline through its blocking point, no dotted part.
-        assert.ok(solid.some((p) => samePath(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
-        assert.ok(!dotted.some((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
+        assert.ok(solid.some((p) => samePathFrom1(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
+        assert.ok(!dotted.some((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
         claimed++;
         return;
       }
-      const head = a > 0 ? solid.find((p) => samePath(p.pts, ray.slice(0, a))) : undefined;
-      const tail = a < ray.length ? dotted.find((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
+      const head = a > 0 ? solid.find((p) => samePathFrom1(p.pts, ray.slice(0, a))) : undefined;
+      const tail = a < ray.length ? dotted.find((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
       if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
       else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
       if (a > 0 && a < ray.length) {
         assert.ok(head, `${tag}: a solid part recovers points 0..a`);
         assert.ok(near(head.pts[head.pts.length - 1], tail.pts[0]), `${tag}: the parts share the last alive point`);
-        assert.ok(near(tail.pts[0], ray[a - 1]), `${tag}: the shared point is point a - 1`);
+        if (a > 1) assert.ok(near(tail.pts[0], ray[a - 1]), `${tag}: the shared point is point a - 1`);
       }
-      if (a === 0) assert.ok(!solid.some((p) => samePath(p.pts, ray)), `${tag}: no solid polyline at a = 0`);
+      if (a === 0) assert.ok(!solid.some((p) => samePathFrom1(p.pts, ray)), `${tag}: no solid polyline at a = 0`);
       claimed += (head ? 1 : 0) + (tail ? 1 : 0);
       if (tail) { tails++; if (k === L.rays.length - 1) tails28++; }
     }));
@@ -802,6 +813,9 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
     assert.ok(tails28 > 0, `width ${width}: a 28° ray has a dotted part`);
     assert.equal(L.dead.flat().filter(Boolean).length, 1, 'only field 1 ray 10 is dead');
     assert.equal(polygons.length, 3, `width ${width}: three glass polygons`);
+    // CR #381: the starts moved along their first segments onto the pupil-centred arc (c.z 6.38, R 13.96 for this recording).
+    const arc = arcProperties(L, svg, `width ${width}`);
+    assert.ok(Math.abs(arc.c[0] - 6.38) < 0.01 && Math.abs(arc.R - 13.96) < 0.01, `width ${width}: c.z ${arc.c[0]}, R ${arc.R}`);
   }
 });
 
@@ -835,7 +849,11 @@ test('alive splits a ray at its last alive point', () => {
   const g = [...svg.matchAll(/<g opacity="\.85">([\s\S]*?)<\/g>/g)];
   assert.equal(g.length, 1);
   assert.equal([...g[0][1].matchAll(/<polyline\b[^>]*>/g)].length, 2);
-  assert.ok(/<polyline points="0,0 5,1"(?![^>]*stroke-dasharray="1 3")/.test(g[0][1]) && /<polyline points="5,1 9,2"[^>]*stroke-dasharray="1 3"/.test(g[0][1]));
+  // (A fan of one ray is collimated, CR #381: c is the stop's vertex, R = 3 sin(atan(1/5)) + 1.5 = 2.0882, and the start moves back along the first segment to (p - c).d = -R.)
+  const R = 3 / Math.hypot(5, 1) + 1.5, st = [-R * 5 / Math.hypot(5, 1), -R / Math.hypot(5, 1)].map((v) => +v.toFixed(3)).join(',');
+  const solid = g[0][1].match(/<polyline points="[^"]*"[^>]*>/g)[0];
+  assert.ok(solid.startsWith('<polyline points="' + st + ' 5,1"') && !solid.includes('stroke-dasharray="1 3"'), 'the solid part starts at ' + st);
+  assert.ok(/<polyline points="5,1 9,2"[^>]*stroke-dasharray="1 3"/.test(g[0][1]));
   // A bad alive throws, naming itself.
   for (const [bad, re] of [
     [[[1, 1]], /alive/], [[[1, 1, 1], [1]], /alive/], [[[4, 1, 1]], /alive/], [[[-1, 1, 1]], /alive/], [[[1.5, 1, 1]], /alive/], [[['3', 1, 1]], /alive/], [{}, /alive/], [[3], /alive/],
@@ -876,7 +894,7 @@ test('mirrors are drawn as bodies with a flat back', () => {
   const prof = [[0, -8], [-0.25, -4], [-0.5, 0], [-0.25, 4], [0, 8]];
   // Light travels toward +z after surface 0: the back is on the -z side, D/8 = 2 mm past the profile's far z.
   const mk = (mirror, extra = []) => ({ surfaces: [mirror, surf(10, {}), ...extra, { ...surf(20, {}), image: true }], rays: [[[[-10, 1], [0, 1], [10, 1], ...extra.map(() => [15, 1]), [20, 1]]]] });
-  const under = (body) => body.slice(0, body.indexOf('<g opacity'));
+  const under = (body) => body.slice(0, body.indexOf('<g opacity')) + body.slice(body.indexOf('</g>', body.indexOf('<g opacity'))); // CR #381: bodies come after the ray group
   const parts = (L, extra) => {
     const svg = ELEO.layout2D({ data: L, ...extra });
     const { body } = geometry(svg), u = under(body);
@@ -959,7 +977,7 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
     const svg = ELEO.layout2D({ data: L, rays: 'fan', width });
     const { M, body, polygons, polylines } = drawn(svg);
     inverse(M);
-    const under = (m) => m.index < body.indexOf('<g opacity');
+    const under = (m) => m.index < body.indexOf('<g opacity') || m.index > body.indexOf('</g>', body.indexOf('<g opacity')); // not a ray; bodies follow the ray group (CR #381)
     const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke }));
     const solid = parts.filter((p) => !p.dotted && p.pts.length > 0), dotted = parts.filter((p) => p.dotted);
     let claimed = 0;
@@ -967,13 +985,13 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
       const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
       if (L.dead[k][i]) {
         // CR #372: a dead ray is one solid polyline through its blocking point, no dotted part.
-        assert.ok(solid.some((p) => samePath(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
-        assert.ok(!dotted.some((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
+        assert.ok(solid.some((p) => samePathFrom1(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
+        assert.ok(!dotted.some((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
         claimed++;
         return;
       }
-      const head = a > 0 ? solid.find((p) => samePath(p.pts, ray.slice(0, a))) : undefined;
-      const tail = a < ray.length ? dotted.find((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
+      const head = a > 0 ? solid.find((p) => samePathFrom1(p.pts, ray.slice(0, a))) : undefined;
+      const tail = a < ray.length ? dotted.find((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
       if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
       else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
       if (a > 0 && a < ray.length) {
@@ -983,7 +1001,7 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
       claimed += (head ? 1 : 0) + (tail ? 1 : 0);
     }));
     const chief = L.rays[0][L.chief[0]], ca = L.alive[0][L.chief[0]];
-    assert.ok(polylines.some((a) => samePath(pairs(a.points), chief.slice(0, ca + 1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed polyline through point a`);
+    assert.ok(polylines.some((a) => samePathFrom1(pairs(a.points), chief.slice(0, ca + 1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed polyline through point a`);
     assert.ok(chief.some((p, j) => j > 0 && p[0] > chief[j - 1][0]) && chief.some((p, j) => j > 0 && p[0] < chief[j - 1][0]),
       'the chief path reverses in z (folded)');
     assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray part`);
@@ -997,8 +1015,85 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
     assert.ok(back.every((b) => at(Math.max(...zs(b)), Math.max(...primary.profile.map((p) => p[0])) + primary.sd / 4)), `width ${width}: the primary's back is D/8 = sd/4 thick`);
     const sec = bodies.find((b) => Math.min(...zs(b)) < secondary.profile[0][0] - 1);
     assert.ok(sec && at(Math.min(...zs(sec)), Math.min(...secondary.profile.map((p) => p[0])) - secondary.sd / 4), `width ${width}: the secondary's back is D/8 behind it, toward -z`);
+    // CR #381: the starts moved onto the pupil-centred arc (c.z 0, R 106.55 for this recording), clear of the secondary's body.
+    const arc = arcProperties(L, svg, `width ${width}`);
+    assert.ok(Math.abs(arc.c[0]) < 0.01 && Math.abs(arc.R - 106.55) < 0.01, `width ${width}: c.z ${arc.c[0]}, R ${arc.R}`);
     const bars = [...body.matchAll(/<line\b[^>]*>/g)].filter(under).map((m) => attrs(m[0]))
       .filter((a) => vertical(a) && at(+a.x1, obs.z) && a.stroke === 'var(--ink)');
     assert.equal(bars.length, 0, `width ${width}: no obscuration bar, it sits within the secondary's body`);
   }
+});
+
+// CR #381, issue #382: a collimated fan's rays start on a line normal to the fan, every fan's line the same distance R from the pupil's centre c.
+// oracle: property: synthetic layouts plus every fixture and both phos-core recordings; fixture: the user-approved mock's numbers (starts.mjs: Wandersleb c.z 6.38, R 13.96; Cassegrain c.z 0, R 106.55)
+const unit = (a, b) => { const m = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[0] - a[0]) / m, (b[1] - a[1]) / m]; };
+// A fan's common direction, or null when its first segments are not parallel (1e-3 rad: the recordings round their points to 4 decimals over first segments about 1 mm long, up to 6e-5 rad) or it has no rays.
+const fanDir = (fan) => {
+  const ds = fan.map((r) => unit(r[0], r[1]));
+  return ds.length && ds.every((e) => Math.abs(ds[0][0] * e[1] - ds[0][1] * e[0]) < 1e-3 && ds[0][0] * e[0] + ds[0][1] * e[1] > 0) ? ds[0] : null;
+};
+// Every ray's first drawn point, read in drawing order (a ray is one polyline, or two when it is split at its alive count and not dead).
+function drawnStarts(L, polylines) {
+  let n = 0;
+  const out = L.rays.map((fan, k) => fan.map((ray, i) => {
+    const a = L.alive ? L.alive[k][i] : ray.length, first = pairs(polylines[n].points)[0];
+    n += L.dead && L.dead[k][i] ? 1 : (a > 0 ? 1 : 0) + (a < ray.length ? 1 : 0);
+    return first;
+  }));
+  assert.equal(n, polylines.length, 'every polyline is a ray part');
+  return out;
+}
+function arcProperties(L, svg, tag) {
+  const { body, polygons, polylines } = drawn(svg);
+  const starts = drawnStarts(L, polylines);
+  const dirs = L.rays.map(fanDir);
+  const chiefs = L.rays.map((fan, k) => fan[L.chief ? L.chief[k] : Math.floor(fan.length / 2)]);
+  const cross = dirs.map((d, k) => { const e = d && unit(chiefs[k][0], chiefs[k][1]); return e && Math.abs(e[1]) > 1e-9 ? chiefs[k][0][0] - chiefs[k][0][1] * e[0] / e[1] : null; }).filter((z) => z !== null);
+  const c = [cross.length ? cross.reduce((a, b) => a + b) / cross.length : L.surfaces[0].z, 0];
+  const bodies = polygons.filter((a) => /var\(--mech\)/.test(a.fill || '')).map((a) => pairs(a.points));
+  const geo = [...L.surfaces.filter((s) => !s.image).flatMap((s) => s.profile), ...bodies.flat()];
+  const margin = 0.5 * Math.max(...L.surfaces.filter((s) => !s.image).map((s) => s.sd));
+  const along = (p, d) => (p[0] - c[0]) * d[0] + (p[1] - c[1]) * d[1];
+  let R = null;
+  L.rays.forEach((fan, k) => {
+    if (!dirs[k]) { fan.forEach((r, i) => assert.deepEqual(starts[k][i], r[0].map((v) => +v.toFixed(3)), `${tag}: fan ${k} is not collimated and keeps its starts`)); return; }
+    const need = Math.max(...geo.map((g) => -along(g, dirs[k]))) + margin;
+    R = Math.max(R ?? -Infinity, need);
+  });
+  L.rays.forEach((fan, k) => {
+    const d = dirs[k];
+    if (!d) return;
+    fan.forEach((r, i) => {
+      const s = starts[k][i], e = unit(r[0], r[1]);
+      assert.ok(Math.abs((s[0] - r[0][0]) * e[1] - (s[1] - r[0][1]) * e[0]) <= TOL, `${tag}: fan ${k} ray ${i} starts on its first segment's line`);
+      assert.ok(Math.abs(along(s, d) + R) <= TOL, `${tag}: fan ${k} ray ${i} starts R = ${R} from c along d (collinear, normal to d)`);
+      assert.ok(geo.every((g) => (g[0] - s[0]) * d[0] + (g[1] - s[1]) * d[1] > 0), `${tag}: fan ${k} ray ${i} starts in front of every profile and body`);
+    });
+  });
+  // Mirror bodies are drawn after the ray group, so they cover the rays.
+  const rayGroup = body.indexOf('<g opacity'), lastBody = body.lastIndexOf('var(--mech)"');
+  if (bodies.length) assert.ok(rayGroup >= 0 && lastBody > body.indexOf('</g>', rayGroup), `${tag}: mirror bodies come after the ray group`);
+  return { c, R };
+}
+
+test('collimated rays start on a pupil-centred arc', () => {
+  const read = (name) => JSON.parse(readFileSync(new URL(`../fixtures/phos-core/${name}-layout.json`, import.meta.url)));
+  const cases = [...FIXTURES.map((n) => [n, fixture(n)]), ['sample', sample.layout], ['wandersleb', read('wandersleb')], ['cassegrain', read('cassegrain')]];
+  const got = {};
+  for (const [name, L] of cases) for (const width of [1000, 600]) got[name] = arcProperties(L, ELEO.layout2D({ data: L, rays: 'fan', width }), `${name} width ${width}`);
+  // The user-approved mock's numbers.
+  assert.ok(Math.abs(got.wandersleb.c[0] - 6.38) < 0.01 && Math.abs(got.wandersleb.R - 13.96) < 0.01, `Wandersleb c.z ${got.wandersleb.c[0]}, R ${got.wandersleb.R}`);
+  assert.ok(Math.abs(got.cassegrain.c[0]) < 0.01 && Math.abs(got.cassegrain.R - 106.55) < 0.01, `Cassegrain c.z ${got.cassegrain.c[0]}, R ${got.cassegrain.R}`);
+
+  // Synthetic: a collimated on-axis fan and a 10 degree one whose chief crosses the axis at z = 2, and a fan that is not collimated.
+  const surfaces = [{ z: 0, sd: 3, stop: true, profile: [[0, -3], [0, 3]] }, { z: 9, sd: 3, image: true }];
+  const t = Math.tan(10 * Math.PI / 180), tilted = (y) => [[-4, y - 6 * t], [0, y - 2 * t], [9, y + 7 * t]];
+  const mixed = { surfaces, rays: [[[[-5, -1], [0, -1], [9, -1]], [[-6, 0], [0, 0], [9, 0]]], [tilted(0.5), tilted(0)], [[[-5, 0], [0, 1], [9, 2]], [[-2, 1], [0, 1], [9, 1]]]], chief: [1, 1, 1] };
+  const svg = ELEO.layout2D({ data: mixed, rays: 'fan' });
+  arcProperties(mixed, svg, 'synthetic');
+  // On axis everywhere: c is the first surface's vertex, R = 0 + 0.5 sd = 1.5, so every start is at z = -1.5.
+  const axial = { surfaces, rays: [[[[-5, -1], [0, -1], [9, -1]], [[-6, 1], [0, 1], [9, 1]]]] };
+  assert.deepEqual(drawnStarts(axial, drawn(ELEO.layout2D({ data: axial, rays: 'fan' })).polylines), [[[-1.5, -1], [-1.5, 1]]]);
+  // The box frames what is drawn: layoutBounds reaches the moved starts.
+  assert.ok(layoutBounds([axial]).zmin <= -1.5 + 1e-9 && layoutBounds([axial]).zmin > -5, 'layoutBounds uses the moved starts');
 });

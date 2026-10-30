@@ -54,6 +54,47 @@ function mirrorBodies(L, i) {
   return (h ? [side(1), side(-1)] : [a.profile.concat([[zb, a.profile[a.profile.length - 1][1]], [zb, a.profile[0][1]]])]).filter(Boolean);
 }
 
+// CR #381: a collimated fan (every ray's first segment parallel to the first ray's within 1e-3 rad) starts on a line normal to its direction d. Every such
+// line is R from c, the entrance pupil's centre (the mean axis crossing of the off-axis chiefs' first-segment lines, else the first surface's vertex);
+// R clears every non-image profile point and mirror-body vertex, plus 0.5 x the largest non-image sd. Each start moves along its first segment's line;
+// the other points stay. A fan that is not collimated keeps its starts. Returns the rays, the layout's own when nothing moves.
+function movedStarts(L) {
+  var S = L.surfaces, dirs = [], cz = [], geo = [], sd = 0, R = -Infinity, any = false;
+  L.rays.forEach(function (fan, k) {
+    var d = null, ok = fan.length > 0;
+    fan.forEach(function (r) {
+      var e = r.length > 1 && finitePoint(r[0]) && finitePoint(r[1]) ? Math.hypot(r[1][0] - r[0][0], r[1][1] - r[0][1]) : 0;
+      if (!(e > 0)) { ok = false; return; }
+      e = [(r[1][0] - r[0][0]) / e, (r[1][1] - r[0][1]) / e];
+      if (!d) d = e;
+      else if (Math.abs(d[0] * e[1] - d[1] * e[0]) >= 1e-3 || d[0] * e[0] + d[1] * e[1] <= 0) ok = false;
+    });
+    dirs[k] = ok ? d : null;
+    if (!ok) return;
+    any = true;
+    var ci = L.chief && L.chief[k], r = fan[Number.isInteger(ci) && fan[ci] ? ci : Math.floor(fan.length / 2)];
+    var h = Math.hypot(r[1][0] - r[0][0], r[1][1] - r[0][1]), dy = (r[1][1] - r[0][1]) / h; // the chief's own first segment
+    if (Math.abs(dy) > 1e-9) cz.push(r[0][0] - r[0][1] * (r[1][0] - r[0][0]) / (r[1][1] - r[0][1]));
+  });
+  if (!any) return L.rays;
+  S.forEach(function (s, i) {
+    if (s.image) return;
+    if (s.sd > sd) sd = s.sd;
+    geo = geo.concat(s.profile);
+    if (s.mirror) mirrorBodies(L, i).forEach(function (b) { geo = geo.concat(b); });
+  });
+  var c = [cz.length ? cz.reduce(function (a, b) { return a + b; }) / cz.length : S[0].z, 0];
+  dirs.forEach(function (d) { if (d) geo.forEach(function (g) { R = Math.max(R, -((g[0] - c[0]) * d[0] + (g[1] - c[1]) * d[1])); }); });
+  R += sd / 2;
+  return L.rays.map(function (fan, k) {
+    var d = dirs[k];
+    return !d ? fan : fan.map(function (r) {
+      var t = -R - ((r[0][0] - c[0]) * d[0] + (r[0][1] - c[1]) * d[1]);
+      return [[r[0][0] + t * d[0], r[0][1] + t * d[1]]].concat(r.slice(1));
+    });
+  });
+}
+
 /* A port of eleo-website@39d19e4 public/layout.js bounds(), widened for mirrors: z from every ray point, every non-image profile and every mirror body (#367); y from 0, the rays and every
    surface but the image (a standalone stop reaches sd + 2.5, a lens |profile[0][1]|), padded 4%. */
 export function layoutBounds(layouts) {
@@ -74,7 +115,7 @@ export function layoutBounds(layouts) {
   });
   var zmin = Infinity, zmax = -Infinity, ylo = 0, yhi = 0;
   layouts.forEach(function (L) {
-    L.rays.forEach(function (fan) { fan.forEach(function (r) {
+    movedStarts(L).forEach(function (fan) { fan.forEach(function (r) {
       r.forEach(function (p) { zmin = Math.min(zmin, p[0]); zmax = Math.max(zmax, p[0]); ylo = Math.min(ylo, p[1]); yhi = Math.max(yhi, p[1]); });
     }); });
     L.surfaces.forEach(function (s, i) {
@@ -151,11 +192,11 @@ export function layout2D(o) {
   // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
   // in a presentation attribute is not safe. A style with var() is never dropped, so the fill attribute never applies to these;
   // glassFill falls back from the band tokens to crown and flint itself. "crown" and "flint" draw as before.
-  var fills = glassFill(drawnGlasses(S));
+  var fills = glassFill(drawnGlasses(S)), bodies = ""; // mirror bodies, drawn after the rays (CR #381)
   S.forEach(function (a, i) {
     var b = S[i + 1], obj = a.glass && typeof a.glass === "object";
     if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
-    // A mirror is a --mech body with a flat back (CR #371), hatched at 45 degrees every 32 px (mock A); its clipPath id is a hash of its points, so it is
+    // A mirror is a --mech body with a flat back (CR #371), drawn after the ray group (CR #381), hatched at 45 degrees every 32 px (mock A); its clipPath id is a hash of its points, so it is
     // deterministic and one polygon never gets two ids. An obscuration is an opaque bar from -sd to +sd (CR #360; the image line's ink and width),
     // left out when it lies within a mirror body (its z inside, its sd from the mirror's hole up to the mirror's sd).
     if (a.mirror) mirrorBodies(L, i).forEach(function (b) {
@@ -163,16 +204,16 @@ export function layout2D(o) {
       for (var j = 0, h = 5381; j < P.length; j++) h = (h * 33 ^ P.charCodeAt(j)) >>> 0;
       id += h.toString(36);
       for (var k = z0 - (y1 - y0); k <= Math.max.apply(null, zs); k += 32 / s) d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1);
-      g += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + '/>'
+      bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + '/>'
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
     if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
-  var ends = [], img = S.filter(function (x) { return x.image; })[0];
+  var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0];
   // One group holds every ray, so its opacity does not darken where rays cross (a per-polyline stroke-opacity would).
   g += '<g opacity=".85">';
-  L.rays.forEach(function (rays, k) {
+  RAYS.forEach(function (rays, k) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
@@ -186,7 +227,7 @@ export function layout2D(o) {
     });
     ends[k] = rays[c][rays[c].length - 1];
   });
-  g += "</g>";
+  g += "</g>" + bodies;
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>";
   // A text's baseline 5 px above y (mm), kept 10 px inside the top.
