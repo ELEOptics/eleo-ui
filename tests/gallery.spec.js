@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // The gallery's tile count.
-const TILES = 25;
+const TILES = 26;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -109,7 +109,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
@@ -207,6 +207,23 @@ test('recorded wavefront tile draws', async ({ page }) => {
       expect(got.images, `${theme} ${tile} images`).toBe(2);
       expect(got.text, `${theme} ${tile} colorbar`).toContain(unit);
     }
+  }
+});
+
+// Plan #389, #402: the synthetic TEM00 Gaussian irradiance tile draws the typed map with a colorbar. Separate from the skipped O2 acceptance
+// test `gaussian irradiance tile` in map2d.spec.js, which #403 unskips. oracle: one <image>, meta says synthetic, colorbar labelled "Irradiance, relative".
+test('gaussian irradiance tile draws', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const got = await page.locator(`.theme[data-theme="${theme}"] [data-tile="irradiance-gaussian"]`).evaluate((el) => {
+      const svg = el.querySelector('svg');
+      return { images: svg ? svg.querySelectorAll('image').length : 0, text: svg ? svg.textContent : '', meta: el.querySelector('.eleo-plot__meta').textContent };
+    });
+    expect(got.images, `${theme} images`).toBe(2);
+    expect(got.text, `${theme} colorbar`).toContain('Irradiance');
+    expect(got.text, `${theme} colorbar unit`).toContain('relative');
+    expect(got.meta).toMatch(/synthetic/i);
   }
 });
 
