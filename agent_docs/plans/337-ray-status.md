@@ -138,6 +138,7 @@ median, written into the Change log. Proves: O2, O3
 | #345 | U14 for `layout2D` (50 surfaces with 41-point profiles built in the page, 3 fields of 21 rays, half with a dotted tail) | forced (roadmap Constraints: U14 for the renderers a row touches; the existing spec's method, `perf.spec.js:1-3`). Stop: a median over 16 ms is reported | `tests/perf.spec.js` | `perf.spec.js::layout2D redraw (U14)` | #343 |
 | #346 | Changeset: plots minor; its body names `alive`, the chief's dotted tail and #136's message move; its consumed twin | forced (CLAUDE.md: a changeset per user-facing change; #279's twin; `.changeset/bars-limits.md` the model) | `.changeset/ray-status.md`, `tests/unit/release.test.js` | O3 | #343 |
 | #347 | Unskip O2's #136 test and O3 | forced (`workflow.md`, TDD) | `tests/unit/layout2d.test.js`, `tests/unit/release.test.js` | O2, O3 | #343, #344, #136, #345, #346 |
+| #386 | Review M2 r1 findings 1-3: the U14 benchmark's fans are collimated so `movedStarts` runs (re-measured); the release twin matches a phrase unique to this changeset, with its dead assert gone; the header literal gains `dead?` | the review's named fixes; one item, because the source comment needs a test beside it; considered three items | `tests/perf.spec.js`, `tests/unit/release.test.js`, `packages/plots/src/layout2d.js` | `perf.spec.js::layout2D redraw (U14)` | |
 
 ## Risks and spikes
 
@@ -172,3 +173,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30: M1 done again. Review round 8 says 0 blocking with nothing pulled in (its one finding is backlog #385); CI green on 1d47126. Re-demo requested.
 - 2026-10-30 M1 demo (user): go. On field labels at the image plane: "A standard legend may be the right call, but at this level (3 fields) I'm okay with it", added to #70 (deferred label hardening).
 - 2026-10-30: U14 layout2D redraw median 2.10 ms (20 redraws; 50 surfaces with 41-point profiles, 3 fields of 21 rays, half dotted; budget 16 ms). Same run: curve 1.30, panels 0.90, spot 3.20, bars 1.20 ms.
+- 2026-10-30: review M2 round 1 (0 blocking, 3 backlog). All three pulled in as #386. The 2.10 ms U14 median did not run the collimated-start path, so it is re-measured there.
