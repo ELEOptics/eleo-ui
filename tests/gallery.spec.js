@@ -210,6 +210,47 @@ test('recorded wavefront tile draws', async ({ page }) => {
   }
 });
 
+// Plan #389, #435: the props' visible effects, so an adapter that drops `map: 'wave'`, `aperture` or `scale: 'log'` fails. oracle: fixture cooke-wavefront.json
+// (radii[0] row = 0.0024333, max |value| 0.76991, so its step on the symmetric range is round((v + m) / 2m * 255) of the wave map, not the ember map's);
+// the aperture ring is a circle plus the even-odd path; log colorbar ticks are one decade (a quarter of the bar at 4 decades) apart, a linear bar's are not.
+test('recorded wavefront tile draws with its map and aperture, the log PSF with whole decades', async ({ page }) => {
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/phos-core/cooke-wavefront.json', import.meta.url), 'utf8'));
+  const flat = fixture.values.flat().filter((v) => Number.isFinite(v));
+  const m = Math.max(...flat.map(Math.abs)), step = Math.round(((fixture.values[0][0] + m) / (2 * m)) * 255);
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const wf = await page.locator(`.theme[data-theme="${theme}"] [data-tile="wavefront-recorded"]`).evaluate(async (el, step) => {
+      const svg = el.querySelector('svg'), img = svg.querySelector('image');
+      const bitmap = await createImageBitmap(await (await fetch(img.getAttribute('href'))).blob());
+      const g = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d');
+      g.drawImage(bitmap, 0, 0);
+      const px = [...g.getImageData(Math.floor(bitmap.width / 2), Math.floor(bitmap.height / 2), 1, 1).data.slice(0, 3)];
+      const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
+      const wave = window.ELEO.colormap('wave', el)[step], ember = window.ELEO.colormap('ember', el)[step];
+      return {
+        ring: svg.querySelectorAll('circle[fill="none"]').length, even: svg.querySelectorAll('path[fill-rule="evenodd"]').length,
+        isWave: near(px, wave), isEmber: near(px, ember), apart: !near(wave, ember),
+      };
+    }, step);
+    expect(wf.apart, `${theme} wave and ember differ at step ${step}`).toBe(true);
+    expect(wf.isWave, `${theme} wavefront centre is the wave map's step ${step}`).toBe(true);
+    expect(wf.isEmber, `${theme} wavefront centre is not the ember map`).toBe(false);
+    expect(wf.ring, `${theme} aperture ring`).toBe(1);
+    expect(wf.even, `${theme} aperture even-odd path`).toBe(1);
+
+    const bar = await page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-log"] svg[role="img"]`).evaluate((svg) => {
+      const rect = [...svg.querySelectorAll('rect')].find((r) => r.getAttribute('width') === '10');
+      const top = +rect.getAttribute('y'), h = +rect.getAttribute('height');
+      const ys = [...svg.querySelectorAll('line')].filter((l) => +l.getAttribute('x2') - +l.getAttribute('x1') === 3 && +l.getAttribute('x1') === +rect.getAttribute('x') + 10)
+        .map((l) => +l.getAttribute('y1')).sort((a, b) => b - a);
+      return { h, t: ys.map((y) => (top + h - y) / h) };
+    });
+    expect(bar.t.length, `${theme} log colorbar ticks`).toBeGreaterThanOrEqual(4);
+    for (let i = 1; i < bar.t.length; i++) expect(bar.t[i] - bar.t[i - 1], `${theme} log ticks one decade (a quarter bar) apart`).toBeCloseTo(0.25, 2);
+  }
+});
+
 // Plan #389, #402: the synthetic TEM00 Gaussian irradiance tile draws the typed map with a colorbar. Separate from the skipped O2 acceptance
 // test `gaussian irradiance tile` in map2d.spec.js, which #403 unskips. oracle: one <image>, meta says synthetic, colorbar labelled "Irradiance, relative".
 test('gaussian irradiance tile draws', async ({ page }) => {
