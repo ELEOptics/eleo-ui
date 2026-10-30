@@ -553,21 +553,22 @@ test('gaussian irradiance tile', async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('[data-tile="irradiance-gaussian"] .eleo-plot__meta')).toHaveText([/synthetic/i, /synthetic/i]);
   await page.evaluate(o2Helpers);
-  const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
-    const ELEO = window.ELEO, { grid } = window.__o2, lut = ELEO.colormap('ember', el);
-    const n = 128, w = 1, h = 4 / n;
-    const values = Array.from({ length: n }, (_, j) => Array.from({ length: n }, (_, i) => {
-      const x = -2 + (i + 0.5) * h, y = 2 - (j + 0.5) * h;
-      return Math.exp((-2 * (x * x + y * y)) / (w * w));
-    }));
-    el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [-2, 2, -2, 2], map: 'ember', x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, el }));
-    const G = await grid(el.lastElementChild), flat = values.flat(), lo = Math.min(...flat), hi = Math.max(...flat);
-    let wrong = 0;
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-      const c = lut[Math.round(((values[j][i] - lo) / (hi - lo)) * 255)], o = (j * G.w + i) * 4;
-      if (G.w !== n || G.h !== n || G.px[o + 3] !== 255 || [0, 1, 2].some((k) => Math.abs(G.px[o + k] - c[k]) > 1)) wrong++;
-    }
-    return { wrong };
-  });
-  expect(r.wrong, 'cells off their step').toBe(0);
+  for (const theme of ['light', 'dark']) {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="irradiance-gaussian"]`).evaluate(async (tile) => {
+      const ELEO = window.ELEO, { grid } = window.__o2, lut = ELEO.colormap('ember', tile);
+      const n = 128, w = 1, h = 4 / n; // the oracle is the closed form on the tile's stated grid, not the tile's own values
+      const values = Array.from({ length: n }, (_, j) => Array.from({ length: n }, (_, i) => {
+        const x = -2 + (i + 0.5) * h, y = 2 - (j + 0.5) * h;
+        return Math.exp((-2 * (x * x + y * y)) / (w * w));
+      }));
+      const G = await grid(tile.querySelector('svg')), flat = values.flat(), lo = Math.min(...flat), hi = Math.max(...flat);
+      let wrong = 0;
+      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+        const c = lut[Math.round(((values[j][i] - lo) / (hi - lo)) * 255)], o = (j * G.w + i) * 4;
+        if (G.w !== n || G.h !== n || G.px[o + 3] !== 255 || [0, 1, 2].some((k) => Math.abs(G.px[o + k] - c[k]) > 1)) wrong++;
+      }
+      return { wrong };
+    });
+    expect(r.wrong, `${theme}: cells off their step`).toBe(0);
+  }
 });
