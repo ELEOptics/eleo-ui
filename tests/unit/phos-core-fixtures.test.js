@@ -139,3 +139,41 @@ test('seidel recorded per wavelength', () => {
     }
   }
 });
+
+// Plan #337 work item #339. oracle: user the Wandersleb triplet as ELEOptics/phos#310 states it (28 degree lower ray Virtual at S2,
+// 14 degree lower ray vignetted) and phos's fixtures/triplet.toml, which the recording copies.
+test('recorded Wandersleb layout is phos-core\'s trace of phos\'s triplet', () => {
+  const toml = readFileSync(new URL('wandersleb.toml', dir), 'utf8');
+  assert.match(toml, /US 1,073,789/, 'the TOML keeps its source comment');
+  const f = read('../fixtures/phos-core/wandersleb-layout.json');
+  assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+  assert.equal(f.analysis, 'layout');
+  assert.deepEqual(f.fieldsDeg, [0, 14, 28]);
+  const n = 7; // the TOML's surfaces; the image makes eight
+  assert.equal(f.surfaces.length, n + 1, 'seven surfaces and the image');
+  assert.deepEqual(f.surfaces.map((s) => s.glass), ['crown', null, 'crown', null, null, 'crown', null, null], 'glass after each lens front surface');
+  assert.deepEqual(f.surfaces.map((s) => s.stop), f.surfaces.map((_, i) => i === 4), 'the diaphragm, the TOML\'s fifth surface, is the stop');
+  assert.deepEqual(f.surfaces.map((s) => s.image), f.surfaces.map((_, i) => i === n), 'the image is last');
+  for (const s of f.surfaces) {
+    assert.equal(s.profile.length, 41, 'a 41-point profile');
+    assert.ok(s.profile.every((p) => p.every(Number.isFinite)), 'finite profile');
+    assert.equal(s.z, s.profile[20][0], 'z is the profile\'s middle point');
+    assert.equal(s.sd, Math.max(...s.profile.map((p) => Math.abs(p[1]))), 'sd is the largest |y|');
+  }
+  assert.equal(f.rays.length, 3);
+  assert.deepEqual(f.chief, [5, 5, 5]);
+  f.rays.forEach((fan, i) => {
+    assert.equal(fan.length, 11);
+    assert.equal(f.alive[i].length, 11);
+    fan.forEach((ray, j) => {
+      assert.ok(ray.every((p) => p.every(Number.isFinite)), `field ${i} ray ${j}: finite points`);
+      assert.ok(Number.isInteger(f.alive[i][j]) && f.alive[i][j] >= 0 && f.alive[i][j] <= ray.length, `field ${i} ray ${j}: alive in 0..len`);
+    });
+  });
+  const lower = (fan) => fan.reduce((k, r, j) => (r[0][1] < fan[k][0][1] ? j : k), 0);
+  const l28 = lower(f.rays[2]);
+  assert.equal(f.alive[2][l28], 2, 'the 28 degree lower ray is alive through S1 and Virtual at S2 (points: start, S1, S2)');
+  const l14 = lower(f.rays[1]);
+  assert.ok(f.alive[1][l14] < f.rays[1][l14].length, 'the 14 degree lower ray is vignetted: it does not reach the image alive');
+  assert.deepEqual(f.alive[0].filter((a, j) => j > 0 && j < 10 && a !== f.rays[0][j].length), [], 'the on-axis fan is alive but for its marginal rays');
+});

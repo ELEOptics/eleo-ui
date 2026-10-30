@@ -22,15 +22,21 @@ Run from the repo root:
 
     python3 scripts/record-phos-core.py --phos <phos-core>/clients/python/src
 
---only <analysis> records one analysis alone (so far only `seidel`: SeidelCoefficients, default chromatic lines, per
-wavelength the seven terms per surface with phos-core's total last) and leaves the other fixtures untouched, so a rerun
-at a newer phos-core does not rewrite them. Writes tests/fixtures/phos-core/{achromat,cooke}-seidel.json.
+--only <analysis> records one analysis alone and leaves the other fixtures untouched, so a rerun at a newer phos-core
+does not rewrite them:
+  `seidel`: SeidelCoefficients, default chromatic lines, per wavelength the seven terms per surface with phos-core's
+    total last. Writes tests/fixtures/phos-core/{achromat,cooke}-seidel.json.
+  `layout`: the Wandersleb triplet (US 1,073,789, from phos's fixtures/triplet.toml, which it copies to
+    tests/fixtures/phos-core/wandersleb.toml; --triplet gives another path) drawn by visualize_system_2d with 11 rays per
+    field, as a RecordedLayout plus `alive`. Writes tests/fixtures/phos-core/wandersleb-layout.json.
 """
 import argparse
 import json
 import math
+import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -179,6 +185,91 @@ def seidel(phos, lens, model, ref_nm, outdir, header):
     return path
 
 
+LAYOUT_RAYS = 11  # rays per field of the recorded layout; the middle one (5) is the chief
+LAYOUT_SAMPLES = 41  # points per surface profile
+DEFAULT_TRIPLET = Path.home() / "code/ELEOptics/phos/fixtures/triplet.toml"
+
+
+def finite(*xs):
+    return all(math.isfinite(x) for x in xs)
+
+
+def wandersleb(phos, triplet, outdir, header):
+    # Built as phos does (phos src-tauri/src/prescription.rs lens_table): radius 0 is plano (inf), the glasses are constant
+    # index, the TOML's 1-based `stop` is a position in `surfaces`, and a plano stop is typed Aperture. Without that type
+    # the diaphragm clips nothing and the profiles are sized by dead rays (NaN at the rim).
+    dest = outdir / "wandersleb.toml"
+    if triplet.resolve() != dest.resolve():
+        shutil.copyfile(triplet, dest)
+    t = tomllib.loads(dest.read_text())
+    stop = t["stop"] - 1
+    rows = t["surfaces"]
+    surfs = []
+    for i, r in enumerate(rows):
+        plano = r["radius"] == 0.0
+        surfs.append(phos.Surf(
+            radius=math.inf if plano else r["radius"], thickness=r["thickness"],
+            material=phos.MaterialSpec.CONSTANT(name=f"n{i}", index=r["index"]),
+            interface_type=phos.InterfaceType.aperture() if plano and i == stop else None))
+    wl = t["wavelength_nm"] / 1000
+    table = phos.LensTable(
+        wavelengths=[wl], reference_wavelength=wl, aperture=phos.SystemAperture.entrance_pupil_diameter(t["epd"]), stop=stop,
+        fields=phos.FieldSpec.ANGLES(values=[float(f) for f in t["fields_deg"]]), object=phos.ObjectDistance.INFINITY(),
+        surfaces=surfs, image=0.0)
+    model = phos.OpticalModel.from_lens_table(table)
+    res = model.visualize_system_2d(0, LAYOUT_SAMPLES, LAYOUT_RAYS)
+
+    # phos-core lists elements as consecutive interface pairs (each interface twice, but the last two), so the first
+    # interface of every element is one surface each, the detector last. Air-spaced: no cemented dedup.
+    els = res.system.elements
+    profiles = [e.interfaces[0].points for e in els]
+    if len(profiles) != len(rows) + 1:
+        sys.exit(f"wandersleb: {len(profiles)} surfaces, expected the table's {len(rows)} and the image")
+    surfaces = []
+    for i, prof in enumerate(profiles):
+        prof = [[rnd(x), rnd(y)] for x, y in prof if finite(x, y)]
+        if len(prof) != LAYOUT_SAMPLES:
+            sys.exit(f"wandersleb surface {i}: {len(prof)} finite profile points, expected {LAYOUT_SAMPLES}")
+        surfaces.append({"z": prof[len(prof) // 2][0], "sd": max(abs(y) for _, y in prof), "stop": i == stop, "image": i == len(rows),
+                         "glass": "crown" if i < len(rows) and rows[i]["index"] != 1 else None, "profile": prof})
+
+    rays, alive, status = [], [], []
+    sources = res.ray_data.sources
+    if len(sources) != len(t["fields_deg"]):
+        sys.exit(f"wandersleb: {len(sources)} sources for {len(t['fields_deg'])} fields")
+    for src in sources:
+        fan, fan_alive, fan_status = [], [], []
+        for ray in src.rays:
+            kept = []
+            for p in ray.interfaces:
+                if not finite(p.x, p.y):
+                    break
+                kept.append(p)
+            fan.append([[rnd(p.x), rnd(p.y)] for p in kept])
+            fan_alive.append(next((k for k, p in enumerate(kept) if not isinstance(p.status, phos.RayStatus.ALIVE)), len(kept)))
+            fan_status.append([type(p.status).__name__.split(".")[-1] for p in ray.interfaces])
+        rays.append(fan)
+        alive.append(fan_alive)
+        status.append(fan_status)
+
+    # phos#310's two facts, which the Python client must reproduce for the fixture to show anything.
+    lower = lambda fan: min(range(len(fan)), key=lambda j: fan[j][0][1])
+    l28, l14 = lower(rays[2]), lower(rays[1])
+    if status[2][l28][2] != "VIRTUAL":
+        sys.exit(f"wandersleb: the 28 degree lower ray is {status[2][l28][2]} at S2, expected VIRTUAL (statuses {status[2][l28]})")
+    if alive[1][l14] >= len(rays[1][l14]) or status[1][l14][-1] == "ALIVE":
+        sys.exit(f"wandersleb: the 14 degree lower ray reaches the image alive (statuses {status[1][l14]}), expected it vignetted")
+
+    doc = {**header, "lens": "wandersleb", "analysis": "layout", "kind": "visualize_system_2d, 11 rays per field, [z, y] mm",
+           "prescription": {"source": t["source"], "epd": t["epd"], "wavelengthNm": t["wavelength_nm"], "stop": t["stop"],
+                            "surfaces": rows, "file": "wandersleb.toml"},
+           "fieldsDeg": [rnd(f) for f in t["fields_deg"]], "rayCount": LAYOUT_RAYS, "lengthUnit": "mm",
+           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive}
+    path = outdir / "wandersleb-layout.json"
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    return path
+
+
 def record(phos, lens, model, meta, outdir, header):
     srcs = model.sources(0)
     angles = [rnd(field_angle_deg(s)) for s in srcs]
@@ -211,7 +302,8 @@ def main():
     ap.add_argument("--phos", required=True, help="<phos-core>/clients/python/src")
     default_out = str(ROOT / "tests/fixtures/phos-core")
     ap.add_argument("--out", default=default_out)
-    ap.add_argument("--only", choices=["seidel"], help="record only this analysis; the other fixtures are left as they are")
+    ap.add_argument("--only", choices=["seidel", "layout"], help="record only this analysis; the other fixtures are left as they are")
+    ap.add_argument("--triplet", default=str(DEFAULT_TRIPLET), help="phos's fixtures/triplet.toml (--only layout)")
     args = ap.parse_args()
     sys.path.insert(0, args.phos)
     import phos  # noqa: E402
@@ -220,6 +312,13 @@ def main():
     sha = subprocess.check_output(["git", "-C", str(core), "rev-parse", "HEAD"], text=True).strip()
     header = {"phosCore": {"sha": sha}, "script": "scripts/record-phos-core.py",
               "args": ["--phos", "<phos>"] + ([] if args.out == default_out else ["--out", "<out>"]) + (["--only", args.only] if args.only else [])}
+    if args.only == "layout":
+        outdir = Path(args.out)
+        outdir.mkdir(parents=True, exist_ok=True)
+        shown = outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir
+        path = wandersleb(phos, Path(args.triplet), outdir, header)
+        print(f"wrote {shown}/{path.name} (phos-core {sha[:10]})")
+        return
     sample = json.loads((ROOT / "packages/plots/src/sample.json").read_text())
 
     ach = achromat(phos, sample)

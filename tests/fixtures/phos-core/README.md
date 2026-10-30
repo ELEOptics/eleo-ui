@@ -1,6 +1,6 @@
 # phos-core recordings
 
-Raw results of phos-core's Python client for two public lenses, recorded by `scripts/record-phos-core.py` (its
+Raw results of phos-core's Python client for three public lenses, recorded by `scripts/record-phos-core.py` (its
 header says how to build the client with `clients/python/dev.sh`). Each file carries the phos-core commit sha and
 the script's arguments. They are committed; the gate does not re-record them. Numbers are rounded to 6 significant
 digits.
@@ -10,6 +10,10 @@ digits.
   recording's own check, and `tests/unit/phos-core-fixtures.test.js`). Its back focal distance (97.22 mm) is not
   the sample's 97.126: the sample's image plane is the best on-axis RMS focus.
 - `cooke-*`: `OpticalModel.cooke_triplet_kingslake()`, fields 0/17/24 deg in `cooke-mtf.json`, 450/550/650 nm.
+- `wandersleb*`: the air-spaced triplet of US 1,073,789 (E. Wandersleb, Carl Zeiss, 1913, expired), Example 2, from phos's
+  `fixtures/triplet.toml`, copied unchanged with its source comment to `wandersleb.toml` (so the recorder and the tests share
+  one transcription of the patent). Constant-index glasses at 587.6 nm, EPD 15.87 mm, fields 0/14/28 deg, stop the diaphragm
+  (the TOML's `stop = 5` counts from 1; the recorder passes position 4, typed `Aperture`, as phos does). Only the layout is recorded.
 
 | File | Content |
 | -- | -- |
@@ -17,6 +21,7 @@ digits.
 | `<lens>-field-curvature.json` | per source, `results[]` per wavelength: `tangential`, `sagittal` focus shift (mm), `chiefHeight` (mm), `astigmatism` |
 | `<lens>-distortion.json` | per source, `results[]` per wavelength: `realHeight`, `paraxialHeight` (mm), `percent` |
 | `<lens>-spot.json` | SpotDiagram per source (the lens's own sources, as in the MTF file; pupil sampling 32 x 32), per source: `wavelengths` (nm), `points[w]` = `[x, y][]` in mm (the rays alive at the image, so fewer than 32 x 32 where vignetted; relative to the paraxial chief ray at the reference wavelength, the same origin for every wavelength, not the centroid), `enclosingRadius[w]` (smallest enclosing circle, mm) and `enclosingRadiusAll` (polychromatic). No centroid or RMS. Top-level `reference` and `pupilSampling`. About 180 kB (achromat) and 160 kB (Cooke); the gallery fetches the achromat one |
+| `wandersleb-layout.json` | `visualize_system_2d` with 11 rays per field (recorded with `--only layout`): a `RecordedLayout` (`surfaces`: the seven surfaces then the image, each `z` the profile's middle point, `sd` its largest \|y\|, a 41-point `profile`, `stop` on the diaphragm (position 4), `glass: "crown"` after each lens's front surface else `null`; `rays[field][ray]`: `[z, y]` points, each ray cut at its first non-finite point; `chief`: the middle ray, 5) plus `alive[field][ray]`: the index of the first point whose status is not `ALIVE` among the kept points, else their count. Header: `prescription` (the TOML's tables), `fieldsDeg`, `rayCount`. The recorder refuses to write unless the 28 deg lower ray is `VIRTUAL` at S2 and the 14 deg lower ray does not reach the image alive (ELEOptics/phos#310) |
 | `<lens>-seidel.json` | SeidelCoefficients at the default chromatic lines (recorded with `--only seidel`, so at a later phos-core sha than the other files): `results[]` per wavelength (`wavelengthNm`), each with `terms`: `spherical`, `coma`, `astigmatism`, `fieldCurvature`, `distortion`, `axialColor`, `lateralColor` (SI to SV, CL, CT, in that order), each one value per surface then phos-core's total as the last element (mm). No sources or field angles |
 
 The MTF files hold one source per lens field, with the angles read from each source's rotation. The field curvature
