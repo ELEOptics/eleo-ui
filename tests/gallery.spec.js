@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // The gallery's tile count.
-const TILES = 20;
+const TILES = 22;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -53,11 +53,11 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 
 // Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
 // tile doesn't blank the others. The 404 and the gallery's own report of it are the expected console errors.
-for (const [fixture, blanked] of [['mtf', ['mtf', 'mtf-limits']], ['field-curvature', ['fieldCurvature']], ['distortion', ['distortion']], ['spot', ['spot']], ['seidel', ['seidel', 'seidel-terms']]]) {
-  test(`a missing phos-core fixture blanks only its tiles: ${fixture}`, async ({ page }) => {
+for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain']]]) {
+  test(`a missing phos-core fixture blanks only its tiles: ${lens === 'achromat' ? '' : lens + ' '}${fixture}`, async ({ page }) => {
     const thrown = [];
     page.on('pageerror', (e) => thrown.push(e.message));
-    await page.route(`**/achromat-${fixture}.json`, (route) => route.fulfill({ status: 404, body: '' }));
+    await page.route(`**/${lens}-${fixture}.json`, (route) => route.fulfill({ status: 404, body: '' }));
     await page.goto('/gallery/');
     await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
     expect(thrown).toEqual([]);
@@ -109,7 +109,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);

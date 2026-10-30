@@ -1,0 +1,57 @@
+# Air-spaced triplet: US 1,073,789 (E. Wandersleb, Carl Zeiss, 1913, expired), Example 2,
+# transcribed from page 1 of the patent's specification (second sheet of the PDF).
+# Schema: src-tauri/tests/common/optiland.rs. Read by the Rust tests and reference/optiland_ref.py.
+#
+# From the patent: radii r1..r6, thicknesses d_I..d_III, air spaces l1 (front lens to the
+# dispersive lens), l2 (dispersive lens to the diaphragm D), l3 (diaphragm to the rear lens),
+# n_D of each lens, focal length 100, aperture ratio 1:6.3, field up to about 28 degrees.
+# Not from the patent (it gives none of these):
+# - the glasses are constant-index model glass at the printed n_D, at one wavelength (587.6 nm);
+# - epd = 100 / 6.3, rounded to 0.01;
+# - the stop is a plano surface 1.62 behind the dispersive lens;
+# - the last thickness is the paraxial back focal distance of this prescription (y-nu), rounded
+#   to 0.001, so the image plane sits at the paraxial focus.
+# Marginal at full aperture (checked against the scan, #313: Example 2 reads l2 = 1.62, d_I = 3.23,
+# l1 = 1.10, as here; no slip). At f/6.3 (EPD 15.87) the stop's semi-aperture is 6.889, where
+# surface r4 sags 1.6268: the stop plane cuts 0.007 mm into lens II's glass. Lens I has -0.24 mm
+# edge thickness at 9.696, the 28 degree lower rim ray's height. The patent's design, kept as printed.
+source = "https://patents.google.com/patent/US1073789A/en, page 1 (Example 2)"
+epd = 15.87
+fields_deg = [0.0, 14.0, 28.0]
+wavelength_nm = 587.6
+stop = 5
+
+[[surfaces]] # r1, d_I, lens I
+radius = 16.87
+thickness = 3.23
+index = 1.6096
+
+[[surfaces]] # r2, l1
+radius = -117.13
+thickness = 1.10
+index = 1.0
+
+[[surfaces]] # r3, d_II, lens II (dispersive)
+radius = -56.38
+thickness = 0.83
+index = 1.5521
+
+[[surfaces]] # r4, l2
+radius = 15.40
+thickness = 1.62
+index = 1.0
+
+[[surfaces]] # diaphragm D, l3
+radius = 0.0
+thickness = 8.24
+index = 1.0
+
+[[surfaces]] # r5 = infinity, d_III, lens III
+radius = 0.0
+thickness = 2.12
+index = 1.5892
+
+[[surfaces]] # r6, to the image
+radius = -57.51
+thickness = 84.893
+index = 1.0

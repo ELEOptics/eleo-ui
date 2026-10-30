@@ -5,7 +5,7 @@ import { draws } from '../../scripts/record-renderers.mjs';
 
 // Plan 162, O2: the renderers draw what main's build drew at the plan's base.
 // oracle: fixture SVG markup from main's dist at the plan's base (scripts/record-renderers.mjs)
-// The fixture is recorded by scripts/record-renderers.mjs from that build, never from the code under test.
+// The fixture is recorded by scripts/record-renderers.mjs from that build, never from the code under test; the layout2D entries were re-recorded at plan #337 #382 by the user's choice (CR #381).
 const baseline = JSON.parse(readFileSync(new URL('../fixtures/renderers-baseline.json', import.meta.url), 'utf8'));
 
 test('SVG renderers draw the base markup', () => {

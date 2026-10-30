@@ -139,3 +139,77 @@ test('seidel recorded per wavelength', () => {
     }
   }
 });
+
+// Plan #337 work item #339. oracle: user the Wandersleb triplet as ELEOptics/phos#310 states it (28 degree lower ray Virtual at S2,
+// 14 degree lower ray vignetted) and phos's fixtures/triplet.toml, which the recording copies.
+test('recorded Wandersleb layout is phos-core\'s trace of phos\'s triplet', () => {
+  const toml = readFileSync(new URL('wandersleb.toml', dir), 'utf8');
+  assert.match(toml, /US 1,073,789/, 'the TOML keeps its source comment');
+  const f = read('../fixtures/phos-core/wandersleb-layout.json');
+  assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+  assert.equal(f.analysis, 'layout');
+  assert.deepEqual(f.fieldsDeg, [0, 14, 28]);
+  const n = 7; // the TOML's surfaces; the image makes eight
+  assert.equal(f.surfaces.length, n + 1, 'seven surfaces and the image');
+  assert.deepEqual(f.surfaces.map((s) => s.glass), ['crown', null, 'crown', null, null, 'crown', null, null], 'glass after each lens front surface');
+  assert.deepEqual(f.surfaces.map((s) => s.stop), f.surfaces.map((_, i) => i === 4), 'the diaphragm, the TOML\'s fifth surface, is the stop');
+  assert.deepEqual(f.surfaces.map((s) => s.image), f.surfaces.map((_, i) => i === n), 'the image is last');
+  for (const s of f.surfaces) {
+    assert.equal(s.profile.length, 41, 'a 41-point profile');
+    assert.ok(s.profile.every((p) => p.every(Number.isFinite)), 'finite profile');
+    assert.equal(s.z, s.profile[20][0], 'z is the profile\'s middle point');
+    assert.equal(s.sd, Math.max(...s.profile.map((p) => Math.abs(p[1]))), 'sd is the largest |y|');
+  }
+  assert.equal(f.rays.length, 3);
+  assert.deepEqual(f.chief, [5, 5, 5]);
+  f.rays.forEach((fan, i) => {
+    assert.equal(fan.length, 11);
+    assert.equal(f.alive[i].length, 11);
+    fan.forEach((ray, j) => {
+      assert.ok(ray.length > 0 && ray.every((p) => p.every(Number.isFinite)), `field ${i} ray ${j}: non-empty, finite points`);
+      assert.ok(Number.isInteger(f.alive[i][j]) && f.alive[i][j] >= 0 && f.alive[i][j] <= ray.length, `field ${i} ray ${j}: alive in 0..len`);
+    });
+  });
+  const lower = (fan) => fan.reduce((k, r, j) => (r[0][1] < fan[k][0][1] ? j : k), 0);
+  const l28 = lower(f.rays[2]);
+  assert.equal(f.alive[2][l28], 2, 'the 28 degree lower ray is alive through S1 and Virtual at S2 (points: start, S1, S2)');
+  const l14 = lower(f.rays[1]);
+  assert.ok(f.alive[1][l14] < f.rays[1][l14].length, 'the 14 degree lower ray is vignetted: it does not reach the image alive');
+  assert.deepEqual(f.alive[0].filter((a, j) => j > 0 && j < 10 && a !== f.rays[0][j].length), [], 'the on-axis fan is alive but for its marginal rays');
+  // CR #372: dead[field][ray] is true when the first non-ALIVE status is a Dead kind (not Virtual or Missed).
+  assert.equal(f.dead.length, 3);
+  f.dead.forEach((fan) => assert.equal(fan.length, 11));
+  assert.equal(f.dead[1][l14], true, 'the 14 degree lower ray is dead');
+  assert.equal(f.dead.flat().filter(Boolean).length, 1, 'no other ray is dead');
+  assert.equal(f.dead[2][l28], false, 'the 28 degree lower ray is virtual, not dead');
+  assert.deepEqual(f.dead[0].filter((d, j) => j > 0 && j < 10 && d), [], 'the on-axis marginals are not dead');
+});
+
+// Plan #337 work item #357 (CR #352). oracle: user the tutorial Cassegrain of phos-core's models/src/example/cassegrain.rs: its
+// secondary and the obscuration stop the on-axis chief, so the recorded 0 degree chief is not alive at the image.
+test('recorded Cassegrain layout obscures its axial chief', () => {
+  const f = read('../fixtures/phos-core/cassegrain-layout.json');
+  assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+  assert.equal(f.analysis, 'layout');
+  assert.equal(f.rays.length, 3, 'fields 0, 0.35 and 0.5 degrees');
+  assert.deepEqual(f.chief, [5, 5, 5]);
+  f.rays.forEach((fan, i) => {
+    assert.equal(fan.length, 11);
+    assert.equal(f.alive[i].length, 11);
+    fan.forEach((ray, j) => {
+      assert.ok(ray.length > 0 && ray.every((p) => p.every(Number.isFinite)), `field ${i} ray ${j}: non-empty, finite points`);
+      assert.ok(Number.isInteger(f.alive[i][j]) && f.alive[i][j] >= 0 && f.alive[i][j] <= ray.length, `field ${i} ray ${j}: alive in 0..len`);
+    });
+  });
+  assert.ok(f.alive[0][5] < f.rays[0][5].length, 'the 0 degree chief is not alive at the end of its path');
+  // CR #371, #372: the primary's hole, and the obscured rays 4-6 of each field are dead.
+  assert.equal(f.surfaces[1].hole, 10, 'the primary\'s annular aperture starts at 10 mm');
+  assert.equal(f.surfaces.filter((s) => 'hole' in s).length, 1, 'only the primary has a hole');
+  assert.deepEqual(f.dead.map((fan) => fan.map((d, j) => (d ? j : -1)).filter((j) => j >= 0)), [[4, 5, 6], [4, 5, 6], [4, 5, 6]], 'rays 4-6 of each field are dead');
+  // CR #360: the flags mark the optics, and are written only when true.
+  assert.deepEqual(f.surfaces.filter((s) => s.mirror).map((s) => Math.round(s.z)), [0, -75], 'the primary (z 0) and the secondary (z -75) are mirrors');
+  assert.deepEqual(f.surfaces.filter((s) => s.obscuration).map((s) => Math.round(s.z * 100) / 100), [-76.25], 'one obscuration, at z -76.25');
+  assert.ok(f.surfaces.every((s) => s.mirror !== false && s.obscuration !== false), 'flags are written only when true');
+  const w = read('../fixtures/phos-core/wandersleb-layout.json');
+  assert.ok(w.surfaces.every((s) => !('mirror' in s) && !('obscuration' in s)), 'the Wandersleb recording has neither flag');
+});

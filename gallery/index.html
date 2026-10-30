@@ -40,6 +40,8 @@
     <section class="eleo-plot" data-tile="layout2D-fan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
     <section class="eleo-plot" data-tile="layout2D-shared"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
     <section class="eleo-plot" data-tile="layout2D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-wandersleb"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Wandersleb triplet, recorded, fan with ray status</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-wandersleb"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-cassegrain"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cassegrain, recorded, on-axis chief obscured</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-cassegrain"></div></section>
     <div class="row">
       <section class="eleo-plot" data-tile="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
       <section class="eleo-plot" data-tile="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
@@ -83,7 +85,7 @@
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
-    // The MTF, field curvature, distortion, spot and Seidel tiles: the recorded achromat (tests/fixtures/phos-core/README.md)
+    // The MTF, field curvature, distortion, spot and Seidel tiles (the recorded achromat) and the Wandersleb and Cassegrain layout tiles (tests/fixtures/phos-core/README.md)
     // through ELEOAdapters, one fixture each (the Seidel fixture feeds two tiles). Filled by fetch() below; if the script or a recording fails, that
     // key stays unset and only its tile draws nothing.
     var REC = {};
@@ -102,6 +104,8 @@
       'merit-before': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('before'); } },
       'merit-after': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('after'); } },
       'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d) { return ELEO.layout2D({ data: d, width: 1000, marks: false }); } },
+      'layout2D-wandersleb': recTile('layout', ELEO.layout2D),
+      'layout2D-cassegrain': recTile('cassegrainLayout', ELEO.layout2D),
       'spot': recTile('spot', ELEO.spot),
       // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
       'seidel': recTile('seidel', function (d) { return ELEO.bars(Object.assign({}, d, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
@@ -184,23 +188,33 @@
       document.head.appendChild(el);
     });
     // One recorded tile: fetch the fixture, run it through its adapter; a failure blanks only that tile.
-    function recorded(name, file, draw) {
+    function recorded(name, lens, file, draw) {
       return adapters.then(function () {
-        return fetch('/tests/fixtures/phos-core/achromat-' + file + '.json');
+        return fetch('/tests/fixtures/phos-core/' + lens + '-' + file + '.json');
       }).then(function (r) {
-        if (!r.ok) throw new Error('achromat-' + file + '.json: ' + r.status);
+        if (!r.ok) throw new Error(lens + '-' + file + '.json: ' + r.status);
         return r.json();
       }).then(draw).catch(function (e) {
         console.error('gallery: ' + name + ' tile skipped:', e);
       });
     }
     var phos = Promise.all([
-      recorded('mtf', 'mtf', function (d) { REC.mtf = globalThis.ELEOAdapters.mtf(d, { diffraction: true }); }),
-      recorded('fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }),
-      recorded('distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); }),
-      recorded('spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); }),
-      recorded('seidel', 'seidel', function (d) { REC.seidel = globalThis.ELEOAdapters.seidel(d); REC.seidelTerms = globalThis.ELEOAdapters.seidel(d, { by: 'term' }); })
-    ]);
+      ['achromat', [
+        ['mtf', 'mtf', function (d) { REC.mtf = globalThis.ELEOAdapters.mtf(d, { diffraction: true }); }],
+        ['fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }],
+        ['distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); }],
+        ['spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); }],
+        ['seidel', 'seidel', function (d) { REC.seidel = globalThis.ELEOAdapters.seidel(d); REC.seidelTerms = globalThis.ELEOAdapters.seidel(d, { by: 'term' }); }]
+      ]],
+      ['wandersleb', [
+        ['layout', 'layout', function (d) { REC.layout = globalThis.ELEOAdapters.layout(d); }]
+      ]],
+      ['cassegrain', [
+        ['cassegrainLayout', 'layout', function (d) { REC.cassegrainLayout = globalThis.ELEOAdapters.layout(d); }]
+      ]]
+    ].reduce(function (all, lt) {
+      return all.concat(lt[1].map(function (t) { return recorded(t[0], lt[0], t[1], t[2]); }));
+    }, []));
     Promise.all([glasses, merit, phos]).then(function () {
       draw();
       document.body.dataset.ready = 'true';
