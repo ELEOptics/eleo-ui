@@ -763,14 +763,14 @@ test('texts carry the tick style', () => {
 // oracle: fixture phos-core visualize_system_2d of the Wandersleb triplet (US 1,073,789) recorded by scripts/record-phos-core.py; inverting the ray group's transform recovers every point within 0.01 mm
 // A ray with alive count a < len is two polylines sharing its last alive point: points [0, a) solid, [max(a - 1, 0), len) dotted.
 // This reader joins them: it recovers a ray from its solid part, then its dotted part from the shared point on.
-test('recorded Wandersleb ray status round trip (U16)', { skip: 'needs #339 (fixture), #340 (alive), #341 (gallery); #342 unskips' }, () => {
+test('recorded Wandersleb ray status round trip (U16)', () => {
   const L = JSON.parse(readFileSync(new URL('../fixtures/phos-core/wandersleb-layout.json', import.meta.url)));
   assert.ok(Array.isArray(L.alive) && L.alive.length === L.rays.length, 'the recording carries alive per field');
   for (const width of [1000, 600]) {
     const svg = ELEO.layout2D({ data: L, rays: 'fan', width });
     const { M, polygons, polylines } = drawn(svg);
-    const toMm = inverse(M);
-    const parts = polylines.map((a) => ({ pts: pairs(a.points).map(toMm), dotted: a['stroke-dasharray'] === '1 3' }));
+    inverse(M); // the geometry group's matrix is the pixel transform; its points are already mm
+    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3' }));
     const solid = parts.filter((p) => !p.dotted), dotted = parts.filter((p) => p.dotted);
     const startsWith = (got, want) => got.length === want.length && got.every((p, i) => near(p, want[i]));
     let tails = 0, tails28 = 0, claimed = 0;
