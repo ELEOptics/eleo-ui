@@ -614,9 +614,9 @@ test('layoutBounds names a bad input: a non-finite point, a surface with no prof
   for (const p of [[null, 'x'], [NaN, 0], [0, Infinity], [0], 'p', null]) {
     assert.throws(() => layout2dModule.layoutBounds([L, withPoint(p)]),
       { message: 'layoutBounds: layouts[1].rays[2][1] has a non-finite point' }, `point ${JSON.stringify(p)}`);
-    // Without a box, layout2D reaches layoutBounds: the error names the point, not the box.
+    // layout2D names the point itself, before layoutBounds (#136).
     assert.throws(() => ELEO.layout2D({ data: withPoint(p) }),
-      { message: 'layoutBounds: layouts[0].rays[2][1] has a non-finite point' }, `layout2D, point ${JSON.stringify(p)}`);
+      { message: 'layout2D: fan 2 ray 1 has a non-finite point' }, `layout2D, point ${JSON.stringify(p)}`);
   }
   const lens = L.surfaces.findIndex((s) => s.glass), stop = L.surfaces.findIndex((s) => s.stop);
   for (const i of new Set([lens, lens + 1, stop])) {
@@ -767,6 +767,16 @@ test('texts carry the tick style', () => {
       assert.equal(t.class, 'eleo-tick', `${name}: "${t.text}" keeps class eleo-tick`);
       for (const [a, v] of Object.entries(want)) assert.equal(t[a], v, `${name}: "${t.text}" ${a}`);
     }
+  }
+});
+
+// Plan #337, outcome O2 (issue #136; #347 unskips). oracle: spec #136: layout2D names a non-finite ray point itself, before layoutBounds, so the message is the same boxed or not.
+test('bad ray input is named by layout2D, boxed or not (#136)', { skip: '#347 unskips' }, () => {
+  const L = fixture('tolerance');
+  const bad = { ...L, rays: L.rays.map((fan, j) => (j === 2 ? fan.map((r, i) => (i === 1 ? [...r.slice(0, -1), [NaN, 0]] : r)) : fan)) };
+  const box = layout2dModule.layoutBounds([L]);
+  for (const o of [{ data: bad }, { data: bad, box }]) {
+    assert.throws(() => ELEO.layout2D(o), { message: 'layout2D: fan 2 ray 1 has a non-finite point' }, `box ${JSON.stringify(o.box)}`);
   }
 });
 

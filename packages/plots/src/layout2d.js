@@ -1,5 +1,5 @@
 // layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus optional `chief`, `alive`, `dead` and the surface flags `mirror`, `hole` and `obscuration`):
-// {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41], mirror?, hole?, obscuration?}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
+// {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41], mirror?, hole?, obscuration?}], rays: [field][ray][[z, y]…], chief?: number[], alive?: number[][]}, in mm.
 // Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text and the scale bar in px.
 import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
@@ -144,8 +144,8 @@ export function layout2D(o) {
     if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays");
     fan.forEach(function (r, i) {
       if (!Array.isArray(r) || !r.length) throw new Error("layout2D: fan " + k + " ray " + i + " has no points");
-      // A box skips layoutBounds, which names a non-finite point; without one, layoutBounds names it first.
-      if (o.box != null && !r.every(finitePoint)) throw new Error("layout2D: fan " + k + " ray " + i + " has a non-finite point");
+      // layout2D names a non-finite point itself, boxed or not, before layoutBounds.
+      if (!r.every(finitePoint)) throw new Error("layout2D: fan " + k + " ray " + i + " has a non-finite point");
     });
   });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
