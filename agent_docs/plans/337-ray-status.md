@@ -171,3 +171,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30: review M1 round 7 (1 blocking, 3 backlog). The O1 Outcome cell and roadmap U16 reworded to "after the start" (the user's CR #381 choice). CR #383 and findings 2 to 4 → #384. All carried CRs closed.
 - 2026-10-30: M1 done again. Review round 8 says 0 blocking with nothing pulled in (its one finding is backlog #385); CI green on 1d47126. Re-demo requested.
 - 2026-10-30 M1 demo (user): go. On field labels at the image plane: "A standard legend may be the right call, but at this level (3 fields) I'm okay with it", added to #70 (deferred label hardening).
+- 2026-10-30: U14 layout2D redraw median 2.10 ms (20 redraws; 50 surfaces with 41-point profiles, 3 fields of 21 rays, half dotted; budget 16 ms). Same run: curve 1.30, panels 0.90, spot 3.20, bars 1.20 ms.
