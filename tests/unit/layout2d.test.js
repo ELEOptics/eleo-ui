@@ -766,6 +766,7 @@ test('texts carry the tick style', () => {
 test('recorded Wandersleb ray status round trip (U16)', () => {
   const L = JSON.parse(readFileSync(new URL('../fixtures/phos-core/wandersleb-layout.json', import.meta.url)));
   assert.ok(Array.isArray(L.alive) && L.alive.length === L.rays.length, 'the recording carries alive per field');
+  assert.ok(L.dead[1][10] && L.alive[1][10] === 5, 'the recording marks field 1 ray 10 dead at alive 5');
   for (const width of [1000, 600]) {
     const svg = ELEO.layout2D({ data: L, rays: 'fan', width });
     const { M, polygons, polylines } = drawn(svg);
@@ -776,6 +777,13 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
     L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
       const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
       assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `${tag}: alive in 0..len`);
+      if (L.dead[k][i]) {
+        // CR #372: a dead ray is one solid polyline through its blocking point, no dotted part.
+        assert.ok(solid.some((p) => samePath(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
+        assert.ok(!dotted.some((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
+        claimed++;
+        return;
+      }
       const head = a > 0 ? solid.find((p) => samePath(p.pts, ray.slice(0, a))) : undefined;
       const tail = a < ray.length ? dotted.find((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
       if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
@@ -792,6 +800,7 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
     assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray's solid or dotted part`);
     assert.ok(tails > 0, `width ${width}: some ray has a dotted part`);
     assert.ok(tails28 > 0, `width ${width}: a 28° ray has a dotted part`);
+    assert.equal(L.dead.flat().filter(Boolean).length, 1, 'only field 1 ray 10 is dead');
     assert.equal(polygons.length, 3, `width ${width}: three glass polygons`);
   }
 });
@@ -831,6 +840,33 @@ test('alive splits a ray at its last alive point', () => {
   for (const [bad, re] of [
     [[[1, 1]], /alive/], [[[1, 1, 1], [1]], /alive/], [[[4, 1, 1]], /alive/], [[[-1, 1, 1]], /alive/], [[[1.5, 1, 1]], /alive/], [[['3', 1, 1]], /alive/], [{}, /alive/], [[3], /alive/],
   ]) assert.throws(() => ELEO.layout2D({ data: mk(rays, bad) }), re, JSON.stringify(bad));
+});
+
+// CR #372, issue #376: a ray with dead[k][i] is one solid polyline through points [0, a], no dotted part.
+// oracle: property: synthetic layouts; dead rays equal ray.slice(0, a + 1), others keep the shared-point rule; a bad dead throws
+test('a dead ray stops at its blocking point', () => {
+  const surfaces = [{ z: 0, sd: 3, stop: true, profile: [[0, -3], [0, 3]] }, { z: 9, sd: 3, image: true }];
+  const rays = [[[[0, 0], [5, 1], [9, 2]], [[0, 1], [4, 1], [6, 2], [9, 3]], [[0, 0], [9, 1]]]];
+  const alive = [[1, 2, 1]];
+  const parts = (L) => drawn(ELEO.layout2D({ data: L, rays: 'fan' })).polylines.map((a) => ({ pts: pairs(a.points), dash: a['stroke-dasharray'] }));
+  const got = parts({ surfaces, rays, alive, dead: [[false, true, true]] });
+  assert.equal(got.length, 4, 'ray 0 splits in two, rays 1 and 2 are one polyline each');
+  assert.ok(got.some((p) => samePath(p.pts, rays[0][1].slice(0, 3)) && p.dash === '6 4'), 'ray 1 (the chief): one 6 4 dashed polyline through point a');
+  assert.ok(got.some((p) => samePath(p.pts, rays[0][2].slice(0, 2)) && !p.dash), 'ray 2: solid through point a');
+  assert.ok(got.some((p) => samePath(p.pts, rays[0][0].slice(0, 1))) && got.some((p) => p.dash === '1 3' && samePath(p.pts, rays[0][0])), 'ray 0 keeps head and dotted tail');
+  assert.equal(got.filter((p) => p.dash === '1 3').length, 1, 'dead rays have no dotted part');
+  assert.ok(parts({ surfaces, rays, alive, dead: [[false, true, true]], chief: [2] }).some((p) => samePath(p.pts, rays[0][1].slice(0, 3)) && !p.dash), 'a dead non-chief ray is solid');
+  // Without dead the same layout draws today's way.
+  assert.equal(parts({ surfaces, rays, alive }).filter((p) => p.dash === '1 3').length, 3);
+  // A bad dead throws, naming itself.
+  for (const [bad, data] of [
+    [[[false, false]], {}], [[[false, false, false], [false]], {}], [[[false, 1, false]], {}], [[[false, 'true', false]], {}], [{}, {}], [[true], {}],
+    [[[false, false, true]], { alive: [[1, 2, 2]] }], [[[true, false, false]], { alive: [[3, 2, 2]] }],
+  ].map((x) => [x[0], x[1] || {}])) {
+    const L = { surfaces, rays, alive: [[1, 2, 1]], ...data, dead: bad };
+    assert.throws(() => ELEO.layout2D({ data: L }), /layout2D: dead/, JSON.stringify([bad, data]));
+  }
+  assert.throws(() => ELEO.layout2D({ data: { surfaces, rays, dead: [[false, false, false]] } }), /layout2D: dead/, 'dead without alive');
 });
 
 // CR #371, issue #375: a mirror is a body (the profile plus a flat back at D/8 away from the light), hatched, with its hole open;
@@ -905,6 +941,13 @@ test('recorded Cassegrain draws its obscured chief dotted', () => {
     let claimed = 0;
     L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
       const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
+      if (L.dead[k][i]) {
+        // CR #372: a dead ray is one solid polyline through its blocking point, no dotted part.
+        assert.ok(solid.some((p) => samePath(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
+        assert.ok(!dotted.some((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
+        claimed++;
+        return;
+      }
       const head = a > 0 ? solid.find((p) => samePath(p.pts, ray.slice(0, a))) : undefined;
       const tail = a < ray.length ? dotted.find((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
       if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
@@ -915,7 +958,8 @@ test('recorded Cassegrain draws its obscured chief dotted', () => {
       }
       claimed += (head ? 1 : 0) + (tail ? 1 : 0);
     }));
-    const chief = L.rays[0][L.chief[0]];
+    const chief = L.rays[0][L.chief[0]], ca = L.alive[0][L.chief[0]];
+    assert.ok(polylines.some((a) => samePath(pairs(a.points), chief.slice(0, ca + 1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed polyline through point a`);
     assert.ok(chief.some((p, j) => j > 0 && p[0] > chief[j - 1][0]) && chief.some((p, j) => j > 0 && p[0] < chief[j - 1][0]),
       'the chief path reverses in z (folded)');
     assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray part`);

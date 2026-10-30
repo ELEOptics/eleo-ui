@@ -1,4 +1,4 @@
-// layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus optional `chief`, `alive` and the surface flags `mirror`, `hole` and `obscuration`):
+// layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus optional `chief`, `alive`, `dead` and the surface flags `mirror`, `hole` and `obscuration`):
 // {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41], mirror?, hole?, obscuration?}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
 // Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text and the scale bar in px.
 import { idx, svg, NS, esc } from './common.js';
@@ -110,6 +110,18 @@ export function layout2D(o) {
       row.forEach(function (a, i) { if (!Number.isInteger(a) || a < 0 || a > L.rays[k][i].length) throw new Error("layout2D: alive[" + k + "][" + i + "] is not an integer in 0.." + L.rays[k][i].length); });
     });
   }
+  // `dead[k][i]`: true where ray i of fan k was blocked at point a = alive[k][i] (< len); it is drawn solid through that point, no dotted part.
+  if (L.dead != null) {
+    if (L.alive == null) throw new Error("layout2D: dead comes only with alive");
+    if (!Array.isArray(L.dead) || L.dead.length !== L.rays.length) throw new Error("layout2D: dead needs one array per fan (" + L.rays.length + ")");
+    L.dead.forEach(function (row, k) {
+      if (!Array.isArray(row) || row.length !== L.rays[k].length) throw new Error("layout2D: dead[" + k + "] needs one flag per ray of fan " + k + " (" + L.rays[k].length + ")");
+      row.forEach(function (d, i) {
+        if (typeof d !== "boolean") throw new Error("layout2D: dead[" + k + "][" + i + "] is not a boolean");
+        if (d && !(L.alive[k][i] < L.rays[k][i].length)) throw new Error("layout2D: dead[" + k + "][" + i + "] is true but alive[" + k + "][" + i + "] is not below the ray's length");
+      });
+    });
+  }
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
@@ -164,6 +176,8 @@ export function layout2D(o) {
       // A ray with a < len alive points is two polylines sharing point a - 1: [0, a) as before, [max(a - 1, 0), len) dotted.
       var r = rays[i], a = L.alive ? L.alive[k][i] : r.length;
       function part(q, dash) { return '<polyline points="' + pts(q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:1px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + " " + NS + "/>"; }
+      // A dead ray is one polyline through its blocking point a, with no dotted part (a chief keeps its 6 4 dash).
+      if (L.dead && L.dead[k][i]) { g += part(r.slice(0, a + 1), i === c && set !== "chief" ? "6 4" : ""); return; }
       if (a > 0) g += part(r.slice(0, a), i === c && set !== "chief" ? "6 4" : "");
       if (a < r.length) g += part(r.slice(Math.max(a - 1, 0)), "1 3");
     });
