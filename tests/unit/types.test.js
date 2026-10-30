@@ -50,3 +50,12 @@ test('layout mirror and obscuration type-check under --strict', () => {
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/layout2d-mirror.ts', import.meta.url))], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
+
+// Plan #337, O2 (issue #343; #344 types alive and unskips). tests/types/layout2d-alive.ts: a layout with `alive` passes layout2D,
+// and @ts-expect-error on alive: [[true]].
+// oracle: spec roadmap Constraints (typed API alongside the old one)
+test('layout alive type-checks under --strict', { skip: 'plan #337 #344 types alive' }, () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/layout2d-alive.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
