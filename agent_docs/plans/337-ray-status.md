@@ -64,7 +64,7 @@ those tails in one call.
 
 ## Constraints and assumptions
 
-- Roadmap constraints: typed alongside the old; every gallery tile keeps working (20 → 21); `eleo-layout.js`
+- Roadmap constraints: typed alongside the old; every gallery tile keeps working (20 → 22, CR #352); `eleo-layout.js`
   within 2 kB of a baseline re-recorded at M's start; U14 for `layout2D`. Recorded fixtures: public lenses; the
   Wandersleb triplet joins the achromat and the Cooke (user, 2026-10-12).
 - Assumption: phos-core's Python client, built as phos builds it, reproduces ELEOptics/phos#310's non-alive rays.
@@ -108,6 +108,8 @@ non-alive tails dotted, in both themes and palettes; every other tile unchanged.
 | #363 | CR #360: `layout2D` strokes a `mirror` profile and draws an `obscuration` as an opaque bar, under the rays; without the flags the baseline is byte-identical; plots README | in the geometry group as the glass polygons, because the same transform maps them; considered a separate optics group | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js`, `packages/plots/README.md` | `layout2d.test.js::mirrors are stroked and obscurations drawn opaque` | #361 |
 | #358 | CR #352: `layout2D` draws the recorded Cassegrain's folded path, its 0° chief solid then dotted, its mirrors stroked and its obscuration opaque (CR #360); the parts recover every point within 0.01 mm at two widths | the Wandersleb round trip reused, because the drawing rule is the same; considered a synthetic folded layout (it doesn't show a real obscuration) | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::recorded Cassegrain draws its obscured chief dotted` | #357, #362, #363 |
 | #359 | CR #352: gallery tile `layout2D-cassegrain` after the Wandersleb tile; `TILES` 22 | the Wandersleb tile's path (`recorded`, `ELEOAdapters.layout`, `recTile`), because the adapter is lens-agnostic; considered a separate adapter | `gallery/index.html`, `tests/gallery.spec.js`, `tests/fixtures/phos-core/adapters.js` | `gallery.spec.js::a missing phos-core fixture blanks only its tiles: cassegrain layout` | #357, #358 |
+| #365 | CR #364: `layout2d.js`'s header names `alive`, `mirror` and `obscuration`; review r2 finding 3: a profileless `mirror` throws a named error | the review's named fixes, because both are one line in a file M1 changed; considered a separate item each | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::mirrors are stroked and obscurations drawn opaque` | |
+| #366 | Review r2 finding 5: the recorder checks the material and the aperture of each interface it flags, and exits on a mismatch | a guard on phos-core's element order, because the flags are set by position; considered trusting the fixture test alone | `scripts/record-phos-core.py` | the recording byte-identical at phos-core 580090e7 | |
 
 ### M2: Types, #136, the redraw budget and the release GitHub: `P337 M2: Types and release`
 
@@ -143,3 +145,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-29: review M1 round 1 (2 blocking, 5 backlog). CR #351 accepted (item #354). CR #352 (no non-alive chief in the recording) is queued for the user. Findings 4-6 pulled in as #353. Findings 3 and 7 are backlog #355 and #356.
 - 2026-10-29 CR #352 (user): "Use an on-axis Cassegrain system, where the chief ray is typically vignetted by the central obscuration." Accepted as items #357, #358 and #359 from phos-core's tutorial Cassegrain. The M1 demo decides the chief's rule on its tile, and the gallery goes from 21 to 22 tiles.
 - 2026-10-29 CR #360 (user): `mirror`. Optional `mirror?` and `obscuration?` on `RecordedSurface` (Core, approved through the CR), as items #361, #362 and #363; #358 now runs after them and asserts the optics drawn. M2's changeset (#346) names the two flags too.
+- 2026-10-29: review M1 round 2 (1 blocking, 5 backlog). CR #364 accepted, with finding 3, as item #365. Finding 5 pulled in as #366. Finding 6: this file's Constraints line now reads 20 → 22. Findings 2 and 4 are backlog #367 and #368.
