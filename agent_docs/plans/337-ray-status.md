@@ -43,13 +43,13 @@ those tails in one call.
 
 | ID | Outcome | Acceptance test (given / when / then) | Oracle | Test |
 | -- | -- | -- | -- | -- |
-| O1 | `RecordedLayout.alive?: number[][]` (leading alive points per `rays[field][ray]`) makes `layout2D` draw each ray's alive part solid and the rest, from its last alive point, dotted (`1 3`), in the same ray group; a layout without `alive` draws byte-identical to today. The gallery draws the recorded Wandersleb triplet, its three lenses filled. | given the Wandersleb layout recorded by `scripts/record-phos-core.py`, when drawn with `rays: "fan"` at two widths, then for each ray with `0 < a < len` the solid and dotted polylines share exactly its last alive point and together recover every point within 0.01 mm through the inverse transform; a ray with `a = 0` is one dotted polyline, with `a = len` one solid; at least one 28° ray has a dotted part; three glass polygons are drawn; the renderer baseline still holds | `fixture: phos-core visualize_system_2d of the Wandersleb triplet (US 1,073,789) recorded by scripts/record-phos-core.py` (user); `property: a layout without alive gives a byte-identical SVG` (tests/fixtures/renderers-baseline.json); `user: the layout tiles in both themes and palettes` | `tests/unit/layout2d.test.js::recorded Wandersleb ray status round trip (U16)` |
+| O1 | `RecordedLayout.alive?: number[][]` (leading alive points per `rays[field][ray]`) makes `layout2D` draw each ray's alive part solid and the rest, from its last alive point, dotted (`1 3`), in the same ray group; a layout without `alive` draws byte-identical to today. The gallery draws the recorded Wandersleb triplet, its three lenses filled. | given the Wandersleb layout recorded by `scripts/record-phos-core.py`, when drawn with `rays: "fan"` at two widths, then for each ray with `0 < a < len` not marked `dead` the solid and dotted polylines share exactly its last alive point, and a `dead` ray is one solid polyline through its blocking point (CR #372) and together recover every point within 0.01 mm through the inverse transform; a ray with `a = 0` is one dotted polyline, with `a = len` one solid; at least one 28° ray has a dotted part; three glass polygons are drawn; the renderer baseline still holds | `fixture: phos-core visualize_system_2d of the Wandersleb triplet (US 1,073,789) recorded by scripts/record-phos-core.py` (user); `property: a layout without alive gives a byte-identical SVG` (tests/fixtures/renderers-baseline.json); `user: the layout tiles in both themes and palettes` | `tests/unit/layout2d.test.js::recorded Wandersleb ray status round trip (U16)` |
 | O2 | The typed API: `alive?: number[][]` on `RecordedLayout`. Bad `alive` and a non-finite ray point are named by `layout2D` itself, boxed or not (#136). | given `tests/types/layout2d-alive.ts`, when `tsc --strict` runs, then a layout with `alive` passes and `alive: [[true]]` fails; and `layout2D` without a box names `layout2D: fan 2 ray 1 has a non-finite point` | `spec roadmap Constraints (typed API alongside the old one)`; `spec #136` | `tests/unit/types.test.js::layout alive type-checks under --strict`, `tests/unit/layout2d.test.js::bad ray input is named by layout2D, boxed or not (#136)` |
 | O3 | The release is planned: a plots minor. | given the branch, when `.changeset/ray-status.md` is parsed, then it is `{"@eleoptics/plots": "minor"}`; once consumed, its CHANGELOG entry | `spec roadmap Constraints; semver 0.x` | `tests/unit/release.test.js::ray-status changeset asks a plots minor` |
 
 ## Non-goals
 
-- Status kinds drawn differently (virtual vs missed vs dead): ELEOptics/phos#310 draws them alike.
+- Virtual and Missed drawn differently: both stay dotted, as ELEOptics/phos#310 draws them. Dead is the exception: it stops at its blocking point, with no tail (CR #372, the user at the M1 demo).
 - `layout3D`: row J. Panel fit and a ray-count input: phos's side of ELEOptics/phos#310.
 - A plots-svelte change: `Layout2D.svelte` passes `data` through and takes its type from `index.d.ts`.
 - The layout2D label hardening (#70, #125, #138, #139, #156, #160): deferred by the roadmap.
@@ -80,6 +80,8 @@ those tails in one call.
   `rays are 1 px at .85` holds and crossings don't darken; phos uses `1 4` today). `a = 0` draws one dotted
   polyline. A chief's dotted part replaces its `6 4` dash there; the M1 demo decides the chief's rule.
 - Bounds: `layoutBounds` keeps every point, as phos's box does.
+- Dead rays (CR #372): `dead?: boolean[][]` beside `alive`. A dead ray is drawn solid through point `alive` (where it was blocked) and stops there. Considered hiding the whole ray, dropping every tail, or a Cassegrain-only tile change.
+- Mirrors (CR #360, CR #371): `mirror?`, `obscuration?` and `hole?` on `RecordedSurface`. A mirror is a body: the profile, a flat back at D/8 on the side away from the light, `--mech` fill with sparse hatching, and a `--mech-edge` outline. An annulus is drawn as two bodies. `layoutBounds` covers the bodies (#367).
 - Labels: a field label stays at its chief's last point, dotted or not.
 - Core changes approved with the plan: `packages/plots/src/index.d.ts` (`alive?: number[][]` on
   `RecordedLayout`). The roadmap's U16 is edited to the approved wording (the last alive point; the Wandersleb
@@ -87,7 +89,7 @@ those tails in one call.
 
 ## Milestones
 
-### M1: The recorded Wandersleb triplet drawn with ray status (done 2026-10-30) GitHub: `P337 M1: Ray status`
+### M1: The recorded Wandersleb triplet drawn with ray status GitHub: `P337 M1: Ray status`
 
 Demo: before the first change the orchestrator screenshots main's gallery (both themes, three palettes) to
 `review-assets`. At the demo, `npm run gallery` shows a new Layout2D tile of the Wandersleb triplet, its
@@ -111,6 +113,10 @@ non-alive tails dotted, in both themes and palettes; every other tile unchanged.
 | #365 | CR #364: `layout2d.js`'s header names `alive`, `mirror` and `obscuration`; review r2 finding 3: a profileless `mirror` throws a named error | the review's named fixes, because both are one line in a file M1 changed; considered a separate item each | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::mirrors are stroked and obscurations drawn opaque` | |
 | #366 | Review r2 finding 5: the recorder checks the material and the aperture of each interface it flags, and exits on a mismatch | a guard on phos-core's element order, because the flags are set by position; considered trusting the fixture test alone | `scripts/record-phos-core.py` | the recording byte-identical at phos-core 580090e7 | |
 | #369 | Review r3 finding 2: the recorder checks the recorded `surfaces` it flags (sd of the obscuration and of the primary) | the review's named fixes, because each is one line beside an M1 change; considered leaving them as backlog | `scripts/record-phos-core.py` | both recordings byte-identical at phos-core 580090e7 | |
+| #373 | CR #371, #372 (Core): `hole?: number` on `RecordedSurface`, `dead?: boolean[][]` on `RecordedLayout`, documented; the mirror types file extended | forced (CLAUDE.md Core: `index.d.ts`; a test beside it); considered a status-kind enum per ray (three kinds for one drawing rule) | `packages/plots/src/index.d.ts`, `tests/types/layout2d-mirror.ts`, `tests/unit/types.test.js` | `types.test.js::layout mirror and obscuration type-check under --strict` | |
+| #374 | CR #371, #372: the recordings carry `hole` (Cassegrain primary, 10) and `dead` (first non-alive status is Dead) | the recorder reads what it built and the statuses it traced; considered inferring `dead` in `layout2D` | `scripts/record-phos-core.py`, `tests/fixtures/phos-core/wandersleb-layout.json`, `tests/fixtures/phos-core/cassegrain-layout.json`, `tests/fixtures/phos-core/README.md`, `tests/unit/phos-core-fixtures.test.js` | `phos-core-fixtures.test.js` (both recorded tests) | |
+| #375 | CR #371: a mirror is a hatched `--mech` body with a flat back at D/8 away from the light, the hole open, no obscuration bar inside a body; `layoutBounds` covers bodies and every ray point (absorbs #367) | the user's mock A; the existing `mech` tokens, because they name mechanical parts and plots don't use them yet; considered a new mirror token | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js`, `packages/plots/README.md` | `layout2d.test.js::mirrors are drawn as bodies with a flat back` | #373 |
+| #376 | CR #372: a `dead` ray is one solid polyline through its blocking point, no tail; validated; O1's and the Cassegrain test's readers follow | solid through the blocking point, because the Cassegrain's obscured rays have one alive point; considered stopping at the last alive point (draws nothing) | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js`, `packages/plots/README.md` | `layout2d.test.js::a dead ray stops at its blocking point` | #373, #374, #375 |
 
 ### M2: Types, #136, the redraw budget and the release GitHub: `P337 M2: Types and release`
 
@@ -150,3 +156,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30: review M1 round 3 (0 blocking, 2 backlog). Both findings pulled in as #369. Carried CRs #349, #351, #352, #360 and #364 all closed.
 - 2026-10-30: #369 re-scoped to the recorder guard (566e4da). Review r3 finding 1 (`alive?` in `layout2d.js`'s header literal) moved to #136: the pre-commit hook refuses a source change without a test, and #136 edits `layout2d.js` with its test.
 - 2026-10-30: M1 done. Review round 4 says 0 blocking with nothing pulled in (its one finding, a speculative guard gap, is backlog #370); CI green on 2a3a54e.
+- 2026-10-30 M1 demo (user): no-go. "I like option A the best" (mirror bodies, mocks on the PR), with the primary's hole and suggestions 2-5 → CR #371. "we should not show the vignetted rays", clarified as "Dead tails only" → CR #372. Items #373, #374, #375 and #376; #367 absorbed. M1 unticked until the re-demo.
