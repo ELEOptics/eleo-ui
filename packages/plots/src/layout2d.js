@@ -1,5 +1,5 @@
-// layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus an optional `chief`):
-// {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41]}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
+// layout2D on the recorded format (eleoptics.com's scripts/layout.py, plus optional `chief`, `alive` and the surface flags `mirror` and `obscuration`):
+// {surfaces: [{z, sd, stop, image, glass, profile: [[z, y] × 41], mirror?, obscuration?}], rays: [field][ray][[z, y]…], chief?: number[]}, in mm.
 // Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text and the scale bar in px.
 import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
@@ -16,10 +16,10 @@ function chiefOf(L, k) {
 }
 // A [z, y] pair of finite numbers.
 function finitePoint(p) { return Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]); }
-// Every surface but the image needs a profile of finite [z, y] pairs: layoutBounds and reach() read profile[0], the
+// Every surface but the image (a mirror image included) needs a profile of finite [z, y] pairs: layoutBounds and reach() read profile[0], the
 // glass polygon all of it. The error's tail, or "" for a drawable surface.
 function badProfile(s) {
-  if (s.image) return "";
+  if (s.image && !s.mirror) return "";
   if (!Array.isArray(s.profile) || !s.profile.length) return " has no profile";
   return s.profile.every(finitePoint) ? "" : " has a profile with a non-finite point";
 }

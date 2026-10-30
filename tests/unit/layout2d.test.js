@@ -850,6 +850,7 @@ test('mirrors are stroked and obscurations drawn opaque', () => {
   assert.equal(bars.length, 1, 'one obscuration bar under the rays');
   assert.ok(at(Math.min(+bars[0].y1, +bars[0].y2), -5) && at(Math.max(+bars[0].y1, +bars[0].y2), 5), 'from -sd to +sd');
   assert.match(bars[0].stroke, /var\(--ink\)/);
+  assert.throws(() => ELEO.layout2D({ data: mk(surf(0, {}), { ...surf(5, {}), image: true, mirror: true, profile: undefined }) }), /^Error: layout2D: /, 'a profileless mirror image is a named error');
 });
 
 // CR #352, issue #358: the recorded Cassegrain, a folded path (rays reverse in z) whose 0° chief the obscuration stops.
