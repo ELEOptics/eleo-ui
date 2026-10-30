@@ -116,7 +116,7 @@ if (process.env.PERF === '1') test('bars redraw (U14)', async ({ page }) => {
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });
 
-// U14 for layout2D (plan #337, #345): 50 surfaces with 41-point profiles, 3 fields of 21 rays, half with a dotted tail (alive), same method as above.
+// U14 for layout2D (plan #337, #345): 50 surfaces with 41-point profiles, 3 fields of 21 rays, half with a dotted tail (alive), collimated fans (parallel first segments, so the starts move), same method as above.
 if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body[data-ready]')).toHaveCount(1);
@@ -129,7 +129,8 @@ if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => 
         profile: Array.from({ length: 41 }, (_, i) => { const y = -sd + (2 * sd * i) / 40; return [z + c * y * y, y]; }),
       };
     });
-    const pts = (f, r) => Array.from({ length: 51 }, (_, k) => [k * 5, (r / 20 - 0.5) * 18 * (1 - k / 60) + f * k * 0.05]);
+    // one slope per fan on the first segment (collimated), so the moved-starts path runs; the rays converge after it
+    const pts = (f, r) => Array.from({ length: 51 }, (_, k) => [k * 5, (r / 20 - 0.5) * 18 * (1 - Math.max(0, k - 1) / 60) + f * k * 0.05]);
     const rays = Array.from({ length: 3 }, (_, f) => Array.from({ length: 21 }, (_, r) => pts(f, r)));
     const alive = rays.map((fan) => fan.map((_, r) => (r % 2 ? 30 : 51)));
     const data = { surfaces, rays, alive };

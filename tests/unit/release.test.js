@@ -296,8 +296,8 @@ test('bars-limits changesets became a plots minor and a plots-svelte minor',
 // Plan #337 (agent_docs/plans/337-ray-status.md), O3, issue #343; #346 adds the changeset, #347 unskips.
 // oracle: spec roadmap Constraints (a typed API added alongside the old one ships as a minor); semver 0.x.
 // Read as the bars-limits pair above: the file, or once `changeset version` deleted it, the CHANGELOG entry.
-// The changeset body names `alive` (#346), so the entry is the one whose text names it.
-const RAY_STATUS_ENTRY = /`alive`/;
+// The entry is matched by a phrase only this changeset has (#346), not the generic `alive`.
+const RAY_STATUS_ENTRY = /the per-ray alive points/;
 const rayStatusConsumed = !existsSync(join(repo, '.changeset', 'ray-status.md'))
   && RAY_STATUS_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'));
 
@@ -308,6 +308,5 @@ test('ray-status changeset asks a plots minor',
 
 test('ray-status changeset became a plots minor',
   { skip: (!rayStatusConsumed && 'changesets not yet versioned') }, () => {
-    assert.ok(rayStatusConsumed || !existsSync(join(repo, '.changeset', 'ray-status.md')), 'changesets not yet versioned');
     assert.equal(entry('plots', RAY_STATUS_ENTRY).kind, 'Minor');
   });
