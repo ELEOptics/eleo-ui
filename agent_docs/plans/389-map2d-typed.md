@@ -1,7 +1,7 @@
 # Plan #389: `map2D` on typed grids
 
 Status: approved 2026-10-30
-Branch: `plan/389-map2d-typed` PR: #<pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row F
+Branch: `plan/389-map2d-typed` PR: #409 Depends on: none Roadmap: `agent_docs/roadmap.md`, row F
 
 ## Problem
 
