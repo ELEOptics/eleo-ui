@@ -90,7 +90,7 @@ those tails in one call.
 
 ## Milestones
 
-### M1: The recorded Wandersleb triplet drawn with ray status GitHub: `P337 M1: Ray status`
+### M1: The recorded Wandersleb triplet drawn with ray status (done 2026-10-30) GitHub: `P337 M1: Ray status`
 
 Demo: before the first change the orchestrator screenshots main's gallery (both themes, three palettes) to
 `review-assets`. At the demo, `npm run gallery` shows a new Layout2D tile of the Wandersleb triplet, its
@@ -169,3 +169,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30 (user): ray starts "layout2D, as mocked", scope "Always on" → CR #381, item #382. O1's byte-identical property reworded to "after the start", and the renderer baseline is re-recorded.
 - 2026-10-30: #382's collimation tolerance is 1e-3 rad, not the CR's 1e-6: the recordings round to 4 decimals (the orchestrator's spec error).
 - 2026-10-30: review M1 round 7 (1 blocking, 3 backlog). The O1 Outcome cell and roadmap U16 reworded to "after the start" (the user's CR #381 choice). CR #383 and findings 2 to 4 → #384. All carried CRs closed.
+- 2026-10-30: M1 done again. Review round 8 says 0 blocking with nothing pulled in (its one finding is backlog #385); CI green on 1d47126. Re-demo requested.
