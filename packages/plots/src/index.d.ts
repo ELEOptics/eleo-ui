@@ -1,6 +1,7 @@
-/* @eleoptics/plots. All SVG output reads colors from tokens.css
-   variables; the sample `map2D(canvas, ...)` and `layout3D` are canvas renderers that read them at draw time, so call them
-   again after a theme or palette change. The typed `map2D(props)` returns SVG with the grid baked into one image. */
+/* @eleoptics/plots. SVG output reads colors from tokens.css
+   variables, except the typed `map2D(props)`, which returns SVG with its grid baked into one image at draw time: draw it
+   again after a theme or palette change. The sample `map2D(canvas, ...)` and `layout3D` are canvas renderers that read
+   the variables at draw time, so call them again after a theme or palette change. */
 
 export type IndexKey = "field" | "wavelength";
 

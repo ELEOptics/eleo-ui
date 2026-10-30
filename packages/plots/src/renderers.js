@@ -1,5 +1,6 @@
 /* ELEO plot renderers. Plain functions, no framework. SVG renderers return markup that reads colors from
-   tokens.css variables, so one drawing works in both themes. Canvas renderers read the variables at draw time:
+   tokens.css variables, so one drawing works in both themes, except the typed map2D(props), which bakes its cells
+   at draw time: draw it again after a theme or palette change. Canvas renderers read the variables at draw time:
    call them again after a theme or palette change. Sample data: a traced AC254-100-A style achromat (see ELEO.sample.note). */
 import { layout2D as recordedLayout2D } from "./layout2d.js";
 import { state, data, useSample } from "./data.js";

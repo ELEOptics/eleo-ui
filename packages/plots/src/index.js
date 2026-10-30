@@ -1,5 +1,6 @@
 // @eleoptics/plots: ELEO's optical plot renderers. SVG renderers return markup whose colors are
-// tokens.css variables, so one drawing follows the theme; the canvas renderers (the sample map2D(canvas, ...),
+// tokens.css variables, so one drawing follows the theme, except the typed map2D(props), which bakes its cells
+// at draw time: draw it again after a theme or palette change. The canvas renderers (the sample map2D(canvas, ...),
 // layout3D) read the variables when they draw, so call them again after a theme or palette change. Needs @eleoptics/tokens' tokens.css.
 import ELEO from './renderers.js';
 import * as physics from './physics.js';
