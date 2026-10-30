@@ -772,13 +772,12 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
     inverse(M); // the geometry group's matrix is the pixel transform; its points are already mm
     const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3' }));
     const solid = parts.filter((p) => !p.dotted), dotted = parts.filter((p) => p.dotted);
-    const startsWith = (got, want) => got.length === want.length && got.every((p, i) => near(p, want[i]));
     let tails = 0, tails28 = 0, claimed = 0;
     L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
       const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
       assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `${tag}: alive in 0..len`);
-      const head = a > 0 ? solid.find((p) => startsWith(p.pts, ray.slice(0, a))) : undefined;
-      const tail = a < ray.length ? dotted.find((p) => startsWith(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
+      const head = a > 0 ? solid.find((p) => samePath(p.pts, ray.slice(0, a))) : undefined;
+      const tail = a < ray.length ? dotted.find((p) => samePath(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
       if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
       else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
       if (a > 0 && a < ray.length) {
@@ -786,7 +785,7 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
         assert.ok(near(head.pts[head.pts.length - 1], tail.pts[0]), `${tag}: the parts share the last alive point`);
         assert.ok(near(tail.pts[0], ray[a - 1]), `${tag}: the shared point is point a - 1`);
       }
-      if (a === 0) assert.ok(!solid.some((p) => startsWith(p.pts, ray)), `${tag}: no solid polyline at a = 0`);
+      if (a === 0) assert.ok(!solid.some((p) => samePath(p.pts, ray)), `${tag}: no solid polyline at a = 0`);
       claimed += (head ? 1 : 0) + (tail ? 1 : 0);
       if (tail) { tails++; if (k === L.rays.length - 1) tails28++; }
     }));
