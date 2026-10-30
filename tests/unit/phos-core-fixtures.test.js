@@ -166,7 +166,7 @@ test('recorded Wandersleb layout is phos-core\'s trace of phos\'s triplet', () =
     assert.equal(fan.length, 11);
     assert.equal(f.alive[i].length, 11);
     fan.forEach((ray, j) => {
-      assert.ok(ray.every((p) => p.every(Number.isFinite)), `field ${i} ray ${j}: finite points`);
+      assert.ok(ray.length > 0 && ray.every((p) => p.every(Number.isFinite)), `field ${i} ray ${j}: non-empty, finite points`);
       assert.ok(Number.isInteger(f.alive[i][j]) && f.alive[i][j] >= 0 && f.alive[i][j] <= ray.length, `field ${i} ray ${j}: alive in 0..len`);
     });
   });

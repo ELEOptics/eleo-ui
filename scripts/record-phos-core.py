@@ -27,7 +27,7 @@ does not rewrite them:
   `seidel`: SeidelCoefficients, default chromatic lines, per wavelength the seven terms per surface with phos-core's
     total last. Writes tests/fixtures/phos-core/{achromat,cooke}-seidel.json.
   `layout`: the Wandersleb triplet (US 1,073,789, from phos's fixtures/triplet.toml, which it copies to
-    tests/fixtures/phos-core/wandersleb.toml; --triplet gives another path) drawn by visualize_system_2d with 11 rays per
+    tests/fixtures/phos-core/wandersleb.toml; --triplet gives another path, and a missing one falls back to that committed copy) drawn by visualize_system_2d with 11 rays per
     field, as a RecordedLayout plus `alive`. Writes tests/fixtures/phos-core/wandersleb-layout.json.
 """
 import argparse
@@ -36,7 +36,6 @@ import math
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -198,7 +197,14 @@ def wandersleb(phos, triplet, outdir, header):
     # Built as phos does (phos src-tauri/src/prescription.rs lens_table): radius 0 is plano (inf), the glasses are constant
     # index, the TOML's 1-based `stop` is a position in `surfaces`, and a plano stop is typed Aperture. Without that type
     # the diaphragm clips nothing and the profiles are sized by dead rays (NaN at the rim).
+    import tomllib  # Python 3.11+, imported here so the other modes run on older Pythons
+
     dest = outdir / "wandersleb.toml"
+    if not triplet.exists():
+        committed = ROOT / "tests/fixtures/phos-core/wandersleb.toml"
+        if not committed.exists():
+            sys.exit(f"wandersleb: {triplet} does not exist and there is no committed copy; pass --triplet <phos>/fixtures/triplet.toml")
+        triplet = committed
     if triplet.resolve() != dest.resolve():
         shutil.copyfile(triplet, dest)
     t = tomllib.loads(dest.read_text())
@@ -245,6 +251,8 @@ def wandersleb(phos, triplet, outdir, header):
                 if not finite(p.x, p.y):
                     break
                 kept.append(p)
+            if not kept:
+                sys.exit(f"wandersleb: field {len(rays)} ray {len(fan)} has a non-finite first point, expected every kept ray non-empty")
             fan.append([[rnd(p.x), rnd(p.y)] for p in kept])
             fan_alive.append(next((k for k, p in enumerate(kept) if not isinstance(p.status, phos.RayStatus.ALIVE)), len(kept)))
             fan_status.append([type(p.status).__name__.split(".")[-1] for p in ray.interfaces])
