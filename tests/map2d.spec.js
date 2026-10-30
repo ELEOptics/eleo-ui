@@ -67,6 +67,23 @@ test('typed map draws given ticks', async ({ page }) => {
   expect(r).not.toContain('1');
 });
 
+// #419 (review M1 round 1): the typed map refuses an empty, ragged or reversed grid with a TypeError naming it.
+test('typed map refuses bad grids', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.evaluate(() => {
+    const err = (o) => { try { window.ELEO.map2D(o); return null; } catch (e) { return e instanceof TypeError ? e.message : 'not a TypeError: ' + e.name; } };
+    return { empty: err({ values: [], extent: [0, 1, 0, 1] }), emptyRow: err({ values: [[]], extent: [0, 1, 0, 1] }), ragged: err({ values: [[0, 1], [2, 3, 4]], extent: [0, 1, 0, 1] }),
+      revX: err({ values: [[1]], extent: [1, 0, 0, 1] }), revY: err({ values: [[1]], extent: [0, 1, 1, 0] }), ok: err({ values: [[1]], extent: [0, 1, 0, 1] }) };
+  });
+  expect(r.empty).toMatch(/^map2D: values/);
+  expect(r.emptyRow).toMatch(/^map2D: values/);
+  expect(r.ragged).toMatch(/^map2D: .*same length/);
+  expect(r.revX).toMatch(/^map2D: extent/);
+  expect(r.revY).toMatch(/^map2D: extent/);
+  expect(r.ok).toBe(null);
+});
+
 // O1: the typed map places the recorded Cooke PSF. oracle: fixture, phos-core PointSpread recorded by
 // scripts/record-phos-core.py (roadmap U8).
 test('recorded PSF cells (U8)', async ({ page }) => {

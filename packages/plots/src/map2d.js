@@ -7,8 +7,11 @@ import { colormap } from "./physics.js";
 /* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px.
    Not in plotCell's data group: that group flips y and would draw row 0 at the bottom. Masked cells are alpha 0. */
 function typedMap(o) {
-  var W = o.width || 460, H = o.height || 360, x = o.x || {}, y = o.y || {}, e = o.extent, rows = o.values, nr = rows.length, nc = nr ? rows[0].length : 0;
+  var W = o.width || 460, H = o.height || 360, x = o.x || {}, y = o.y || {}, e = o.extent, rows = o.values, nr = rows && rows.length, nc = nr && rows[0] ? rows[0].length : 0;
   var live = function (v) { return typeof v === "number" && isFinite(v); };
+  if (!Array.isArray(rows) || !nr || !Array.isArray(rows[0]) || !nc) throw new TypeError("map2D: values must be a non-empty array of non-empty rows");
+  if (rows.some(function (r) { return !Array.isArray(r) || r.length !== nc; })) throw new TypeError("map2D: every row of values must have the same length");
+  if (!Array.isArray(e) || e.length !== 4 || !e.every(live) || !(e[0] < e[1]) || !(e[2] < e[3])) throw new TypeError("map2D: extent must be [x0, x1, y0, y1] with x0 < x1 and y0 < y1");
   var lo = Infinity, hi = -Infinity;
   rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
   /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin is the one the extent's x ticks need. */
