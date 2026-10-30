@@ -360,6 +360,11 @@ def cassegrain(phos, outdir, header):
     width = model.interface(0, 0).aperture().extent().width
     if abs(width - 2 * semi) > 1e-9 * semi:
         sys.exit(f"cassegrain: interface 0 has aperture width {width}, expected the obscuration's {2 * semi}")
+    # The recorded surfaces that get the flags are checked too, so the visualization's element order is: surface 0 is the
+    # obscuration (sd = semi), surface 1 the primary (sd = its 55 mm outer radius). rnd's 6 digits bound the difference.
+    for i, want in ((0, semi), (1, 55.0)):
+        if abs(surfaces[i]["sd"] - want) > 1e-5 * want:
+            sys.exit(f"cassegrain: recorded surface {i} has sd {surfaces[i]['sd']}, expected {want}")
     surfaces[0]["obscuration"] = True
     surfaces[1]["mirror"] = surfaces[2]["mirror"] = True
     rays, alive, status = layout_rays(phos, res, len(CASSEGRAIN_FIELDS), "cassegrain")
