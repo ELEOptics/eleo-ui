@@ -1,8 +1,44 @@
 import { data } from "./data.js";
 import { css, rgb, ramp, mapStops } from "./color.js";
+import { svg, esc } from "./common.js";
+import { niceTicks } from "./axis.js";
+import { scales, plotCell, PLOT_L, PLOT_B, PLOT_T } from "./curve.js";
+import { colormap } from "./physics.js";
+
+/* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px.
+   Not in plotCell's data group: that group flips y and would draw row 0 at the bottom. Masked cells are alpha 0. */
+function typedMap(o) {
+  var W = o.width || 460, H = o.height || 360, x = o.x || {}, y = o.y || {}, e = o.extent, rows = o.values, nr = rows.length, nc = nr ? rows[0].length : 0;
+  var live = function (v) { return typeof v === "number" && isFinite(v); };
+  var lo = Infinity, hi = -Infinity;
+  rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
+  /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin is the one the extent's x ticks need. */
+  var R = scales({ x: { range: [e[0], e[1]] }, y: { range: [e[2], e[3]] } }, [[]]).R;
+  var pw = W - PLOT_L - R, ph = H - PLOT_T - PLOT_B, dx = e[1] - e[0], dy = e[3] - e[2], xr = [e[0], e[1]], yr = [e[2], e[3]];
+  if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [e[0] - (px - dx) / 2, e[1] + (px - dx) / 2]; }
+  else { var py = dx * ph / pw; yr = [e[2] - (py - dy) / 2, e[3] + (py - dy) / 2]; }
+  var sc = { xr: xr, yr: yr, xt: niceTicks(xr[0], xr[1], 6), yt: niceTicks(yr[0], yr[1], 6), R: R };
+  var lut = colormap(o.map || "ember", o.el), cv = document.createElement("canvas"); cv.width = nc; cv.height = nr;
+  var ctx = cv.getContext("2d"), im = ctx.createImageData(nc, nr), span = hi - lo;
+  rows.forEach(function (r, j) { r.forEach(function (v, i) {
+    var k = (j * nc + i) * 4;
+    if (!live(v)) return;
+    var c = lut[span > 0 ? Math.round((v - lo) / span * 255) : 0];
+    im.data[k] = Math.round(c[0]); im.data[k + 1] = Math.round(c[1]); im.data[k + 2] = Math.round(c[2]); im.data[k + 3] = 255;
+  }); });
+  ctx.putImageData(im, 0, 0);
+  var sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
+  var X = function (v) { return +(PLOT_L + (v - xr[0]) * sx).toFixed(2); }, Y = function (v) { return +(PLOT_T + ph - (v - yr[0]) * sy).toFixed(2); };
+  var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
+  var g = plotCell(sc, [], W, H, PLOT_T, false, "");
+  g += '<image x="' + X(e[0]) + '" y="' + Y(e[3]) + '" width="' + +((e[1] - e[0]) * sx).toFixed(2) + '" height="' + +((e[3] - e[2]) * sy).toFixed(2) + '" preserveAspectRatio="none" style="image-rendering: pixelated" href="' + cv.toDataURL("image/png") + '"/>';
+  g += '<text class="eleo-tick" x="' + (W - R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="10">' + lab(y) + "</text>";
+  return svg(W, H, g, esc(o.label || "Map"));
+}
 
 /* ---------------- Map2D (canvas) ---------------- */
 export function map2D(canvas, o) {
+  if (!(canvas && canvas.nodeType)) return typedMap(canvas);
   o = o || {}; var D = data(o), kind = o.kind || "psf", map = o.map || (kind === "wavefront" ? "wave" : "ember"), scale = o.scale || "linear";
   var grid, lo = 0, hi = 1;
   if (kind === "wavefront") { grid = D.wavefront.map; var m = 0; grid.forEach(function (r) { r.forEach(function (v) { if (v !== null) m = Math.max(m, Math.abs(v)); }); }); lo = -m; hi = m; }

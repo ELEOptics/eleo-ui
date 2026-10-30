@@ -17,6 +17,41 @@ test('sample call unchanged', async ({ page }) => {
   }
 });
 
+// #394: the typed map's frame and image. oracle: closed-form, a 4 x 2 grid over [-0.02, 0.02] x [-0.01, 0.01] mm: the
+// image is twice as wide as tall, px per mm equal on both axes, centred in the frame, row 0 at the top, masked cell alpha 0.
+test('typed map places its extent', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
+    const values = [[0, 1, 2, 3], [null, 1, 2, 4]];
+    el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, extent: [-0.02, 0.02, -0.01, 0.01], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', el }));
+    const svg = el.lastElementChild, imgs = svg.querySelectorAll('image'), img = imgs[0];
+    const bitmap = await createImageBitmap(await (await fetch(img.getAttribute('href'))).blob());
+    const c = new OffscreenCanvas(bitmap.width, bitmap.height), g = c.getContext('2d');
+    g.drawImage(bitmap, 0, 0);
+    const px = g.getImageData(0, 0, bitmap.width, bitmap.height).data;
+    const frame = svg.querySelector('rect').getBoundingClientRect(), b = img.getBoundingClientRect();
+    const lut = window.ELEO.colormap('ember', el);
+    return { viewBox: svg.getAttribute('viewBox'), label: svg.getAttribute('aria-label'), n: imgs.length, style: img.getAttribute('style'),
+      w: b.width, h: b.height, left: b.left - frame.left, right: frame.right - b.right, top: b.top - frame.top, bottom: frame.bottom - b.bottom,
+      bw: bitmap.width, bh: bitmap.height, maskedAlpha: px[(1 * 4 + 0) * 4 + 3], topLeft: [px[0], px[1], px[2], px[3]], expect0: lut[0], topRight: [px[28], px[29], px[30]], expect3: lut[255], text: svg.textContent };
+  });
+  expect(r.viewBox).toBe('0 0 460 360');
+  expect(r.label).toBe('Map');
+  expect(r.n).toBe(1);
+  expect(r.style).toContain('image-rendering: pixelated');
+  expect([r.bw, r.bh]).toEqual([4, 2]);
+  expect(Math.abs(r.w / r.h - 2)).toBeLessThan(0.01);
+  expect(Math.abs(r.left - r.right)).toBeLessThan(0.5);
+  expect(Math.abs(r.top - r.bottom)).toBeLessThan(0.5);
+  expect(Math.min(r.left, r.top)).toBeGreaterThanOrEqual(-0.5);
+  expect(r.maskedAlpha).toBe(0);
+  expect(r.topLeft[3]).toBe(255);
+  expect(r.topLeft.slice(0, 3).map(Math.round)).toEqual(r.expect0.map(Math.round));
+  expect(r.topRight.map(Math.round)).toEqual(r.expect3.map(Math.round));
+  expect(r.text).toContain('mm');
+});
+
 // O1: the typed map places the recorded Cooke PSF. oracle: fixture, phos-core PointSpread recorded by
 // scripts/record-phos-core.py (roadmap U8). Skipped until the last item of M1 (#396).
 test.skip('recorded PSF cells (U8)', async ({ page }) => {
