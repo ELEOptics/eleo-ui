@@ -170,3 +170,4 @@ median, written into the Change log. Proves: O2, O3
 - 2026-10-30: #382's collimation tolerance is 1e-3 rad, not the CR's 1e-6: the recordings round to 4 decimals (the orchestrator's spec error).
 - 2026-10-30: review M1 round 7 (1 blocking, 3 backlog). The O1 Outcome cell and roadmap U16 reworded to "after the start" (the user's CR #381 choice). CR #383 and findings 2 to 4 → #384. All carried CRs closed.
 - 2026-10-30: M1 done again. Review round 8 says 0 blocking with nothing pulled in (its one finding is backlog #385); CI green on 1d47126. Re-demo requested.
+- 2026-10-30 M1 demo (user): go. On field labels at the image plane: "A standard legend may be the right call, but at this level (3 fields) I'm okay with it", added to #70 (deferred label hardening).
