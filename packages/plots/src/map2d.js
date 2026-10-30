@@ -44,6 +44,13 @@ function typedMap(o) {
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var g = plotCell(sc, [], W, H, PLOT_T, false, "");
   g += '<image x="' + X(e[0]) + '" y="' + Y(e[3]) + '" width="' + +((e[1] - e[0]) * sx).toFixed(2) + '" height="' + +((e[3] - e[2]) * sy).toFixed(2) + '" preserveAspectRatio="none" style="image-rendering: pixelated" href="' + cv.toDataURL("image/png") + '"/>';
+  /* Aperture: an even-odd --surface path (the image's rect and the circle) over the image outside the circle, so the null cells' stair edge is cut round and an unmasked grid is cut too; no clipPath id (ADR-0001). A 1 px --plot-axis ring on top. */
+  var ap = o.aperture;
+  if (ap && live(ap.x) && live(ap.y) && live(ap.r) && ap.r > 0) {
+    var ax = X(ap.x), ay = Y(ap.y), ar = +(ap.r * sx).toFixed(2), ix0 = X(e[0]), ix1 = X(e[1]), iy0 = Y(e[3]), iy1 = Y(e[2]);
+    g += '<path fill-rule="evenodd" fill="var(--surface)" d="M' + ix0 + " " + iy0 + "H" + ix1 + "V" + iy1 + "H" + ix0 + "ZM" + +(ax - ar).toFixed(2) + " " + ay + "a" + ar + " " + ar + " 0 1 0 " + 2 * ar + " 0a" + ar + " " + ar + " 0 1 0 " + -2 * ar + ' 0Z"/>';
+    g += '<circle cx="' + ax + '" cy="' + ay + '" r="' + ar + '" fill="none" stroke="var(--plot-axis)" stroke-width="1"/>';
+  }
   g += '<text class="eleo-tick" x="' + (W - R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="10">' + lab(y) + "</text>";
   return svg(W, H, g, esc(o.label || "Map"));
 }

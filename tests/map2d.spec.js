@@ -380,6 +380,48 @@ test('typed map log scale and wave range', async ({ page }) => {
   expect(r.range, 'cells off the given range').toBe(0);
 });
 
+// Typed map aperture (#399): `aperture: { x, y, r }` in extent units is an even-odd --surface path over the image outside the circle and a 1 px
+// --plot-axis ring. oracle: closed-form, a point of the extent is masked exactly when it is farther than r from (x, y); on an unmasked grid and
+// on a grid with masked corners, with the aperture off centre.
+test('aperture masks outside', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const n = 16, out = {};
+    const plain = Array.from({ length: n }, (_, j) => Array.from({ length: n }, (_, i) => (i + j) / 30));
+    const corners = plain.map((row, j) => row.map((v, i) => (Math.hypot(i - 7.5, j - 7.5) > 7.5 ? null : v)));
+    const ap = { x: 0.25, y: -0.5, r: 1.5 }, extent = [-2, 2, -2, 2];
+    for (const [name, values] of [['unmasked', plain], ['corners', corners], ['none', plain]]) {
+      el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, extent, map: 'ember', ...(name === 'none' ? {} : { aperture: ap }), el }));
+      const svg = el.lastElementChild, img = svg.querySelector('image'), mask = svg.querySelector('path[fill-rule="evenodd"]'), ring = svg.querySelector('circle');
+      if (name === 'none') { out[name] = { mask: !!mask, ring: !!ring }; continue; }
+      const ix = +img.getAttribute('x'), iy = +img.getAttribute('y'), w = +img.getAttribute('width'), h = +img.getAttribute('height');
+      const px = (ex, ey) => { const q = svg.createSVGPoint(); q.x = ix + ((ex - extent[0]) / 4) * w; q.y = iy + ((extent[3] - ey) / 4) * h; return q; };
+      const probes = [[0.25, -0.5], [1.6, -0.5], [-1.2, -0.5], [0.25, 0.9], [0.25, 1.1], [-1.9, 1.9], [1.9, -1.9], [0.25, -1.9], [-1.2, 0.5]];
+      const wrong = probes.filter(([x, y]) => mask.isPointInFill(px(x, y)) !== (Math.hypot(x - ap.x, y - ap.y) > ap.r)).length;
+      const c = px(ap.x, ap.y);
+      out[name] = {
+        wrong, fill: mask.getAttribute('fill'), after: !!(img.compareDocumentPosition(mask) & Node.DOCUMENT_POSITION_FOLLOWING),
+        stroke: ring.getAttribute('stroke'), sw: ring.getAttribute('stroke-width'), ringFill: ring.getAttribute('fill'),
+        dc: Math.hypot(+ring.getAttribute('cx') - c.x, +ring.getAttribute('cy') - c.y), dr: Math.abs(+ring.getAttribute('r') - (ap.r / 4) * w),
+      };
+    }
+    return out;
+  });
+  for (const name of ['unmasked', 'corners']) {
+    const q = r[name];
+    expect(q.wrong, `${name}: probes on the wrong side of the aperture`).toBe(0);
+    expect(q.fill, `${name}: mask fill is the surface role`).toBe('var(--surface)');
+    expect(q.after, `${name}: mask drawn over the image`).toBe(true);
+    expect(q.stroke, `${name}: ring stroke`).toBe('var(--plot-axis)');
+    expect(q.sw, `${name}: ring width`).toBe('1');
+    expect(q.ringFill, `${name}: ring fill`).toBe('none');
+    expect(q.dc, `${name}: ring centre off (px)`).toBeLessThan(0.05);
+    expect(q.dr, `${name}: ring radius off (px)`).toBeLessThan(0.05);
+  }
+  expect(r.none, 'no aperture, no mask or ring').toEqual({ mask: false, ring: false });
+});
+
 // O2, colorbar: each colorbar tick sits at its value within 0.5 px. oracle: property, colorbar tick round trip: a tick labelled v is at
 // y = bottom - (v - lo) / (hi - lo) * height of the colorbar image, for the range given and for the range of the data; the bar is 1 x 256
 // and carries the value's label and unit.
