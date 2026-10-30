@@ -30,14 +30,15 @@ function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : Math.abs(S[i].p
 
 // A mirror's body: the profile plus a flat back D/8 (sd/4) behind its far z, on the side away from the light, with |y| < hole left open.
 // The light's way is the ray's step from its point at surface i to its point at surface i + 1 (rays carry one point per surface after their start;
-// a mirror with no next point takes its incoming step). A polygon per side of the hole, or one.
+// a mirror with no next point takes its incoming step), from a ray alive past the mirror before any ray. A polygon per side of the hole, or one.
 function mirrorBodies(L, i) {
   var a = L.surfaces[i], t = a.sd / 4, dir = 0, h = a.hole > 0 ? a.hole : 0;
-  L.rays.forEach(function (fan) { fan.forEach(function (r) {
-    if (dir) return;
+  // A ray alive past the mirror (alive >= i + 3, or no `alive`) first: a dead ray's tail may run any way.
+  [true, false].forEach(function (strict) { L.rays.forEach(function (fan, k) { fan.forEach(function (r, j) {
+    if (dir || (strict && L.alive && !(L.alive[k][j] >= i + 3))) return;
     if (r[i + 2]) dir = Math.sign(r[i + 2][0] - r[i + 1][0]);
-    else if (r[i + 1] && !L.surfaces[i + 1]) dir = -Math.sign(r[i + 1][0] - r[i][0]);
-  }); });
+    else if (!strict && r[i + 1] && !L.surfaces[i + 1]) dir = -Math.sign(r[i + 1][0] - r[i][0]);
+  }); }); });
   var zs = a.profile.map(function (p) { return p[0]; }), zb = dir < 0 ? Math.max.apply(null, zs) + t : Math.min.apply(null, zs) - t;
   function side(k) {
     // The profile's points with k·y >= hole, the crossing at ±hole interpolated.
@@ -52,7 +53,7 @@ function mirrorBodies(L, i) {
   return (h ? [side(1), side(-1)] : [a.profile.concat([[zb, a.profile[a.profile.length - 1][1]], [zb, a.profile[0][1]]])]).filter(Boolean);
 }
 
-/* A port of eleo-website@39d19e4 public/layout.js bounds(): z from the rays' ends; y from 0, the rays and every
+/* A port of eleo-website@39d19e4 public/layout.js bounds(), widened for mirrors: z from every ray point, every non-image profile and every mirror body (#367); y from 0, the rays and every
    surface but the image (a standalone stop reaches sd + 2.5, a lens |profile[0][1]|), padded 4%. */
 export function layoutBounds(layouts) {
   if (!Array.isArray(layouts) || !layouts.length) throw new Error("layoutBounds: no layouts");
@@ -126,6 +127,7 @@ export function layout2D(o) {
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
   S.forEach(function (x, i) { var e = badProfile(x); if (e) throw new Error("layout2D: surface " + i + e); });
+  S.forEach(function (x, i) { if (x.hole != null && !(typeof x.hole === "number" && x.hole >= 0 && x.hole < x.sd)) throw new Error("layout2D: surfaces[" + i + "].hole is not a number in 0..sd"); });
   var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
@@ -163,7 +165,7 @@ export function layout2D(o) {
       g += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + '/>'
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
-    if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
+    if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var ends = [], img = S.filter(function (x) { return x.image; })[0];
