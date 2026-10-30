@@ -96,10 +96,22 @@
     layout: function (rec) {
       return { data: rec, rays: 'fan', width: 1000, labels: rec.fieldsDeg.map(function (a) { return a + '°'; }) };
     },
-    /* psf(recording) -> the typed map2D props (without `el`, which the caller sets): the recorded PointSpread grid and its extent in mm,
-       linear over its range, on the ember map. */
-    psf: function (rec) {
-      return { values: rec.values, extent: rec.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Point spread' };
+    /* psf(recording, { log }) -> the typed map2D props (without `el`, which the caller sets): the recorded PointSpread grid and its extent in mm,
+       linear over its range, on the ember map; with `log` on the log scale and a colorbar for the relative intensity. */
+    psf: function (rec, opts) {
+      var props = { values: rec.values, extent: rec.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Point spread' };
+      if (opts && opts.log) { props.scale = 'log'; props.value = { label: 'Intensity', unit: 'relative' }; }
+      return props;
+    },
+    /* wavefront(recording) -> the typed map2D props (without `el`): the recorded WavefrontError as polar samples on the wave map,
+       its pupil as the aperture, an extent 5 % wider than the pupil, and a colorbar in waves. */
+    wavefront: function (rec) {
+      var e = rec.pupilRadius * 1.05;
+      return {
+        values: rec.values, polar: { radii: rec.radii, angles: rec.angles }, extent: [-e, e, -e, e],
+        x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'wave', label: 'Wavefront error',
+        aperture: { x: 0, y: 0, r: rec.pupilRadius }, value: { label: 'OPD', unit: 'waves' }
+      };
     },
     /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
     distortion: function (rec) {

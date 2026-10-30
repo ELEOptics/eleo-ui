@@ -60,6 +60,10 @@
     </div>
     <section class="eleo-plot" data-tile="psf-recorded"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, mm</span></div><div class="eleo-plot__body" data-map="psf-recorded"></div></section>
     <div class="row">
+      <section class="eleo-plot" data-tile="psf-log"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, log</span></div><div class="eleo-plot__body" data-map="psf-log"></div></section>
+      <section class="eleo-plot" data-tile="wavefront-recorded"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet wavefront, recorded, waves</span></div><div class="eleo-plot__body" data-map="wavefront-recorded"></div></section>
+    </div>
+    <div class="row">
       <section class="eleo-plot" data-tile="mtf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF</span></div><div class="eleo-plot__body" data-svg="mtf"></div></section>
       <section class="eleo-plot" data-tile="mtf-limits"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF, requirement limits</span></div><div class="eleo-plot__body" data-svg="mtf-limits"></div></section>
       <section class="eleo-plot" data-tile="fieldCurvature"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">field curvature</span></div><div class="eleo-plot__body" data-svg="fieldCurvature"></div></section>
@@ -131,12 +135,14 @@
     }
     // Canvas tiles read their colors once per draw, so a palette change redraws them; SVG recolors through CSS.
     // The typed map bakes its colors from the tile it is given as `el`, so it redraws with the canvases; a failure blanks only that tile.
+    var MAPS = {};
     function drawMaps() {
-      document.querySelectorAll('.theme [data-map="psf-recorded"]').forEach(function (body) {
+      document.querySelectorAll('.theme [data-map]').forEach(function (body) {
         body.innerHTML = '';
-        if (!REC.psf) return;
-        try { body.innerHTML = ELEO.map2D(Object.assign({}, REC.psf, { el: body.parentNode })); }
-        catch (e) { console.error('gallery: psf-recorded tile skipped:', e); }
+        var props = MAPS[body.dataset.map];
+        if (!props) return;
+        try { body.innerHTML = ELEO.map2D(Object.assign({}, props, { el: body.parentNode })); }
+        catch (e) { console.error('gallery: ' + body.dataset.map + ' tile skipped:', e); }
       });
     }
     function drawCanvases() {
@@ -221,7 +227,8 @@
         ['layout', 'layout', function (d) { REC.layout = globalThis.ELEOAdapters.layout(d); }]
       ]],
       ['cooke', [
-        ['psf', 'psf', function (d) { REC.psf = globalThis.ELEOAdapters.psf(d); }]
+        ['psf', 'psf', function (d) { var A = globalThis.ELEOAdapters; MAPS['psf-recorded'] = A.psf(d); MAPS['psf-log'] = A.psf(d, { log: true }); }],
+        ['wavefront', 'wavefront', function (d) { MAPS['wavefront-recorded'] = globalThis.ELEOAdapters.wavefront(d); }]
       ]],
       ['cassegrain', [
         ['cassegrainLayout', 'layout', function (d) { REC.cassegrainLayout = globalThis.ELEOAdapters.layout(d); }]
