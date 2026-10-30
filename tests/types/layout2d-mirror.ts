@@ -13,7 +13,7 @@ const surfaces: RecordedSurface[] = [
 const layout: RecordedLayout = { surfaces, rays: [] };
 layout2D({ data: layout });
 
-// an annular mirror (CR #371) and dead rays (CR #372); `dead` is meant for use with `alive`, typed in M2
+// an annular mirror (CR #371) and dead rays (CR #372); `dead` goes with `alive` (layout2d-alive.ts shows both)
 const annular: RecordedSurface = { z: 0, sd: 55, stop: false, image: false, glass: null, profile, mirror: true, hole: 10 };
 const withDead: RecordedLayout = { surfaces: [annular], rays: [], dead: [[true, false]] };
 layout2D({ data: withDead });
