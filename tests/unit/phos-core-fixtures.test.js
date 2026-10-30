@@ -240,7 +240,8 @@ test('psf recorded as grids', () => {
 });
 
 // Plan #389 work item #392 (absorbs #310, #370). oracle: the recorder's own refusals, run on stand-ins for phos-core: the Seidel
-// term length must be the surface count plus one, and the Cassegrain obscuration is told from the secondary by its flat profile.
+// term length must be the surface count plus one, and the Cassegrain obscuration is told from the secondary by its flat profile;
+// psf() refuses a grid whose rows ascend in y and one that is not 192 square (stand-ins: the real client never returns either).
 test('recorder guards refuse bad orders', () => {
   const py = String.raw`
 import importlib.util, json, sys, tempfile
@@ -275,7 +276,39 @@ def order(s):
     try: rec.check_cassegrain_order(s, 10.0); return "ok"
     except SystemExit as e: return str(e)
 
+class Boundary:
+    def rotation(self): return (0.0, 0.0, 0.0, 1.0)
+class Src:
+    def boundary(self): return Boundary()
+class Model:
+    def sources(self, i): return [Src()]
+    def relative_sources(self, i): return [Src()]
+class Area:
+    def __init__(self, n, down):
+        self.n, self.down = n, down
+    def num_x(self): return self.n
+    def num_y(self): return self.n
+    def irradiance(self): return [1.0] * (self.n * self.n)
+    def coordinates(self):
+        n = self.n
+        return [[c * 0.5, (n - 1 - r if self.down else r) * 0.5] for r in range(n) for c in range(n)]
+class PSettings:
+    n, down = 192, True
+    def __getattr__(self, name):
+        if name.startswith("set_"): return lambda *a: None
+        raise AttributeError(name)
+    def run(self, model): return [Area(PSettings.n, PSettings.down)]
+class PPhos: PointSpreadSettings = PSettings
+
+def psf(n, down):
+    PSettings.n, PSettings.down = n, down
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            rec.psf(PPhos, "lens", Model(), Path(d), {}); return "ok"
+        except SystemExit as e: return str(e)
+
 print(json.dumps({
+  "psfTopDown": psf(192, True), "psfFlipped": psf(192, False), "psfSmall": psf(128, True),
   "seidelRight": seidel(4, 4), "seidelLong": seidel(5, 4), "seidelShort": seidel(3, 4),
   "orderRight": order([surf(flat, 10.0), surf(bowl, 55.0), surf(bowl, 10.0)]),
   "orderSwapped": order([surf(bowl, 10.0), surf(bowl, 55.0), surf(flat, 10.0)]),
@@ -289,4 +322,7 @@ print(json.dumps({
   assert.match(out.seidelShort, /3 values.*plus one \(4\)/, 'a short term is refused');
   assert.equal(out.orderRight, 'ok', 'obscuration first, secondary third passes');
   assert.match(out.orderSwapped, /obscuration.*flat/, 'the secondary in the obscuration\'s place is refused though its sd matches');
+  assert.equal(out.psfTopDown, 'ok', 'a 192 square grid with rows descending in y passes');
+  assert.match(out.psfFlipped, /pitch .* x -0\.5, expected positive/, 'coordinates ascending in y (a flipped grid) are refused');
+  assert.match(out.psfSmall, /128 x 128 grid, expected 192 square/, 'a 128 x 128 grid is refused');
 });
