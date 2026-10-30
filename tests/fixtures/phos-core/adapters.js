@@ -1,4 +1,4 @@
-/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve, ELEO.spot, ELEO.bars and ELEO.layout2D (plan #162, #174, #179, #284).
+/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve, ELEO.spot, ELEO.bars and ELEO.layout2D and the typed ELEO.map2D (plan #162, #174, #179, #284, #389).
    A classic script: the gallery loads it with a <script> tag and the unit tests with import(), so it has no
    import or export and assigns globalThis.ELEOAdapters. */
 (function () {
@@ -95,6 +95,11 @@
        (with their alive counts) and a label per field, the header's fieldsDeg as degrees. */
     layout: function (rec) {
       return { data: rec, rays: 'fan', width: 1000, labels: rec.fieldsDeg.map(function (a) { return a + '°'; }) };
+    },
+    /* psf(recording) -> the typed map2D props (without `el`, which the caller sets): the recorded PointSpread grid and its extent in mm,
+       linear over its range, on the ember map. */
+    psf: function (rec) {
+      return { values: rec.values, extent: rec.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Point spread' };
     },
     /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
     distortion: function (rec) {
