@@ -323,14 +323,13 @@ const map2dPlotsConsumed = barsConsumed('map2d-typed.md', 'plots', MAP2D_PLOTS_E
 const map2dSvelteConsumed = barsConsumed('map2d-typed-svelte.md', 'plots-svelte', MAP2D_SVELTE_ENTRY);
 
 test('map2D changeset asks minors',
-  { skip: 'plan #389 #408 unskips' }, () => {
+  { skip: (map2dPlotsConsumed && map2dSvelteConsumed && 'consumed by changeset version') }, () => {
     assert.deepEqual(parse('map2d-typed.md').bumps, { '@eleoptics/plots': 'minor' });
     assert.deepEqual(parse('map2d-typed-svelte.md').bumps, { '@eleoptics/plots-svelte': 'minor' });
   });
 
 test('map2D changeset became minors',
-  { skip: 'plan #389 #408 unskips' }, () => {
-    assert.ok(map2dPlotsConsumed && map2dSvelteConsumed, 'changesets not yet versioned');
+  { skip: (!(map2dPlotsConsumed && map2dSvelteConsumed) && 'changesets not yet versioned') }, () => {
     assert.equal(entry('plots', MAP2D_PLOTS_ENTRY).kind, 'Minor');
     assert.equal(entry('plots-svelte', MAP2D_SVELTE_ENTRY).kind, 'Minor');
   });
