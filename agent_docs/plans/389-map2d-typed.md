@@ -260,3 +260,4 @@ One bullet per entry (bare lines render as one paragraph).
   #454 (test comment) pulled in. Carried CRs resolved.
 - 2026-10-30 review M2 round 7: 0 blocking, nothing pulled in; the item count is 50 (the #391 split had been counted as
   no change; finding 1, fixed here). M2 done again after #452: demo pending.
+- 2026-10-31 M2 demoed: go (user, sequential ember wavefront tile).
