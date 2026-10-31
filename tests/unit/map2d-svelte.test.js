@@ -1,5 +1,6 @@
 // Plan #389 (agent_docs/plans/389-map2d-typed.md), M3, issue #405.
 // oracle: spec #405 Behaviour: given `values`, Map2D renders `div.eleo-svg[role=img]` (not a canvas); without them, the canvas as today.
+// Per-mode `range` rule (#460): typed mode (with `values`) takes `range?: [lo, hi]` in; sample mode reports `{ lo, hi }` out. Map2D.svelte types it as a union, checked by `npm run check` (svelte-check), not at runtime.
 // The component is compiled for the server against stub plots and theme modules, in a temp dir; effects do not run in SSR.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
