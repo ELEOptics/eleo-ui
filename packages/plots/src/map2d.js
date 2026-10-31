@@ -26,6 +26,8 @@ function typedMap(o) {
   if (o.map === "wave" && lo <= hi) { var mx = Math.max(Math.abs(lo), Math.abs(hi)); lo = -mx; hi = mx; }
   if (Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1])) { lo = o.range[0]; hi = o.range[1]; }
   var log = o.scale === "log", dec = o.decades > 0 ? o.decades : 4;
+  /* A log scale with a range 0 < lo < hi spans exactly [lo, hi]; otherwise it spans `decades` below hi. */
+  if (log && lo > 0 && lo < hi && Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1])) dec = Math.log10(hi / lo);
   /* Colorbar (only with `value`): ticks over the color scale, whole decades on log. Its width joins the right margin: 12 px gap, 10 px bar, 4 px, the widest label (6 px a character), 4 px. */
   var vb = o.value, cbt = null, CB = 0;
   if (vb) {

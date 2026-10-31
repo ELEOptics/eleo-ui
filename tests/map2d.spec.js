@@ -453,8 +453,24 @@ test('typed map log scale and wave range', async ({ page }) => {
     [0, 2, 4].forEach((v, i) => { if (!near(R2, i, wave, (v / 4) * 255)) out.range++; });
     const R3 = await draw([[1, 10, 1000]], { map: 'ember', scale: 'log', decades: 2, range: [0, 100] });
     [0, 0.5 * 255, 255].forEach((s, i) => { if (!near(R3, i, ember, s)) out.range++; });
+    // log with range [lo, hi], 0 < lo < hi, spans log10(hi/lo) decades whatever `decades` says: [1e-6, 1] is 6 decades, the [1e-3, 1] probe is 3
+    const R4 = await draw([[1e-6, 1e-3, 1]], { map: 'ember', scale: 'log', range: [1e-6, 1] });
+    [0, 0.5 * 255, 255].forEach((s, i) => { if (!near(R4, i, ember, s)) out.range++; });
+    const R5 = await draw([[1e-3, 1]], { map: 'ember', scale: 'log', range: [1e-3, 1], decades: 2 });
+    [0, 255].forEach((s, i) => { if (!near(R5, i, ember, s)) out.range++; });
+    // its colorbar follows the same span: whole-decade ticks 1e-3..1 at 0, 1/3, 2/3, 1 of the bar
+    el.insertAdjacentHTML('beforeend', ELEO.map2D({ values: [[1e-3, 1]], extent: [0, 1, 0, 1], map: 'ember', scale: 'log', range: [1e-3, 1], value: { label: 'v' }, el }));
+    const svg = el.lastElementChild;
+    let cb = null;
+    for (const q of svg.querySelectorAll('image')) { const bm = await createImageBitmap(await (await fetch(q.getAttribute('href'))).blob()); if (bm.width === 1 && bm.height === 256) cb = q; }
+    const by = +cb.getAttribute('y'), bh = +cb.getAttribute('height'), bx = +cb.getAttribute('x') + +cb.getAttribute('width');
+    const ticks = [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && /^[\d.]+$/.test(t.textContent.trim()));
+    out.barTicks = ticks.map((t) => parseFloat(t.textContent));
+    out.barErr = Math.max(...ticks.map((t) => Math.abs(+t.getAttribute('y') - (by + bh - ((Math.log10(parseFloat(t.textContent)) + 3) / 3) * bh))));
     return out;
   });
+  expect(r.barTicks, 'colorbar ticks of a [1e-3, 1] log range').toEqual([0.001, 0.01, 0.1, 1]);
+  expect(r.barErr, 'colorbar tick off its value (px)').toBeLessThan(0.5);
   expect(r.log, 'log cells off their step').toBe(0);
   expect(r.wave, 'wave cells off a range symmetric about 0').toBe(0);
   expect(r.range, 'cells off the given range').toBe(0);
