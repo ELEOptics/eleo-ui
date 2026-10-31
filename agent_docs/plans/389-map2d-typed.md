@@ -1,6 +1,6 @@
 # Plan #389: `map2D` on typed grids
 
-Status: approved 2026-10-30
+Status: done 2026-10-31
 Branch: `plan/389-map2d-typed` PR: #409 Depends on: none Roadmap: `agent_docs/roadmap.md`, row F
 
 ## Problem
@@ -274,3 +274,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-31 review M3 round 3: 0 blocking; #462 (test title) pulled in. Count 1, same as round 2 (first round without a fall).
 - 2026-10-31 review M3 round 4: 0 blocking, nothing pulled in. M3 done: demo pending.
 - 2026-10-31 M3 demoed: go (user).
+- 2026-10-31 plan end: caught up with main (clean merge 21aa3fb, Version Packages #388: plots 0.6.0). Re-verified the CLAUDE.md commands: `npm ci && npm run build`, `npm run test:unit` (161 pass), `npx playwright test` (48 passed), `npm run gallery` (script present), `npx changeset`, `scripts/check.sh` and `--fast`, all green. Status done.
