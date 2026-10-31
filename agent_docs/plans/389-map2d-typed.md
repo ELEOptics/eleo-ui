@@ -157,6 +157,7 @@ waves; a log PSF tile; a Gaussian irradiance tile marked synthetic; both themes 
 | #446 | Polar angles within one turn, refused otherwise; README says so (review M2 round 2, finding 4) | refuse because the search folds into one turn; considered folding the angles, which reorders them against values | `packages/plots/src/map2d.js`, `packages/plots/README.md` | `tests/map2d.spec.js::typed map refuses bad polar samples` | #445 |
 | #447 | index.d.ts and README: a positive range sets the log span, `decades` then ignored (CR #443) | say the rule where each prop is documented; considered decades winning, which reopens round 1's finding 8 | `packages/plots/src/index.d.ts`, `packages/plots/README.md` | `tests/map2d.spec.js::a positive log range overrides decades` | #446 |
 | #449 | Polar one-turn check tolerates rounding (2π·(1 + 1e-12)) on a closed ring (review M2 round 3, finding 1) | a relative tolerance because the overshoot is float rounding; considered rounding the angles, which changes the caller's data | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::typed map refuses bad polar samples` | |
+| #451 | README: the polar one-turn rule allows float rounding (review M2 round 4, finding 1) | the reviewer's wording; considered stating 1e-12, a number callers don't need | `packages/plots/README.md` | none (docs): `scripts/check.sh --fast` | |
 
 ### M3: Svelte, U14 and the release GitHub: `P389 M3: Svelte and release`
 
@@ -172,7 +173,7 @@ plots-svelte minors; the U14 median in the Change log. Proves: O3
 | #407 | Changesets: plots minor (typed `map2D`) and plots-svelte minor (`Map2D` typed props) | forced (roadmap Constraints: release on consumer pull, planned by changesets) | `.changeset/` | `tests/unit/release.test.js::map2D changeset asks minors` | #405, #333 |
 | #408 | Unskip O3 acceptance tests | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | all O3 tests | all above |
 
-46 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine; review M2 added fifteen): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
+47 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine; review M2 added sixteen): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
 the colorbar and aperture; none is cut to fit.
 ## Risks and spikes
 
@@ -247,3 +248,4 @@ One bullet per entry (bare lines render as one paragraph).
   #431 resolved.
 - 2026-10-30 review M2 round 3: 0 blocking; carried #430, #431, #443 resolved. #449 (one-turn tolerance) pulled in;
   #450 (dead guard) deferred with #448.
+- 2026-10-30 review M2 round 4: 0 blocking; carried CRs resolved; #451 (README wording for #449) pulled in.
