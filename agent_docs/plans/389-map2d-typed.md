@@ -152,6 +152,10 @@ waves; a log PSF tile; a Gaussian irradiance tile marked synthetic; both themes 
 | #439 | Log scale spans `range` [lo, hi] when 0 < lo < hi (review M2, finding 8) | follow index.d.ts's existing promise (no Core change); considered documenting that log ignores lo | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::typed map log scale and wave range` | #438 |
 | #440 | Colorbar hardening: no ticks unless lo < hi; `cbw`; one color.js import (review M2, findings 9–11) | one item because all three are the colorbar block; considered three commits for a few lines | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::colorbar ticks sit at their values: an empty range draws no ticks` | #439 |
 | #442 | Plots README: polar angles must be sorted; unsorted throw (from #438) | the README, the caller's doc and not Core; considered index.d.ts's comment, a Core edit | `packages/plots/README.md` | none (docs): `scripts/check.sh --fast` | #440 |
+| #444 | Gallery test: the log PSF colorbar tops out at 1 (review M2 round 2, finding 2) | assert the top tick because the no-normalization mutant passed; considered asserting adapter output | `tests/gallery.spec.js` | `tests/gallery.spec.js::recorded wavefront tile draws with its map and aperture, the log PSF with whole decades` | |
+| #445 | Log colorbar keeps decade ticks on a constant positive grid (review M2 round 2, finding 3) | `log ? hi > 0 : lo < hi` because a log span comes from decades; considered no ticks for any constant grid | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::colorbar ticks sit at their values: an empty range draws no ticks` | |
+| #446 | Polar angles within one turn, refused otherwise; README says so (review M2 round 2, finding 4) | refuse because the search folds into one turn; considered folding the angles, which reorders them against values | `packages/plots/src/map2d.js`, `packages/plots/README.md` | `tests/map2d.spec.js::typed map refuses bad polar samples` | #445 |
+| #447 | index.d.ts and README: a positive range sets the log span, `decades` then ignored (CR #443) | say the rule where each prop is documented; considered decades winning, which reopens round 1's finding 8 | `packages/plots/src/index.d.ts`, `packages/plots/README.md` | `tests/map2d.spec.js::a positive log range overrides decades` | #446 |
 
 ### M3: Svelte, U14 and the release GitHub: `P389 M3: Svelte and release`
 
@@ -167,7 +171,7 @@ plots-svelte minors; the U14 median in the Change log. Proves: O3
 | #407 | Changesets: plots minor (typed `map2D`) and plots-svelte minor (`Map2D` typed props) | forced (roadmap Constraints: release on consumer pull, planned by changesets) | `.changeset/` | `tests/unit/release.test.js::map2D changeset asks minors` | #405, #333 |
 | #408 | Unskip O3 acceptance tests | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | all O3 tests | all above |
 
-41 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine; review M2 added ten): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
+45 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine; review M2 added fourteen): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
 the colorbar and aperture; none is cut to fit.
 ## Risks and spikes
 
@@ -236,3 +240,7 @@ One bullet per entry (bare lines render as one paragraph).
   honours range[0], as index.d.ts says), #440 (colorbar hardening). Plain backlog: #441 (roadmap U8, at plan end).
 - 2026-10-30 #442 added (from #438, which refuses unsorted polar angles): the README says so. #435 and #440 rows name
   the tests they added. #438: the gallery wavefront draw went from about 25 ms to 8 ms.
+- 2026-10-30 review M2 round 2: 1 blocking, CR #443 (index.d.ts's log/decades docs, made false by #439), accepted by
+  the orchestrator (doc comments in Files #393 and #413 already approved) as #447. Backlog pulled in: #444 (normalization
+  tested), #445 (log ticks on a constant grid), #446 (polar angles within one turn). Plain backlog: #448. Carried #430,
+  #431 resolved.
