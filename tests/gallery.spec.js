@@ -244,9 +244,13 @@ test('recorded wavefront tile draws with its map and aperture, the log PSF with 
       const top = +rect.getAttribute('y'), h = +rect.getAttribute('height');
       const ys = [...svg.querySelectorAll('line')].filter((l) => +l.getAttribute('x2') - +l.getAttribute('x1') === 3 && +l.getAttribute('x1') === +rect.getAttribute('x') + 10)
         .map((l) => +l.getAttribute('y1')).sort((a, b) => b - a);
-      return { h, t: ys.map((y) => (top + h - y) / h) };
+      const topLabel = [...svg.querySelectorAll('text.eleo-tick')].find((t) => Math.abs(+t.getAttribute('y') - ys[ys.length - 1]) < 0.01 && +t.getAttribute('x') === +rect.getAttribute('x') + 14);
+      return { h, t: ys.map((y) => (top + h - y) / h), topLabel: topLabel ? topLabel.textContent : null };
     });
     expect(bar.t.length, `${theme} log colorbar ticks`).toBeGreaterThanOrEqual(4);
+    // The adapter divides the recorded PSF by its peak, so the brightest value is 1: the highest tick is the top of the bar, labelled 1.
+    expect(bar.t[bar.t.length - 1], `${theme} log colorbar top tick at the top of the bar`).toBeCloseTo(1, 2);
+    expect(bar.topLabel, `${theme} log colorbar top tick label`).toBe('1');
     for (let i = 1; i < bar.t.length; i++) expect(bar.t[i] - bar.t[i - 1], `${theme} log ticks one decade (a quarter bar) apart`).toBeCloseTo(0.25, 2);
   }
 });
