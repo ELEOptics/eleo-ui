@@ -184,9 +184,11 @@ test('typed map refuses bad polar samples', async ({ page }) => {
     const err = (o) => { try { window.ELEO.map2D({ extent: [-1, 1, -1, 1], ...o }); return null; } catch (e) { return e instanceof TypeError ? e.message : 'not a TypeError: ' + e.name; } };
     const polar = { radii: [1, 2], angles: [0, 1, 2] };
     return { rows: err({ values: [[1, 2, 3]], polar }), cols: err({ values: [[1, 2], [3, 4]], polar }), radii: err({ values: [[1, 2, 3], [4, 5, 6]], polar: { radii: [2, 1], angles: polar.angles } }),
-      angles: err({ values: [[1], [4]], polar: { radii: [1, 2], angles: [NaN] } }), ok: err({ values: [[1, 2, 3], [4, 5, 6]], polar }) };
+      angles: err({ values: [[1], [4]], polar: { radii: [1, 2], angles: [NaN] } }),
+      turn: err({ values: [[1, 2, 3], [4, 5, 6]], polar: { radii: [1, 2], angles: [0, 4, 8] } }), ok: err({ values: [[1, 2, 3], [4, 5, 6]], polar }) };
   });
-  for (const k of ['rows', 'cols', 'radii', 'angles']) expect(r[k], k).toMatch(/^map2D: polar/);
+  for (const k of ['rows', 'cols', 'radii', 'angles', 'turn']) expect(r[k], k).toMatch(/^map2D: polar/);
+  expect(r.turn).toMatch(/within one turn/);
   expect(r.ok).toBe(null);
 });
 
