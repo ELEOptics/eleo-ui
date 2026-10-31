@@ -125,7 +125,7 @@ grid files and refuses a swapped Seidel or Cassegrain order. Proves: O1
 | #427 | `map2d.js`'s margin-loop comment states the right reason (review M1 round 2, finding 2) | the reviewer's wording, which matches the code; considered deleting it, which leaves the loop unexplained | `packages/plots/src/map2d.js`, `tests/map2d.spec.js` | `tests/map2d.spec.js::margin growth re-pads: image stays centred` (red under a one-pass loop; renamed by #428) | #426 |
 | #428 | Rename the re-pad test after what it catches (`margin growth re-pads: image stays centred`), centring asserted first (review M1 round 3, finding 2) | rename because the name should say what fails; considered dropping the aspect assertion, which still guards px per unit | `tests/map2d.spec.js` | `tests/map2d.spec.js::margin growth re-pads: image stays centred` | |
 
-### M2: scales, aperture, colorbar; wavefront, log and irradiance tiles (done 2026-10-30) GitHub: `P389 M2: scales, colorbar, wavefront`
+### M2: scales, aperture, colorbar; wavefront, log and irradiance tiles GitHub: `P389 M2: scales, colorbar, wavefront`
 
 Demo: the wavefront tile is the recorded Cooke wavefront, a round pupil with its ring, diverging map, a colorbar in
 waves; a log PSF tile; a Gaussian irradiance tile marked synthetic; both themes and the three palettes. Proves: O2
@@ -158,6 +158,7 @@ waves; a log PSF tile; a Gaussian irradiance tile marked synthetic; both themes 
 | #447 | index.d.ts and README: a positive range sets the log span, `decades` then ignored (CR #443) | say the rule where each prop is documented; considered decades winning, which reopens round 1's finding 8 | `packages/plots/src/index.d.ts`, `packages/plots/README.md` | `tests/map2d.spec.js::a positive log range overrides decades` | #446 |
 | #449 | Polar one-turn check tolerates rounding (2π·(1 + 1e-12)) on a closed ring (review M2 round 3, finding 1) | a relative tolerance because the overshoot is float rounding; considered rounding the angles, which changes the caller's data | `packages/plots/src/map2d.js` | `tests/map2d.spec.js::typed map refuses bad polar samples` | |
 | #451 | README: the polar one-turn rule allows float rounding (review M2 round 4, finding 1) | the reviewer's wording; considered stating 1e-12, a number callers don't need | `packages/plots/README.md` | none (docs): `scripts/check.sh --fast` | |
+| #452 | Gallery wavefront tile on `ember` over its full range; #435's test asserts the ember step (M2 demo, user) | sequential because the recorded OPD has no sign change, so a diverging map claims a zero that isn't there (user); considered `wave` stretched over [min, max] (white at 0.39 waves) and removing piston (changes the values) | `tests/fixtures/phos-core/adapters.js`, `tests/gallery.spec.js` | `tests/gallery.spec.js::recorded wavefront tile draws with its map and aperture, the log PSF with whole decades` | |
 
 ### M3: Svelte, U14 and the release GitHub: `P389 M3: Svelte and release`
 
@@ -173,7 +174,7 @@ plots-svelte minors; the U14 median in the Change log. Proves: O3
 | #407 | Changesets: plots minor (typed `map2D`) and plots-svelte minor (`Map2D` typed props) | forced (roadmap Constraints: release on consumer pull, planned by changesets) | `.changeset/` | `tests/unit/release.test.js::map2D changeset asks minors` | #405, #333 |
 | #408 | Unskip O3 acceptance tests | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | all O3 tests | all above |
 
-47 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine; review M2 added sixteen): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
+48 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine; review M2 added sixteen; the M2 demo one): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
 the colorbar and aperture; none is cut to fit.
 ## Risks and spikes
 
@@ -251,3 +252,6 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-30 review M2 round 4: 0 blocking; carried CRs resolved; #451 (README wording for #449) pulled in.
 - 2026-10-30 M2 done: review round 5 says 0 blocking with nothing pulled in (rounds: 2+8, 1+3, 0+1, 0+1, 0+0); CI
   green on every earlier pushed head; demo pending.
+- 2026-10-30 M2 demo (user): the Cooke 0 deg wavefront is all positive (0.002 to 0.77 waves), so the symmetric `wave`
+  scale used half the bar. User chose a sequential map over the full range: #452. M2 reopened until #452 lands and is
+  reviewed. The `wave` symmetric rule stays for signed data.
