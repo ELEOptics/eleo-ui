@@ -17,7 +17,7 @@ function typedMap(o) {
   var pol = o.polar, pr, pa;
   if (pol) {
     pr = pol.radii; pa = pol.angles;
-    if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); })) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite)");
+    if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); }) || pa.some(function (q, i) { return i && q < pa[i - 1]; })) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite, sorted)");
     if (nr !== pr.length || nc !== pa.length) throw new TypeError("map2D: polar values need one row per radius and one value per angle");
   }
   var lo = Infinity, hi = -Infinity;
@@ -68,13 +68,16 @@ function typedMap(o) {
   if (pol) {
     /* Nearest sample: radial edges midway between neighbouring radii (the first sector from 0, the last half a step past the outer radius), angular edges midway between spokes. Pixels in no sector stay alpha 0. */
     var nrg = pr.length, rout = pr[nrg - 1] + (nrg > 1 ? pr[nrg - 1] - pr[nrg - 2] : pr[0]) / 2, TAU = 2 * Math.PI;
-    var cols = rows.map(function (r) { return r.map(paint); });
+    var cols = rows.map(function (r) { return r.map(paint); }), mid = pr.slice(1).map(function (q, k) { return (pr[k] + q) / 2; }), na = pa.length;
     for (var j = 0; j < bh; j++) for (var i = 0; i < bw; i++) {
       var qx = e[0] + (i + 0.5) * (e[1] - e[0]) / bw, qy = e[3] - (j + 0.5) * (e[3] - e[2]) / bh, rr = Math.hypot(qx, qy);
       if (rr > rout) continue;
-      var ri = 0; while (ri < nrg - 1 && rr >= (pr[ri] + pr[ri + 1]) / 2) ri++;
-      var th = Math.atan2(qy, qx), ai = 0, ad = Infinity;
-      for (var q = 0; q < pa.length; q++) { var dd = Math.abs(th - pa[q]) % TAU; dd = Math.min(dd, TAU - dd); if (dd < ad) { ad = dd; ai = q; } }
+      /* Binary search: the first ring whose outer edge is above rr; the last spoke at or before the angle (shifted into [pa[0], pa[0] + TAU)) and its successor, which wraps to the first spoke + TAU. A pixel exactly on a ring edge takes the outer ring; an angular tie takes the first spoke in order. */
+      var lo2 = 0, hi2 = mid.length; while (lo2 < hi2) { var m2 = (lo2 + hi2) >> 1; if (rr >= mid[m2]) lo2 = m2 + 1; else hi2 = m2; }
+      var ri = lo2, t = pa[0] + ((Math.atan2(qy, qx) - pa[0]) % TAU + TAU) % TAU, a0 = 0, a1 = na; while (a0 < a1) { var m3 = (a0 + a1) >> 1; if (pa[m3] <= t) a0 = m3 + 1; else a1 = m3; }
+      var ai = a0 - 1, nx = a0 < na ? a0 : 0, dn = (a0 < na ? pa[a0] : pa[0] + TAU) - t, dp = t - pa[ai];
+      while (ai > 0 && pa[ai - 1] === pa[ai]) ai--;
+      if (dn < dp || (dn === dp && nx < ai)) ai = nx;
       if (cols[ri][ai]) put((j * bw + i) * 4, cols[ri][ai]);
     }
   } else rows.forEach(function (r, j) { r.forEach(function (v, i) { var c = paint(v); if (c) put((j * nc + i) * 4, c); }); });

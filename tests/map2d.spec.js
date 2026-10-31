@@ -147,6 +147,33 @@ test('polar samples fill their sectors', async ({ page }) => {
   expect(r.outsideWrong, 'pixels beyond the outer edge are alpha 0').toBe(0);
   expect(r.bw, 'bitmap within the plot area px').toBeLessThanOrEqual(Math.ceil(r.w));
   expect(r.bh).toBeLessThanOrEqual(Math.ceil(r.h));
+  // #438: uneven spokes (0.2, 1, 2.5, 5 rad: the last sector wraps past 2 pi to the first) take the nearest spoke by circular distance, and
+  // unsorted spokes are refused. oracle: closed-form, nearest of the four angles by brute force, pixels within 1.5 px of an edge unchecked.
+  const u = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
+    const radii = [1, 2, 3], angles = [0.2, 1, 2.5, 5], values = radii.map((_, i) => angles.map((_, k) => 4 * i + k)), TAU = 2 * Math.PI;
+    el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, polar: { radii, angles }, extent: [-4, 4, -4, 4], map: 'ember', el }));
+    const img = el.lastElementChild.querySelector('image'), lut = window.ELEO.colormap('ember', el);
+    const bm = await createImageBitmap(await (await fetch(img.getAttribute('href'))).blob());
+    const g = new OffscreenCanvas(bm.width, bm.height).getContext('2d'); g.drawImage(bm, 0, 0);
+    const px = g.getImageData(0, 0, bm.width, bm.height).data, pu = 8 / bm.width;
+    const circ = (a, b) => { const d = Math.abs(a - b) % TAU; return Math.min(d, TAU - d); };
+    let checked = 0, wrong = 0;
+    for (let j = 0; j < bm.height; j++) for (let i = 0; i < bm.width; i++) {
+      const x = -4 + (i + 0.5) * pu, y = 4 - (j + 0.5) * pu, rr = Math.hypot(x, y), th = Math.atan2(y, x);
+      if (rr > 3.5 + 1.5 * pu) continue;
+      const d = angles.map((q, k) => [circ(q, th), k]).sort((a, b) => a[0] - b[0]);
+      if (Math.min(Math.abs(rr - 1.5), Math.abs(rr - 2.5), Math.abs(rr - 3.5), (d[1][0] - d[0][0]) * rr / 2) < 1.5 * pu) continue;
+      const ring = rr < 1.5 ? 0 : rr < 2.5 ? 1 : 2, c = lut[Math.round(255 * (4 * ring + d[0][1]) / 11)], o = (j * bm.width + i) * 4;
+      checked++;
+      if (px[o + 3] !== 255 || [0, 1, 2].some((q) => Math.abs(px[o + q] - c[q]) > 1)) wrong++;
+    }
+    let msg = null;
+    try { window.ELEO.map2D({ values: [[1, 2, 3], [4, 5, 6]], polar: { radii: [1, 2], angles: [0, 2, 1] }, extent: [-1, 1, -1, 1] }); } catch (e) { msg = e instanceof TypeError ? e.message : 'not a TypeError: ' + e.name; }
+    return { checked, wrong, msg };
+  });
+  expect(u.checked, 'uneven sector pixels checked').toBeGreaterThan(500);
+  expect(u.wrong, 'uneven sector pixels off their step').toBe(0);
+  expect(u.msg, 'unsorted angles are refused').toMatch(/^map2D: polar/);
 });
 
 // #414: polar samples must be one row per radius and one value per angle, else a TypeError.
