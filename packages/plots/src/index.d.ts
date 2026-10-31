@@ -171,9 +171,9 @@ export interface Map2DGridProps {
   y?: CurveAxis;
   /** Colormap. Default "ember"; "wave" for a signed range. */
   map?: "ember" | "wave" | "viridis" | "gray";
-  /** Default "linear" over [min, max]. "log" spans `decades` below the max. */
+  /** Default "linear" over [min, max]. "log" spans `decades` below the max, or exactly `range` when 0 < lo < hi. */
   scale?: "linear" | "log";
-  /** Decades a log scale spans. Default 4. */
+  /** Decades a log scale spans below the max. Default 4. Ignored when `range` is [lo, hi] with 0 < lo < hi: that range sets the span. */
   decades?: number;
   /** [lo, hi] of the color scale, in data units. Default: the range of the live cells (symmetric about 0 for "wave"). */
   range?: [number, number];

@@ -419,6 +419,21 @@ test('log decades', async ({ page }) => {
   expect(r[2], 'cells off their step at 2 decades').toBe(0);
 });
 
+// O2, log range vs decades (CR #443): on a log scale a `range` [lo, hi] with 0 < lo < hi sets the span (log10(hi/lo) decades) and `decades`
+// is ignored. [1e-6, 1e-3, 1] on range [1e-6, 1] with decades 2 draws steps 0, 127.5, 255 (6 decades), not 0, 0, 255.
+test('a positive log range overrides decades', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(o2Helpers);
+  const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
+    const ELEO = window.ELEO, { grid } = window.__o2;
+    el.insertAdjacentHTML('beforeend', ELEO.map2D({ values: [[1e-6, 1e-3, 1]], extent: [0, 1, 0, 1], el, map: 'ember', scale: 'log', range: [1e-6, 1], decades: 2 }));
+    const G = await grid(el.lastElementChild), ember = ELEO.colormap('ember', el);
+    return [0, 0.5 * 255, 255].map((s, i) => [Math.floor(s), Math.ceil(s)].some((q) => [0, 1, 2].every((c) => Math.abs(G.px[i * 4 + c] - ember[q][c]) <= 1)));
+  });
+  expect(r, 'cells off the 6-decade steps of the range').toEqual([true, true, true]);
+});
+
 // Typed map, log scale and wave range (#398): 10^-k on a D-decade log scale draws step (D - k)/D; values at or under max * 10^-D (zeros,
 // negatives) draw step 0; map 'wave' is symmetric about 0; range overrides both.
 test('typed map log scale and wave range', async ({ page }) => {
