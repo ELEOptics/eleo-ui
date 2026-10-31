@@ -310,3 +310,27 @@ test('ray-status changeset became a plots minor',
   { skip: (!rayStatusConsumed && 'changesets not yet versioned') }, () => {
     assert.equal(entry('plots', RAY_STATUS_ENTRY).kind, 'Minor');
   });
+
+// Plan #389 (agent_docs/plans/389-map2d-typed.md), O3, issue #404; #407 adds the changesets, #408 unskips.
+// oracle: spec roadmap Constraints (a typed API added alongside the old one ships as a minor); semver 0.x.
+// plots-svelte's `Map2D` takes the typed props, a new feature, so it is a minor too (the bars-limits precedent).
+// Read as the bars-limits pair above: the file, or once `changeset version` deleted it, the CHANGELOG entry.
+// The entries are matched by phrases only these changesets have (#407 writes them): New: `map2D` takes a typed grid,
+// New: `Map2D` takes typed props.
+const MAP2D_PLOTS_ENTRY = /New: `map2D` takes a typed grid/;
+const MAP2D_SVELTE_ENTRY = /New: `Map2D` takes typed props/;
+const map2dPlotsConsumed = barsConsumed('map2d-typed.md', 'plots', MAP2D_PLOTS_ENTRY);
+const map2dSvelteConsumed = barsConsumed('map2d-typed-svelte.md', 'plots-svelte', MAP2D_SVELTE_ENTRY);
+
+test('map2D changeset asks minors',
+  { skip: 'plan #389 #408 unskips' }, () => {
+    assert.deepEqual(parse('map2d-typed.md').bumps, { '@eleoptics/plots': 'minor' });
+    assert.deepEqual(parse('map2d-typed-svelte.md').bumps, { '@eleoptics/plots-svelte': 'minor' });
+  });
+
+test('map2D changeset became minors',
+  { skip: 'plan #389 #408 unskips' }, () => {
+    assert.ok(map2dPlotsConsumed && map2dSvelteConsumed, 'changesets not yet versioned');
+    assert.equal(entry('plots', MAP2D_PLOTS_ENTRY).kind, 'Minor');
+    assert.equal(entry('plots-svelte', MAP2D_SVELTE_ENTRY).kind, 'Minor');
+  });
