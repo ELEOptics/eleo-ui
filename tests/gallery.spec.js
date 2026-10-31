@@ -210,13 +210,13 @@ test('recorded wavefront tile draws', async ({ page }) => {
   }
 });
 
-// Plan #389, #435: the props' visible effects, so an adapter that drops `map: 'wave'`, `aperture` or `scale: 'log'` fails. oracle: fixture cooke-wavefront.json
-// (radii[0] row = 0.0024333, max |value| 0.76991, so its step on the symmetric range is round((v + m) / 2m * 255) of the wave map, not the ember map's);
+// Plan #389, #435: the props' visible effects, so an adapter that drops `map: 'ember'`, `aperture` or `scale: 'log'` fails. oracle: fixture cooke-wavefront.json
+// (radii[0] row = 0.0024333, range 0.0024333..0.76991, so its step on [min, max] is round((v - min) / (max - min) * 255) of the ember map, not the wave map's);
 // the aperture ring is a circle plus the even-odd path; log colorbar ticks are one decade (a quarter of the bar at 4 decades) apart, a linear bar's are not.
 test('recorded wavefront tile draws with its map and aperture, the log PSF with whole decades', async ({ page }) => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/phos-core/cooke-wavefront.json', import.meta.url), 'utf8'));
   const flat = fixture.values.flat().filter((v) => Number.isFinite(v));
-  const m = Math.max(...flat.map(Math.abs)), step = Math.round(((fixture.values[0][0] + m) / (2 * m)) * 255);
+  const lo = Math.min(...flat), hi = Math.max(...flat), step = Math.round(((fixture.values[0][0] - lo) / (hi - lo)) * 255);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
@@ -228,14 +228,23 @@ test('recorded wavefront tile draws with its map and aperture, the log PSF with 
       const px = [...g.getImageData(Math.floor(bitmap.width / 2), Math.floor(bitmap.height / 2), 1, 1).data.slice(0, 3)];
       const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
       const wave = window.ELEO.colormap('wave', el)[step], ember = window.ELEO.colormap('ember', el)[step];
+      // The ember map's step 0 is the plot ground, which is also the wave map's middle step, so the centre alone cannot tell the maps apart; the brightest sample
+      // (value max, step 255 of either map) can: the image holds the ember top colour and not the wave top colour.
+      const all = g.getImageData(0, 0, bitmap.width, bitmap.height).data;
+      const has = (c) => { for (let i = 0; i < all.length; i += 4) if (all[i + 3] > 0 && Math.abs(all[i] - c[0]) <= 1 && Math.abs(all[i + 1] - c[1]) <= 1 && Math.abs(all[i + 2] - c[2]) <= 1) return true; return false; };
+      const top = window.ELEO.colormap('ember', el)[255], waveTop = window.ELEO.colormap('wave', el)[255];
       return {
+        hasEmberTop: has(top), hasWaveTop: has(waveTop), topApart: !near(top, waveTop),
         ring: svg.querySelectorAll('circle[fill="none"]').length, even: svg.querySelectorAll('path[fill-rule="evenodd"]').length,
         isWave: near(px, wave), isEmber: near(px, ember), apart: !near(wave, ember),
       };
     }, step);
     expect(wf.apart, `${theme} wave and ember differ at step ${step}`).toBe(true);
-    expect(wf.isWave, `${theme} wavefront centre is the wave map's step ${step}`).toBe(true);
-    expect(wf.isEmber, `${theme} wavefront centre is not the ember map`).toBe(false);
+    expect(wf.isEmber, `${theme} wavefront centre is the ember map's step ${step}`).toBe(true);
+    expect(wf.isWave, `${theme} wavefront centre is not the wave map`).toBe(false);
+    expect(wf.topApart, `${theme} ember and wave differ at step 255`).toBe(true);
+    expect(wf.hasEmberTop, `${theme} wavefront max sample is the ember top colour`).toBe(true);
+    expect(wf.hasWaveTop, `${theme} wavefront has no wave top colour`).toBe(false);
     expect(wf.ring, `${theme} aperture ring`).toBe(1);
     expect(wf.even, `${theme} aperture even-odd path`).toBe(1);
 

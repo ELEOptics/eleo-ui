@@ -105,13 +105,13 @@
       if (opts && opts.log) { props.scale = 'log'; props.value = { label: 'Intensity', unit: 'relative' }; }
       return props;
     },
-    /* wavefront(recording) -> the typed map2D props (without `el`): the recorded WavefrontError as polar samples on the wave map,
-       its pupil as the aperture, an extent 5 % wider than the pupil, and a colorbar in waves. */
+    /* wavefront(recording) -> the typed map2D props (without `el`): the recorded WavefrontError as polar samples on the ember map
+       (sequential over [min, max]: the recorded OPD has no sign change), its pupil as the aperture, an extent 5 % wider than the pupil, and a colorbar in waves. */
     wavefront: function (rec) {
       var e = rec.pupilRadius * 1.05;
       return {
         values: rec.values, polar: { radii: rec.radii, angles: rec.angles }, extent: [-e, e, -e, e],
-        x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'wave', label: 'Wavefront error',
+        x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Wavefront error',
         aperture: { x: 0, y: 0, r: rec.pupilRadius }, value: { label: 'OPD', unit: 'waves' }
       };
     },
