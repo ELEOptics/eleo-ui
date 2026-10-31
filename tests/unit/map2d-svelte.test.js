@@ -34,7 +34,7 @@ test('Map2D renders a div.eleo-svg for a typed grid and a canvas for the sample'
 });
 
 // #461: the svelte-check fixture guards the per-mode `range` union. Its @ts-expect-error lines make a widened union fail `npm run check`.
-test('Map2D type fixture keeps its @ts-expect-error guards',() => {
+test('Map2D type fixture keeps its @ts-expect-error guards', () => {
   const fixture = readFileSync(new URL('../../packages/plots-svelte/src/fixtures/Map2DTypes.svelte', import.meta.url), 'utf8');
   const guards = fixture.match(/^\s*\/\/ @ts-expect-error/gm) ?? [];
   assert.equal(guards.length, 3, 'typed { lo, hi }, sample [lo, hi], values without extent');
