@@ -125,7 +125,7 @@ grid files and refuses a swapped Seidel or Cassegrain order. Proves: O1
 | #427 | `map2d.js`'s margin-loop comment states the right reason (review M1 round 2, finding 2) | the reviewer's wording, which matches the code; considered deleting it, which leaves the loop unexplained | `packages/plots/src/map2d.js`, `tests/map2d.spec.js` | `tests/map2d.spec.js::margin growth re-pads: image stays centred` (red under a one-pass loop; renamed by #428) | #426 |
 | #428 | Rename the re-pad test after what it catches (`margin growth re-pads: image stays centred`), centring asserted first (review M1 round 3, finding 2) | rename because the name should say what fails; considered dropping the aspect assertion, which still guards px per unit | `tests/map2d.spec.js` | `tests/map2d.spec.js::margin growth re-pads: image stays centred` | |
 
-### M2: scales, aperture, colorbar; wavefront, log and irradiance tiles GitHub: `P389 M2: scales, colorbar, wavefront`
+### M2: scales, aperture, colorbar; wavefront, log and irradiance tiles (done 2026-10-30) GitHub: `P389 M2: scales, colorbar, wavefront`
 
 Demo: the wavefront tile is the recorded Cooke wavefront, a round pupil with its ring, a sequential `ember` map
 over its full range, a colorbar in waves; a log PSF tile; a Gaussian irradiance tile marked synthetic; both themes and the three palettes. Proves: O2
@@ -175,7 +175,7 @@ plots-svelte minors; the U14 median in the Change log. Proves: O3
 | #407 | Changesets: plots minor (typed `map2D`) and plots-svelte minor (`Map2D` typed props) | forced (roadmap Constraints: release on consumer pull, planned by changesets) | `.changeset/` | `tests/unit/release.test.js::map2D changeset asks minors` | #405, #333 |
 | #408 | Unskip O3 acceptance tests | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | all O3 tests | all above |
 
-49 items over 3 milestones (CR #410 split #391 and added two; review M1 added nine; review M2 added seventeen; the M2 demo one): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
+50 items over 3 milestones (CR #410 split #391 into two and added two; review M1 added nine; review M2 added seventeen; the M2 demo one): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
 the colorbar and aperture; none is cut to fit.
 ## Risks and spikes
 
@@ -258,3 +258,5 @@ One bullet per entry (bare lines render as one paragraph).
   reviewed. The `wave` symmetric rule stays for signed data.
 - 2026-10-30 review M2 round 6: 1 blocking, CR #453 (M2 Demo line said diverging), fixed here by the orchestrator;
   #454 (test comment) pulled in. Carried CRs resolved.
+- 2026-10-30 review M2 round 7: 0 blocking, nothing pulled in; the item count is 50 (the #391 split had been counted as
+  no change; finding 1, fixed here). M2 done again after #452: demo pending.
