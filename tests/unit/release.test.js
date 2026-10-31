@@ -334,3 +334,20 @@ test('map2D changeset became minors',
     assert.equal(entry('plots', MAP2D_PLOTS_ENTRY).kind, 'Minor');
     assert.equal(entry('plots-svelte', MAP2D_SVELTE_ENTRY).kind, 'Minor');
   });
+
+// Plan #389, issue #333 (CR #332's `later`): BarPlot needs `bars`, first published in plots 0.5.0, so the
+// plots-svelte peer must exclude 0.4.0 and admit 0.5.0. Plots is 0.5.0 on npm and in the workspace, so `npm ci` resolves.
+// oracle: spec semver (a `>=X.Y.Z <M` range admits v when X.Y.Z <= v and v's major < M).
+test('plots-svelte peers plots >=0.5.0', () => {
+  const range = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
+  const m = range.match(/^>=(\d+)\.(\d+)\.(\d+) <(\d+)$/);
+  assert.ok(m, `the plots peer ${range} is not >=X.Y.Z <M`);
+  const [lo, hi] = [m.slice(1, 4).map(Number), Number(m[4])];
+  const admits = (v) => {
+    const p = v.split('.').map(Number);
+    const cmp = p.map((n, i) => n - lo[i]).find((d) => d !== 0) ?? 0;
+    return cmp >= 0 && p[0] < hi;
+  };
+  assert.ok(!admits('0.4.0'), `${range} admits plots 0.4.0, which has no bars`);
+  assert.ok(admits('0.5.0'), `${range} excludes plots 0.5.0`);
+});
