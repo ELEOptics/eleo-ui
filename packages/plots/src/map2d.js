@@ -16,7 +16,7 @@ function typedMap(o) {
   var pol = o.polar, pr, pa;
   if (pol) {
     pr = pol.radii; pa = pol.angles;
-    if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); }) || pa.some(function (q, i) { return i && q < pa[i - 1]; }) || pa[pa.length - 1] - pa[0] > 2 * Math.PI) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite, sorted, within one turn)");
+    if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); }) || pa.some(function (q, i) { return i && q < pa[i - 1]; }) || pa[pa.length - 1] - pa[0] > 2 * Math.PI * (1 + 1e-12)) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite, sorted, within one turn)");
     if (nr !== pr.length || nc !== pa.length) throw new TypeError("map2D: polar values need one row per radius and one value per angle");
   }
   var lo = Infinity, hi = -Infinity;

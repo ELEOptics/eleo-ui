@@ -185,10 +185,12 @@ test('typed map refuses bad polar samples', async ({ page }) => {
     const polar = { radii: [1, 2], angles: [0, 1, 2] };
     return { rows: err({ values: [[1, 2, 3]], polar }), cols: err({ values: [[1, 2], [3, 4]], polar }), radii: err({ values: [[1, 2, 3], [4, 5, 6]], polar: { radii: [2, 1], angles: polar.angles } }),
       angles: err({ values: [[1], [4]], polar: { radii: [1, 2], angles: [NaN] } }),
-      turn: err({ values: [[1, 2, 3], [4, 5, 6]], polar: { radii: [1, 2], angles: [0, 4, 8] } }), ok: err({ values: [[1, 2, 3], [4, 5, 6]], polar }) };
+      turn: err({ values: [[1, 2, 3], [4, 5, 6]], polar: { radii: [1, 2], angles: [0, 4, 8] } }),
+      ring: err({ values: [Array(14).fill(1), Array(14).fill(2)], polar: { radii: [1, 2], angles: Array.from({ length: 14 }, (_, k) => k * 2 * Math.PI / 13) } }), ok: err({ values: [[1, 2, 3], [4, 5, 6]], polar }) };
   });
   for (const k of ['rows', 'cols', 'radii', 'angles', 'turn']) expect(r[k], k).toMatch(/^map2D: polar/);
   expect(r.turn).toMatch(/within one turn/);
+  expect(r.ring).toBe(null);
   expect(r.ok).toBe(null);
 });
 
