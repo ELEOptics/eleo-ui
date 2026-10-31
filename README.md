@@ -43,6 +43,8 @@ In Svelte:
 </PlotCard>
 ```
 
+A typed grid draws as SVG with axes and a colorbar: `<Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />`.
+
 ## Work on it
 
 ```bash
