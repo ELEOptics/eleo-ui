@@ -31,7 +31,7 @@ function typedMap(o) {
   var vb = o.value, cbt = null, CB = 0;
   if (vb) {
     var cl = log ? hi * Math.pow(10, -dec) : lo, vt;
-    if (!(lo < hi)) vt = { ticks: [], decimals: 0 };
+    if (!(log ? hi > 0 : lo < hi)) vt = { ticks: [], decimals: 0 };
     else if (vb.ticks) vt = axisTicks(vb, [cl, hi]);
     else if (log) { vt = { ticks: [], decimals: 0 }; if (hi > 0) for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = null; }
     else vt = niceTicks(cl, hi, 6);

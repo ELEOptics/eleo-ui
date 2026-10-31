@@ -602,14 +602,15 @@ test('colorbar ticks sit at their values', async ({ page }) => {
   expect(r[3].labels, 'each log label has its own decimals').toEqual(['0.01', '0.1', '1']);
 });
 
-// An empty range (every cell masked, or all cells equal) has no scale to label: the bar and its title stay, no ticks are drawn.
+// An empty range has no scale to label: every cell masked, all cells equal on a linear scale, or a log grid with hi <= 0. The bar and its title stay, no ticks are drawn.
+// A constant positive log grid still spans `decades` below hi, so it keeps its decade ticks (next test).
 test('colorbar ticks sit at their values: an empty range draws no ticks', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
     const ELEO = window.ELEO;
-    return [[[null, NaN]], [[2, 2], [2, 2]]].map((values) => {
-      el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], map: 'ember', value: { label: 'v' }, el }));
+    return [[[null, NaN]], [[2, 2], [2, 2]], [[-3, -3], [-3, -3]]].map((values, i) => {
+      el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], map: 'ember', scale: i === 2 ? 'log' : 'linear', value: { label: 'v' }, el }));
       const svg = el.lastElementChild;
       const cb = [...svg.querySelectorAll('image')].pop(), bx = +cb.getAttribute('x') + +cb.getAttribute('width');
       return { ticks: [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && t.getAttribute('text-anchor') !== 'end').length, text: svg.textContent, bar: [...svg.querySelectorAll('image')].length };
@@ -621,6 +622,19 @@ test('colorbar ticks sit at their values: an empty range draws no ticks', async 
     expect(q.bar, 'tile and bar still drawn').toBe(2);
     expect(q.ticks, 'no tick labels right of the bar').toBe(0);
   }
+});
+
+test('colorbar ticks sit at their values: a constant positive log grid keeps its decade ticks', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const ELEO = window.ELEO;
+    el.insertAdjacentHTML('beforeend', ELEO.map2D({ values: [[5, 5], [5, 5]], extent: [0, 1, 0, 1], map: 'ember', scale: 'log', value: { label: 'v' }, el }));
+    const svg = el.lastElementChild;
+    const cb = [...svg.querySelectorAll('image')].pop(), bx = +cb.getAttribute('x') + +cb.getAttribute('width');
+    return [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && t.getAttribute('text-anchor') !== 'end').map((t) => t.textContent);
+  });
+  expect(r, 'bar spans 5e-4..5: decades 1e-3 .. 1').toEqual(['0.001', '0.01', '0.1', '1']);
 });
 
 // O2, irradiance: each Gaussian cell is the step of exp(-2 r^2 / w^2). oracle: closed-form, TEM00 irradiance with w = 1 mm, 128 x 128 cells
