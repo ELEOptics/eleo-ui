@@ -352,10 +352,11 @@ test('plots-svelte peers plots >=0.5.0', () => {
 });
 
 // Plan #389, issue #456 (CR #455): the peer stays >=0.5.0, but older plots has no typed map2D, so a typed Map2D fails; the
-// README's Map2D paragraph (where a reader meets the typed props) must name the plots version that has them.
-test('plots-svelte README says typed Map2D needs plots 0.6.0', () => {
+// README's Map2D paragraph (where a reader meets the typed props) must name the plots version that has them. That is
+// 0.7.0, not 0.6.0 (CR #458): main's Version Packages (#388) already took 0.6.0 for the layout2D ray-start change.
+test('plots-svelte README says typed Map2D needs plots 0.7.0', () => {
   const readme = readFileSync(join(repo, 'packages/plots-svelte/README.md'), 'utf8');
   const para = readme.split('\n\n').find((p) => p.startsWith('`Map2D` draws a typed grid'));
   assert.ok(para, 'no Map2D paragraph in the plots-svelte README');
-  assert.match(para, /0\.6\.0/);
+  assert.match(para, /0\.7\.0/);
 });

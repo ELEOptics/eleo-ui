@@ -26,7 +26,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 </PlotCard>
 ```
 
-`Map2D` draws a typed grid as one SVG with axes and a colorbar (`values` and `extent`, see `Map2DGridProps` in the plots README), colored by its own element's tokens and redrawn on a theme or palette change. The typed props need `@eleoptics/plots` 0.6.0 or newer; with older plots, use the canvas sample. Without `values` it draws the canvas sample above:
+`Map2D` draws a typed grid as one SVG with axes and a colorbar (`values` and `extent`, see `Map2DGridProps` in the plots README), colored by its own element's tokens and redrawn on a theme or palette change. The typed props need `@eleoptics/plots` 0.7.0 or newer; with older plots, use the canvas sample. Without `values` it draws the canvas sample above:
 
 ```svelte
 <Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />
