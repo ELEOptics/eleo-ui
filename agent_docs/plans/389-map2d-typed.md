@@ -176,9 +176,10 @@ plots-svelte minors; the U14 median in the Change log. Proves: O3
 | #456 | plots-svelte README: the typed `Map2D` props need `@eleoptics/plots` ≥ 0.7.0; the peer stays `>=0.5.0 <1` (CR #455) | one sentence in the README's Map2D paragraph, where a reader meets the typed props; considered a runtime version check, which plots exposes no version for | `packages/plots-svelte/README.md`, `tests/unit/release.test.js` | `tests/unit/release.test.js::plots-svelte README says typed Map2D needs plots 0.7.0` | #404 |
 | #459 | Typed `Map2D` props need plots 0.7.0, not 0.6.0: README, changeset, test (CR #458, review M3 round 1, finding 1) | the number only, since CR #455's decision stands; considered taking it from `changeset status` after the catch-up | `packages/plots-svelte/README.md`, `.changeset/map2d-typed-svelte.md`, `tests/unit/release.test.js` | `tests/unit/release.test.js::plots-svelte README says typed Map2D needs plots 0.7.0` | |
 | #460 | `Map2D.svelte` `range` typed per mode: typed `[lo, hi]` in, sample `{ lo, hi }` out (review M3 round 1, finding 2) | a discriminated JSDoc union svelte-check reads; considered a header-comment line no checker reads | `packages/plots-svelte/src/lib/Map2D.svelte`, `tests/unit/map2d-svelte.test.js` | `npm run check` | |
+| #461 | svelte-check fixture guards `Map2D`'s per-mode `range` types (review M3 round 2, finding 1) | a fixture `.svelte` under an unshipped `src/` path, since svelte-check reads only `src/**`; considered `tests/types/*.ts`, which svelte-check does not read | `packages/plots-svelte/src/fixtures/Map2DTypes.svelte`, `tests/unit/map2d-svelte.test.js` | `npm run check`; `tests/unit/map2d-svelte.test.js` | |
 | #408 | Unskip O3 acceptance tests | forced (`workflow.md`, TDD) | `tests/unit/release.test.js` | all O3 tests | all above |
 
-53 items over 3 milestones (CR #410 split #391 into two and added two; review M1 added nine; review M2 added seventeen; the M2 demo one; CR #455 one; review M3 two): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
+54 items over 3 milestones (CR #410 split #391 into two and added two; review M1 added nine; review M2 added seventeen; the M2 demo one; CR #455 one; review M3 three): above the 15-item guideline because round 1 added axes and an irradiance tile and round 2
 the colorbar and aperture; none is cut to fit.
 ## Risks and spikes
 
@@ -268,3 +269,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-31 #406 U14: typed `map2D` at 256 × 256 (PNG encode and markup), median of 20 redraws 2.60 ms in headless Chromium, under 16 ms (layout2D 2.25 ms in the same run).
 - 2026-10-31 CR #455 (user, accepted: note + follow-up): typed `<Map2D values>` needs plots 0.7.0, but the peer `>=0.5.0 <1` admits 0.5.0. The peer stays, because `npm ci` needs a published plots. #456 adds the README note, #407's plots-svelte changeset says the same, and #457 (plain) raises the peer once 0.7.0 is on npm.
 - 2026-10-31 review M3 round 1: 1 blocking, CR #458. main's Version Packages (#388) took plots 0.6.0, so the typed map ships in 0.7.0. Every 0.6.0 above now reads 0.7.0 (orchestrator), and #459 fixes the README, changeset and test. #460 (range type per mode) pulled in.
+- 2026-10-31 review M3 round 2: 0 blocking; #461 (type fixture for #460's union) pulled in. Carried CRs #455 and #458 resolved.
