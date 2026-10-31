@@ -1,4 +1,4 @@
-/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve, ELEO.spot, ELEO.bars and ELEO.layout2D (plan #162, #174, #179, #284).
+/* Adapters from phos-core recordings (README.md) to the typed calls of ELEO.curve, ELEO.spot, ELEO.bars and ELEO.layout2D and the typed ELEO.map2D (plan #162, #174, #179, #284, #389).
    A classic script: the gallery loads it with a <script> tag and the unit tests with import(), so it has no
    import or export and assigns globalThis.ELEOAdapters. */
 (function () {
@@ -95,6 +95,25 @@
        (with their alive counts) and a label per field, the header's fieldsDeg as degrees. */
     layout: function (rec) {
       return { data: rec, rays: 'fan', width: 1000, labels: rec.fieldsDeg.map(function (a) { return a + '°'; }) };
+    },
+    /* psf(recording, { log }) -> the typed map2D props (without `el`, which the caller sets): the recorded PointSpread grid and its extent in mm,
+       linear over its range, on the ember map; with `log` on the log scale, divided by its peak, and a colorbar for the relative intensity. */
+    psf: function (rec, opts) {
+      var values = rec.values;
+      if (opts && opts.log) { var pk = 0; rec.values.forEach(function (r) { r.forEach(function (v) { if (v > pk) pk = v; }); }); if (pk > 0) values = rec.values.map(function (r) { return r.map(function (v) { return v / pk; }); }); }
+      var props = { values: values, extent: rec.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Point spread' };
+      if (opts && opts.log) { props.scale = 'log'; props.value = { label: 'Intensity', unit: 'relative' }; }
+      return props;
+    },
+    /* wavefront(recording) -> the typed map2D props (without `el`): the recorded WavefrontError as polar samples on the ember map
+       (sequential over [min, max]: the recorded OPD has no sign change), its pupil as the aperture, an extent 5 % wider than the pupil, and a colorbar in waves. */
+    wavefront: function (rec) {
+      var e = rec.pupilRadius * 1.05;
+      return {
+        values: rec.values, polar: { radii: rec.radii, angles: rec.angles }, extent: [-e, e, -e, e],
+        x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Wavefront error',
+        aperture: { x: 0, y: 0, r: rec.pupilRadius }, value: { label: 'OPD', unit: 'waves' }
+      };
     },
     /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
     distortion: function (rec) {

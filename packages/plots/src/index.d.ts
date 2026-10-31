@@ -1,5 +1,7 @@
-/* @eleoptics/plots. All SVG output reads colors from tokens.css
-   variables; canvas renderers read them at draw time, so call them again after a theme or palette change. */
+/* @eleoptics/plots. SVG output reads colors from tokens.css
+   variables, except the typed `map2D(props)`, which returns SVG with its grid baked into one image at draw time: draw it
+   again after a theme or palette change. The sample `map2D(canvas, ...)` and `layout3D` are canvas renderers that read
+   the variables at draw time, so call them again after a theme or palette change. */
 
 export type IndexKey = "field" | "wavelength";
 
@@ -156,6 +158,37 @@ export interface Map2DProps {
   /** Canvas size in px. Default 320. */
   size?: number;
 }
+/** A grid drawn as a map: SVG in curve's frame with the grid as one nearest-neighbour `<image>`. Colors come from `map` read at `el`; there is no color option (ADR-0001). */
+export interface Map2DGridProps {
+  /** Rows of cells, row 0 at the top. A cell that is not a finite number is masked: it draws no color, so the page's `--surface` shows. Plain arrays. With `polar`, `values[ring][spoke]` are polar samples instead. */
+  values: number[][];
+  /** Polar samples about the origin of `extent`: `radii` in extent units, `angles` in radians from +x, counter-clockwise (y up). `values[ring][spoke]` is the sample at `radii[ring]`, `angles[spoke]`. */
+  polar?: { radii: number[]; angles: number[] };
+  /** [x0, x1, y0, y1] in data units: the grid's outer edges. Px per unit are equal on x and y. */
+  extent: [number, number, number, number];
+  /** Axis labels and ticks. `range` is ignored: the extent sets it. */
+  x?: CurveAxis;
+  y?: CurveAxis;
+  /** Colormap. Default "ember"; "wave" for a signed range. */
+  map?: "ember" | "wave" | "viridis" | "gray";
+  /** Default "linear" over [min, max]. "log" spans `decades` below the max, or exactly `range` when 0 < lo < hi. */
+  scale?: "linear" | "log";
+  /** Decades a log scale spans below the max. Default 4. Ignored when `range` is [lo, hi] with 0 < lo < hi: that range sets the span. */
+  decades?: number;
+  /** [lo, hi] of the color scale, in data units. Default: the range of the live cells (symmetric about 0 for "wave"). */
+  range?: [number, number];
+  /** A circle in extent units: cells outside it draw as `--surface` and a ring marks its edge. */
+  aperture?: { x: number; y: number; r: number };
+  /** The colorbar's axis: `label` and `unit` name the value; `ticks` apply. Default none drawn without it. */
+  value?: CurveAxis;
+  /** Element whose tokens color the map. Default the document root. */
+  el?: Element;
+  /** viewBox size in px. Default 460 by 360. */
+  width?: number;
+  height?: number;
+  /** Accessible name of the svg. Default "Map". */
+  label?: string;
+}
 /** One curve. Every role draws a 1 px stroke; there is no color, width or dash option (ADR-0001). */
 export interface CurveSeries {
   /** [x, y] in data units. Points outside the axis ranges are clipped by the plot area. */
@@ -271,6 +304,9 @@ export interface ELEO {
   spot(props?: SpotDiagramProps): string;
   throughFocus(props?: { data?: object; half?: number }): string;
   rayFan(props?: RayFanProps): string;
+  /** A typed grid as SVG markup. */
+  map2D(props: Map2DGridProps): string;
+  /** The sample's PSF or wavefront drawn on a canvas. */
   map2D(canvas: HTMLCanvasElement, props?: Map2DProps): { lo: number; hi: number };
   curve(props: CurvePlotProps): string;
   bars(props: BarPlotProps): string;

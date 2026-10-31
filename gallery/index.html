@@ -58,6 +58,12 @@
       <section class="eleo-plot" data-tile="psf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">PSF, linear</span></div><div class="eleo-plot__body map"><canvas data-canvas="psf"></canvas><div class="eleo-colorbar"><i data-bar="ember"></i><span><b>1</b><b>0</b></span></div></div></section>
       <section class="eleo-plot" data-tile="wavefront"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">wavefront, waves</span></div><div class="eleo-plot__body map"><canvas data-canvas="wavefront"></canvas><div class="eleo-colorbar"><i data-bar="wave"></i><span><b>+</b><b>0</b><b>−</b></span></div></div></section>
     </div>
+    <section class="eleo-plot" data-tile="psf-recorded"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, mm</span></div><div class="eleo-plot__body" data-map="psf-recorded"></div></section>
+    <div class="row">
+      <section class="eleo-plot" data-tile="psf-log"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, log</span></div><div class="eleo-plot__body" data-map="psf-log"></div></section>
+      <section class="eleo-plot" data-tile="wavefront-recorded"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet wavefront, recorded, waves</span></div><div class="eleo-plot__body" data-map="wavefront-recorded"></div></section>
+    </div>
+    <section class="eleo-plot" data-tile="irradiance-gaussian"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">TEM00 Gaussian irradiance, synthetic, w = 1 mm</span></div><div class="eleo-plot__body" data-map="irradiance-gaussian"></div></section>
     <div class="row">
       <section class="eleo-plot" data-tile="mtf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF</span></div><div class="eleo-plot__body" data-svg="mtf"></div></section>
       <section class="eleo-plot" data-tile="mtf-limits"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF, requirement limits</span></div><div class="eleo-plot__body" data-svg="mtf-limits"></div></section>
@@ -129,7 +135,31 @@
       ctx.putImageData(img, 0, 0);
     }
     // Canvas tiles read their colors once per draw, so a palette change redraws them; SVG recolors through CSS.
+    // The typed map bakes its colors from the tile it is given as `el`, so it redraws with the canvases; a failure blanks only that tile.
+    var MAPS = {};
+    // Closed form, not a recording: phos-core's irradiance needs a nonsequential trace. TEM00, I = exp(-2 r^2 / w^2), w = 1 mm, 128 x 128 cells over +-2 mm.
+    MAPS['irradiance-gaussian'] = (function () {
+      var n = 128, w = 1, h = 4 / n;
+      return {
+        values: Array.from({ length: n }, function (_, j) { return Array.from({ length: n }, function (_, i) {
+          var x = -2 + (i + 0.5) * h, y = 2 - (j + 0.5) * h;
+          return Math.exp(-2 * (x * x + y * y) / (w * w));
+        }); }),
+        extent: [-2, 2, -2, 2], map: 'ember',
+        x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, value: { label: 'Irradiance', unit: 'relative' }
+      };
+    })();
+    function drawMaps() {
+      document.querySelectorAll('.theme [data-map]').forEach(function (body) {
+        body.innerHTML = '';
+        var props = MAPS[body.dataset.map];
+        if (!props) return;
+        try { body.innerHTML = ELEO.map2D(Object.assign({}, props, { el: body.parentNode })); }
+        catch (e) { console.error('gallery: ' + body.dataset.map + ' tile skipped:', e); }
+      });
+    }
     function drawCanvases() {
+      drawMaps();
       document.querySelectorAll('.theme [data-canvas]').forEach(function (el) {
         var k = el.dataset.canvas;
         if (k === 'airy') airyTile(el);
@@ -208,6 +238,10 @@
       ]],
       ['wandersleb', [
         ['layout', 'layout', function (d) { REC.layout = globalThis.ELEOAdapters.layout(d); }]
+      ]],
+      ['cooke', [
+        ['psf', 'psf', function (d) { var A = globalThis.ELEOAdapters; MAPS['psf-recorded'] = A.psf(d); MAPS['psf-log'] = A.psf(d, { log: true }); }],
+        ['wavefront', 'wavefront', function (d) { MAPS['wavefront-recorded'] = globalThis.ELEOAdapters.wavefront(d); }]
       ]],
       ['cassegrain', [
         ['cassegrainLayout', 'layout', function (d) { REC.cassegrainLayout = globalThis.ELEOAdapters.layout(d); }]
