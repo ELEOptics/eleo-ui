@@ -210,7 +210,7 @@ test('recorded wavefront tile draws', async ({ page }) => {
   }
 });
 
-// Plan #389, #435: the props' visible effects, so an adapter that drops `map: 'ember'`, `aperture` or `scale: 'log'` fails. oracle: fixture cooke-wavefront.json
+// Plan #389, #435: the props' visible effects, so an adapter that sets `map: 'wave'` (ember is map2D's default, so dropping `map` passes), drops `aperture` or drops `scale: 'log'` fails. oracle: fixture cooke-wavefront.json
 // (radii[0] row = 0.0024333, range 0.0024333..0.76991, so its step on [min, max] is round((v - min) / (max - min) * 255) of the ember map, not the wave map's);
 // the aperture ring is a circle plus the even-odd path; log colorbar ticks are one decade (a quarter of the bar at 4 decades) apart, a linear bar's are not.
 test('recorded wavefront tile draws with its map and aperture, the log PSF with whole decades', async ({ page }) => {
