@@ -125,7 +125,7 @@ grid files and refuses a swapped Seidel or Cassegrain order. Proves: O1
 | #427 | `map2d.js`'s margin-loop comment states the right reason (review M1 round 2, finding 2) | the reviewer's wording, which matches the code; considered deleting it, which leaves the loop unexplained | `packages/plots/src/map2d.js`, `tests/map2d.spec.js` | `tests/map2d.spec.js::margin growth re-pads: image stays centred` (red under a one-pass loop; renamed by #428) | #426 |
 | #428 | Rename the re-pad test after what it catches (`margin growth re-pads: image stays centred`), centring asserted first (review M1 round 3, finding 2) | rename because the name should say what fails; considered dropping the aspect assertion, which still guards px per unit | `tests/map2d.spec.js` | `tests/map2d.spec.js::margin growth re-pads: image stays centred` | |
 
-### M2: scales, aperture, colorbar; wavefront, log and irradiance tiles GitHub: `P389 M2: scales, colorbar, wavefront`
+### M2: scales, aperture, colorbar; wavefront, log and irradiance tiles (done 2026-10-30) GitHub: `P389 M2: scales, colorbar, wavefront`
 
 Demo: the wavefront tile is the recorded Cooke wavefront, a round pupil with its ring, diverging map, a colorbar in
 waves; a log PSF tile; a Gaussian irradiance tile marked synthetic; both themes and the three palettes. Proves: O2
@@ -249,3 +249,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-30 review M2 round 3: 0 blocking; carried #430, #431, #443 resolved. #449 (one-turn tolerance) pulled in;
   #450 (dead guard) deferred with #448.
 - 2026-10-30 review M2 round 4: 0 blocking; carried CRs resolved; #451 (README wording for #449) pulled in.
+- 2026-10-30 M2 done: review round 5 says 0 blocking with nothing pulled in (rounds: 2+8, 1+3, 0+1, 0+1, 0+0); CI
+  green on every earlier pushed head; demo pending.
