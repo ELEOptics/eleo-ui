@@ -161,7 +161,7 @@ over its full range, a colorbar in waves; a log PSF tile; a Gaussian irradiance 
 | #452 | Gallery wavefront tile on `ember` over its full range; #435's test asserts the ember step (M2 demo, user) | sequential because the recorded OPD has no sign change, so a diverging map claims a zero that isn't there (user); considered `wave` stretched over [min, max] (white at 0.39 waves) and removing piston (changes the values) | `tests/fixtures/phos-core/adapters.js`, `tests/gallery.spec.js` | `tests/gallery.spec.js::recorded wavefront tile draws with its map and aperture, the log PSF with whole decades` | |
 | #454 | Gallery wavefront test comment names the mutant it catches (`wave`, not a dropped `ember`) (review M2 round 6, finding 2) | the reviewer's wording, since ember is the default; considered asserting the prop, which tests source, not drawing | `tests/gallery.spec.js` | `tests/gallery.spec.js::recorded wavefront tile draws with its map and aperture, the log PSF with whole decades` | |
 
-### M3: Svelte, U14 and the release GitHub: `P389 M3: Svelte and release`
+### M3: Svelte, U14 and the release (done 2026-10-31) GitHub: `P389 M3: Svelte and release`
 
 Demo: the plots-svelte README's `<Map2D>` line and `npm run check` green on it; `npx changeset status` plans plots and
 plots-svelte minors; the U14 median in the Change log. Proves: O3
@@ -272,3 +272,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-31 review M3 round 1: 1 blocking, CR #458. main's Version Packages (#388) took plots 0.6.0, so the typed map ships in 0.7.0. Every 0.6.0 above now reads 0.7.0 (orchestrator), and #459 fixes the README, changeset and test. #460 (range type per mode) pulled in.
 - 2026-10-31 review M3 round 2: 0 blocking; #461 (type fixture for #460's union) pulled in. Carried CRs #455 and #458 resolved.
 - 2026-10-31 review M3 round 3: 0 blocking; #462 (test title) pulled in. Count 1, same as round 2 (first round without a fall).
+- 2026-10-31 review M3 round 4: 0 blocking, nothing pulled in. M3 done: demo pending.
