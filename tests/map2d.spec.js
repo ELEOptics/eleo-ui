@@ -602,6 +602,27 @@ test('colorbar ticks sit at their values', async ({ page }) => {
   expect(r[3].labels, 'each log label has its own decimals').toEqual(['0.01', '0.1', '1']);
 });
 
+// An empty range (every cell masked, or all cells equal) has no scale to label: the bar and its title stay, no ticks are drawn.
+test('colorbar ticks sit at their values: an empty range draws no ticks', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const ELEO = window.ELEO;
+    return [[[null, NaN]], [[2, 2], [2, 2]]].map((values) => {
+      el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], map: 'ember', value: { label: 'v' }, el }));
+      const svg = el.lastElementChild;
+      const cb = [...svg.querySelectorAll('image')].pop(), bx = +cb.getAttribute('x') + +cb.getAttribute('width');
+      return { ticks: [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && t.getAttribute('text-anchor') !== 'end').length, text: svg.textContent, bar: [...svg.querySelectorAll('image')].length };
+    });
+  });
+  for (const q of r) {
+    expect(q.text, 'no Infinity label').not.toMatch(/Infinity/);
+    expect(q.text).toContain('v');
+    expect(q.bar, 'tile and bar still drawn').toBe(2);
+    expect(q.ticks, 'no tick labels right of the bar').toBe(0);
+  }
+});
+
 // O2, irradiance: each Gaussian cell is the step of exp(-2 r^2 / w^2). oracle: closed-form, TEM00 irradiance with w = 1 mm, 128 x 128 cells
 // over +-2 mm (plan item #402), linear over the grid's [min, max]; the gallery says the tile is synthetic.
 test('gaussian irradiance tile', async ({ page }) => {

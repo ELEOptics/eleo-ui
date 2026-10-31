@@ -1,10 +1,9 @@
 import { data } from "./data.js";
-import { css, rgb, ramp, mapStops } from "./color.js";
+import { css, rgb, ramp, mapStops, fmt } from "./color.js";
 import { svg, esc } from "./common.js";
 import { niceTicks } from "./axis.js";
 import { scales, axisTicks, plotCell, PLOT_L, PLOT_B, PLOT_T } from "./curve.js";
 import { colormap } from "./physics.js";
-import { fmt } from "./color.js";
 
 /* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px.
    Not in plotCell's data group: that group flips y and would draw row 0 at the bottom. Masked cells are alpha 0. */
@@ -32,7 +31,8 @@ function typedMap(o) {
   var vb = o.value, cbt = null, CB = 0;
   if (vb) {
     var cl = log ? hi * Math.pow(10, -dec) : lo, vt;
-    if (vb.ticks) vt = axisTicks(vb, [cl, hi]);
+    if (!(lo < hi)) vt = { ticks: [], decimals: 0 };
+    else if (vb.ticks) vt = axisTicks(vb, [cl, hi]);
     else if (log) { vt = { ticks: [], decimals: 0 }; if (hi > 0) for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = null; }
     else vt = niceTicks(cl, hi, 6);
     var cbpos = function (v) { return log ? (Math.log10(v / hi) + dec) / dec : hi > cl ? (v - cl) / (hi - cl) : 0; };
@@ -100,10 +100,10 @@ function typedMap(o) {
     var bctx = bc.getContext("2d"), bim = bctx.createImageData(1, 256);
     for (var r = 0; r < 256; r++) { var cc = lut[255 - r]; bim.data[r * 4] = Math.round(cc[0]); bim.data[r * 4 + 1] = Math.round(cc[1]); bim.data[r * 4 + 2] = Math.round(cc[2]); bim.data[r * 4 + 3] = 255; }
     bctx.putImageData(bim, 0, 0);
-    var bx = W - CB + 12, bw = 10;
-    g += '<image x="' + bx + '" y="' + PLOT_T + '" width="' + bw + '" height="' + ph + '" preserveAspectRatio="none" style="image-rendering: pixelated" href="' + bc.toDataURL("image/png") + '"/>';
-    g += '<rect x="' + bx + '" y="' + PLOT_T + '" width="' + bw + '" height="' + ph + '" fill="none" stroke="var(--plot-grid)"/>';
-    cbt.forEach(function (q) { var ty = +(PLOT_T + ph - q.t * ph).toFixed(2); g += '<line x1="' + (bx + bw) + '" y1="' + ty + '" x2="' + (bx + bw + 3) + '" y2="' + ty + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + (bx + bw + 4) + '" y="' + ty + '" dy="3">' + q.s + "</text>"; });
+    var bx = W - CB + 12, cbw = 10;
+    g += '<image x="' + bx + '" y="' + PLOT_T + '" width="' + cbw + '" height="' + ph + '" preserveAspectRatio="none" style="image-rendering: pixelated" href="' + bc.toDataURL("image/png") + '"/>';
+    g += '<rect x="' + bx + '" y="' + PLOT_T + '" width="' + cbw + '" height="' + ph + '" fill="none" stroke="var(--plot-grid)"/>';
+    cbt.forEach(function (q) { var ty = +(PLOT_T + ph - q.t * ph).toFixed(2); g += '<line x1="' + (bx + cbw) + '" y1="' + ty + '" x2="' + (bx + cbw + 3) + '" y2="' + ty + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + (bx + cbw + 4) + '" y="' + ty + '" dy="3">' + q.s + "</text>"; });
     g += '<text class="eleo-tick" x="' + (W - 4) + '" y="' + (PLOT_T - 8) + '" text-anchor="end">' + lab(vb) + "</text>";
   }
   g += '<text class="eleo-tick" x="' + (W - R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="10">' + lab(y) + "</text>";
