@@ -543,7 +543,7 @@ test('colorbar ticks sit at their values', async ({ page }) => {
           const pos = log ? (Math.log10(v / top) + 3) / 3 : (v - lo) / (top - lo);
           return { v, err: Math.abs(+t.getAttribute('y') - (by + bh - pos * bh)), inside: +t.getAttribute('x') + 3 * t.textContent.length <= vb[2] };
         });
-      out.push({ n: ticks.length, vs: ticks.map((t) => t.v), maxErr: Math.max(...ticks.map((q) => q.err)), inside: ticks.every((t) => t.inside), text: svg.textContent, right: bx > frameRight });
+      out.push({ n: ticks.length, vs: ticks.map((t) => t.v), labels: [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && /^[−-]?[\d.]+$/.test(t.textContent.trim())).map((t) => t.textContent.trim()), w: vb[2], maxErr: Math.max(...ticks.map((q) => q.err)), inside: ticks.every((t) => t.inside), text: svg.textContent, right: bx > frameRight });
     }
     return out;
   });
@@ -556,6 +556,7 @@ test('colorbar ticks sit at their values', async ({ page }) => {
     expect(q.inside, 'labels inside the viewBox').toBe(true);
   }
   expect(r[3].vs, 'log ticks are whole decades').toEqual([0.01, 0.1, 1]);
+  expect(r[3].labels, 'each log label has its own decimals').toEqual(['0.01', '0.1', '1']);
 });
 
 // O2, irradiance: each Gaussian cell is the step of exp(-2 r^2 / w^2). oracle: closed-form, TEM00 irradiance with w = 1 mm, 128 x 128 cells

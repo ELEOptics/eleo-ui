@@ -31,10 +31,10 @@ function typedMap(o) {
   if (vb) {
     var cl = log ? hi * Math.pow(10, -dec) : lo, vt;
     if (vb.ticks) vt = axisTicks(vb, [cl, hi]);
-    else if (log) { vt = { ticks: [], decimals: 0 }; if (hi > 0) for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = Math.max(0, -Math.floor(Math.log10(cl))); }
+    else if (log) { vt = { ticks: [], decimals: 0 }; if (hi > 0) for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = null; }
     else vt = niceTicks(cl, hi, 6);
     var cbpos = function (v) { return log ? (Math.log10(v / hi) + dec) / dec : hi > cl ? (v - cl) / (hi - cl) : 0; };
-    cbt = vt.ticks.filter(function (v) { var t = cbpos(v); return t >= -1e-9 && t <= 1 + 1e-9; }).map(function (v) { return { t: cbpos(v), s: fmt(v, vt.decimals) }; });
+    cbt = vt.ticks.filter(function (v) { var t = cbpos(v); return t >= -1e-9 && t <= 1 + 1e-9; }).map(function (v) { return { t: cbpos(v), s: fmt(v, vt.decimals == null ? (v < 1 ? Math.max(0, -Math.floor(Math.log10(v) + 1e-9)) : 0) : vt.decimals) }; });
     CB = 12 + 10 + 4 + 6 * Math.max.apply(null, [0].concat(cbt.map(function (q) { return Array.from(q.s).length; }))) + 4;
   }
   /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. */
