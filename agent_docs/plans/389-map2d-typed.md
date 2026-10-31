@@ -262,3 +262,4 @@ One bullet per entry (bare lines render as one paragraph).
   no change; finding 1, fixed here). M2 done again after #452: demo pending.
 - 2026-10-31 M2 demoed: go (user, sequential ember wavefront tile).
 - 2026-10-31 #405: test gains an SSR render test, because no caller uses the typed props, so `svelte-check` alone checks only the component's own cast (orchestrator).
+- 2026-10-31 #406 U14: typed `map2D` at 256 × 256 (PNG encode and markup), median of 20 redraws 2.60 ms in headless Chromium, under 16 ms (layout2D 2.25 ms in the same run).
