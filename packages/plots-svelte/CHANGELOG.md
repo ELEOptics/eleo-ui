@@ -1,5 +1,15 @@
 # @eleoptics/plots-svelte
 
+## 0.4.0
+
+### Minor Changes
+
+- da6a3b1: New: `Map2D` takes typed props. `<Map2D values extent … />` renders the SVG of `map2D(props)` in a `div.eleo-svg` and redraws when the theme or palette changes; without `values` it draws the canvas as before. The typed props need `@eleoptics/plots` 0.7.0 or newer.
+
+### Patch Changes
+
+- 246b9bc: Raise the `@eleoptics/plots` peer range to `>=0.5.0 <1`: `BarPlot` needs `bars`, first published in plots 0.5.0.
+
 ## 0.3.0
 
 ### Minor Changes
