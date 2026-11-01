@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // The gallery's tile count.
-const TILES = 22;
+const TILES = 26;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -53,7 +53,7 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 
 // Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
 // tile doesn't blank the others. The 404 and the gallery's own report of it are the expected console errors.
-for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain']]]) {
+for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain']], ['psf', 'cooke', ['psf-recorded', 'psf-log']], ['wavefront', 'cooke', ['wavefront-recorded']]]) {
   test(`a missing phos-core fixture blanks only its tiles: ${lens === 'achromat' ? '' : lens + ' '}${fixture}`, async ({ page }) => {
     const thrown = [];
     page.on('pageerror', (e) => thrown.push(e.message));
@@ -109,7 +109,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
@@ -177,12 +177,126 @@ test('standalone layout entry', async ({ page }) => {
   for (const d of drawn) expect(d.marks, `${d.fixture} drew nothing`).toBeGreaterThan(0);
 });
 
-test('canvas maps follow their theme', async ({ page }) => {
+// Plan #389, #395: the recorded Cooke PSF tile draws the typed map from tests/fixtures/phos-core/cooke-psf.json.
+// oracle: fixture, 192 x 192 grid, one <image> of that size in the tile.
+test('recorded PSF tile draws', async ({ page }) => {
   await page.goto('/gallery/');
-  const corner = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-canvas="psf"]`).evaluate((c) => [...c.getContext('2d').getImageData(1, 1, 1, 1).data.slice(0, 3)]);
-  // Stop 0 of the ember map is the plot ground: near white in light, near black in dark.
-  expect((await corner('light')).every((v) => v > 230)).toBe(true);
-  expect((await corner('dark')).every((v) => v < 40)).toBe(true);
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const got = await page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-recorded"]`).evaluate(async (el) => {
+      const svg = el.querySelector('svg'), imgs = svg ? svg.querySelectorAll('image') : [];
+      if (imgs.length !== 1) return { n: imgs.length };
+      const bitmap = await createImageBitmap(await (await fetch(imgs[0].getAttribute('href'))).blob());
+      return { n: 1, w: bitmap.width, h: bitmap.height };
+    });
+    expect(got, `${theme} recorded PSF image`).toEqual({ n: 1, w: 192, h: 192 });
+  }
+});
+
+// Plan #389, #401: the recorded Cooke wavefront tile draws the typed map from tests/fixtures/phos-core/cooke-wavefront.json as polar samples
+// with a colorbar in waves, and a log PSF tile draws the recorded PSF with one. oracle: fixture, 64 x 64 samples, one <image>, a colorbar labelled in its unit.
+test('recorded wavefront tile draws', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    for (const [tile, unit] of [['wavefront-recorded', 'waves'], ['psf-log', 'relative']]) {
+      const got = await page.locator(`.theme[data-theme="${theme}"] [data-tile="${tile}"]`).evaluate((el) => {
+        const svg = el.querySelector('svg');
+        return { images: svg ? svg.querySelectorAll('image').length : 0, text: svg ? svg.textContent : '' };
+      });
+      expect(got.images, `${theme} ${tile} images`).toBe(2);
+      expect(got.text, `${theme} ${tile} colorbar`).toContain(unit);
+    }
+  }
+});
+
+// Plan #389, #435: the props' visible effects, so an adapter that sets `map: 'wave'` (ember is map2D's default, so dropping `map` passes), drops `aperture` or drops `scale: 'log'` fails. oracle: fixture cooke-wavefront.json
+// (radii[0] row = 0.0024333, range 0.0024333..0.76991, so its step on [min, max] is round((v - min) / (max - min) * 255) of the ember map, not the wave map's);
+// the aperture ring is a circle plus the even-odd path; log colorbar ticks are one decade (a quarter of the bar at 4 decades) apart, a linear bar's are not.
+test('recorded wavefront tile draws with its map and aperture, the log PSF with whole decades', async ({ page }) => {
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/phos-core/cooke-wavefront.json', import.meta.url), 'utf8'));
+  const flat = fixture.values.flat().filter((v) => Number.isFinite(v));
+  const lo = Math.min(...flat), hi = Math.max(...flat), step = Math.round(((fixture.values[0][0] - lo) / (hi - lo)) * 255);
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const wf = await page.locator(`.theme[data-theme="${theme}"] [data-tile="wavefront-recorded"]`).evaluate(async (el, step) => {
+      const svg = el.querySelector('svg'), img = svg.querySelector('image');
+      const bitmap = await createImageBitmap(await (await fetch(img.getAttribute('href'))).blob());
+      const g = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d');
+      g.drawImage(bitmap, 0, 0);
+      const px = [...g.getImageData(Math.floor(bitmap.width / 2), Math.floor(bitmap.height / 2), 1, 1).data.slice(0, 3)];
+      const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
+      const wave = window.ELEO.colormap('wave', el)[step], ember = window.ELEO.colormap('ember', el)[step];
+      // The ember map's step 0 is the plot ground, which is also the wave map's middle step, so the centre alone cannot tell the maps apart; the brightest sample
+      // (value max, step 255 of either map) can: the image holds the ember top colour and not the wave top colour.
+      const all = g.getImageData(0, 0, bitmap.width, bitmap.height).data;
+      const has = (c) => { for (let i = 0; i < all.length; i += 4) if (all[i + 3] > 0 && Math.abs(all[i] - c[0]) <= 1 && Math.abs(all[i + 1] - c[1]) <= 1 && Math.abs(all[i + 2] - c[2]) <= 1) return true; return false; };
+      const top = window.ELEO.colormap('ember', el)[255], waveTop = window.ELEO.colormap('wave', el)[255];
+      return {
+        hasEmberTop: has(top), hasWaveTop: has(waveTop), topApart: !near(top, waveTop),
+        ring: svg.querySelectorAll('circle[fill="none"]').length, even: svg.querySelectorAll('path[fill-rule="evenodd"]').length,
+        isWave: near(px, wave), isEmber: near(px, ember), apart: !near(wave, ember),
+      };
+    }, step);
+    expect(wf.apart, `${theme} wave and ember differ at step ${step}`).toBe(true);
+    expect(wf.isEmber, `${theme} wavefront centre is the ember map's step ${step}`).toBe(true);
+    expect(wf.isWave, `${theme} wavefront centre is not the wave map`).toBe(false);
+    expect(wf.topApart, `${theme} ember and wave differ at step 255`).toBe(true);
+    expect(wf.hasEmberTop, `${theme} wavefront max sample is the ember top colour`).toBe(true);
+    expect(wf.hasWaveTop, `${theme} wavefront has no wave top colour`).toBe(false);
+    expect(wf.ring, `${theme} aperture ring`).toBe(1);
+    expect(wf.even, `${theme} aperture even-odd path`).toBe(1);
+
+    const bar = await page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-log"] svg[role="img"]`).evaluate((svg) => {
+      const rect = [...svg.querySelectorAll('rect')].find((r) => r.getAttribute('width') === '10');
+      const top = +rect.getAttribute('y'), h = +rect.getAttribute('height');
+      const ys = [...svg.querySelectorAll('line')].filter((l) => +l.getAttribute('x2') - +l.getAttribute('x1') === 3 && +l.getAttribute('x1') === +rect.getAttribute('x') + 10)
+        .map((l) => +l.getAttribute('y1')).sort((a, b) => b - a);
+      const topLabel = [...svg.querySelectorAll('text.eleo-tick')].find((t) => Math.abs(+t.getAttribute('y') - ys[ys.length - 1]) < 0.01 && +t.getAttribute('x') === +rect.getAttribute('x') + 14);
+      return { h, t: ys.map((y) => (top + h - y) / h), topLabel: topLabel ? topLabel.textContent : null };
+    });
+    expect(bar.t.length, `${theme} log colorbar ticks`).toBeGreaterThanOrEqual(4);
+    // The adapter divides the recorded PSF by its peak, so the brightest value is 1: the highest tick is the top of the bar, labelled 1.
+    expect(bar.t[bar.t.length - 1], `${theme} log colorbar top tick at the top of the bar`).toBeCloseTo(1, 2);
+    expect(bar.topLabel, `${theme} log colorbar top tick label`).toBe('1');
+    for (let i = 1; i < bar.t.length; i++) expect(bar.t[i] - bar.t[i - 1], `${theme} log ticks one decade (a quarter bar) apart`).toBeCloseTo(0.25, 2);
+  }
+});
+
+// Plan #389, #402: the synthetic TEM00 Gaussian irradiance tile draws the typed map with a colorbar. Separate from the skipped O2 acceptance
+// test `gaussian irradiance tile` in map2d.spec.js, which #403 unskips. oracle: one <image>, meta says synthetic, colorbar labelled "Irradiance, relative".
+test('gaussian irradiance tile draws', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const got = await page.locator(`.theme[data-theme="${theme}"] [data-tile="irradiance-gaussian"]`).evaluate((el) => {
+      const svg = el.querySelector('svg');
+      return { images: svg ? svg.querySelectorAll('image').length : 0, text: svg ? svg.textContent : '', meta: el.querySelector('.eleo-plot__meta').textContent };
+    });
+    expect(got.images, `${theme} images`).toBe(2);
+    expect(got.text, `${theme} colorbar`).toContain('Irradiance');
+    expect(got.text, `${theme} colorbar unit`).toContain('relative');
+    expect(got.meta).toMatch(/synthetic/i);
+  }
+});
+
+// Maps take their colors from the theme column: stop 0 of the ember map is the plot ground, near white in light, near black in dark.
+// oracle: spec tokens.css --plot-ground per theme, through ELEO.colormap; the recorded PSF's corner is 1e-5 of its peak, so step 0.
+test('maps follow their theme', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const canvas = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-canvas="psf"]`).evaluate((c) => [...c.getContext('2d').getImageData(1, 1, 1, 1).data.slice(0, 3)]);
+  const typed = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-recorded"] image`).evaluate(async (img) => {
+    const bitmap = await createImageBitmap(await (await fetch(img.getAttribute('href'))).blob());
+    const c = new OffscreenCanvas(bitmap.width, bitmap.height), g = c.getContext('2d');
+    g.drawImage(bitmap, 0, 0);
+    return [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+  });
+  for (const read of [canvas, typed]) {
+    expect((await read('light')).every((v) => v > 230)).toBe(true);
+    expect((await read('dark')).every((v) => v < 40)).toBe(true);
+  }
 });
 
 // O2 (plan #4): the selected segment is marked in glass, not amber. oracle: user ELEO design system, one amber accent per view.

@@ -22,7 +22,7 @@ function axisRange(a, vals) {
   if (!r) { var lo = Infinity, hi = -Infinity; vals.forEach(function (v) { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); r = lo <= hi ? [lo, hi] : [0, 1]; if (lo < hi) { var nr = niceRange(lo, hi, 6); r = [nr.lo, nr.hi]; } }
   return r[0] < r[1] ? [r[0], r[1]] : [r[0] - 1, r[0] + 1];
 }
-function axisTicks(a, r) {
+export function axisTicks(a, r) {
   if (!a.ticks) return niceTicks(r[0], r[1], 6);
   /* The fewest decimals at which every tick prints exactly (within float noise). */
   var ts = a.ticks.map(Number), d = 0;

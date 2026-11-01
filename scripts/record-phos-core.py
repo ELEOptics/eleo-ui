@@ -26,6 +26,15 @@ Run from the repo root:
 does not rewrite them:
   `seidel`: SeidelCoefficients, default chromatic lines, per wavelength the seven terms per surface with phos-core's
     total last. Writes tests/fixtures/phos-core/{achromat,cooke}-seidel.json.
+  `maps`: PointSpread at the 0 degree source (pupil sampling 64, zero pad 64: a 192 x 192 grid, the pad added on both sides),
+    polychromatic as the client gives it. Writes tests/fixtures/phos-core/{achromat,cooke}-psf.json: `values` rows top-down as
+    coordinates() gives them (row 0 at the largest y), `extent` [x0, x1, y0, y1] mm (the cell edges, half a pitch beyond the
+    outer coordinates). It exits non-zero unless the grid is rows x columns as num_y() x num_x() and coordinates() is
+    row-major with rows descending in y and columns ascending in x.
+    Also WavefrontError at the 0 degree source (pupil sampling 64, reference wavelength). Writes
+    tests/fixtures/phos-core/{achromat,cooke}-wavefront.json: `radii` (mm, the 64 ring radii ascending), `angles` (radians
+    counter-clockwise from +x, the 64 spoke angles), `values[ring][spoke]` OPD in waves as results() gives them, `pupilRadius`
+    mm. Polar as recorded, never resampled onto a grid. It exits non-zero unless the live samples are 64 rings x 64 spokes.
   `layout`: the Wandersleb triplet (US 1,073,789, from phos's fixtures/triplet.toml, which it copies to
     tests/fixtures/phos-core/wandersleb.toml; --triplet gives another path, and a missing one falls back to that committed copy) drawn by visualize_system_2d with 11 rays per
     field, as a RecordedLayout plus `alive` and `dead` (true when a ray's first non-ALIVE status is DEAD_E). Writes tests/fixtures/phos-core/wandersleb-layout.json.
@@ -45,6 +54,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SIG = 6
 PUPIL_SAMPLING = 64  # pupil samples and zero pads of the MTF, per axis
 SPOT_SAMPLING = 32  # pupil samples of the spot diagram, per axis
+PSF_PAD = 64  # zero pad of the PointSpread, per axis (the grid is pupil sampling + 2 * pad, the pad on both sides)
 SWEEP = 11  # field angles of field curvature and distortion, evenly from 0 to the lens's largest field
 
 
@@ -162,27 +172,120 @@ def camel(name):
     return head + "".join(w.capitalize() for w in rest)
 
 
-def seidel(phos, lens, model, ref_nm, outdir, header):
+def seidel(phos, lens, model, ref_nm, outdir, header, terms_len):
     # SeidelCoefficients.results(): one entry per wavelength (the default chromatic lines), each term a list of values per
-    # surface with phos-core's total as the last element.
+    # surface with phos-core's total as the last element. terms_len is the surface count plus one, from the prescription (#310).
     s = phos.SeidelSettings()
     s.set_system_index(0)
     run = s.run(model)
     results = run.results()
     if not results:
         sys.exit(f"{lens} seidel: no results")
-    n = None
     out = []
     for r in results:
         terms = {camel(k): [rnd(v) for v in getattr(r, k)] for k in SEIDEL_TERMS}
         for k, t in terms.items():
-            n = len(t) if n is None else n
-            if len(t) != n or n < 2:
-                sys.exit(f"{lens} seidel {k} at {r.wavelength} um: {len(t)} values, expected the surface count plus one ({n})")
+            if len(t) != terms_len:
+                sys.exit(f"{lens} seidel {k} at {r.wavelength} um: {len(t)} values, expected the surface count plus one ({terms_len})")
         out.append({"wavelengthNm": rnd(r.wavelength * 1000), "terms": terms})
     doc = {**header, "lens": lens, "analysis": "seidel", "referenceWavelengthNm": ref_nm, "lengthUnit": "mm",
            "kind": "per wavelength, per term one value per surface then phos-core's total", "results": out}
     path = outdir / f"{lens}-seidel.json"
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    return path
+
+
+def check_cassegrain_order(surfaces, semi):
+    # The visualization's element order: surface 0 is the obscuration (sd = semi, a flat profile: one distinct z), surface 1 the
+    # primary (sd = its 55 mm outer radius). The secondary has the obscuration's sd, so only the flat profile tells them apart
+    # (#370). rnd's 6 digits bound the sd difference.
+    for i, want in ((0, semi), (1, 55.0)):
+        if abs(surfaces[i]["sd"] - want) > 1e-5 * want:
+            sys.exit(f"cassegrain: recorded surface {i} has sd {surfaces[i]['sd']}, expected {want}")
+    if len({z for z, _ in surfaces[0]["profile"]}) != 1:
+        sys.exit("cassegrain: recorded surface 0 is not the obscuration: its profile is not flat")
+
+
+def psf(phos, lens, model, outdir, header):
+    # PointSpread.irradiance() and coordinates() are row-major, num_y rows of num_x cells, row 0 at the largest y. Source 0 is
+    # the lens's 0 degree field (checked below). The extent is the cell edges: half a pitch beyond the outer coordinates.
+    angle = field_angle_deg(model.sources(0)[0])
+    if angle != 0:
+        sys.exit(f"{lens} psf: source 0 is at {angle} deg, expected 0")
+    s = phos.PointSpreadSettings()
+    s.set_system_index(0)
+    for axis in "xy":
+        getattr(s, f"set_pupil_sampling_{axis}")(PUPIL_SAMPLING)
+        getattr(s, f"set_zero_padding_{axis}")(PSF_PAD)
+    s.set_sources(model.relative_sources(0)[:1])
+    runs = s.run(model)
+    if len(runs) != 1:
+        sys.exit(f"{lens} psf: {len(runs)} results for one source")
+    a = runs[0]
+    nx, ny = a.num_x(), a.num_y()
+    irr, xy = a.irradiance(), [(p[0], p[1]) for p in a.coordinates()]
+    if len(irr) != nx * ny or len(xy) != nx * ny:
+        sys.exit(f"{lens} psf: {len(irr)} values and {len(xy)} coordinates for {ny} x {nx}, expected one each per cell")
+    if nx != ny or nx != PUPIL_SAMPLING + 2 * PSF_PAD:
+        sys.exit(f"{lens} psf: {ny} x {nx} grid, expected {PUPIL_SAMPLING + 2 * PSF_PAD} square")
+    dx, dy = xy[1][0] - xy[0][0], xy[0][1] - xy[nx][1]
+    tol = 1e-6 * abs(dx)
+    for r in range(ny):
+        for c in range(nx):
+            x, y = xy[r * nx + c]
+            if abs(x - (xy[0][0] + c * dx)) > tol or abs(y - (xy[0][1] - r * dy)) > tol:
+                sys.exit(f"{lens} psf: coordinate {r * nx + c} is ({x}, {y}), expected row-major, columns ascending in x and rows descending in y")
+    if dx <= 0 or dy <= 0:
+        sys.exit(f"{lens} psf: pitch {dx} x {dy}, expected positive")
+    values = [[rnd(irr[r * nx + c]) for c in range(nx)] for r in range(ny)]
+    extent = [rnd(xy[0][0] - dx / 2), rnd(xy[nx - 1][0] + dx / 2), rnd(xy[-1][1] - dy / 2), rnd(xy[0][1] + dy / 2)]
+    doc = {**header, "lens": lens, "analysis": "psf", "fieldAngleDeg": 0.0, "pupilSampling": PUPIL_SAMPLING, "zeroPad": PSF_PAD,
+           "lengthUnit": "mm", "kind": "PointSpread at the 0 degree source: values[row][column] irradiance, row 0 at the largest y; extent [x0, x1, y0, y1] mm",
+           "extent": extent, "values": values}
+    path = outdir / f"{lens}-psf.json"
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    return path
+
+
+def wavefront(phos, lens, model, outdir, header):
+    # WavefrontError.results(): per wavelength the live (pupil x, pupil y, OPD waves) points, ring-major: PUPIL_SAMPLING rings of
+    # PUPIL_SAMPLING spokes, spoke 0 on +x, counter-clockwise. Kept as polar samples, never resampled onto a grid (plan #389, CR #410).
+    ref_um = model.system(0).reference_wavelength()
+    s = phos.WavefrontErrorSettings()
+    s.set_system_index(0)
+    for axis in "xy":
+        getattr(s, f"set_pupil_sampling_{axis}")(PUPIL_SAMPLING)
+    s.set_sources(model.relative_sources(0)[:1])
+    runs = s.run(model)
+    if len(runs) != 1:
+        sys.exit(f"{lens} wavefront: {len(runs)} results for one source")
+    a = runs[0]
+    wls = a.wavelengths()
+    near = [i for i, w in enumerate(wls) if abs(w - ref_um) < 1e-9]
+    if len(near) != 1:
+        sys.exit(f"{lens} wavefront: reference wavelength {ref_um} um is not one of {wls}")
+    pts3 = a.results()[near[0]]
+    n = PUPIL_SAMPLING
+    if len(pts3) != n * n:
+        sys.exit(f"{lens} wavefront: {len(pts3)} samples, expected {n * n} ({n} rings x {n} spokes)")
+    radii = [math.hypot(p[0], p[1]) for p in pts3[::n]]
+    angles = [math.atan2(p[1], p[0]) % (2 * math.pi) for p in pts3[:n]]
+    if any(not finite(*p) for p in pts3):
+        sys.exit(f"{lens} wavefront: a sample is not finite")
+    if any(b <= a_ for a_, b in zip(radii, radii[1:])) or any(b <= a_ for a_, b in zip(angles, angles[1:])):
+        sys.exit(f"{lens} wavefront: radii or angles do not ascend, expected rings ascending in radius and spokes counter-clockwise from +x")
+    for i, p in enumerate(pts3):
+        ring, spoke = divmod(i, n)
+        dr = math.hypot(p[0], p[1]) - radii[ring]
+        da = (math.atan2(p[1], p[0]) % (2 * math.pi) - angles[spoke] + math.pi) % (2 * math.pi) - math.pi
+        if abs(dr) > 1e-6 * radii[ring] or abs(da) > 1e-6:
+            sys.exit(f"{lens} wavefront: sample {i} (ring {ring}, spoke {spoke}) is off its ring or spoke, expected rings x spokes")
+    doc = {**header, "lens": lens, "analysis": "wavefront", "fieldAngleDeg": 0.0, "pupilSampling": PUPIL_SAMPLING,
+           "referenceWavelengthNm": rnd(ref_um * 1000), "lengthUnit": "mm",
+           "kind": "WavefrontError at the 0 degree source, reference wavelength: values[ring][spoke] OPD in waves; radii mm ascending, angles radians counter-clockwise from +x",
+           "pupilRadius": rnd(a.pupil_radius()), "radii": [rnd(r) for r in radii], "angles": [rnd(t) for t in angles],
+           "values": [[rnd(pts3[r * n + c][2]) for c in range(n)] for r in range(n)]}
+    path = outdir / f"{lens}-wavefront.json"
     path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
     return path
 
@@ -364,11 +467,8 @@ def cassegrain(phos, outdir, header):
     width = model.interface(0, 0).aperture().extent().width
     if abs(width - 2 * semi) > 1e-9 * semi:
         sys.exit(f"cassegrain: interface 0 has aperture width {width}, expected the obscuration's {2 * semi}")
-    # The recorded surfaces that get the flags are checked too, so the visualization's element order is: surface 0 is the
-    # obscuration (sd = semi), surface 1 the primary (sd = its 55 mm outer radius). rnd's 6 digits bound the difference.
-    for i, want in ((0, semi), (1, 55.0)):
-        if abs(surfaces[i]["sd"] - want) > 1e-5 * want:
-            sys.exit(f"cassegrain: recorded surface {i} has sd {surfaces[i]['sd']}, expected {want}")
+    # The recorded surfaces that get the flags are checked too (check_cassegrain_order).
+    check_cassegrain_order(surfaces, semi)
     surfaces[0]["obscuration"] = True
     surfaces[1]["mirror"] = surfaces[2]["mirror"] = True
     surfaces[1]["hole"] = PRIMARY_HOLE  # CR #371: the inner radius of the annular aperture the primary was built with
@@ -421,7 +521,7 @@ def main():
     ap.add_argument("--phos", required=True, help="<phos-core>/clients/python/src")
     default_out = str(ROOT / "tests/fixtures/phos-core")
     ap.add_argument("--out", default=default_out)
-    ap.add_argument("--only", choices=["seidel", "layout"], help="record only this analysis; the other fixtures are left as they are")
+    ap.add_argument("--only", choices=["seidel", "layout", "maps"], help="record only this analysis; the other fixtures are left as they are")
     ap.add_argument("--triplet", default=str(DEFAULT_TRIPLET), help="phos's fixtures/triplet.toml (--only layout)")
     args = ap.parse_args()
     sys.path.insert(0, args.phos)
@@ -445,6 +545,8 @@ def main():
     if abs(efl - sample["efl"]) / sample["efl"] > 0.001:
         sys.exit(f"the lens table is not the sample achromat: efl {efl} vs sample.efl {sample['efl']}")
     cooke = phos.OpticalModel.cooke_triplet_kingslake()
+    # Seidel term length = surface count plus phos-core's total: the achromat's numeric rows, the Cooke's six surfaces.
+    terms_len = {"achromat": len([r for r in sample["rx"] if isinstance(r["R"], (int, float))]) + 1, "cooke": 7}
 
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -454,12 +556,16 @@ def main():
         ref_um = model.system(0).reference_wavelength()
         if ref_um is None:
             sys.exit(f"{lens}: the model has no reference wavelength")
+        if args.only == "maps":
+            written += [psf(phos, lens, model, outdir, header), wavefront(phos, lens, model, outdir, header)]
+            continue
         if args.only == "seidel":
-            written.append(seidel(phos, lens, model, rnd(ref_um * 1000), outdir, header))
+            written.append(seidel(phos, lens, model, rnd(ref_um * 1000), outdir, header, terms_len[lens]))
             continue
         written += list(record(phos, lens, model, {"referenceNm": rnd(ref_um * 1000)}, outdir, header))
-    if args.only == "seidel":
-        print(f"wrote {shown}/{{achromat,cooke}}-seidel.json (phos-core {sha[:10]})")
+    if args.only in ("seidel", "maps"):
+        names = "seidel" if args.only == "seidel" else "{psf,wavefront}"
+        print(f"wrote {shown}/{{achromat,cooke}}-{names}.json (phos-core {sha[:10]})")
         return
     print(f"wrote {shown}/{{achromat,cooke}}-{{mtf,field-curvature,distortion,spot}}.json (phos-core {sha[:10]})")
 

@@ -134,6 +134,8 @@ if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => 
     const rays = Array.from({ length: 3 }, (_, f) => Array.from({ length: 21 }, (_, r) => pts(f, r)));
     const alive = rays.map((fan) => fan.map((_, r) => (r % 2 ? 30 : 51)));
     const data = { surfaces, rays, alive };
+    // the fixture must take the moved-starts path (#387): the drawn starts of collimated fans sit left of the first surface (z 0)
+    if (!(window.ELEO.layoutBounds([data]).zmin < 0)) throw new Error('layout2D fixture does not take the moved-starts path');
     const host = document.createElement('div');
     document.body.appendChild(host);
     const times = [];
@@ -149,5 +151,34 @@ if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => 
     return (times[9] + times[10]) / 2;
   });
   console.log(`layout2D redraw median: ${median.toFixed(2)} ms`);
+  test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
+});
+
+// U14 for the typed map2D (plan #389): 256 x 256 cells, a Gaussian spot, PNG encode and markup, same method as above (the image's decode is not forced).
+if (process.env.PERF === '1') test('map2D redraw (U14)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  const median = await page.evaluate(() => {
+    const n = 256;
+    const values = Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => {
+      const x = (c / (n - 1) - 0.5) * 2, y = (r / (n - 1) - 0.5) * 2;
+      return Math.exp(-2 * (x * x + y * y) / 0.25);
+    }));
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const times = [];
+    for (let r = 0; r < 20; r++) {
+      const t0 = performance.now();
+      host.innerHTML = window.ELEO.map2D({ values, extent: [-1, 1, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', el: host, width: 460, height: 360 });
+      host.getBoundingClientRect();
+      const img = host.querySelector('svg image');
+      if (!img || !String(img.getAttribute('href')).startsWith('data:image/png')) throw new Error('map2D drew no PNG image');
+      times.push(performance.now() - t0);
+    }
+    host.remove();
+    times.sort((a, b) => a - b);
+    return (times[9] + times[10]) / 2;
+  });
+  console.log(`map2D redraw median: ${median.toFixed(2)} ms`);
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });

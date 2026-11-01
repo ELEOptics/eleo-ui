@@ -310,3 +310,53 @@ test('ray-status changeset became a plots minor',
   { skip: (!rayStatusConsumed && 'changesets not yet versioned') }, () => {
     assert.equal(entry('plots', RAY_STATUS_ENTRY).kind, 'Minor');
   });
+
+// Plan #389 (agent_docs/plans/389-map2d-typed.md), O3, issue #404; #407 adds the changesets, #408 unskips.
+// oracle: spec roadmap Constraints (a typed API added alongside the old one ships as a minor); semver 0.x.
+// plots-svelte's `Map2D` takes the typed props, a new feature, so it is a minor too (the bars-limits precedent).
+// Read as the bars-limits pair above: the file, or once `changeset version` deleted it, the CHANGELOG entry.
+// The entries are matched by phrases only these changesets have (#407 writes them): New: `map2D` takes a typed grid,
+// New: `Map2D` takes typed props.
+const MAP2D_PLOTS_ENTRY = /New: `map2D` takes a typed grid/;
+const MAP2D_SVELTE_ENTRY = /New: `Map2D` takes typed props/;
+const map2dPlotsConsumed = barsConsumed('map2d-typed.md', 'plots', MAP2D_PLOTS_ENTRY);
+const map2dSvelteConsumed = barsConsumed('map2d-typed-svelte.md', 'plots-svelte', MAP2D_SVELTE_ENTRY);
+
+test('map2D changeset asks minors',
+  { skip: (map2dPlotsConsumed && map2dSvelteConsumed && 'consumed by changeset version') }, () => {
+    assert.deepEqual(parse('map2d-typed.md').bumps, { '@eleoptics/plots': 'minor' });
+    assert.deepEqual(parse('map2d-typed-svelte.md').bumps, { '@eleoptics/plots-svelte': 'minor' });
+  });
+
+test('map2D changeset became minors',
+  { skip: (!(map2dPlotsConsumed && map2dSvelteConsumed) && 'changesets not yet versioned') }, () => {
+    assert.equal(entry('plots', MAP2D_PLOTS_ENTRY).kind, 'Minor');
+    assert.equal(entry('plots-svelte', MAP2D_SVELTE_ENTRY).kind, 'Minor');
+  });
+
+// Plan #389, issue #333 (CR #332's `later`): BarPlot needs `bars`, first published in plots 0.5.0, so the
+// plots-svelte peer must exclude 0.4.0 and admit 0.5.0. Plots is 0.5.0 on npm and in the workspace, so `npm ci` resolves.
+// oracle: spec semver (a `>=X.Y.Z <M` range admits v when X.Y.Z <= v and v's major < M).
+test('plots-svelte peers plots >=0.5.0', () => {
+  const range = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
+  const m = range.match(/^>=(\d+)\.(\d+)\.(\d+) <(\d+)$/);
+  assert.ok(m, `the plots peer ${range} is not >=X.Y.Z <M`);
+  const [lo, hi] = [m.slice(1, 4).map(Number), Number(m[4])];
+  const admits = (v) => {
+    const p = v.split('.').map(Number);
+    const cmp = p.map((n, i) => n - lo[i]).find((d) => d !== 0) ?? 0;
+    return cmp >= 0 && p[0] < hi;
+  };
+  assert.ok(!admits('0.4.0'), `${range} admits plots 0.4.0, which has no bars`);
+  assert.ok(admits('0.5.0'), `${range} excludes plots 0.5.0`);
+});
+
+// Plan #389, issue #456 (CR #455): the peer stays >=0.5.0, but older plots has no typed map2D, so a typed Map2D fails; the
+// README's Map2D paragraph (where a reader meets the typed props) must name the plots version that has them. That is
+// 0.7.0, not 0.6.0 (CR #458): main's Version Packages (#388) already took 0.6.0 for the layout2D ray-start change.
+test('plots-svelte README says typed Map2D needs plots 0.7.0', () => {
+  const readme = readFileSync(join(repo, 'packages/plots-svelte/README.md'), 'utf8');
+  const para = readme.split('\n\n').find((p) => p.startsWith('`Map2D` draws a typed grid'));
+  assert.ok(para, 'no Map2D paragraph in the plots-svelte README');
+  assert.match(para, /0\.7\.0/);
+});
