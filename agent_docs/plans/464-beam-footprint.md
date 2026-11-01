@@ -1,7 +1,7 @@
 # Plan #464: Beam footprint through spot
 
 Status: approved 2026-11-01
-Branch: `plan/464-beam-footprint` PR: #<pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row N
+Branch: `plan/464-beam-footprint` PR: #470 Depends on: none Roadmap: `agent_docs/roadmap.md`, row N
 
 
 ## Problem
