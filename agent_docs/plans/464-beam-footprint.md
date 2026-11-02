@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release (done 2026-11-02) GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -178,3 +178,4 @@ patch. Proves: O1, O2
 - 2026-11-02 CR #478 accepted (user); stale doc from #479's worker (README:157, blank labels) filed as CR #480, accepted by the orchestrator; both fixed by #481.
 - 2026-11-02 review M1 round 3: 0 blocking; CRs #471, #476, #478, #480 fixed; backlog #482 (row #481 omitted its test) fixed in the plan table here, nothing pulled in.
 - 2026-11-02 M1 demo (user): no-go, "The field legend needs to exist." Filed CR #483, M1 unticked; the user chose the library option (`legend` takes explicit values, Core `index.d.ts`): items #484, #485.
+- 2026-11-02 review M1 round 4: 0 blocking; CR #483 fixed. Backlog #486 (plots-svelte `Legend` lacks `values`) not pulled in: a plots-svelte minor, outside O2's patch.
