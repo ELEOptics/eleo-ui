@@ -596,19 +596,16 @@ def main():
     sha = subprocess.check_output(["git", "-C", str(core), "rev-parse", "HEAD"], text=True).strip()
     header = {"phosCore": {"sha": sha}, "script": "scripts/record-phos-core.py",
               "args": ["--phos", "<phos>"] + ([] if args.out == default_out else ["--out", "<out>"]) + (["--only", args.only] if args.only else [])}
-    if args.only == "layout":
+    if args.only in ("layout", "footprint"):
         outdir = Path(args.out)
         outdir.mkdir(parents=True, exist_ok=True)
         shown = outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir
-        for path in (wandersleb(phos, Path(args.triplet), outdir, header), cassegrain(phos, outdir, header)):
+        if args.only == "layout":
+            paths = (wandersleb(phos, Path(args.triplet), outdir, header), cassegrain(phos, outdir, header))
+        else:
+            paths = (footprint(phos, phos.OpticalModel.cooke_triplet_kingslake(), outdir, header),)
+        for path in paths:
             print(f"wrote {shown}/{path.name} (phos-core {sha[:10]})")
-        return
-    if args.only == "footprint":
-        outdir = Path(args.out)
-        outdir.mkdir(parents=True, exist_ok=True)
-        shown = outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir
-        path = footprint(phos, phos.OpticalModel.cooke_triplet_kingslake(), outdir, header)
-        print(f"wrote {shown}/{path.name} (phos-core {sha[:10]})")
         return
     sample = json.loads((ROOT / "packages/plots/src/sample.json").read_text())
 
