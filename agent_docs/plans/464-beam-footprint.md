@@ -134,6 +134,7 @@ patch. Proves: O1, O2
 | #475 | recorder: the `--only layout` and `footprint` branches share their outdir lines | forced (review M1 round 1 finding 4's named fix, pulled in); considered an `out_dir(args)` helper | `scripts/record-phos-core.py` | `phos-core-fixtures.test.js` (unchanged, green) |  |
 | #477 | CR #476: the plots README's `panels` bullet states the circle caption's label rule | forced (CR #476's named fix, a stale doc #474's worker noticed) | `packages/plots/README.md` | none (doc; checked against `labelled circle`) | #474 |
 | #479 | spot: an empty, missing or whitespace circle label adds no caption line, shared or not | forced (review M1 round 2 findings 2 and 3, pulled in as one item: the same rule); considered rewording the README instead of the code | `packages/plots/src/spot.js` | `spot.test.js::labelled circle` |  |
+| #481 | CR #478 and CR #480: `SpotPanel.circle`'s JSDoc and the README's `panels` bullet state one caption rule | forced (CR #478, accepted by the user; CR #480, a stale doc from #479); one item because both docs state the same rule | `packages/plots/src/index.d.ts` (core, JSDoc only), `packages/plots/README.md` | none (docs; `types.test.js` stays green) | #479 |
 
 ## Risks and spikes
 
@@ -172,3 +173,4 @@ patch. Proves: O1, O2
 - 2026-11-02 review M1 round 1: 1 blocking, filed as CR #471 and accepted by the orchestrator (a non-Core doc), fixed by #472; backlog findings 2–4 pulled into M1 as #473, #474, #475 (small, named, in files M1 changed).
 - 2026-11-02 stale doc from #474's worker (`packages/plots/README.md:157`): CR #476, accepted by the orchestrator (a non-Core doc), fixed by #477.
 - 2026-11-02 review M1 round 2: CRs #471 and #476 fixed; 1 blocking on Core `index.d.ts` (the `circle` JSDoc after #474), filed as CR #478 for the user; backlog findings 2 and 3 pulled in as #479.
+- 2026-11-02 CR #478 accepted (user); stale doc from #479's worker (README:157, blank labels) filed as CR #480, accepted by the orchestrator; both fixed by #481.
