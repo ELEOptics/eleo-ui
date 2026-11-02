@@ -138,6 +138,7 @@ patch. Proves: O1, O2
 | #484 | CR #483: `legend('field' \| 'wavelength', n, values)` takes explicit angles or wavelengths | library, not gallery-only, so any app with recorded data draws the same keys (user, CR #483); considered building `eleo-key` spans in the gallery | `packages/plots/src/legend.js`, `packages/plots/src/index.d.ts` (core, CR #483), `packages/plots/README.md`, `.changeset/footprint-circle.md`, `tests/unit/legend.test.js` | `legend.test.js::field and wavelength keys take explicit values` |  |
 | #485 | CR #483: the footprint tile's footer legend from the fixture's field angles | forced (CR #483); the footer like the other field-colored tiles | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint legend keys | #484 |
 | #488 | CR #487: the footprint tile's caption text renders in line with its title | forced (CR #487, the user's request after the PR was ready); the gallery's `spot` call, not `spot.js` | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint text heights between meta and title |  |
+| #489 | the footprint gallery tests' headers and oracles over the right tests | forced (review M1 round 5 finding 1, pulled in) | `tests/gallery.spec.js` | `gallery.spec.js -g footprint` stays green (comments only) | #488 |
 
 ## Risks and spikes
 
@@ -183,3 +184,4 @@ patch. Proves: O1, O2
 - 2026-11-02 M1 demo (user): go, after recording on #486 that the plots-svelte `Legend`, when it gets `values`, must also let the caller place the legend anywhere. M1 accepted; no `proposed` ADR exercised.
 - 2026-11-02 plan end: `CLAUDE.md` commands re-verified (npm ci, npm run build, npm run test:unit, npx playwright test, npm run gallery, npx changeset status, scripts/check.sh and --fast, the hooks path) all exit 0; Status done; roadmap row N done.
 - 2026-11-02 after ready (user): the footprint tile's caption text is far larger than the title. CR #487, item #488 in M1; PR back to draft, Status back to approved, row N back to active, M1 unticked.
+- 2026-11-02 review M1 round 5: 0 blocking; CR #487 fixed at the 1440 px test viewport. Finding 1 pulled in as #489; finding 2 (the text matches the title only near 1440 px) filed as #490, a design choice raised at the demo.
