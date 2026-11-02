@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release (done 2026-11-02) GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -139,6 +139,7 @@ patch. Proves: O1, O2
 | #485 | CR #483: the footprint tile's footer legend from the fixture's field angles | forced (CR #483); the footer like the other field-colored tiles | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint legend keys | #484 |
 | #488 | CR #487: the footprint tile's caption text renders in line with its title | forced (CR #487, the user's request after the PR was ready); the gallery's `spot` call, not `spot.js` | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint text heights between meta and title |  |
 | #489 | the footprint gallery tests' headers and oracles over the right tests | forced (review M1 round 5 finding 1, pulled in) | `tests/gallery.spec.js` | `gallery.spec.js -g footprint` stays green (comments only) | #488 |
+| #490 | the footprint tile draws `spot` at its body's `clientWidth`, redrawn on resize, so its text matches the title at every viewport | the measured width, because a 1:1 SVG keeps `spot`'s own font size with no change to `spot.js`; considered non-scaling text in CSS px (fights the SVG's viewBox scaling) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint text heights at 1440, 1100 and 700 | #489 |
 
 ## Risks and spikes
 
@@ -186,3 +187,4 @@ patch. Proves: O1, O2
 - 2026-11-02 after ready (user): the footprint tile's caption text is far larger than the title. CR #487, item #488 in M1; PR back to draft, Status back to approved, row N back to active, M1 unticked.
 - 2026-11-02 review M1 round 5: 0 blocking; CR #487 fixed at the 1440 px test viewport. Finding 1 pulled in as #489; finding 2 (the text matches the title only near 1440 px) filed as #490, a design choice raised at the demo.
 - 2026-11-02 review M1 round 6: 0 blocking, nothing pulled in; M1 ticked again, awaiting the user's demo of CR #487.
+- 2026-11-02 M1 demo (user): "Fix #490 first". #490 into M1 as a work item; the orchestrator chose the measured width (gallery only) over non-scaling text. M1 unticked.
