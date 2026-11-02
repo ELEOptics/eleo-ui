@@ -1,6 +1,6 @@
 # Plan #464: Beam footprint through spot
 
-Status: approved 2026-11-01
+Status: done 2026-11-02
 Branch: `plan/464-beam-footprint` PR: #470 Depends on: none Roadmap: `agent_docs/roadmap.md`, row N
 
 
@@ -180,3 +180,4 @@ patch. Proves: O1, O2
 - 2026-11-02 M1 demo (user): no-go, "The field legend needs to exist." Filed CR #483, M1 unticked; the user chose the library option (`legend` takes explicit values, Core `index.d.ts`): items #484, #485.
 - 2026-11-02 review M1 round 4: 0 blocking; CR #483 fixed. Backlog #486 (plots-svelte `Legend` lacks `values`) not pulled in: a plots-svelte minor, outside O2's patch.
 - 2026-11-02 M1 demo (user): go, after recording on #486 that the plots-svelte `Legend`, when it gets `values`, must also let the caller place the legend anywhere. M1 accepted; no `proposed` ADR exercised.
+- 2026-11-02 plan end: `CLAUDE.md` commands re-verified (npm ci, npm run build, npm run test:unit, npx playwright test, npm run gallery, npx changeset status, scripts/check.sh and --fast, the hooks path) all exit 0; Status done; roadmap row N done.
