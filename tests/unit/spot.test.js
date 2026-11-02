@@ -298,6 +298,15 @@ test('caption lines and stats labels', async () => {
   assert.ok(mixed.includes('Airy circle') && !mixed.some((t) => /^Airy radius/.test(t)), 'mixed panels say Airy circle: ' + mixed);
   const cross = texts(ELEO.spot({ panels: [{ series: [{ points: [[3, 0], [-3, 0], [0, 4], [0, -4]] }] }], unit: 'µm' }));
   assert.ok(cross.includes('GEO 4.00 µm') && cross.includes('RMS 3.54 µm'), 'three significant digits: ' + cross);
+  // #278: no exponent at 999.6 or below 1e-6, and the shared-radius check compares what the caption prints.
+  const edge = texts(ELEO.spot({ panels: [{ series: pts, airy: 999.6 }], unit: 'µm' }));
+  assert.ok(edge.includes('Airy radius 1000 µm'), '999.6 prints 1000: ' + edge);
+  const tiny = texts(ELEO.spot({ panels: [{ series: [{ points: [[4e-7, 0], [-4e-7, 0]] }], airy: 4e-7 }], unit: 'mm' }));
+  assert.ok(!tiny.some((t) => /\de[+-]?\d/.test(t)), 'no exponent below 1e-6: ' + tiny);
+  assert.ok(tiny.includes('±0.0000004 mm'), 'the half label has no exponent: ' + tiny);
+  const radii = texts(ELEO.spot({ panels: [{ series: pts, airy: 1231, circle: { radius: 1231, label: 'X' } }, { series: pts, airy: 1234, circle: { radius: 1234, label: 'X' } }], unit: 'µm' }));
+  assert.ok(radii.includes('Airy circle') && !radii.some((t) => /^Airy radius/.test(t)), '1231 and 1234 differ as printed: ' + radii);
+  assert.ok(radii.includes('X') && !radii.some((t) => /^X \d/.test(t)), 'nor does the circle line share them: ' + radii);
   const small = ELEO.spot({ panels: [{ series: pts, airy: 2.87 }], height: 60 });
   const Hs = +/viewBox="0 0 [\d.]+ ([\d.]+)/.exec(small)[1];
   const tys = [...small.matchAll(/<text[^>]*\by="([\d.]+)"/g)].map((m) => +m[1]);

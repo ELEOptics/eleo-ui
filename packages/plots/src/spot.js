@@ -8,8 +8,13 @@ function niceHalf(v) {
   var e = Math.pow(10, Math.floor(Math.log10(v))), m = [1, 2, 2.5, 4, 5, 10].find(function (k) { return k * e >= v * (1 - 1e-12); });
   return m * e > 0 ? m * e : 1;
 }
-/* 3 significant digits below 1000, whole numbers from there up; never an exponent. */
-var sig3 = function (v) { return Math.abs(v) < 1000 ? v.toPrecision(3) : v.toFixed(0); };
+/* v to p significant digits, never an exponent (a number below 1e-100 prints as 0). */
+function plain(v, p) {
+  var s = v.toPrecision(p);
+  if (!/e/.test(s)) return s;
+  return Math.abs(v) >= 1 ? v.toFixed(0) : v.toFixed(Math.min(100, p - 1 - Math.floor(Math.log10(Math.abs(v)))));
+}
+var sig3 = function (v) { return plain(v, 3); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
@@ -29,11 +34,11 @@ function typedSpot(o) {
   }), n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
   var notesMax = Math.max.apply(null, [0].concat(panels.map(function (p) { return (p.notes || []).length; })));
   /* One caption line per active setting, each at x=0 and short enough for a one-panel figure. */
-  var radii = panels.map(airyOf).filter(Boolean), r3 = function (r) { return +r.toPrecision(3); };
+  var radii = panels.map(airyOf).filter(Boolean);
   var cap = ["Reference: " + ref];
-  if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return r3(r) === r3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
+  if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return sig3(r) === sig3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
   var circles = panels.filter(circleOf), cl = circles.length ? String(circles[0].circle.label == null ? "" : circles[0].circle.label) : "";
-  if (circles.length) cap.push(circles.length === n && circles.every(function (p) { return r3(circleOf(p)) === r3(circleOf(circles[0])); }) ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl);
+  if (circles.length) cap.push(circles.length === n && circles.every(function (p) { return sig3(circleOf(p)) === sig3(circleOf(circles[0])); }) ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl);
   if (anyStats) cap.push("RMS, GEO");
   var foot = 28 + 15 * notesMax + 1 + 15 * cap.length, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
   if (o.height) side = Math.min(side, o.height - foot - 8);
@@ -56,7 +61,7 @@ function typedSpot(o) {
     if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
     var ty = top + side + 18;
-    g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + +half.toPrecision(6) + unit + "</text>";
+    g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
     (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick" x="' + ox + '" y="' + (ty + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
   });
   cap.forEach(function (t, j) { g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
