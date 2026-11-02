@@ -15,6 +15,7 @@ var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0]
 function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
   var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
+  var circleOf = function (p) { return p.circle && isFinite(p.circle.radius) && p.circle.radius > 0 ? +p.circle.radius : 0; };
   var anyStats = false;
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
@@ -31,12 +32,14 @@ function typedSpot(o) {
   var radii = panels.map(airyOf).filter(Boolean), r3 = function (r) { return +r.toPrecision(3); };
   var cap = ["Reference: " + ref];
   if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return r3(r) === r3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
+  var circles = panels.filter(circleOf), cl = circles.length ? String(circles[0].circle.label == null ? "" : circles[0].circle.label) : "";
+  if (circles.length) cap.push(circles.length === n && circles.every(function (p) { return r3(circleOf(p)) === r3(circleOf(circles[0])); }) ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl);
   if (anyStats) cap.push("RMS, GEO");
   var foot = 28 + 15 * notesMax + 1 + 15 * cap.length, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
   if (o.height) side = Math.min(side, o.height - foot - 8);
   side = Math.max(side, 1);
   var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * Math.max.apply(null, cap.map(function (t) { return t.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
-  var ext = panels.map(function (p) { var m = airyOf(p); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
+  var ext = panels.map(function (p) { var m = Math.max(airyOf(p), circleOf(p)); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
   var common = isFinite(o.half) && o.half > 0 ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {
     var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common, s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
@@ -48,6 +51,7 @@ function typedSpot(o) {
       g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="2.2" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
     });
     if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
+    if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
     var ty = top + side + 18;
     g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + +half.toPrecision(6) + unit + "</text>";

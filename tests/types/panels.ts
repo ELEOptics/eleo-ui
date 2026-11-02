@@ -14,7 +14,7 @@ const panelled: CurvePlotProps = {
 const html: string = curve(panelled);
 
 const dots: SpotSeries = { points: [[0.1, -0.2], [0.3, 0.4]], index: 0 };
-const panel: SpotPanel = { title: '0.0°', series: [dots], airy: 2.4 };
+const panel: SpotPanel = { title: '0.0°', series: [dots], airy: 2.4, circle: { radius: 3, label: 'Semi-diameter' } };
 const spots: SpotDiagramProps = {
   panels: [panel],
   origin: 'chief ray',

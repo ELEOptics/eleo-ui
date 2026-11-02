@@ -239,6 +239,27 @@ test('Airy circle toggled and labelled', () => {
   assert.ok(texts(mixed).some((t) => t.includes('Airy circle') && !t.includes('radius')), 'differing radii: Airy circle');
 });
 
+// Plan #464, O1 (issue #466): a panel's `circle {radius, label}` draws like the Airy circle and is captioned `<label> <r> <unit>`.
+// oracle: property: radius 1.5 maps to 1.5 within 0.5 px, the caption line says `Semi-diameter 1.50 mm`, the half covers the circle, and no circle gives markup identical to today's.
+test('labelled circle', () => {
+  const series = [{ points: [[0.5, 0.2], [-0.3, 0.4]] }];
+  const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  const base = { unit: 'mm', width: 300, height: 200 };
+  const on = ELEO.spot({ panels: [{ series, circle: { radius: 1.5, label: 'Semi-diameter' } }], ...base });
+  const [g] = panelGroups(on);
+  const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(on);
+  assert.ok(r, 'the circle is drawn');
+  assert.ok(Math.abs(Math.abs(g.M[0]) * (+r[1] - 1.5)) <= TOL_PX, 'its radius maps to 1.5');
+  assert.ok(texts(on).includes('Semi-diameter 1.50 mm'), 'caption: ' + texts(on));
+  assert.ok(texts(on).some((t) => /^±2 mm$/.test(t)), 'the half covers the circle: ' + texts(on));
+  const plain = ELEO.spot({ panels: [{ series }], ...base });
+  assert.equal(ELEO.spot({ panels: [{ series, circle: undefined }], ...base }), plain, 'undefined circle: same markup');
+  const two = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: 'Stop' } }, { series, circle: { radius: 2, label: 'Stop' } }], unit: 'mm' });
+  assert.ok(texts(two).includes('Stop') && !texts(two).some((t) => /^Stop \d/.test(t)), 'differing radii: label alone');
+  const same = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: 'Stop' } }, { series, circle: { radius: 1, label: 'Stop' } }], unit: 'mm' });
+  assert.equal(texts(same).filter((t) => t === 'Stop 1.00 mm').length, 1, 'equal radii: one shared line');
+});
+
 // #275 (CR #270): the caption is one line per active setting, inside the figure; stats at 3 significant digits; centroid default for the sample.
 // oracle: property: each caption line's estimated width (6 px a character, as layout2D estimates) <= the viewBox width; radii equal at 3 digits print once.
 test('caption lines and stats labels', async () => {

@@ -84,6 +84,8 @@ export interface SpotPanel {
   series: SpotSeries[];
   /** Airy radius in the panel's unit, drawn as a circle when `showAiry` is not false. */
   airy?: number;
+  /** A labelled circle about the origin, drawn like the Airy circle and counted in the box size. The caption line reads "<label> <radius> <unit>" when every panel's radius agrees, else "<label>". A radius that is not finite and above 0 draws nothing. */
+  circle?: { radius: number; label: string };
   /** Extra caption lines under the panel, after the RMS and GEO lines. */
   notes?: string[];
 }
