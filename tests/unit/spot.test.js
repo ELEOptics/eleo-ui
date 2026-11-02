@@ -265,6 +265,11 @@ test('labelled circle', () => {
   assert.ok(!texts(ab).includes('Stop A 1.00 mm') && texts(ab).includes('Stop A'), 'equal radii, differing labels: the first label alone: ' + texts(ab));
   const empty = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: '' } }, { series, circle: { radius: 2, label: '' } }], unit: 'mm' });
   assert.ok(!texts(empty).includes(''), 'an empty label with differing radii adds no caption text: ' + JSON.stringify(texts(empty)));
+  const noLine = (svg) => !texts(svg).some((t) => !t.trim() || t === '1.00 mm');
+  const emptyEq = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: '' } }, { series, circle: { radius: 1, label: '' } }], unit: 'mm' });
+  assert.ok(noLine(emptyEq), 'an empty label at equal radii adds no caption line: ' + JSON.stringify(texts(emptyEq)));
+  const blank = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: ' ' } }, { series, circle: { radius: 2, label: ' ' } }], unit: 'mm' });
+  assert.ok(noLine(blank), 'a blank label adds no caption line: ' + JSON.stringify(texts(blank)));
 });
 
 // #275 (CR #270): the caption is one line per active setting, inside the figure; stats at 3 significant digits; centroid default for the sample.

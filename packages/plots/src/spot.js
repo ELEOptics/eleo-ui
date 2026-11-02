@@ -38,9 +38,9 @@ function typedSpot(o) {
   var radii = panels.map(airyOf).filter(Boolean);
   var cap = ["Reference: " + ref];
   if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return sig3(r) === sig3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
-  var circles = panels.filter(circleOf), labelOf = function (p) { return String(p.circle.label == null ? "" : p.circle.label); }, cl = circles.length ? labelOf(circles[0]) : "";
+  var circles = panels.filter(circleOf), labelOf = function (p) { return String(p.circle.label == null ? "" : p.circle.label).trim(); }, cl = circles.length ? labelOf(circles[0]) : "";
   var shared = circles.length > 0 && circles.length === n && circles.every(function (p) { return sig3(circleOf(p)) === sig3(circleOf(circles[0])) && labelOf(p) === cl; });
-  var line = shared ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
+  var line = shared && cl ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
   if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
   var foot = 28 + 15 * notesMax + 1 + 15 * cap.length, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
