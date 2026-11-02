@@ -485,3 +485,29 @@ test('spot caption stays inside the viewBox', async ({ page }) => {
   expect(lone.length, 'one-panel caption lines').toBeGreaterThanOrEqual(3);
   for (const l of lone) expect(l.ok, `one panel: "${l.text}" inside the viewBox`).toBe(true);
 });
+
+// Plan #464, #491: a hidden footprint body (clientWidth 0) never draws at a negative width.
+// oracle: property, no NaN, Infinity or negative size in the svg markup, hidden or shown again.
+test('hiding the footprint body leaves no NaN, Infinity or negative size in its svg', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const body = page.locator('.theme[data-theme="light"] [data-tile="footprint"] .eleo-plot__body');
+  const bad = () => body.evaluate((b) => {
+    const html = b.innerHTML;
+    const sizes = [...html.matchAll(/\b(?:width|height)="(-[^"]*)"/g)].map((m) => m[1]);
+    const vb = [...html.matchAll(/viewBox="([^"]*)"/g)].filter((m) => m[1].split(/[\s,]+/).slice(2).some((n) => parseFloat(n) < 0)).map((m) => m[1]);
+    return { nonFinite: /NaN|Infinity/.test(html), sizes, vb };
+  });
+  const clean = { nonFinite: false, sizes: [], vb: [] };
+  // ResizeObserver callbacks run before the frame they follow paints: two frames after the change, the observer has fired.
+  const frames = () => body.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await body.evaluate((b) => { b.style.display = 'none'; });
+  await frames();
+  await expect.poll(bad, 'hidden').toEqual(clean);
+  await body.evaluate((b) => { b.style.display = ''; });
+  await expect.poll(() => body.evaluate((b) => {
+    const svg = b.querySelector('svg'), cs = getComputedStyle(b), inner = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    return svg ? Math.abs(svg.getBoundingClientRect().width - inner) <= 1 : false;
+  }), 'svg width matches body again').toBe(true);
+  expect(await bad(), 'shown again').toEqual(clean);
+});

@@ -176,7 +176,7 @@
     // The body's clientWidth less its horizontal padding: the width its svg is laid out at.
     function contentWidth(el) {
       var cs = getComputedStyle(el);
-      return el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      return Math.max(0, el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
     }
     function drawTile(el) {
       var tile = SVG[el.dataset.svg], need = tile.need();
@@ -187,7 +187,7 @@
     var footprintResize = new ResizeObserver(function (entries) {
       entries.forEach(function (e) {
         var el = e.target, w = contentWidth(el);
-        if (w && FOOTPRINT_WIDTH.get(el) !== w) { FOOTPRINT_WIDTH.set(el, w); drawTile(el); }
+        if (w > 0 && FOOTPRINT_WIDTH.get(el) !== w) { FOOTPRINT_WIDTH.set(el, w); drawTile(el); }
       });
     });
     function draw() {
