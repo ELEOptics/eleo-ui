@@ -73,9 +73,8 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
   });
 }
 
-// Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
-// oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
 // Plan #464, CR #487, #488: the footprint tile's in-SVG text renders in line with the tile's title and meta.
+// oracle: property, the tile's own .eleo-plot__title and .eleo-plot__meta heights bound each svg text height.
 test('the footprint tile text is no taller than the title and no shorter than the meta', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -93,7 +92,8 @@ test('the footprint tile text is no taller than the title and no shorter than th
   }
 });
 
-// Missing fixture: the legend is empty, like the tile. The 404 is the expected console error.
+// Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
+// oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
 test('the footprint tile has a field legend from the recording', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -103,6 +103,7 @@ test('the footprint tile has a field legend from the recording', async ({ page }
   }
 });
 
+// Missing fixture: the legend is empty, like the tile. The 404 is the expected console error.
 test('a missing footprint fixture leaves its legend empty', async ({ page }) => {
   await page.route('**/cooke-footprint.json', (route) => route.fulfill({ status: 404, body: '' }));
   await page.goto('/gallery/');
