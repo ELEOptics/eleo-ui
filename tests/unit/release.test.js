@@ -76,6 +76,34 @@ test('a plots minor leaves plots-svelte unplanned and its peer range kept', () =
   });
 });
 
+// Plan #464 (agent_docs/plans/464-beam-footprint.md), outcome O2 (issue #465; #469 unskips). Row N: the footprint circle
+// is a plots minor; plots-svelte ships its widened peer as a patch, in its own file (#85).
+// oracle: spec: @changesets/cli's plan of the named files; #457
+test('row N changesets', { skip: 'P464 O2, issue #465; #469 unskips' }, () => {
+  const read = (f) => {
+    const text = readFileSync(join(repo, '.changeset', f), 'utf8');
+    const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    assert.ok(m, `.changeset/${f} has no front matter`);
+    return { text, body: m[2] };
+  };
+  const plots = read('footprint-circle.md');
+  const svelte = read('plots-svelte-peer-0.7.md');
+  assert.match(svelte.body, />=0\.7\.0 <1/, 'the plots-svelte body names the widened peer');
+  withWorkspace({ '@eleoptics/plots': 'minor' }, (ws) => {
+    rmSync(join(ws, '.changeset/bumps.md'));
+    writeFileSync(join(ws, '.changeset/footprint-circle.md'), plots.text);
+    writeFileSync(join(ws, '.changeset/plots-svelte-peer-0.7.md'), svelte.text);
+    run(ws, 'git', ['add', '-A']);
+    run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'row N']);
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    const type = (name) => releases.find((r) => r.name === name)?.type;
+    assert.equal(type('@eleoptics/plots'), 'minor');
+    assert.equal(type('@eleoptics/plots-svelte'), 'patch');
+    assert.deepEqual(releases.map((r) => r.name).sort(), ['@eleoptics/plots', '@eleoptics/plots-svelte'], 'only plots and plots-svelte are planned');
+  });
+});
+
 // #104 (plan #90): the release asks plots, plots-svelte and tokens minors. A tokens minor falls outside a
 // `^0.1.0` peer, so changesets would rewrite it to `^0.2.0` and bump its dependents (the #21 lesson); widened to
 // `>=0.1.0 <1`, both tokens peers survive `changeset version` and every package goes exactly one minor.

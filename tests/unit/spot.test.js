@@ -279,3 +279,53 @@ test('caption lines and stats labels', async () => {
   const tys = [...small.matchAll(/<text[^>]*\by="([\d.]+)"/g)].map((m) => +m[1]);
   assert.ok(tys.length && tys.every((y) => y < Hs), `every text y inside the viewBox height ${Hs}: ${tys}`);
 });
+
+// Plan #464 (agent_docs/plans/464-beam-footprint.md), outcome O1 (issue #465; #469 unskips).
+// oracle: fixture: recorded phos-core BeamFootprint of the Cooke triplet (scripts/record-phos-core.py)
+// The shapes this test assumes:
+//  - tests/fixtures/phos-core/cooke-footprint.json: header semiDiameter (mm); per source rec.sources[i]: points[w] (alive rays, [x, y] in the stop's local mm).
+//  - ELEOAdapters.footprint(rec) returns { unit: 'mm', panels: [{ series: [{ points, index }], circle: { radius, label } }] }, one panel.
+//  - ELEO.spot draws a panel's `circle` as a <circle r="…"> in the matrix <g>, in data units, like `airy`.
+test('recorded footprint round trip (U7)', { skip: 'P464 O1, issue #465; #469 unskips' }, async () => {
+  await import('../fixtures/phos-core/adapters.js');
+  const { ELEOAdapters } = globalThis;
+  assert.ok(ELEOAdapters && typeof ELEOAdapters.footprint === 'function', 'adapters.js assigns globalThis.ELEOAdapters.footprint');
+  const rec = fixture('cooke-footprint');
+  const { panels, unit, scale: given } = ELEOAdapters.footprint(rec);
+  const R = rec.semiDiameter;
+  assert.ok(R > 0 && Number.isFinite(R), 'the recording carries a semi-diameter');
+  assert.equal(panels.length, 1, 'one panel');
+  assert.equal(panels[0].circle.radius, R, 'the circle is the recorded semi-diameter');
+  // The series are the recording's: a series per field, index = field, the points of exactly one wavelength verbatim (mm).
+  assert.equal(panels[0].series.length, rec.sources.length, 'a series per field');
+  panels[0].series.forEach((s, i) => {
+    assert.equal(s.index, i, `series ${i}: index is the field`);
+    assert.ok(s.points.length > 0, `series ${i}: not empty`);
+    const same = (pts) => pts.length === s.points.length && pts.every(([x, y], j) => x === s.points[j][0] && y === s.points[j][1]);
+    const match = rec.sources[i].points.filter(same);
+    assert.equal(match.length, 1, `series ${i}: the points of exactly one recorded wavelength, verbatim in mm`);
+  });
+  for (const scale of ['common', 'auto']) {
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.spot({ panels, scale: given ?? scale, unit, width, height, showStats: false, showAiry: false });
+      const label = `${scale} ${width}px`;
+      const [g] = panelGroups(svg);
+      assert.ok(g, `${label}: a panel is drawn`);
+      const [a, b, c, d] = g.M;
+      assert.ok(Math.abs(b) < 1e-9 && Math.abs(c) < 1e-9 && Math.abs(Math.abs(a) - Math.abs(d)) <= 1e-9 * Math.abs(a), `${label}: one scale on both axes`);
+      assert.equal(g.paths.length, panels[0].series.length, `${label}: one path per series`);
+      panels[0].series.forEach((s, k) => {
+        const drawn = g.paths[k].flat();
+        assert.equal(drawn.length, s.points.length, `${label} series ${k}: every alive point drawn`);
+        s.points.forEach((pt, i) => {
+          const [ex, ey] = toPx(g.M, pt), [gx, gy] = toPx(g.M, toData(g.M, toPx(g.M, drawn[i])));
+          assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${label} series ${k} point ${i} within ${TOL_PX} px`);
+          assert.ok(Math.hypot(...pt) <= R * (1 + 1e-4), `${label} series ${k} point ${i} lies within the semi-diameter`);
+        });
+      });
+      const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(svg);
+      assert.ok(r, `${label}: the semi-diameter circle is drawn`);
+      assert.ok(Math.abs(Math.abs(a) * (+r[1] - R)) <= TOL_PX, `${label}: the circle's radius maps to the semi-diameter within ${TOL_PX} px`);
+    }
+  }
+});
