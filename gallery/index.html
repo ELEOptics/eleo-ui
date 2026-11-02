@@ -47,7 +47,7 @@
       <section class="eleo-plot" data-tile="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
     </div>
     <div class="row">
-      <section class="eleo-plot" data-tile="footprint"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__meta">Beam footprint, Cooke, at the stop</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="footprint"></div></section>
+      <section class="eleo-plot" data-tile="footprint"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__meta">Beam footprint, Cooke, at the stop</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="footprint"></div><div class="eleo-plot__ft eleo-legend" data-legend="footprint"></div></section>
     </div>
     <div class="row">
       <section class="eleo-plot" data-tile="seidel"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums, mm</span></div><div class="eleo-plot__body" data-svg="seidel"></div></section>
@@ -179,11 +179,13 @@
           var tile = SVG[el.dataset.svg], need = tile.need();
           el.innerHTML = need ? tile.draw(need) : '';
         });
-        // The glass legend keys the Cooke tile's own layout; empty, like the tile, if its fixture failed.
+        // The glass and footprint legends key their own recordings; empty, like the tile, if its fixture failed.
         // The field and wavelength legends key the sample; empty, like its tiles, without it.
         theme.querySelectorAll('[data-legend]').forEach(function (el) {
           var k = el.dataset.legend;
-          el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '') : k === 'ts' || SAMPLE_BOX ? ELEO.legend(k) : '';
+          el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '')
+            : k === 'footprint' ? (REC.footprintAngles ? ELEO.legend('field', undefined, REC.footprintAngles) : '')
+            : k === 'ts' || SAMPLE_BOX ? ELEO.legend(k) : '';
         });
         theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
@@ -246,7 +248,7 @@
       ['cooke', [
         ['psf', 'psf', function (d) { var A = globalThis.ELEOAdapters; MAPS['psf-recorded'] = A.psf(d); MAPS['psf-log'] = A.psf(d, { log: true }); }],
         ['wavefront', 'wavefront', function (d) { MAPS['wavefront-recorded'] = globalThis.ELEOAdapters.wavefront(d); }],
-        ['footprint', 'footprint', function (d) { REC.footprint = globalThis.ELEOAdapters.footprint(d); }]
+        ['footprint', 'footprint', function (d) { REC.footprint = globalThis.ELEOAdapters.footprint(d); REC.footprintAngles = d.sources.map(function (src) { return src.fieldAngleDeg; }); }]
       ]],
       ['cassegrain', [
         ['cassegrainLayout', 'layout', function (d) { REC.cassegrainLayout = globalThis.ELEOAdapters.layout(d); }]

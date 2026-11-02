@@ -73,6 +73,29 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
   });
 }
 
+// Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
+// oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
+// Missing fixture: the legend is empty, like the tile. The 404 is the expected console error.
+test('the footprint tile has a field legend from the recording', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const keys = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"] .eleo-legend .eleo-key`);
+    await expect(keys, `${theme} footprint legend`).toHaveText(['F1 0.0\u00b0', 'F2 17.0\u00b0', 'F3 24.0\u00b0']);
+  }
+});
+
+test('a missing footprint fixture leaves its legend empty', async ({ page }) => {
+  await page.route('**/cooke-footprint.json', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"] .eleo-legend`);
+    await expect(el, `${theme} footprint legend element`).toHaveCount(1);
+    await expect(el).toBeEmpty();
+  }
+});
+
 // Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
 // labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
 // or the merit tile's other drawing. The gallery's own report of it is the expected console error.
