@@ -106,7 +106,7 @@
       catch (e) { console.error('merit-' + k + ':', e); return ''; }
     }
     // A recorded tile: draws REC[k] (the adapter's result) through the renderer `render`; blank while REC[k] is unset.
-    function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d) { return render(d); } }; }
+    function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d, el) { return render(d, el); } }; }
     var SVG = {
       'layout2D': { need: sampleBox, draw: function (box) { return ELEO.layout2D({ width: 1000, box: box }); } },
       'layout2D-fan': { need: sampleBox, draw: function (box) { return ELEO.layout2D({ width: 1000, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
@@ -116,8 +116,8 @@
       'layout2D-wandersleb': recTile('layout', ELEO.layout2D),
       'layout2D-cassegrain': recTile('cassegrainLayout', ELEO.layout2D),
       'spot': recTile('spot', ELEO.spot),
-      // width 520: the tile spans the row (~630 px), so its text renders near the title's size, not 3x at spot's default 150-unit side.
-      'footprint': recTile('footprint', function (d) { return ELEO.spot(Object.assign({}, d, { width: 520 })); }),
+      // Drawn at the body's own content width (drawTile passes it), so the svg is 1:1 and its text renders at spot's font size, in line with the title, at every viewport.
+      'footprint': recTile('footprint', function (d, el) { return ELEO.spot(Object.assign({}, d, { width: contentWidth(el) })); }),
       // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
       'seidel': recTile('seidel', function (d) { return ELEO.bars(Object.assign({}, d, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', ELEO.bars),
@@ -173,12 +173,29 @@
         else ELEO.map2D(el, { kind: k });
       });
     }
+    // The body's clientWidth less its horizontal padding: the width its svg is laid out at.
+    function contentWidth(el) {
+      var cs = getComputedStyle(el);
+      return el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    }
+    function drawTile(el) {
+      var tile = SVG[el.dataset.svg], need = tile.need();
+      el.innerHTML = need ? tile.draw(need, el) : '';
+    }
+    // The footprint tile draws at its body's width, so it redraws when that width changes (a viewport resize).
+    var FOOTPRINT_WIDTH = new WeakMap();
+    var footprintResize = new ResizeObserver(function (entries) {
+      entries.forEach(function (e) {
+        var el = e.target, w = contentWidth(el);
+        if (w && FOOTPRINT_WIDTH.get(el) !== w) { FOOTPRINT_WIDTH.set(el, w); drawTile(el); }
+      });
+    });
     function draw() {
       document.querySelectorAll('.theme').forEach(function (theme) {
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
         theme.querySelectorAll('[data-svg]').forEach(function (el) {
-          var tile = SVG[el.dataset.svg], need = tile.need();
-          el.innerHTML = need ? tile.draw(need) : '';
+          drawTile(el);
+          if (el.dataset.svg === 'footprint') { FOOTPRINT_WIDTH.set(el, contentWidth(el)); footprintResize.observe(el); }
         });
         // The glass and footprint legends key their own recordings; empty, like the tile, if its fixture failed.
         // The field and wavelength legends key the sample; empty, like its tiles, without it.
