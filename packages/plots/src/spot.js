@@ -6,7 +6,7 @@ import { fmt } from "./color.js";
 function niceHalf(v) {
   if (!(v > 0) || !isFinite(v)) return 1;
   var e = Math.pow(10, Math.floor(Math.log10(v))), m = [1, 2, 2.5, 4, 5, 10].find(function (k) { return k * e >= v * (1 - 1e-12); });
-  return m * e;
+  return m * e > 0 ? m * e : 1;
 }
 /* 3 significant digits below 1000, whole numbers from there up; never an exponent. */
 var sig3 = function (v) { return Math.abs(v) < 1000 ? v.toPrecision(3) : v.toFixed(0); };
@@ -40,9 +40,11 @@ function typedSpot(o) {
   side = Math.max(side, 1);
   var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * Math.max.apply(null, cap.map(function (t) { return t.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
   var ext = panels.map(function (p) { var m = Math.max(airyOf(p), circleOf(p)); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
-  var common = isFinite(o.half) && o.half > 0 ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
+  var common = isFinite(o.half) && o.half > 0 && isFinite(side / 2 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {
-    var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common, s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
+    var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common;
+    if (!isFinite(side / 2 / half)) half = 1;
+    var s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
     g += '<rect x="' + (ox + .5) + '" y="' + (top + .5) + '" width="' + (side - 1) + '" height="' + (side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
     g += '<path d="M' + (ox + 6) + "," + (top + cx) + " H" + (ox + side - 6) + " M" + (ox + cx) + "," + (top + 6) + " V" + (top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
     g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, cx, cx].join(" ") + ')">';

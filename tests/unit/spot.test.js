@@ -178,6 +178,9 @@ test('typed spot hardening', async () => {
   assert.ok(!/<circle/.test(inf) && !/Infinity/.test(inf), 'no circle drawn for Infinity');
   assert.equal(ELEO.spot({ panels: [{ series: pts }], half: Infinity }), base, 'a non-finite half is ignored');
   assert.equal(ELEO.spot({ panels: [{ series: pts }], half: '1e400' }), base, 'a string half beyond range is ignored');
+  // #269: a subnormal half or extent must not make the scale non-finite.
+  assert.ok(!/Infinity|NaN/.test(ELEO.spot({ panels: [{ series: pts }], half: 1e-310 })), 'a subnormal half gives a finite scale');
+  assert.ok(!/Infinity|NaN/.test(ELEO.spot({ panels: [{ series: [{ points: [[5e-324, 0]] }] }], scale: 'auto' })), 'a subnormal extent gives a finite scale');
 });
 
 // #271 (CR #270): reference 'chief' draws the points as given, 'centroid' re-centres each panel on its mean; a caption names the reference.
