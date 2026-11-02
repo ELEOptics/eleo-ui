@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release (done 2026-11-02) GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -185,3 +185,4 @@ patch. Proves: O1, O2
 - 2026-11-02 plan end: `CLAUDE.md` commands re-verified (npm ci, npm run build, npm run test:unit, npx playwright test, npm run gallery, npx changeset status, scripts/check.sh and --fast, the hooks path) all exit 0; Status done; roadmap row N done.
 - 2026-11-02 after ready (user): the footprint tile's caption text is far larger than the title. CR #487, item #488 in M1; PR back to draft, Status back to approved, row N back to active, M1 unticked.
 - 2026-11-02 review M1 round 5: 0 blocking; CR #487 fixed at the 1440 px test viewport. Finding 1 pulled in as #489; finding 2 (the text matches the title only near 1440 px) filed as #490, a design choice raised at the demo.
+- 2026-11-02 review M1 round 6: 0 blocking, nothing pulled in; M1 ticked again, awaiting the user's demo of CR #487.
