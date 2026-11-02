@@ -75,6 +75,24 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
 
 // Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
 // oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
+// Plan #464, CR #487, #488: the footprint tile's in-SVG text renders in line with the tile's title and meta.
+test('the footprint tile text is no taller than the title and no shorter than the meta', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const h = await page.evaluate((theme) => {
+      const tile = document.querySelector(`.theme[data-theme="${theme}"] [data-tile="footprint"]`);
+      const ht = (el) => el.getBoundingClientRect().height;
+      return { title: ht(tile.querySelector('.eleo-plot__title')), meta: ht(tile.querySelector('.eleo-plot__meta')), texts: [...tile.querySelectorAll('svg text')].map(ht) };
+    }, theme);
+    expect(h.texts.length, `${theme} footprint texts`).toBeGreaterThan(0);
+    for (const t of h.texts) {
+      expect(t, `${theme} text height`).toBeLessThanOrEqual(h.title + 1);
+      expect(t, `${theme} text height`).toBeGreaterThanOrEqual(h.meta - 1);
+    }
+  }
+});
+
 // Missing fixture: the legend is empty, like the tile. The 404 is the expected console error.
 test('the footprint tile has a field legend from the recording', async ({ page }) => {
   await page.goto('/gallery/');
