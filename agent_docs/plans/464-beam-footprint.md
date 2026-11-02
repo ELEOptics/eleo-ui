@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release (done 2026-11-02) GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -135,6 +135,8 @@ patch. Proves: O1, O2
 | #477 | CR #476: the plots README's `panels` bullet states the circle caption's label rule | forced (CR #476's named fix, a stale doc #474's worker noticed) | `packages/plots/README.md` | none (doc; checked against `labelled circle`) | #474 |
 | #479 | spot: an empty, missing or whitespace circle label adds no caption line, shared or not | forced (review M1 round 2 findings 2 and 3, pulled in as one item: the same rule); considered rewording the README instead of the code | `packages/plots/src/spot.js` | `spot.test.js::labelled circle` |  |
 | #481 | CR #478 and CR #480: `SpotPanel.circle`'s JSDoc and the README's `panels` bullet state one caption rule | forced (CR #478, accepted by the user; CR #480, a stale doc from #479); one item because both docs state the same rule | `packages/plots/src/index.d.ts` (core, JSDoc only), `packages/plots/README.md`, `tests/unit/spot.test.js` | `spot.test.js::circle caption rule stated alike in index.d.ts and README` (the pre-commit hook needs a test with `index.d.ts`) | #479 |
+| #484 | CR #483: `legend('field' \| 'wavelength', n, values)` takes explicit angles or wavelengths | library, not gallery-only, so any app with recorded data draws the same keys (user, CR #483); considered building `eleo-key` spans in the gallery | `packages/plots/src/legend.js`, `packages/plots/src/index.d.ts` (core, CR #483), `packages/plots/README.md`, `.changeset/footprint-circle.md`, `tests/unit/legend.test.js` | `legend.test.js::field and wavelength keys take explicit values` |  |
+| #485 | CR #483: the footprint tile's footer legend from the fixture's field angles | forced (CR #483); the footer like the other field-colored tiles | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint legend keys | #484 |
 
 ## Risks and spikes
 
@@ -175,3 +177,4 @@ patch. Proves: O1, O2
 - 2026-11-02 review M1 round 2: CRs #471 and #476 fixed; 1 blocking on Core `index.d.ts` (the `circle` JSDoc after #474), filed as CR #478 for the user; backlog findings 2 and 3 pulled in as #479.
 - 2026-11-02 CR #478 accepted (user); stale doc from #479's worker (README:157, blank labels) filed as CR #480, accepted by the orchestrator; both fixed by #481.
 - 2026-11-02 review M1 round 3: 0 blocking; CRs #471, #476, #478, #480 fixed; backlog #482 (row #481 omitted its test) fixed in the plan table here, nothing pulled in.
+- 2026-11-02 M1 demo (user): no-go, "The field legend needs to exist." Filed CR #483, M1 unticked; the user chose the library option (`legend` takes explicit values, Core `index.d.ts`): items #484, #485.
