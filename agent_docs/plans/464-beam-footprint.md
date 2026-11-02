@@ -128,6 +128,10 @@ patch. Proves: O1, O2
 | #468 | Adapter `footprint(d)` and gallery tile `footprint`: one panel, a series per field (index = field) at the reference wavelength, `unit:'mm'`, `origin:'stop vertex, local x/y'`, `circle:{radius: semiDiameter, label:'Semi-diameter'}`, `showStats:false`, `showAiry:false`, `label:'Beam footprint'` | one panel because every field fills the stop and the overlap is the point (user); considered a panel per field | `tests/fixtures/phos-core/adapters.js`, `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: `TILES` 27 (:6), `['footprint', 'cooke', ['footprint']]` in the missing-fixture loop (:56), `footprint` in `ownData` (:112) | #466, #467 |
 | #457 reuse | plots-svelte peer `>=0.7.0 <1`, README's "needs plots ≥ 0.7.0" note dropped, patch changeset | forced (#457's named fix) | `packages/plots-svelte/package.json`, `packages/plots-svelte/README.md`, `.changeset/plots-svelte-peer-0.7.md` | `release.test.js` | #465 |
 | #469 | Unskip O1 and O2; spot's U14 median logged in the Change log | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/spot.test.js`, `tests/unit/release.test.js` | O1, O2 | all above |
+| #472 | CR #471: the plots README's `scale` bullet counts `circle.radius` in the half and the caption's unit | forced (CR #471's named fix, review M1 round 1 finding 1) | `packages/plots/README.md` | none (doc; the CR's example checked against `spot`) |  |
+| #473 | spot: a value below 1e-100 prints as `0` | forced (review M1 round 1 finding 2's named fix, pulled in); considered stripping trailing zeros in `plain` (the half label already does) | `packages/plots/src/spot.js` | `spot.test.js::caption lines and stats labels` |  |
+| #474 | spot: the circle caption shares a line only when every label agrees, and skips an empty label | forced (review M1 round 1 finding 3's named fix, pulled in) | `packages/plots/src/spot.js` | `spot.test.js::labelled circle` | #473 |
+| #475 | recorder: the `--only layout` and `footprint` branches share their outdir lines | forced (review M1 round 1 finding 4's named fix, pulled in); considered an `out_dir(args)` helper | `scripts/record-phos-core.py` | `phos-core-fixtures.test.js` (unchanged, green) |  |
 
 ## Risks and spikes
 
@@ -163,3 +167,4 @@ patch. Proves: O1, O2
   (merge #269 and #278): `workflow.md`'s one commit per work item keeps each issue's history apart.
 - 2026-11-01 approved (user); published: plan issue #464, milestone P464 M1, work items #465–#469, #269, #278, #457 reused; ELEOptics/phos-core#2142 filed.
 - 2026-11-02 M1 end: U14 re-measured, spot redraw median 3.30 ms (`PERF=1 npx playwright test tests/perf.spec.js -g "spot redraw"`); O1 and O2 unskipped and green.
+- 2026-11-02 review M1 round 1: 1 blocking, filed as CR #471 and accepted by the orchestrator (a non-Core doc), fixed by #472; backlog findings 2–4 pulled into M1 as #473, #474, #475 (small, named, in files M1 changed).
