@@ -319,7 +319,7 @@ test('caption lines and stats labels', async () => {
 //  - tests/fixtures/phos-core/cooke-footprint.json: header semiDiameter (mm); per source rec.sources[i]: points[w] (alive rays, [x, y] in the stop's local mm).
 //  - ELEOAdapters.footprint(rec) returns { unit: 'mm', panels: [{ series: [{ points, index }], circle: { radius, label } }] }, one panel.
 //  - ELEO.spot draws a panel's `circle` as a <circle r="…"> in the matrix <g>, in data units, like `airy`.
-test('recorded footprint round trip (U7)', { skip: 'P464 O1, issue #465; #469 unskips' }, async () => {
+test('recorded footprint round trip (U7)', async () => {
   await import('../fixtures/phos-core/adapters.js');
   const { ELEOAdapters } = globalThis;
   assert.ok(ELEOAdapters && typeof ELEOAdapters.footprint === 'function', 'adapters.js assigns globalThis.ELEOAdapters.footprint');

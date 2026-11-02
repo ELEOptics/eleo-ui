@@ -79,7 +79,7 @@ test('a plots minor leaves plots-svelte unplanned and its peer range kept', () =
 // Plan #464 (agent_docs/plans/464-beam-footprint.md), outcome O2 (issue #465; #469 unskips). Row N: the footprint circle
 // is a plots minor; plots-svelte ships its widened peer as a patch, in its own file (#85).
 // oracle: spec: @changesets/cli's plan of the named files; #457
-test('row N changesets', { skip: 'P464 O2, issue #465; #469 unskips' }, () => {
+test('row N changesets', () => {
   const read = (f) => {
     const text = readFileSync(join(repo, '.changeset', f), 'utf8');
     const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);

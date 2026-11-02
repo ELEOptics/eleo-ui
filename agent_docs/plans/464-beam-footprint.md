@@ -162,3 +162,4 @@ patch. Proves: O1, O2
   U14 invocation, guard fakes), 13 (`CoordinateFrame` instead of the vertex subtraction). Rejected 14
   (merge #269 and #278): `workflow.md`'s one commit per work item keeps each issue's history apart.
 - 2026-11-01 approved (user); published: plan issue #464, milestone P464 M1, work items #465–#469, #269, #278, #457 reused; ELEOptics/phos-core#2142 filed.
+- 2026-11-02 M1 end: U14 re-measured, spot redraw median 3.30 ms (`PERF=1 npx playwright test tests/perf.spec.js -g "spot redraw"`); O1 and O2 unskipped and green.
