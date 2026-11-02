@@ -179,3 +179,4 @@ patch. Proves: O1, O2
 - 2026-11-02 review M1 round 3: 0 blocking; CRs #471, #476, #478, #480 fixed; backlog #482 (row #481 omitted its test) fixed in the plan table here, nothing pulled in.
 - 2026-11-02 M1 demo (user): no-go, "The field legend needs to exist." Filed CR #483, M1 unticked; the user chose the library option (`legend` takes explicit values, Core `index.d.ts`): items #484, #485.
 - 2026-11-02 review M1 round 4: 0 blocking; CR #483 fixed. Backlog #486 (plots-svelte `Legend` lacks `values`) not pulled in: a plots-svelte minor, outside O2's patch.
+- 2026-11-02 M1 demo (user): go, after recording on #486 that the plots-svelte `Legend`, when it gets `values`, must also let the caller place the legend anywhere. M1 accepted; no `proposed` ADR exercised.
