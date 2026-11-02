@@ -375,3 +375,18 @@ test('recorded footprint round trip (U7)', async () => {
     }
   }
 });
+
+// oracle: property: the docs state the rule spot.js follows (labelled circle's cases)
+test('circle caption rule stated alike in index.d.ts and README', async () => {
+  const { readFileSync } = await import('node:fs');
+  const dts = readFileSync(new URL('../../packages/plots/src/index.d.ts', import.meta.url), 'utf8');
+  const readme = readFileSync(new URL('../../packages/plots/README.md', import.meta.url), 'utf8');
+  const jsdoc = dts.split('\n').find((l, i, a) => /^\s*circle\??:/.test(a[i + 1] || '') && l.includes('/**'));
+  const bullet = readme.split('\n').find((l) => l.startsWith('- **`panels`:**') && l.includes('circle: { radius, label }'));
+  assert.ok(jsdoc, 'SpotPanel.circle JSDoc found');
+  assert.ok(bullet, 'panels bullet found');
+  for (const [name, text] of [['index.d.ts', jsdoc], ['README', bullet]]) {
+    assert.match(text, /labels? (all )?agree/, `${name}: the shared line needs the labels to agree`);
+    assert.match(text, /empty, blank or missing/, `${name}: no line for an empty, blank or missing label`);
+  }
+});
