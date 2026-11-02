@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release (done 2026-11-02) GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -190,3 +190,4 @@ patch. Proves: O1, O2
 - 2026-11-02 review M1 round 6: 0 blocking, nothing pulled in; M1 ticked again, awaiting the user's demo of CR #487.
 - 2026-11-02 M1 demo (user): "Fix #490 first". #490 into M1 as a work item; the orchestrator chose the measured width (gallery only) over non-scaling text. M1 unticked.
 - 2026-11-02 review M1 round 7: 0 blocking; CR #487 fixed at every viewport. Finding 1 (a hidden body gives a negative width) pulled in as #491.
+- 2026-11-02 review M1 round 8: 0 blocking, nothing pulled in; M1 ticked again, awaiting the user's demo of #490.
