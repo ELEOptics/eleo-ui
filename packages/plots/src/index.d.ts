@@ -316,8 +316,8 @@ export interface ELEO {
   icon(name: string, props?: { style?: "line" | "glass" | "blueprint"; size?: number; label?: string }): string;
   /** Every icon name and title, by set. */
   icons: { optical: { name: string; title: string }[]; interface: { name: string; title: string }[] };
-  /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. With a sample loaded, field/wavelength keys carry its values (n defaults to its count); without one they draw n index keys (F1.., λ1..) without values, and none without n. ts and rays are fixed either way. */
-  legend(kind: "field" | "wavelength" | "ts" | "rays", n?: number): string;
+  /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. With a sample loaded, field/wavelength keys carry its values (n defaults to its count); without one they draw n index keys (F1.., λ1..) without values, and none without n. `values` (deg or nm) replaces the sample's, one key per value, n defaulting to its length; a non-finite entry draws the index key alone. ts and rays are fixed either way. */
+  legend(kind: "field" | "wavelength" | "ts" | "rays", n?: number, values?: readonly number[]): string;
 }
 import type * as Physics from './physics.js';
 export * from './physics.js';
