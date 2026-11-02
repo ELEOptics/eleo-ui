@@ -307,6 +307,10 @@ test('caption lines and stats labels', async () => {
   const radii = texts(ELEO.spot({ panels: [{ series: pts, airy: 1231, circle: { radius: 1231, label: 'X' } }, { series: pts, airy: 1234, circle: { radius: 1234, label: 'X' } }], unit: 'µm' }));
   assert.ok(radii.includes('Airy circle') && !radii.some((t) => /^Airy radius/.test(t)), '1231 and 1234 differ as printed: ' + radii);
   assert.ok(radii.includes('X') && !radii.some((t) => /^X \d/.test(t)), 'nor does the circle line share them: ' + radii);
+  // #473: a value below 1e-100 prints as 0, not 100 digits.
+  const deep = texts(ELEO.spot({ panels: [{ series: pts, airy: 1e-200 }], unit: 'mm' }));
+  assert.ok(deep.includes('Airy radius 0 mm'), '1e-200 prints 0: ' + deep);
+  assert.ok(deep.every((t) => t.length <= 40), 'no caption line longer than 40 characters: ' + deep);
   const small = ELEO.spot({ panels: [{ series: pts, airy: 2.87 }], height: 60 });
   const Hs = +/viewBox="0 0 [\d.]+ ([\d.]+)/.exec(small)[1];
   const tys = [...small.matchAll(/<text[^>]*\by="([\d.]+)"/g)].map((m) => +m[1]);

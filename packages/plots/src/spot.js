@@ -12,6 +12,7 @@ function niceHalf(v) {
 function plain(v, p) {
   var s = v.toPrecision(p);
   if (!/e/.test(s)) return s;
+  if (Math.abs(v) < 1e-100) return "0";
   return Math.abs(v) >= 1 ? v.toFixed(0) : v.toFixed(Math.min(100, p - 1 - Math.floor(Math.log10(Math.abs(v)))));
 }
 var sig3 = function (v) { return plain(v, 3); };
