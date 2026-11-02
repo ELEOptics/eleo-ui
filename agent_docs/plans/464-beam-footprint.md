@@ -1,6 +1,6 @@
 # Plan #464: Beam footprint through spot
 
-Status: done 2026-11-02
+Status: approved 2026-11-01
 Branch: `plan/464-beam-footprint` PR: #470 Depends on: none Roadmap: `agent_docs/roadmap.md`, row N
 
 
@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release (done 2026-11-02) GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -137,6 +137,7 @@ patch. Proves: O1, O2
 | #481 | CR #478 and CR #480: `SpotPanel.circle`'s JSDoc and the README's `panels` bullet state one caption rule | forced (CR #478, accepted by the user; CR #480, a stale doc from #479); one item because both docs state the same rule | `packages/plots/src/index.d.ts` (core, JSDoc only), `packages/plots/README.md`, `tests/unit/spot.test.js` | `spot.test.js::circle caption rule stated alike in index.d.ts and README` (the pre-commit hook needs a test with `index.d.ts`) | #479 |
 | #484 | CR #483: `legend('field' \| 'wavelength', n, values)` takes explicit angles or wavelengths | library, not gallery-only, so any app with recorded data draws the same keys (user, CR #483); considered building `eleo-key` spans in the gallery | `packages/plots/src/legend.js`, `packages/plots/src/index.d.ts` (core, CR #483), `packages/plots/README.md`, `.changeset/footprint-circle.md`, `tests/unit/legend.test.js` | `legend.test.js::field and wavelength keys take explicit values` |  |
 | #485 | CR #483: the footprint tile's footer legend from the fixture's field angles | forced (CR #483); the footer like the other field-colored tiles | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint legend keys | #484 |
+| #488 | CR #487: the footprint tile's caption text renders in line with its title | forced (CR #487, the user's request after the PR was ready); the gallery's `spot` call, not `spot.js` | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint text heights between meta and title |  |
 
 ## Risks and spikes
 
@@ -181,3 +182,4 @@ patch. Proves: O1, O2
 - 2026-11-02 review M1 round 4: 0 blocking; CR #483 fixed. Backlog #486 (plots-svelte `Legend` lacks `values`) not pulled in: a plots-svelte minor, outside O2's patch.
 - 2026-11-02 M1 demo (user): go, after recording on #486 that the plots-svelte `Legend`, when it gets `values`, must also let the caller place the legend anywhere. M1 accepted; no `proposed` ADR exercised.
 - 2026-11-02 plan end: `CLAUDE.md` commands re-verified (npm ci, npm run build, npm run test:unit, npx playwright test, npm run gallery, npx changeset status, scripts/check.sh and --fast, the hooks path) all exit 0; Status done; roadmap row N done.
+- 2026-11-02 after ready (user): the footprint tile's caption text is far larger than the title. CR #487, item #488 in M1; PR back to draft, Status back to approved, row N back to active, M1 unticked.
