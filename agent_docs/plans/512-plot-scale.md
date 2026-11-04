@@ -131,7 +131,8 @@ layout2D; O5.
 | [#542] | README: curve's and rayFan's default heights are rounded to whole px (CR [#541]) | forced (stale after [#540]) | `packages/plots/README.md` | none (a doc line) | [#540] |
 | [#520] | Gallery: curve, rayFan and layout tiles draw through `fit` at their body width | `fit` because O2 asks the formula at the rendered frame, which today's CSS stretch of a default drawing misses | `gallery/index.html` | the O2 test, for these tiles | [#516], [#517], [#518], [#539], [#540] |
 | [#537] | `index.d.ts`: `RayFanProps` gains `width` and `height`; curve's and layout2D's `width` docs and curve's 1 px stroke line follow ADR-0003 (CR [#536]) | forced (the plan's Decisions approve these docs; no M1 item listed them) | `packages/plots/src/index.d.ts`, `tests/types/curve.ts` | `tests/types/curve.ts`: `rayFan({ width, height })` compiles | [#517] |
-| [#521] | Unskip O1, O2 for curve, rayFan, layout2D; log U14 for curve, panels and layout2D | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/scale.test.js`, `tests/gallery.spec.js` | both tests green | [#513]-[#520], [#537], [#539], [#540], [#542] |
+| [#543] | Gallery: the rayFan row's minimum column is `columns × (F_LO + m · TEXT_MIN)` from the scale rule, capped at the row (CR [#544]) | forced (user, 2026-11-04: pull the rayFan row's minimum into M1, computed); considered waiting for [#527], which leaves M1's rayFan tiles unusable | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::the rayFan row gives each panel a floor frame (#544)` | [#520] |
+| [#521] | Unskip O1, O2 for curve, rayFan, layout2D; log U14 for curve, panels and layout2D | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/scale.test.js`, `tests/gallery.spec.js` | both tests green | [#513]-[#520], [#537], [#539]-[#543] |
 
 ### M2: every framed renderer, and the table GitHub: `P512 M2: Scale rule for every framed renderer`
 
@@ -223,6 +224,10 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-04 CR [#541] (orchestrator): accepted; the README's default heights are stale after [#540]; item [#542].
   `index.d.ts`'s rayFan `height` doc stays (accurate; a doc-only source edit has no test for the hook).
 
+- 2026-11-04 CR [#544] (user: "Pull its row minimum in"): since [#520] the rayFan tiles draw at a ~320 px column, three
+  panels under the floor frame, with colliding ticks; the O2 test checks text only. Item [#543] computes the rayFan row's
+  minimum in M1; [#527] generalises it from `PLOT_SIZES`.
+
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#155]: https://github.com/ELEOptics/eleo-ui/issues/155
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156
@@ -269,5 +274,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#540]: https://github.com/ELEOptics/eleo-ui/issues/540
 [#541]: https://github.com/ELEOptics/eleo-ui/issues/541
 [#542]: https://github.com/ELEOptics/eleo-ui/issues/542
+[#543]: https://github.com/ELEOptics/eleo-ui/issues/543
+[#544]: https://github.com/ELEOptics/eleo-ui/issues/544
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
