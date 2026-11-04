@@ -385,11 +385,13 @@ test('recorded wavefront tile draws with its map and aperture, the log PSF with 
     expect(wf.even, `${theme} aperture even-odd path`).toBe(1);
 
     const bar = await page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-log"] svg[role="img"]`).evaluate((svg) => {
-      const rect = [...svg.querySelectorAll('rect')].find((r) => r.getAttribute('width') === '10');
-      const top = +rect.getAttribute('y'), h = +rect.getAttribute('height');
-      const ys = [...svg.querySelectorAll('line')].filter((l) => +l.getAttribute('x2') - +l.getAttribute('x1') === 3 && +l.getAttribute('x1') === +rect.getAttribute('x') + 10)
+      // ADR-0003 text units: t is the tick text's inline font-size; the colorbar is the rect t wide, its ticks 0.3 t long from the bar's right edge, their labels 0.4 t past it.
+      const t = parseFloat(svg.querySelector('text.eleo-tick').style.fontSize), near = (a, b) => Math.abs(a - b) < 0.02;
+      const rect = [...svg.querySelectorAll('rect')].find((r) => near(+r.getAttribute('width'), t));
+      const top = +rect.getAttribute('y'), h = +rect.getAttribute('height'), right = +rect.getAttribute('x') + +rect.getAttribute('width');
+      const ys = [...svg.querySelectorAll('line')].filter((l) => near(+l.getAttribute('x2') - +l.getAttribute('x1'), 0.3 * t) && near(+l.getAttribute('x1'), right))
         .map((l) => +l.getAttribute('y1')).sort((a, b) => b - a);
-      const topLabel = [...svg.querySelectorAll('text.eleo-tick')].find((t) => Math.abs(+t.getAttribute('y') - ys[ys.length - 1]) < 0.01 && +t.getAttribute('x') === +rect.getAttribute('x') + 14);
+      const topLabel = [...svg.querySelectorAll('text.eleo-tick')].find((l) => Math.abs(+l.getAttribute('y') - ys[ys.length - 1]) < 0.01 && near(+l.getAttribute('x'), right + 0.4 * t));
       return { h, t: ys.map((y) => (top + h - y) / h), topLabel: topLabel ? topLabel.textContent : null };
     });
     expect(bar.t.length, `${theme} log colorbar ticks`).toBeGreaterThanOrEqual(4);
