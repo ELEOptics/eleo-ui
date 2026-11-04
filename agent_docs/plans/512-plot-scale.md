@@ -206,6 +206,10 @@ One bullet per entry (bare lines render as one paragraph).
   and 18.2 px right margin, not Constraints' F = 402, 15.6 px, about 72 (the right margin was left out); ADR-0003's
   Default widths carries the same figure, rewritten as built at the M1 verdict.
 
+- 2026-11-04 orchestrator: [#519] records the `layout2D` baseline right after [#518], not at the demo, because the
+  gate is red until it does and a red gate pushes nothing; if a later M1 change moves `layout2D`'s output, its script
+  re-runs before the verdict, so the recorded baseline is the verdict's drawing (the user's choice at approval).
+
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#155]: https://github.com/ELEOptics/eleo-ui/issues/155
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156
