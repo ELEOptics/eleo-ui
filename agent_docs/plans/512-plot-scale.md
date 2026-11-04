@@ -131,8 +131,9 @@ layout2D; O5.
 | [#542] | README: curve's and rayFan's default heights are rounded to whole px (CR [#541]) | forced (stale after [#540]) | `packages/plots/README.md` | none (a doc line) | [#540] |
 | [#520] | Gallery: curve, rayFan and layout tiles draw through `fit` at their body width | `fit` because O2 asks the formula at the rendered frame, which today's CSS stretch of a default drawing misses | `gallery/index.html` | the O2 test, for these tiles | [#516], [#517], [#518], [#539], [#540] |
 | [#537] | `index.d.ts`: `RayFanProps` gains `width` and `height`; curve's and layout2D's `width` docs and curve's 1 px stroke line follow ADR-0003 (CR [#536]) | forced (the plan's Decisions approve these docs; no M1 item listed them) | `packages/plots/src/index.d.ts`, `tests/types/curve.ts` | `tests/types/curve.ts`: `rayFan({ width, height })` compiles | [#517] |
-| [#543] | Gallery: the rayFan row's minimum column is `columns × (F_LO + m · TEXT_MIN)` from the scale rule, capped at the row (CR [#544]) | forced (user, 2026-11-04: pull the rayFan row's minimum into M1, computed); considered waiting for [#527], which leaves M1's rayFan tiles unusable | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::the rayFan row gives each panel a floor frame (#544)` | [#520] |
-| [#521] | Unskip O1, O2 for curve, rayFan, layout2D; log U14 for curve, panels and layout2D | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/scale.test.js`, `tests/gallery.spec.js` | both tests green | [#513]-[#520], [#537], [#539]-[#543] |
+| [#546] | The scale rule's exports on the default `ELEO`, flat, so the classic build carries them (CR [#545]) | forced (the plan's Decisions approve the scale exports; the gallery loads the classic build); considered an `ELEO.scale` namespace, unlike `physics`, which is flat | `packages/plots/src/index.js`, `packages/plots/src/index.d.ts` | `tests/unit/fit.test.js::index exports fit and the scale rule at runtime` | [#539] |
+| [#543] | Gallery: the rayFan row's minimum column is `columns × (F_LO + m · TEXT_MIN)` from the scale rule, capped at the row (CR [#544]) | forced (user, 2026-11-04: pull the rayFan row's minimum into M1, computed); considered waiting for [#527], which leaves M1's rayFan tiles unusable | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::the rayFan row gives each panel a floor frame (#544)` | [#520], [#546] |
+| [#521] | Unskip O1, O2 for curve, rayFan, layout2D; log U14 for curve, panels and layout2D | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/scale.test.js`, `tests/gallery.spec.js` | both tests green | [#513]-[#520], [#537], [#539]-[#543], [#546] |
 
 ### M2: every framed renderer, and the table GitHub: `P512 M2: Scale rule for every framed renderer`
 
@@ -228,6 +229,9 @@ One bullet per entry (bare lines render as one paragraph).
   panels under the floor frame, with colliding ticks; the O2 test checks text only. Item [#543] computes the rayFan row's
   minimum in M1; [#527] generalises it from `PLOT_SIZES`.
 
+- 2026-11-04 CR [#545] (orchestrator): accepted; the classic build's `window.ELEO` lacks the scale constants [#543] needs;
+  item [#546] puts `scale.js`'s exports on the default `ELEO`, flat, as `physics` is.
+
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#155]: https://github.com/ELEOptics/eleo-ui/issues/155
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156
@@ -276,5 +280,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#542]: https://github.com/ELEOptics/eleo-ui/issues/542
 [#543]: https://github.com/ELEOptics/eleo-ui/issues/543
 [#544]: https://github.com/ELEOptics/eleo-ui/issues/544
+[#545]: https://github.com/ELEOptics/eleo-ui/issues/545
+[#546]: https://github.com/ELEOptics/eleo-ui/issues/546
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
