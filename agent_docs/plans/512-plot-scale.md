@@ -109,7 +109,7 @@ Proposed, from roadmap U18 and its oracle (approved 2026-11-04).
 Independent of every open plan (none open). Shares the recorder-free files only: recorded-fans (gallery,
 `gallery.spec.js`) and ray-visibility (`layout2d.js`) wait for it.
 
-### M1: one rule, curve and layout2D, in the gallery GitHub: `P512 M1: Scale rule for curve and layout2D`
+### M1: one rule, curve and layout2D, in the gallery (done 2026-11-04) GitHub: `P512 M1: Scale rule for curve and layout2D`
 
 Demo: `npm run gallery` at 1440, 1100 and 700 px and while dragging the window: every curve, rayFan and layout tile
 at its measured width, text per ADR-0003 (layout labels shown at 1440 and 1100, hidden at 700, where the body is
@@ -260,6 +260,13 @@ One bullet per entry (bare lines render as one paragraph).
 
 - 2026-11-04 review M1 round 3: 1 blocking (CR [#568], accepted: limit label positions carry float noise beside the
   rounded frame) and 1 backlog pulled in, both item [#569]; carried CRs fixed. Breaker count 1 + 1 (falling: 8, 3, 2).
+
+- 2026-11-04 review M1 round 4: 0 blocking, nothing pulled in. CI green on b6322e1.
+
+- 2026-11-04 M1 demo (user): "Go". ADR-0003 accepted, its Decision rewritten as built (`fit`'s content box, whole-px
+  default heights, the `limit` role's weight and the `limits` marks at 1 px ([#567]), rounded frame geometry, the default
+  figures) with a Verdict; ADR-0001's 1 px rule marked superseded in its Status line ([#553]). The `layout2D` baseline
+  recorded at [#519] still holds (no `layout2D` output change since; `split.test.js` green), so it is not re-recorded.
 
 - 2026-11-04 measured at [#521]: U14 (`PERF=1 npx playwright test tests/perf.spec.js`, median of 20 redraws, budget 16 ms) for the M1 renderers:
   curve 1.30 ms, curve panels 0.90 ms, layout2D 2.20 ms. Bars, map2D and spot are logged at [#528].
