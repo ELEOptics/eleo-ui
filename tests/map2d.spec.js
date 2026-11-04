@@ -682,3 +682,36 @@ test('gaussian irradiance tile', async ({ page }) => {
     expect(r.wrong, `${theme}: cells off their step`).toBe(0);
   }
 });
+
+// Plan #512, outcome O1 for map2D (issue #522; #528 unskips). oracle: closed-form ADR-0003. At widths that put the frame F (the first
+// rect's width, in px) below the floor, inside the band and above the knee, every text of the drawing (axes and colorbar ticks:
+// computed font-size times getScreenCTM().a) is within 1% of 9 px below F = 162, F / 18 up to 234, 13 * (F / 234)^(1/3) above.
+test.skip('text follows ADR-0003', async ({ page }) => {
+  // skipped: #522
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const branches = new Set();
+  for (const width of [200, 360, 1400]) {
+    const r = await page.locator('.theme[data-theme="light"]').evaluate((el, w) => {
+      const values = [[0, 1, 2, 3], [1, 2, 3, 4]];
+      el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, extent: [-2, 2, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, value: { label: 'Irradiance' }, width: w }));
+      const svg = el.lastElementChild, F = +svg.querySelector('rect').getAttribute('width');
+      el.removeChild(svg);
+      return { F, sizes: null, svg: svg.outerHTML };
+    }, width);
+    // Measure in the page: the drawing must be attached for getScreenCTM.
+    const m = await page.locator('.theme[data-theme="light"]').evaluate((el, [html, w]) => {
+      el.insertAdjacentHTML('beforeend', html);
+      const svg = el.lastElementChild;
+      svg.style.width = w + 'px'; // drawn at its own px width, so the screen scale is 1
+      const sizes = [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a);
+      el.removeChild(svg);
+      return sizes;
+    }, [r.svg, width]);
+    const want = r.F < 162 ? 9 : r.F <= 234 ? r.F / 18 : 13 * Math.cbrt(r.F / 234);
+    expect(m.length, `width ${width} has text`).toBeGreaterThan(0);
+    for (const s of m) expect(Math.abs(s / want - 1), `width ${width} (F ${r.F}) text ${s}px against ${want}px`).toBeLessThanOrEqual(0.01);
+    branches.add(r.F < 162 ? 'below' : r.F <= 234 ? 'inside' : 'above');
+  }
+  expect([...branches].sort()).toEqual(['above', 'below', 'inside']);
+});

@@ -115,3 +115,44 @@ test("formulas at the band's edges", () => {
   // A frame never goes under 1.
   assert.equal(frameOf(10, 4.6), 1);
 });
+
+// Plan #512, outcome O1 for bars, spot and throughFocus (issue #522; #528 unskips). oracle: closed-form ADR-0003.
+// bars: F is the plot frame's rect width. spot and throughFocus: the frame is a panel, F = its rect width + 1 (the rect is inset 0.5 px each side for its stroke).
+// Text only: bars draws no stroked series, and spot's and throughFocus's dots are not stroke-width attributes.
+const panelFrames = (svg) => frames(svg).map((w) => w + 1);
+function checkText(name, svg, F, branches) {
+  const t = sizes(svg);
+  assert.ok(t.length > 0, `${name}: text is drawn`);
+  t.forEach((s, i) => near(s, frameText(F), `${name} (F ${F}) text ${i} font size`));
+  branches.add(frameBranch(F));
+}
+test('text and weight per renderer (U18): bars, spot, throughFocus', { skip: '#522' }, () => {
+  const bars = new Set();
+  for (const width of [200, 300, 1200]) {
+    const svg = ELEO.bars({ categories: ['a', 'b'], series: [{ values: [2, 5] }], width });
+    const F = frames(svg);
+    assert.ok(F.length > 0, `bars ${width}: a frame is drawn`);
+    checkText(`bars ${width}`, svg, F[0], bars);
+  }
+  assert.deepEqual([...bars].sort(), ['above', 'below', 'inside'], 'bars widths cover the floor, the band and the knee');
+
+  // spot: three panels at the sample's default; F is one panel's side.
+  const spot = new Set();
+  for (const width of [400, 600, 1500]) {
+    const svg = ELEO.spot({ ...sample, width }), F = panelFrames(svg);
+    assert.ok(F.length > 0, `spot ${width}: panels are drawn`);
+    F.forEach((f) => near(f, F[0], `spot ${width}: one panel side`));
+    checkText(`spot ${width}`, svg, F[0], spot);
+  }
+  assert.deepEqual([...spot].sort(), ['above', 'below', 'inside'], 'spot widths cover the floor, the band and the knee');
+
+  // throughFocus: fields by rows, focus shifts by columns; F is one panel's side.
+  const tf = new Set();
+  for (const width of [500, 1100, 3000]) {
+    const svg = ELEO.throughFocus({ ...sample, width }), F = panelFrames(svg);
+    assert.ok(F.length > 0, `throughFocus ${width}: panels are drawn`);
+    F.forEach((f) => near(f, F[0], `throughFocus ${width}: one panel side`));
+    checkText(`throughFocus ${width}`, svg, F[0], tf);
+  }
+  assert.deepEqual([...tf].sort(), ['above', 'below', 'inside'], 'throughFocus widths cover the floor, the band and the knee');
+});
