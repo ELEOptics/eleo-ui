@@ -123,7 +123,7 @@ test('recorded field curvature and distortion round trip (U6)', async () => {
 
 // Plan #512, issue #557 (review M1 finding 9). oracle: property: the frame rect's and the nested svg's x, y, width and height have at most 2 decimals, so the markup is small and doesn't depend on Math.cbrt's last bits.
 test('frame geometry has at most 2 decimals', () => {
-  for (const width of [200, 460, 1200]) {
+  for (let width = 120; width <= 1600; width += 7) {
     const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], index: 0 }], width, height: 260 });
     const tags = [/<rect\b[^>]*stroke="var\(--plot-grid\)"[^>]*>/.exec(svg), /<svg\b[^>]*\by="[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg)];
     for (const tag of tags) {

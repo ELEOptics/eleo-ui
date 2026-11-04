@@ -64,13 +64,13 @@ export function scales(o, groups, panel) {
 }
 /* The frame's left and bottom margins in px; bars reads them to place its category labels. */
 export var PLOT_L = 46, PLOT_B = 36, PLOT_T = 26;
+var r2 = function (v) { return +v.toFixed(2); };
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
 /* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
 export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   mg = mg || { L: PLOT_L, B: PLOT_B, R: sc.R };
-  var r2 = function (v) { return +v.toFixed(2); };
   /* The frame is rounded to 2 decimals once, here: everything below derives from these, so the markup is small and doesn't depend on Math.cbrt's last bits. */
   T = r2(T);
   var L = r2(mg.L), Bm = mg.B, ph = r2(Math.max(1, h - T - Bm)), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
@@ -109,7 +109,6 @@ function curveMargins(sc, w) {
 function typedCurve(o) {
   var W = o.width || 460, H = o.height || Math.round(W * 260 / 460), x = o.x || {}, y = o.y || {};
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
-  var r2 = function (v) { return +v.toFixed(2); };
   var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(H - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
   var sc, g = "", lim = checkLimits(o.limits, "curve");
   var cell = function (series, w, h, T, panel, mg) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel, mg.wt); }).join("")), lim, mg); };
