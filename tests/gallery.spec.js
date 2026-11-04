@@ -73,8 +73,8 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
   });
 }
 
-// Plan #464, CR #499, #500, #502, #503: the footprint tile's bottom text is at the meta's size, the plot keeps #497's size, and the text sits close to the plot.
-// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame is 447 px wide within 1%; the first text baseline is at most 2.2 times that size below the frame, and consecutive baselines at most 2.2 times apart; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%.
+// Plan #464, CR #499, #500, #502, #503, #507, #508: the footprint tile's bottom text is at the meta's size, the plot keeps #497's size, the text sits close to the plot, and the header key ends at the plot frame's right edge.
+// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame is 447 px wide within 1%; the first text baseline is at most 2.2 times that size below the frame, and consecutive baselines at most 2.2 times apart; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%; at 1440, 1100 and 700 px the .eleo-plot__key's right edge is within 16 px of the frame's right edge (the body's 12 px padding plus the tile's 1 px border plus the frame's own inset).
 test('the footprint tile text is at the meta size with the plot unchanged and the text close to it', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
