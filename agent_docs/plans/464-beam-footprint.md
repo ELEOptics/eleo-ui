@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release (done 2026-11-04) GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -211,3 +211,4 @@ patch. Proves: O1, O2
 - 2026-11-04 M1 demo (user): "too much empty space around the text. Tighten that up to the plot." CR #502; the user approved the Core change (`SpotDiagramProps.textScale`). Items #501 (reused) and #503. M1 unticked.
 - 2026-11-04 #503 parked on CR #504 (its worker found `textScale`'s `font-size` attribute loses to `.eleo-tick`'s class rule in a browser; #501's test checked the attribute only). Accepted by the orchestrator: item #505, an inline style; #503 after it.
 - 2026-11-04 review M1 round 14: 0 blocking; CRs #502 and #504 fixed. Finding 1 (the test copies plots.css's sizes by hand) pulled in as #506.
+- 2026-11-04 review M1 round 15: 0 blocking, nothing pulled in. M1 ticked again, awaiting the user's demo of CR #502.
