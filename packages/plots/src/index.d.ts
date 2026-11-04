@@ -51,9 +51,9 @@ export interface Layout2DProps {
   colorBy?: IndexKey;
   /** Ray set per group. Default "marginal-chief" (3 rays). */
   rays?: "marginal-chief" | "fan" | "chief";
-  /** viewBox width in px; the drawing is always true scale. Default 1000. */
+  /** Drawing width in px; the drawing is always true scale. Default 1000. Labels and the scale bar are `width / 70` px from 630 to 910, then grow as `13 * sqrt(width / 910)`, and are not drawn below 630 (ADR-0003). Ray strokes are 1 px up to 910, then `sqrt(width / 910)`. */
   width?: number;
-  /** One text per fan, drawn 6 px past the image plane, beside the end of that fan's chief ray, with room kept for them (an empty fan gets none). A null or undefined entry skips that fan; more labels than fans throws. Default none. */
+  /** One text per fan, drawn 0.6 em past the image plane, beside the end of that fan's chief ray, with room kept for them (0.6 em and 0.6 em a character of the longest, on the right; an East Asian wide character counts as two). Below a width of 630 the labels are not drawn and no room is kept. An empty fan gets none. A null or undefined entry skips that fan; more labels than fans throws. Default none. */
   labels?: (string | null | undefined)[];
   /** Draw the STO and IMA labels. Default true. */
   marks?: boolean;
@@ -149,6 +149,10 @@ export interface RayFanProps {
   fields?: number[];
   /** Full scale, same unit as kind. Default: next round value above the largest value. */
   fullScale?: number;
+  /** The figure's width in px, split per column (ADR-0003: each column's frame, text size and strokes follow curve's rule). Default: columns times (`panelWidth` + 58). */
+  width?: number;
+  /** The figure's height in px. Default 314 for the default shape, scaled with the width. */
+  height?: number;
   panelWidth?: number;
 }
 export interface Map2DProps {
@@ -195,7 +199,7 @@ export interface Map2DGridProps {
   /** Accessible name of the svg. Default "Map". */
   label?: string;
 }
-/** One curve. Every role draws a 1 px stroke; there is no color, width or dash option (ADR-0001). */
+/** One curve. Every role draws the same stroke, 1 px up to a 234 px frame and `sqrt(F / 234)` px above it (F is the plot frame's width, ADR-0003); there is no color, width or dash option (ADR-0001). */
 export interface CurveSeries {
   /** [x, y] in data units. Points outside the axis ranges are clipped by the plot area. */
   points: [number, number][];
@@ -236,6 +240,7 @@ export interface CurveSeriesProps {
   y?: CurveAxis;
   /** Limit lines and bands; an auto range contains them. */
   limits?: PlotLimit[];
+  /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
   kind?: never;
@@ -250,6 +255,7 @@ export interface CurvePanelsProps {
   y?: CurveAxis;
   /** Limit lines and bands, drawn in every panel. */
   limits?: PlotLimit[];
+  /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
   kind?: never;
@@ -259,6 +265,7 @@ export interface CurvePanelsProps {
 export interface CurveKindProps {
   data?: object;
   kind: "mtf" | "fieldCurvature" | "distortion" | "chromaticFocus";
+  /** Drawing width in px, as for a typed call (ADR-0003). Default 460. */
   width?: number;
   height?: number;
   series?: never;
