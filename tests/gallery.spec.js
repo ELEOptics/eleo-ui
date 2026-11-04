@@ -101,11 +101,12 @@ test('the footprint tile header key ends at the plot frame right edge', async ({
   }
 });
 
-// Plan #512, outcomes O1 and O2 (issue #513; #521 unskips). The curve, rayFan and layout tiles; M2 adds the other framed tiles.
+// Plan #512, outcomes O1 and O2 (issue #513; #521 unskips; #527 adds the spot, throughFocus, footprint, bars and map2D tiles). Canvas tiles are exempt.
 // oracle: closed-form ADR-0003. At 1440, 1100 and 700 px in both themes, each tile's rendered text (computed font-size times getScreenCTM().a)
 // is within 1% of the formula for its rendered frame F (a plot frame's width in px; a layout tile's drawing width W) and at least 9 px.
 // A layout tile whose W / 70 is under 9 draws no text.
-const FRAMED_TILES = ['mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'chromaticFocus', 'rayFan', 'rayFan-opd'];
+const FRAMED_TILES = ['mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'chromaticFocus', 'rayFan', 'rayFan-opd',
+  'spot', 'throughFocus', 'footprint', 'seidel', 'seidel-terms', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'irradiance-gaussian'];
 const LAYOUT_TILES = ['layout2D', 'layout2D-fan', 'layout2D-shared', 'layout2D-glasses', 'layout2D-wandersleb', 'layout2D-cassegrain'];
 const frameText = (F) => (F < 162 ? 9 : F <= 234 ? F / 18 : 13 * Math.cbrt(F / 234));
 const layoutText = (W) => (W / 70 < 9 ? null : W <= 910 ? W / 70 : 13 * Math.sqrt(W / 910));
@@ -137,7 +138,7 @@ test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
         expect(t.sizes.length, `${at} has text`).toBeGreaterThan(0);
         for (const s of t.sizes) {
           expect(Math.abs(s / want - 1), `${at} text ${s}px against ${want}px for ${layout ? 'W ' + t.W : 'F ' + t.F}`).toBeLessThanOrEqual(0.01);
-          expect(s, `${at} text ${s}px is at least 9 px`).toBeGreaterThanOrEqual(9 - 1e-6);
+          expect(s, `${at} text ${s}px is at least 9 px (less 0.01 px: throughFocus floors its panel side to 2 decimals)`).toBeGreaterThanOrEqual(9 - 0.01);
         }
       }
     }
@@ -145,7 +146,7 @@ test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
 });
 
 // Plan #512, issue #543, CRs #544 and #547. oracle: closed-form ADR-0003 (the floor frame F = 162). The rayFan row's minimum column is
-// --fan-min = columns x (F_LO + m x TEXT_MIN) + the tile's 26 px of chrome, capped at the row. At 1440 and 700 px the row is narrower than the floor needs
+// the row's --row-min (from PLOT_SIZES.rayFan) = columns x (F_LO + m x TEXT_MIN) + the tile's 26 px of chrome, capped at the row. At 1440 and 700 px the row is narrower than the floor needs
 // (CR #547: the two-theme grid leaves 656 px), so those assert only the tile width and no sideways scroll; at 1100 the row has room and every panel's frame is at least 162.
 test('the rayFan row gives each panel a floor frame (#544)', async ({ page }) => {
   await page.goto('/gallery/');
@@ -156,9 +157,9 @@ test('the rayFan row gives each panel a floor frame (#544)', async ({ page }) =>
       // fit redraws after a ResizeObserver tick and a frame: settle before measuring.
       await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
       const r = await page.evaluate((t) => {
-        const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fan-min')) || 0;
         const tiles = [...document.querySelectorAll(`.theme[data-theme="${t}"] [data-tile^="rayFan"]`)];
         const row = tiles[0].closest('.row');
+        const min = parseFloat(row.style.getPropertyValue('--row-min')) || 0;
         return {
           min, row: row.getBoundingClientRect().width, tiles: tiles.map((el) => el.getBoundingClientRect().width),
           frames: tiles.flatMap((el) => [...el.querySelectorAll('svg rect[stroke="var(--plot-grid)"]')].map((x) => x.getBoundingClientRect().width)),
