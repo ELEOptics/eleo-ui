@@ -1,6 +1,9 @@
 import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
+import { frameText, frameWeight, frameOf } from "./scale.js";
+
+var r2 = function (v) { return Math.round(v * 100) / 100; };
 
 /* The smallest 1, 2, 2.5, 4, 5 or 10 times a power of ten that holds v. */
 function niceHalf(v) {
@@ -23,7 +26,6 @@ function typedSpot(o) {
   var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
   var circleOf = function (p) { return p.circle && isFinite(p.circle.radius) && p.circle.radius > 0 ? +p.circle.radius : 0; };
   var anyStats = false, ts = isFinite(o.textScale) && o.textScale > 0 ? +o.textScale : 1;
-  var fs = function (cls) { return ts === 1 ? "" : ' style="font-size:' + +((cls === "eleo-val" ? 10.5 : 10) * ts).toPrecision(12) + 'px"'; };
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
     series.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { sx += +q[0]; sy += +q[1]; k++; } }); });
@@ -44,10 +46,18 @@ function typedSpot(o) {
   var line = shared && cl ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
   if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
-  var foot = (28 + 15 * notesMax + 15 * cap.length) * ts + 1, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
-  if (o.height) side = Math.min(side, o.height - foot - 8);
-  side = Math.max(side, 1);
-  var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * ts * Math.max.apply(null, cap.map(function (t) { return t.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
+  /* ADR-0003: a panel's side is the frame F; the text is frameText(F) times textScale, and the layout below the panel is in text units (1.8 under it, 1.5 a line, a foot of 2.8 + 1.5 a line). */
+  var tOf = function (F) { return frameText(F) * ts; }, footOf = function (F) { return (2.8 + 1.5 * (notesMax + cap.length)) * tOf(F) + 1; };
+  var side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
+  if (o.height && side + 8 + footOf(side) > o.height) {
+    /* The largest side that fits the height: side + foot(side) grows with side, so bisect. */
+    var lo = 1, hi = side;
+    for (var it = 0; it < 50; it++) { var mid = (lo + hi) / 2; if (mid + 8 + footOf(mid) > o.height) hi = mid; else lo = mid; }
+    side = lo;
+  }
+  side = Math.max(Math.floor(side * 100) / 100, 1);
+  var t = tOf(side), foot = footOf(side), wt = frameWeight(side), sty = ' style="font-size:' + +t.toFixed(2) + 'px"';
+  var W = o.width || Math.max(n * side + (n - 1) * gap, 0.6 * t * Math.max.apply(null, cap.map(function (c) { return c.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
   var ext = panels.map(function (p) { var m = Math.max(airyOf(p), circleOf(p)); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
   var common = isFinite(o.half) && o.half > 0 && isFinite(side / 2 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {
@@ -59,16 +69,16 @@ function typedSpot(o) {
     g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, cx, cx].join(" ") + ')">';
     (p.series || []).forEach(function (se) {
       var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
-      g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="2.2" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
+      g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
     });
     if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
-    var ty = top + side + 18 * ts;
-    g += (p.title ? '<text class="eleo-val"' + fs("eleo-val") + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + fs() + ' x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
-    (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick"' + fs() + ' x="' + ox + '" y="' + (ty + 15 * ts * (j + 1)) + '">' + esc(t) + "</text>"; });
+    var ty = r2(top + side + 1.8 * t);
+    g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + sty + ' x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
+    (p.notes || []).forEach(function (nt, j) { g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(ty + 1.5 * t * (j + 1)) + '">' + esc(nt) + "</text>"; });
   });
-  cap.forEach(function (t, j) { g += '<text class="eleo-tick"' + fs() + ' x="0" y="' + (top + side + 18 * ts + 15 * ts * notesMax + 15 * ts * (j + 1)) + '">' + esc(t) + "</text>"; });
+  cap.forEach(function (ct, j) { g += '<text class="eleo-tick"' + sty + ' x="0" y="' + r2(top + side + 1.8 * t + 1.5 * t * (notesMax + j + 1)) + '">' + esc(ct) + "</text>"; });
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
 /* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`; RMS and GEO are the renderer's. */
@@ -90,18 +100,22 @@ export function spot(o) {
   o = o || {};
   return typedSpot(o.panels ? o : spotPanels(data(o), o));
 }
+/* throughFocus (ADR-0003): a panel's side B is the frame; text is frameText(B), the row label's room 4.2 text units, and the rows' gaps are in text units. With `width`, B solves lw + cols * (B + gap) = width; without, B is 92. */
 export function throughFocus(o) {
-  o = o || {}; var D = data(o), T = D.throughFocus, B = 92, gap = 10, lw = 44, th = 22;
-  var cols = T.defocus.length, rows = T.spots.length, W = lw + cols * (B + gap), H = th + rows * (B + 26), g = "", half = o.half || 40, s = (B / 2) / half;
-  T.defocus.forEach(function (dz, j) { g += '<text class="eleo-tick" x="' + (lw + j * (B + gap) + B / 2) + '" y="12" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + " µm</text>"; });
+  o = o || {}; var D = data(o), T = D.throughFocus, gap = 10, LW = 4.2;
+  var cols = T.defocus.length, rows = T.spots.length, g = "", half = o.half || 40;
+  var B = isFinite(o.width) && o.width > 0 && cols ? r2(Math.floor(frameOf((+o.width - cols * gap) / cols, LW / cols) * 100) / 100) : 92;
+  var t = frameText(B), sty = ' style="font-size:' + +t.toFixed(2) + 'px"', wt = frameWeight(B), s = (B / 2) / half;
+  var lw = r2(LW * t), th = r2(2.2 * t), pitch = r2(B + 2.6 * t), W = r2(Math.max(lw + cols * (B + gap), isFinite(o.width) ? +o.width : 0)), H = r2(th + rows * pitch);
+  T.defocus.forEach(function (dz, j) { g += '<text class="eleo-tick"' + sty + ' x="' + r2(lw + j * (B + gap) + B / 2) + '" y="' + r2(1.2 * t) + '" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + " µm</text>"; });
   T.spots.forEach(function (row, i) {
-    var oy = th + i * (B + 26);
-    g += '<text class="eleo-val" x="0" y="' + (oy + B / 2 + 4) + '">' + fmt(D.fields[i], 1) + "°</text>";
+    var oy = r2(th + i * pitch);
+    g += '<text class="eleo-val"' + sty + ' x="0" y="' + r2(oy + B / 2 + 0.4 * t) + '">' + fmt(D.fields[i], 1) + "°</text>";
     row.forEach(function (cell, j) {
-      var ox = lw + j * (B + gap), cx = ox + B / 2, cy = oy + B / 2;
+      var ox = r2(lw + j * (B + gap)), cx = ox + B / 2, cy = oy + B / 2;
       g += '<rect x="' + (ox + .5) + '" y="' + (oy + .5) + '" width="' + (B - 1) + '" height="' + (B - 1) + '" rx="3" fill="none" stroke="' + (j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)") + '"/>';
-      cell.pts.forEach(function (pts, wi) { pts.forEach(function (p) { var x = cx + p[0] * s, y = cy - p[1] * s; if (Math.abs(x - cx) < B / 2 && Math.abs(y - cy) < B / 2) g += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r=".9" fill="' + idx(wi) + '" fill-opacity=".85"/>'; }); });
-      g += '<text class="eleo-tick" x="' + ox + '" y="' + (oy + B + 13) + '">RMS <tspan class="eleo-val">' + cell.rms.toFixed(1) + "</tspan></text>";
+      cell.pts.forEach(function (pts, wi) { pts.forEach(function (p) { var x = cx + p[0] * s, y = cy - p[1] * s; if (Math.abs(x - cx) < B / 2 && Math.abs(y - cy) < B / 2) g += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + +(.9 * wt).toFixed(3) + '" fill="' + idx(wi) + '" fill-opacity=".85"/>'; }); });
+      g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + 1.3 * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + cell.rms.toFixed(1) + "</tspan></text>";
     });
   });
   return svg(W, H, g, "Through-focus spot diagrams, fields by rows, focus shift by columns");
