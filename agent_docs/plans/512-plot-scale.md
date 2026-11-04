@@ -126,9 +126,11 @@ layout2D; O5.
 | [#517] | `curve` and `rayFan` draw to the rule: `plotCell` takes its margins as a parameter, `curve` passes margins in text units (46/36/26 become 4.6/3.6/2.6 text) from `frameOf`, `bars` and `map2D` pass today's constants until M2; label room 0.6 em; panel titles and series strokes by `frameWeight`; a missing height keeps 260/460 of the width; the frame height clamps to 1 (absorbs [#330]); `rayFan` gains `width` (panel width derived) | margins as a parameter so bars and map2D stay aligned in M1; considered fixed px margins sized for 13 px, ruled out because they waste 30% of a 216 px tile. Rewrites `curve.test.js`'s margin oracles and `fan.test.js`'s figure width to the ADR | `packages/plots/src/curve.js`, `packages/plots/src/fan.js` (and `README.md`'s curve and rayFan entries, the 1 px stroke line) | `tests/unit/curve.test.js::text and margins follow ADR-0003` | [#515] |
 | [#518] | `layout2D` draws to its rule: label and scale-bar text from `layoutText(W)`, omitted when null; label room from the text size, East Asian wide characters double (absorbs [#156]); rays by `layoutWeight`; README's label-room line | the rule in the renderer because the website calls `layout2D` without the gallery; considered hiding labels with CSS, ruled out because the room would still be reserved. Rewrites `layout2d.test.js:359-402`'s room and top oracles ([#155], [#63]) to the ADR | `packages/plots/src/layout2d.js`, `packages/plots/README.md` | `tests/unit/layout2d.test.js::labels follow ADR-0003, hidden below 630` (both sides of 630 by 0.01) | [#515] |
 | [#519] | Re-record the `layout2D` entries of the renderer baseline from this branch at the M1 verdict | forced (user, at approval 2026-11-04; as CR [#381]) | `tests/fixtures/renderers-baseline.json`, `scripts/record-renderers.mjs` | `tests/unit/split.test.js` green | [#518] |
-| [#520] | Gallery: curve, rayFan and layout tiles draw through `fit` at their body width | `fit` because O2 asks the formula at the rendered frame, which today's CSS stretch of a default drawing misses | `gallery/index.html` | the O2 test, for these tiles | [#516], [#517], [#518] |
+| [#539] | `fit` draws at the element's fractional content width (`getBoundingClientRect` minus padding), not `clientWidth` (CR [#538]) | forced (user, 2026-11-04: fix the cause of #520's workarounds); considered integer widths, which draw up to 0.5 px too wide in a fractional grid column | `packages/plots/src/fit.js`, `packages/plots/src/index.d.ts` | `tests/unit/fit.test.js::draws at the fractional content width` | [#516] |
+| [#540] | `curve` and `rayFan` default heights are whole px (CR [#538]) | forced (user, as [#539]); a fractional height lays an auto-height SVG out by height at scale 0.99997 | `packages/plots/src/curve.js`, `packages/plots/src/fan.js` | `tests/unit/curve.test.js::default heights are whole px` | [#517] |
+| [#520] | Gallery: curve, rayFan and layout tiles draw through `fit` at their body width | `fit` because O2 asks the formula at the rendered frame, which today's CSS stretch of a default drawing misses | `gallery/index.html` | the O2 test, for these tiles | [#516], [#517], [#518], [#539], [#540] |
 | [#537] | `index.d.ts`: `RayFanProps` gains `width` and `height`; curve's and layout2D's `width` docs and curve's 1 px stroke line follow ADR-0003 (CR [#536]) | forced (the plan's Decisions approve these docs; no M1 item listed them) | `packages/plots/src/index.d.ts`, `tests/types/curve.ts` | `tests/types/curve.ts`: `rayFan({ width, height })` compiles | [#517] |
-| [#521] | Unskip O1, O2 for curve, rayFan, layout2D; log U14 for curve, panels and layout2D | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/scale.test.js`, `tests/gallery.spec.js` | both tests green | [#513]-[#520], [#537] |
+| [#521] | Unskip O1, O2 for curve, rayFan, layout2D; log U14 for curve, panels and layout2D | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/scale.test.js`, `tests/gallery.spec.js` | both tests green | [#513]-[#520], [#537], [#539], [#540] |
 
 ### M2: every framed renderer, and the table GitHub: `P512 M2: Scale rule for every framed renderer`
 
@@ -210,6 +212,13 @@ One bullet per entry (bare lines render as one paragraph).
   gate is red until it does and a red gate pushes nothing; if a later M1 change moves `layout2D`'s output, its script
   re-runs before the verdict, so the recorded baseline is the verdict's drawing (the user's choice at approval).
 
+- 2026-11-04 hook (user): `scripts/workflow.env` counts `tests/types/` as tests, for [#537]'s type-only change.
+
+- 2026-11-04 CR [#538] (user: "Fix the cause first"): [#520]'s first attempt needed a hand-set `--row-min: 400px` and a
+  rayFan height hardcoding three columns, both rounding workarounds. New items [#539] (`fit` at the fractional content
+  width) and [#540] (whole-px default heights) run before [#520]; ADR-0003's "draws `el.clientWidth`" changes at the M1
+  verdict.
+
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#155]: https://github.com/ELEOptics/eleo-ui/issues/155
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156
@@ -251,5 +260,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#535]: https://github.com/ELEOptics/eleo-ui/issues/535
 [#536]: https://github.com/ELEOptics/eleo-ui/issues/536
 [#537]: https://github.com/ELEOptics/eleo-ui/issues/537
+[#538]: https://github.com/ELEOptics/eleo-ui/issues/538
+[#539]: https://github.com/ELEOptics/eleo-ui/issues/539
+[#540]: https://github.com/ELEOptics/eleo-ui/issues/540
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
