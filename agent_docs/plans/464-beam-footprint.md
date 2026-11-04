@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release (done 2026-11-04) GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -203,3 +203,4 @@ patch. Proves: O1, O2
 - 2026-11-04 M1 demo (user): all gallery plots at one ratio; the footprint's plot too large for its text. "For this work, match the spot tile": CR #496, item #497. A unified plot-rendering row for later: #498. M1 unticked.
 - 2026-11-04 review M1 round 12: 0 blocking, nothing pulled in; CR #496 fixed, #487 superseded. M1 ticked again, awaiting the user's demo.
 - 2026-11-04 M1 demo (user): "Reduce the size of the text in the bottom, but keep the same ratio of title to plot size", at the meta's size: CR #499, item #500. M1 unticked.
+- 2026-11-04 review M1 round 13: 0 blocking; CR #499 fixed. Backlog #501 (spot's fixed caption line pitch) not pulled in: a library API change, for the plot-scale row. M1 ticked again, awaiting the user's demo.
