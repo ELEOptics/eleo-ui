@@ -108,7 +108,7 @@ export interface SpotPanelsProps {
   unit?: string;
   /** The SVG's aria-label. Default "Spot diagrams". */
   label?: string;
-  /** Multiplies the font size of every text `spot` draws and the gaps, line pitch, foot and caption width estimate around it. Default 1; a value that is not a finite number above 0 means 1. */
+  /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
   width?: number;
   height?: number;
@@ -134,11 +134,18 @@ export interface SpotSampleProps {
   showStats?: boolean;
   /** Draw each panel's Airy circle. Default true. */
   showAiry?: boolean;
-  /** Multiplies the font size of every text `spot` draws and the gaps, line pitch, foot and caption width estimate around it. Default 1; a value that is not a finite number above 0 means 1. */
+  /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
   width?: number;
   height?: number;
   panels?: never;
+}
+export interface ThroughFocusProps {
+  data?: object;
+  /** Box half-width in the data's unit. */
+  half?: number;
+  /** The figure's width in px. A panel's side is ADR-0003's frame, solved from it; 92 px without it. */
+  width?: number;
 }
 export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
 export interface RayFanProps {
@@ -315,7 +322,7 @@ export interface ELEO {
   glassLegend(data: RecordedLayout | LayoutSystem): string;
   layout3D(canvas: HTMLCanvasElement, props?: Layout3DProps): void;
   spot(props?: SpotDiagramProps): string;
-  throughFocus(props?: { data?: object; half?: number }): string;
+  throughFocus(props?: ThroughFocusProps): string;
   rayFan(props?: RayFanProps): string;
   /** A typed grid as SVG markup. */
   map2D(props: Map2DGridProps): string;
