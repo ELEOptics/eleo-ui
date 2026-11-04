@@ -756,7 +756,7 @@ test('new defaults (#126)', () => {
 });
 
 // Plan #144, O1, issue #147 (weight per ADR-0003 since #512): the rays are ADR-0003's weight (1.048 px at the default width), in one group at opacity .85 (crossings don't darken, unlike per-polyline stroke-opacity).
-// oracle: spec #126 (user): rays 1 px in a group at opacity .85; read from the drawn SVG's own tags
+// oracle: ADR-0003 for the weight (sqrt(W / 910) px above W = 910, else 1 px); spec #126 (user) for the one group at opacity .85; read from the drawn SVG's own tags
 test('rays are ADR-0003 weight at .85', () => {
   // Plan #337, #340: the same layouts with alive: a = 0, 0 < a < len and a = len by turns, so rays split into dotted tails.
   const withAlive = (L) => ({ ...L, alive: L.rays.map((fan) => fan.map((r, i) => [0, Math.max(1, r.length >> 1), r.length][i % 3])) });
