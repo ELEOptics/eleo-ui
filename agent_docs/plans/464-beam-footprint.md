@@ -1,6 +1,6 @@
 # Plan #464: Beam footprint through spot
 
-Status: approved 2026-11-01
+Status: done 2026-11-04
 Branch: `plan/464-beam-footprint` PR: #470 Depends on: none Roadmap: `agent_docs/roadmap.md`, row N
 
 
@@ -220,3 +220,4 @@ patch. Proves: O1, O2
 - 2026-11-04 review M1 round 17: 0 blocking. Finding 1 (the key bound's stated derivation is wrong) pulled in as #510.
 - 2026-11-04 review M1 round 18: 0 blocking, nothing pulled in. M1 ticked again, awaiting the user's demo of CR #507.
 - 2026-11-04 M1 demo (user): go. M1 accepted; no `proposed` ADR exercised.
+- 2026-11-04 plan end: caught up with main (catchup.sh: roadmap resolved by rule, gate green); `CLAUDE.md` commands re-verified (npm ci, npm run build, npm run test:unit, npx playwright test, npm run gallery, npx changeset status, scripts/check.sh and --fast, the hooks path) all exit 0; Status done; roadmap row N done.
