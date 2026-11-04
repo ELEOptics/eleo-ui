@@ -395,13 +395,13 @@ test('circle caption rule stated alike in index.d.ts and README', async () => {
 // oracle: property: classes are 10 px (.eleo-tick) and 10.5 px (.eleo-val) in plots.css; layout is 18 under the plot, 15 per line, 28 foot
 test('text scale', async () => {
   const base = { panels: [{ title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], airy: 2.87, notes: ['n1'] }], unit: 'µm', reference: 'centroid', width: 300 };
-  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ y: +/\by="([\d.]+)"/.exec(t[1])[1], size: /font-size="([\d.]+)"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
+  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ y: +/\by="([\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
   const full = ELEO.spot(base), half = ELEO.spot({ ...base, textScale: 0.5 });
   const a = texts(full), b = texts(half);
   assert.equal(a.length, b.length);
   const plotBottom = a[0].y - 18;
   b.forEach((t, i) => {
-    assert.ok(t.size, `text ${i} has an inline font-size`);
+    assert.ok(t.size, `text ${i} has an inline style font-size`);
     assert.equal(+t.size[1], (t.cls === 'eleo-val' ? 10.5 : 10) / 2, `text ${i} font size is half the class's`);
     assert.ok(Math.abs((t.y - plotBottom) - (a[i].y - plotBottom) / 2) < 1e-9, `text ${i} sits half as far under the plot`);
   });

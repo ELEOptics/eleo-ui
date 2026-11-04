@@ -23,7 +23,7 @@ function typedSpot(o) {
   var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
   var circleOf = function (p) { return p.circle && isFinite(p.circle.radius) && p.circle.radius > 0 ? +p.circle.radius : 0; };
   var anyStats = false, ts = isFinite(o.textScale) && o.textScale > 0 ? +o.textScale : 1;
-  var fs = function (cls) { return ts === 1 ? "" : ' font-size="' + +((cls === "eleo-val" ? 10.5 : 10) * ts).toPrecision(12) + '"'; };
+  var fs = function (cls) { return ts === 1 ? "" : ' style="font-size:' + +((cls === "eleo-val" ? 10.5 : 10) * ts).toPrecision(12) + 'px"'; };
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
     series.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { sx += +q[0]; sy += +q[1]; k++; } }); });
