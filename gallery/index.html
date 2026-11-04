@@ -22,8 +22,8 @@
     .row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
     .map { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .map .eleo-colorbar i { height: 100%; }
-    /* Footprint tile bottom text at the meta's 11px: the SVG draws at 3x at 1440 (630px over a 210-unit viewBox), so 11 / 3 = 3.667 user units. The plot's size is the viewBox's, so it is unchanged and the text still scales with it. */
-    [data-tile="footprint"] svg .eleo-tick { font-size: 3.667px; }
+    /* Footprint tile: spot's textScale 11/30 draws the text at 11 / 30 of its default size inside a 150-unit viewBox (the plot frame alone), which at 3x is 450 px; the tile's 630 px column would draw it at 4.2x, so the svg is 450 / 630 of the body. The plot stays 447 px and the text 11 px (the meta's size) at 1440, and both scale with the viewport. */
+    .eleo-plot__body[data-svg="footprint"] svg:not(.eleo-icon) { width: 71.4286%; }
     .icons { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-muted); }
   </style>
 </head>
@@ -118,7 +118,7 @@
       'layout2D-wandersleb': recTile('layout', ELEO.layout2D),
       'layout2D-cassegrain': recTile('cassegrainLayout', ELEO.layout2D),
       'spot': recTile('spot', ELEO.spot),
-      'footprint': recTile('footprint', ELEO.spot),
+      'footprint': recTile('footprint', function (d) { return ELEO.spot(Object.assign({}, d, { textScale: 11 / 30 })); }),
       // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
       'seidel': recTile('seidel', function (d) { return ELEO.bars(Object.assign({}, d, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', ELEO.bars),

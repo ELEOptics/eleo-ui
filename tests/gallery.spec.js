@@ -73,9 +73,9 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
   });
 }
 
-// Plan #464, CR #499, #500: the footprint tile's bottom text is at the meta's size and the plot keeps #497's size.
-// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame side over the svg width equals 150 over the viewBox width within 1%; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%.
-test('the footprint tile text is at the meta size with the plot unchanged', async ({ page }) => {
+// Plan #464, CR #499, #500, #502, #503: the footprint tile's bottom text is at the meta's size, the plot keeps #497's size, and the text sits close to the plot.
+// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame is 447 px wide within 1%; the first text baseline is at most 2.2 times that size below the frame, and consecutive baselines at most 2.2 times apart; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%.
+test('the footprint tile text is at the meta size with the plot unchanged and the text close to it', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
@@ -86,14 +86,18 @@ test('the footprint tile text is at the meta size with the plot unchanged', asyn
         const side = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().width;
         const ticks = [...svg.querySelectorAll('.eleo-tick')];
         const sizes = ticks.map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a);
-        const vbw = svg.viewBox.baseVal.width;
-        return { n: ticks.length, sizes, side, meta: parseFloat(getComputedStyle(t.querySelector('.eleo-plot__meta')).fontSize), frac: side / svg.getBoundingClientRect().width, want: 150 / vbw, ratio: sizes.map((s) => s / side) };
+        const frame = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().bottom;
+        const base = (x) => +x.getAttribute('y') * x.getScreenCTM().d + x.getScreenCTM().f;
+        const bs = [...new Set(ticks.map(base))].sort((a, b) => a - b);
+        const gaps = [bs[0] - frame].concat(bs.slice(1).map((v, i) => v - bs[i]));
+        return { n: ticks.length, sizes, side, gaps, meta: parseFloat(getComputedStyle(t.querySelector('.eleo-plot__meta')).fontSize), ratio: sizes.map((s) => s / side) };
       });
     };
     const w = await at(1440);
     expect(w.n, `${theme} footprint ticks`).toBeGreaterThan(0);
     for (const s of w.sizes) expect(Math.abs(s - w.meta), `${theme} tick ${s}px vs meta ${w.meta}px`).toBeLessThanOrEqual(1);
-    expect(Math.abs(w.frac / w.want - 1), `${theme} plot side fraction ${w.frac} vs ${w.want}`).toBeLessThan(0.01);
+    expect(Math.abs(w.side / 447 - 1), `${theme} plot side ${w.side}px vs 447`).toBeLessThan(0.01);
+    for (const g of w.gaps) expect(g, `${theme} text spacing ${g}px vs 2.2 x ${w.meta}px`).toBeLessThanOrEqual(2.2 * w.meta);
     for (const width of [1100, 700]) {
       const r = await at(width);
       r.ratio.forEach((v, i) => expect(Math.abs(v / w.ratio[i] - 1), `${theme} ${width} ratio`).toBeLessThan(0.01));
