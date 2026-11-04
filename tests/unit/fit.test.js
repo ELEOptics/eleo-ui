@@ -96,4 +96,10 @@ test('index exports fit and the scale rule at runtime', () => {
   for (const [name, v] of Object.entries({ TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910 })) {
     assert.equal(index[name], v, name);
   }
+  for (const name of ['frameText', 'frameWeight', 'frameOf', 'layoutText', 'layoutWeight']) {
+    assert.equal(ELEO[name], index[name], 'ELEO.' + name);
+  }
+  for (const [name, v] of Object.entries({ TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910 })) {
+    assert.equal(ELEO[name], v, 'ELEO.' + name);
+  }
 });

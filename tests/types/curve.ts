@@ -29,3 +29,7 @@ export { stopFit };
 // rayFan takes the figure's width and height in px (ADR-0003, #537).
 const fan: string = rayFan({ width: 900, height: 300 });
 export { fan };
+// The default ELEO carries the scale rule flat (classic build: window.ELEO.F_LO, #546).
+import ELEO from '../../packages/plots/src/index';
+const fLo: 162 = ELEO.F_LO, viaDefault: number = ELEO.frameOf(1000, 4.6);
+export { fLo, viaDefault };

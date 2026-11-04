@@ -335,7 +335,11 @@ export interface ELEO {
 import type * as Physics from './physics.js';
 export * from './physics.js';
 
-declare const ELEO: ELEO & typeof Physics;
+interface ScaleRule {
+  frameText: typeof frameText; frameWeight: typeof frameWeight; frameOf: typeof frameOf; layoutText: typeof layoutText; layoutWeight: typeof layoutWeight;
+  TEXT_MIN: typeof TEXT_MIN; TEXT_MAX: typeof TEXT_MAX; F_LO: typeof F_LO; F_HI: typeof F_HI; W_LO: typeof W_LO; W_HI: typeof W_HI;
+}
+declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
 export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spot: ELEO['spot'],
   throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
