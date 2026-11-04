@@ -1,7 +1,7 @@
 # Plan [#512]: One scale system for plots
 
 Status: approved 2026-11-04
-Branch: `plan/512-plot-scale` PR: #<pr> Depends on: plan [#464] (done) Roadmap: `agent_docs/roadmap.md`, row O
+Branch: `plan/512-plot-scale` PR: [#533] Depends on: plan [#464] (done) Roadmap: `agent_docs/roadmap.md`, row O
 
 ## Problem
 
@@ -232,5 +232,6 @@ One bullet per entry (bare lines render as one paragraph).
 [#530]: https://github.com/ELEOptics/eleo-ui/issues/530
 [#531]: https://github.com/ELEOptics/eleo-ui/issues/531
 [#532]: https://github.com/ELEOptics/eleo-ui/issues/532
+[#533]: https://github.com/ELEOptics/eleo-ui/issues/533
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
