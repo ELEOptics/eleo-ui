@@ -14,6 +14,9 @@ globalThis.ResizeObserver = class {
 };
 globalThis.requestAnimationFrame = (cb) => { frames.push(cb); return frames.length; };
 globalThis.cancelAnimationFrame = (id) => { frames[id - 1] = null; };
+// elements are boxes: getBoundingClientRect().width, with computed padding (node has no getComputedStyle)
+globalThis.getComputedStyle = (el) => ({ paddingLeft: (el.pl || 0) + 'px', paddingRight: (el.pr || 0) + 'px' });
+const box = (width, extra) => ({ width, getBoundingClientRect() { return { width: this.width }; }, ...extra });
 const flush = () => { const f = frames; frames = []; f.forEach((cb) => cb && cb(0)); };
 
 const ELEO = (await import('../../packages/plots/src/index.js')).default;
@@ -21,13 +24,13 @@ const index = await import('../../packages/plots/src/index.js');
 const { fit } = await import('../../packages/plots/src/fit.js');
 
 test('draws now, coalesces, ignores height-only and zero widths', () => {
-  const el = { clientWidth: 300, clientHeight: 100 };
+  const el = box(300, { clientHeight: 100 });
   const widths = [];
   const stop = fit(el, (w) => { widths.push(w); });
   assert.deepEqual(widths, [300], 'draws synchronously at the width');
   assert.ok(observed.has(el), 'observes the element');
 
-  el.clientWidth = 400; notify([{ target: el }]); notify([{ target: el }]);
+  el.width = 400; notify([{ target: el }]); notify([{ target: el }]);
   assert.deepEqual(widths, [300], 'no draw before the frame');
   flush();
   assert.deepEqual(widths, [300, 400], 'one redraw for two notifications');
@@ -35,36 +38,50 @@ test('draws now, coalesces, ignores height-only and zero widths', () => {
   el.clientHeight = 500; notify([{ target: el }]); flush();
   assert.deepEqual(widths, [300, 400], 'height-only change draws nothing');
 
-  el.clientWidth = 0; notify([{ target: el }]); flush();
+  el.width = 0; notify([{ target: el }]); flush();
   assert.deepEqual(widths, [300, 400], 'zero width draws nothing');
-  el.clientWidth = 400; notify([{ target: el }]); flush();
+  el.width = 400; notify([{ target: el }]); flush();
   assert.deepEqual(widths, [300, 400], 'back at the drawn width draws nothing');
 
-  el.clientWidth = 250; notify([{ target: el }]);
+  el.width = 250; notify([{ target: el }]);
   stop();
   flush();
   assert.deepEqual(widths, [300, 400], 'stop cancels a pending redraw');
   assert.ok(!observed.has(el), 'stop unobserves');
-  el.clientWidth = 200; notify([{ target: el }]); flush();
+  el.width = 200; notify([{ target: el }]); flush();
   assert.deepEqual(widths, [300, 400], 'no draw after stop');
 });
 
+test('draws at the fractional content width', () => {
+  const el = box(300.6, { pl: 12, pr: 12 });
+  const widths = [];
+  const stop = fit(el, (w) => widths.push(w));
+  assert.deepEqual(widths, [276.6], 'box minus padding, 2 decimals');
+  el.width = 300.6; notify([{ target: el }]); flush();
+  assert.deepEqual(widths, [276.6], 'an unchanged width draws nothing');
+  el.width = 300.604; notify([{ target: el }]); flush();
+  assert.deepEqual(widths, [276.6], 'rounding to 2 decimals hides sub-0.01 changes');
+  el.width = 20; notify([{ target: el }]); flush();
+  assert.deepEqual(widths, [276.6], 'padding wider than the box draws nothing');
+  stop();
+});
+
 test('a zero width at the start draws nothing until it has width', () => {
-  const el = { clientWidth: 0 };
+  const el = box(0);
   const widths = [];
   const stop = fit(el, (w) => { widths.push(w); });
   assert.deepEqual(widths, [], 'no first draw at width 0');
   assert.ok(observed.has(el), 'still observed');
-  el.clientWidth = 300; notify([{ target: el }]); flush();
+  el.width = 300; notify([{ target: el }]); flush();
   assert.deepEqual(widths, [300], 'draws once the width is above 0');
   stop();
 });
 
 test('one ResizeObserver serves every element', () => {
-  const a = { clientWidth: 100 }, b = { clientWidth: 200 };
+  const a = box(100), b = box(200);
   const wa = [], wb = [];
   const sa = fit(a, (w) => wa.push(w)), sb = fit(b, (w) => wb.push(w));
-  a.clientWidth = 150; b.clientWidth = 250; notify([{ target: a }, { target: b }]); flush();
+  a.width = 150; b.width = 250; notify([{ target: a }, { target: b }]); flush();
   assert.deepEqual([wa, wb], [[100, 150], [200, 250]]);
   assert.equal(globalThis.__ro, 1, 'a single observer was made');
   sa(); sb();

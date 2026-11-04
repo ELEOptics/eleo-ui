@@ -329,7 +329,7 @@ export interface ELEO {
   icons: { optical: { name: string; title: string }[]; interface: { name: string; title: string }[] };
   /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. With a sample loaded, field/wavelength keys carry its values (n defaults to its count); without one they draw n index keys (F1.., λ1..) without values, and none without n. `values` (deg or nm) replaces the sample's, one key per value, n defaulting to its length; a non-finite entry draws the index key alone. ts and rays are fixed either way. */
   legend(kind: "field" | "wavelength" | "ts" | "rays", n?: number, values?: readonly number[]): string;
-  /** Draw at the container's width: calls `draw(el.clientWidth)` now (not while the width is 0: it draws once the element gets a width), then again when the width changes (at most once per animation frame, never for a height-only change or a width of 0), through one shared ResizeObserver. `draw` writes the markup, e.g. `fit(body, (w) => { body.innerHTML = curve({ ...d, width: w }); })`. Returns `stop()`. */
+  /** Draw at the container's content width, a fractional px value: `el.getBoundingClientRect().width` minus its computed left and right padding, rounded to 2 decimals. Calls `draw(width)` now (not while the width is 0: it draws once the element gets a width), then again when the width changes (at most once per animation frame, only when that width changed, never for a height-only change or a width of 0 or less), through one shared ResizeObserver. `draw` writes the markup, e.g. `fit(body, (w) => { body.innerHTML = curve({ ...d, width: w }); })`. Returns `stop()`. */
   fit(el: Element, draw: (width: number) => void): () => void;
 }
 import type * as Physics from './physics.js';
