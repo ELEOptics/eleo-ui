@@ -74,7 +74,7 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
 }
 
 // Plan #464, CR #487, #488, #492, #493: the footprint tile's in-SVG text scales with its plot, and at 1440 px sits in line with the title and meta.
-// oracle: property, each svg text's height over the plot frame's side is the same at 1440, 1100 and 700 px (within 5%); at 1440 the tile's own .eleo-plot__title and .eleo-plot__meta heights bound each text height.
+// oracle: property, each svg text's rendered font size (computed font-size times its screen scale, not a rounded glyph box) over the plot frame's side is the same at 1440, 1100 and 700 px (within 1%); at 1440 the tile's own .eleo-plot__title and .eleo-plot__meta heights bound each text height.
 test('the footprint tile text keeps its proportion to the plot and sits between the meta and title at 1440', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -85,10 +85,10 @@ test('the footprint tile text keeps its proportion to the plot and sits between 
       const h = await page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"]`).evaluate((t) => {
         const ht = (el) => el.getBoundingClientRect().height;
         const side = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().width;
-        return { side, title: ht(t.querySelector('.eleo-plot__title')), meta: ht(t.querySelector('.eleo-plot__meta')), texts: [...t.querySelectorAll('svg text')].map(ht) };
+        return { side, title: ht(t.querySelector('.eleo-plot__title')), meta: ht(t.querySelector('.eleo-plot__meta')), texts: [...t.querySelectorAll('svg text')].map(ht), scales: [...t.querySelectorAll('svg text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) };
       });
       expect(h.texts.length, `${width} ${theme} footprint texts`).toBeGreaterThan(0);
-      ratios[width] = h.texts.map((x) => x / h.side);
+      ratios[width] = h.scales.map((x) => x / h.side);
       if (width === 1440) {
         for (const t of h.texts) {
           expect(t, `${theme} text height`).toBeLessThanOrEqual(h.title + 1);
@@ -97,7 +97,7 @@ test('the footprint tile text keeps its proportion to the plot and sits between 
       }
     }
     for (const width of [1100, 700]) {
-      ratios[width].forEach((r, i) => expect(r / ratios[1440][i], `${theme} text ${i} height over plot side at ${width} vs 1440`).toBeCloseTo(1, 1));
+      ratios[width].forEach((r, i) => expect(r / ratios[1440][i], `${theme} text ${i} height over plot side at ${width} vs 1440`).toBeCloseTo(1, 2));
     }
   }
 });
