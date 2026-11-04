@@ -236,6 +236,9 @@ One bullet per entry (bare lines render as one paragraph).
   short of the 668.6 px three floor frames need, so [#543] asserts the floor frame at 1100 only (157.8 px at 1440, up from
   46.5). The two-theme layout at 1440 goes to the M1 demo.
 
+- 2026-11-04 measured at [#521]: U14 (`PERF=1 npx playwright test tests/perf.spec.js`, median of 20 redraws, budget 16 ms) for the M1 renderers:
+  curve 1.30 ms, curve panels 0.90 ms, layout2D 2.20 ms. Bars, map2D and spot are logged at [#528].
+
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#155]: https://github.com/ELEOptics/eleo-ui/issues/155
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156

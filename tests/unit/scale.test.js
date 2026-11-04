@@ -7,9 +7,6 @@ import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import { frameText as fText, frameWeight as fWeight, frameOf, layoutText as lText, layoutWeight as lWeight } from '../../packages/plots/src/scale.js';
 
-// Skipped until #521; the guard is the one line #521 removes.
-const SKIP = 'plan #512 O1: awaiting #517, #518; #521 unskips';
-
 const TOL = 0.01; // px
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));
 
@@ -29,7 +26,7 @@ const sizes = (svg) => [...svg.matchAll(/<text\b[^>]*>/g)].map((m) => {
   return px ? +px[1] : NaN; // an attribute or class size is not px in the drawing
 });
 const frames = (svg) => [...svg.matchAll(/<rect\b[^>]*stroke="var\(--plot-grid\)"[^>]*>/g)].map((m) => +/\bwidth="([\d.]+)"/.exec(m[0])[1]);
-const seriesWidths = (svg) => [...svg.matchAll(/<path\b[^>]*\bstroke-width="([\d.]+)"/g)].map((m) => +m[1]);
+const seriesWidths = (svg) => [...svg.matchAll(/<(?:path|polyline)\b[^>]*\bstroke-width="([\d.]+)"/g)].map((m) => +m[1]);
 const rayWidths = (svg) => [...svg.matchAll(/<polyline\b[^>]*\bstroke="var\(--series-[^>]*stroke-width:\s*([\d.]+)px/g)].map((m) => +m[1]);
 
 const near = (a, b, msg) => assert.ok(Math.abs(a - b) <= TOL, `${msg}: ${a} against ${b}`);
@@ -49,7 +46,7 @@ function checkFramed(name, svg, branches) {
 
 const curveInput = { series: [{ points: [[0, 0], [1, 2], [2, 1]], index: 0, role: 'tangential' }, { points: [[0, 1], [1, 1.5], [2, 2]], index: 0, role: 'sagittal' }], x: { label: 'Frequency', unit: 'cycles/mm', range: [0, 2] }, y: { label: 'Modulus', range: [0, 2] } };
 
-test('text and weight per renderer (U18)', { skip: SKIP }, () => {
+test('text and weight per renderer (U18)', () => {
   // curve: widths chosen to land F below, inside and above the band (checked at the end).
   const curveBranches = new Set();
   for (const width of [200, 300, 1200]) checkFramed(`curve ${width}`, ELEO.curve({ ...curveInput, width }), curveBranches);

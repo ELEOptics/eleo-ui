@@ -118,12 +118,14 @@ const FRAMED_TILES = ['mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'chro
 const LAYOUT_TILES = ['layout2D', 'layout2D-fan', 'layout2D-shared', 'layout2D-glasses', 'layout2D-wandersleb', 'layout2D-cassegrain'];
 const frameText = (F) => (F < 162 ? 9 : F <= 234 ? F / 18 : 13 * Math.cbrt(F / 234));
 const layoutText = (W) => (W / 70 < 9 ? null : W <= 910 ? W / 70 : 13 * Math.sqrt(W / 910));
-test.skip('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
+test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
     for (const width of [1440, 1100, 700]) {
       await page.setViewportSize({ width, height: 900 });
+      // fit redraws after a ResizeObserver tick and a frame: settle before measuring.
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
       const tiles = await page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els, names) => els.filter((el) => names.includes(el.dataset.tile)).map((el) => {
         const svg = el.querySelector('.eleo-plot__body svg');
         const frame = svg && svg.querySelector('rect[stroke="var(--plot-grid)"]');
