@@ -73,9 +73,10 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
   });
 }
 
-// Plan #464, CR #499, #500, #502, #503, #507, #508: the footprint tile's bottom text is at the meta's size, the plot keeps #497's size, the text sits close to the plot, and the header key ends at the plot frame's right edge.
-// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame is 447 px wide within 1%; the first text baseline is at most 2.2 times that size below the frame, and consecutive baselines at most 2.2 times apart; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%; at 1440, 1100 and 700 px the .eleo-plot__key's right edge is within 4 px of the frame's right edge (the header and the body share the same 12 px right padding and the tile's border, so they cancel; the gap is the frame's own inset, measured 1.5 / 2.4 / 1.5 px).
-test('the footprint tile text is at the meta size with the plot unchanged and the text close to it', async ({ page }) => {
+// Plan #464, CR #507, #508, #510: the footprint tile's header key ends at the plot frame's right edge.
+// The text-size, plot-size, text-spacing and text-to-plot ratio checks of CR #499, #500, #502, #503 are superseded by plan #512 (user, at approval): O2's 'text follows ADR-0003 on every framed tile (U18)' covers the footprint tile.
+// oracle: at 1440, 1100 and 700 px the .eleo-plot__key's right edge is within 4 px of the frame's right edge (the header and the body share the same 12 px right padding and the tile's border, so they cancel; the gap is the frame's own inset, measured 1.5 / 2.4 / 1.5 px).
+test('the footprint tile header key ends at the plot frame right edge', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
@@ -83,29 +84,19 @@ test('the footprint tile text is at the meta size with the plot unchanged and th
       await page.setViewportSize({ width, height: 900 });
       return page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"]`).evaluate((t) => {
         const svg = t.querySelector('svg');
-        const side = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().width;
         const ticks = [...svg.querySelectorAll('.eleo-tick')];
-        const sizes = ticks.map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a);
-        const frame = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().bottom;
-        const base = (x) => +x.getAttribute('y') * x.getScreenCTM().d + x.getScreenCTM().f;
-        const bs = [...new Set(ticks.map(base))].sort((a, b) => a - b);
-        const gaps = [bs[0] - frame].concat(bs.slice(1).map((v, i) => v - bs[i]));
         const key = t.querySelector('.eleo-plot__key').getBoundingClientRect().right;
         const keyGap = Math.abs(t.querySelector('svg rect[rx="3"]').getBoundingClientRect().right - key);
-        return { keyGap, n: ticks.length, sizes, side, gaps, meta: parseFloat(getComputedStyle(t.querySelector('.eleo-plot__meta')).fontSize), ratio: sizes.map((s) => s / side) };
+        return { keyGap, n: ticks.length };
       });
     };
     const w = await at(1440);
     expect(w.n, `${theme} footprint ticks`).toBeGreaterThan(0);
-    for (const s of w.sizes) expect(Math.abs(s - w.meta), `${theme} tick ${s}px vs meta ${w.meta}px`).toBeLessThanOrEqual(1);
-    expect(Math.abs(w.side / 447 - 1), `${theme} plot side ${w.side}px vs 447`).toBeLessThan(0.01);
-    for (const g of w.gaps) expect(g, `${theme} text spacing ${g}px vs 2.2 x ${w.meta}px`).toBeLessThanOrEqual(2.2 * w.meta);
     // CR #507, #508, #510: the header key ends at the plot frame's right edge. The header and the body share the same 12 px right padding and border, so they cancel; what remains is the frame's own inset (0.5 viewBox units), so the bound is 4 px.
     expect(w.keyGap, `${theme} key to frame at 1440`).toBeLessThanOrEqual(4);
     for (const width of [1100, 700]) {
       const r = await at(width);
       expect(r.keyGap, `${theme} key to frame at ${width}`).toBeLessThanOrEqual(4);
-      r.ratio.forEach((v, i) => expect(Math.abs(v / w.ratio[i] - 1), `${theme} ${width} ratio`).toBeLessThan(0.01));
     }
   }
 });
