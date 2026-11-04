@@ -96,7 +96,7 @@ el.innerHTML = curve({
 
 ## Bars
 
-`bars` draws signed, grouped bars in `curve`'s frame: a group per category, a bar per series. Pass data, labels and an `index` per series; there is no color, font or width option.
+`bars` draws signed, grouped bars in `curve`'s frame: a group per category, a bar per series. Pass data, labels and an `index` per series; there is no color, font or stroke option. `width` (default 460) is the drawing width and `height` defaults to 260/460 of it, rounded to whole px; the frame's width F, the text size and the margins follow `curve`'s rule ([ADR-0003](../../agent_docs/adr/0003-plot-scale.md), in the `curve` section): 4.6 text units on the left, 3.6 at the bottom, 2.6 at the top (the y-axis title sits above the frame), 1.2 on the right, and every text is drawn at the text size `t(F)`.
 
 ```js
 import { bars } from '@eleoptics/plots';
@@ -112,8 +112,8 @@ el.innerHTML = bars({
 - **`total`:** a string appends a group of per-series sums after a half-band gap, labelled with that string.
 - **Limits:** `limits: [{ y: number | [lo, hi], label? }]` draws as in `curve` (the `limit` style: lines `--ink` dash `6 3 1 3`, bands `--ink` at 6 % with no stroke; bands under the bars as `<rect class="eleo-limit">`, lines over them as `<line class="eleo-limit">`, in data units; a `label` at the right end). An auto `y` range contains every limit. An `x` limit throws `TypeError('bars: x limits are not supported')`; so does any bad limit, as in `curve`, a zero-width band included.
 - **Dividers:** a thin solid line (`--plot-grid`, 1 px, no dash) at each boundary between category groups (every k-th boundary, following the labels' "every k-th category" thinning, #314) and midway in the gap before the `total` group, the frame's full height, drawn outside the data-space group, which holds the bars and the limit marks (`class="eleo-limit"`); limit bands are the rects told apart from bars by that class. The dividers come before the plot cell, with the gridlines, so the bars, limit lines and zero line paint over them and the limit labels stay above them.
-- **Range:** `y.range`, else the nice range of the values, the `limits` and 0; a zero line is drawn only when the range straddles 0. When a band is under 14 px, only every k-th category label is drawn, at its band centre.
-- **Key:** one entry for each series with a `label`. The row starts a new line when an entry would pass the frame's right edge, and each extra line takes 14 px from the plot area's height, down to a frame 1 px taller than its margins (a very small drawing stops wrapping and the row runs past the right edge), so every series stays named. An `index` that is not a non-negative integer, or a `null` or non-object entry in `series`, throws a `TypeError`.
+- **Range:** `y.range`, else the nice range of the values, the `total` sums, the `limits` and 0; a zero line is drawn only when the range straddles 0. When a band is under 1.4 text units, only every k-th category label is drawn, at its band centre, 1.3 text units under the frame.
+- **Key:** one entry for each series with a `label`. The row starts a new line when an entry would pass the frame's right edge, and each key line is 1.4 text units, a swatch is 0.8 text units square and an entry is 1.2 text units plus 0.6 per character of its label, and each extra line takes one line from the plot area's height, down to a frame 1 px taller than its margins (a very small drawing stops wrapping and the row runs past the right edge), so every series stays named. An `index` that is not a non-negative integer, or a `null` or non-object entry in `series`, throws a `TypeError`.
 - **Skipped values:** a value that is not a finite number (`NaN`, a string, `undefined`, `true`) draws no rect and is left out of the `total` sum and the range. A series with no finite value still draws a zero-height Σ bar, which keeps the Σ group's order fixed per series.
 
 ### Other groupings and subsets
@@ -135,7 +135,7 @@ bars({
 });
 ```
 
-A subset is the same call with fewer categories or series (`categories: terms.slice(0, 3)`, `series` filtered to two surfaces). Pass the same `y.range` to every call you want to compare: a value then has the same height in each. A value keeps its height across calls only while each call's key fits on one line: a key that wraps takes 14 px per extra line from the plot, even at the same `width` and `height`. Compare at a width where both keys fit.
+A subset is the same call with fewer categories or series (`categories: terms.slice(0, 3)`, `series` filtered to two surfaces). Pass the same `y.range` to every call you want to compare: a value then has the same height in each. A value keeps its height across calls while every call's key takes the same number of lines; each extra line takes 1.4 text units from the plot, even at the same `width` and `height`. Compare at a width where both keys fit on one line.
 
 ## Spot diagrams
 
