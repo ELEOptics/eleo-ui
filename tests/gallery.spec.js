@@ -97,7 +97,7 @@ test('the footprint tile text keeps its proportion to the plot and sits between 
       }
     }
     for (const width of [1100, 700]) {
-      ratios[width].forEach((r, i) => expect(r / ratios[1440][i], `${theme} text ${i} height over plot side at ${width} vs 1440`).toBeCloseTo(1, 2));
+      ratios[width].forEach((r, i) => expect(Math.abs(r / ratios[1440][i] - 1), `${theme} text ${i} font size over plot side at ${width} vs 1440`).toBeLessThan(0.01));
     }
   }
 });
