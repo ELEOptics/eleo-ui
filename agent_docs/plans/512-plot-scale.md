@@ -158,10 +158,11 @@ stopgap (about 18 px text at 1440, full row). Proves: O1, O2 for every framed re
 | [#524] | `map2D` draws to the rule (axes, colorbar ticks, strokes) | forced (map2D's frame is `curve.js`'s `plotCell`, its colorbar text is axis text); considered leaving the colorbar at 10 units, ruled out (two text sizes in one tile) | `packages/plots/src/map2d.js`, `tests/map2d.spec.js` | `tests/map2d.spec.js::text follows ADR-0003` | [#522] |
 | [#525] | `spot` and `throughFocus` draw to the rule from their panel side; `textScale` multiplies it; `throughFocus` gains `width` | the panel side is the frame (U18 measured spot at the panel); considered the whole figure's width, ruled out because a 3-panel spot would get 3× the text. Rewrites `spot.test.js:394-421`'s "10 × ts" oracle; README `width`/`textScale` lines | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` (and README) | `tests/unit/spot.test.js::text follows ADR-0003 per panel` | [#522] |
 | [#526] | The size table: `PLOT_SIZES` per renderer (default width, aspect, minimum width per panel: one frame at 9 px plus its margins), typed; README section, `limits.js` moved to the helpers sentence (absorbs [#328]) | computed from `scale.js` and each renderer's margins so it can't drift; per panel because a 3-panel spot at its floor (530 px) or throughFocus (about 894 px) would overflow a 630 px gallery column; considered a hand-written table, ruled out by drift | `packages/plots/src/scale.js`, `packages/plots/README.md`, `tests/types/curve.ts`, `packages/plots/src/index.d.ts` (CR [#573]) | `tests/unit/scale.test.js::table matches each renderer's floor width` | [#523], [#524], [#525] |
+| [#575] | README: `limits.js` among the shared helpers, not the renderers (CR [#574]; [#328], which [#526] absorbed, is in the root README) | forced ([#328]'s fix as written) | `README.md` | none (a doc line) | [#526] |
 | [#527] | Gallery: every framed tile through `fit`; one `--row-min` per row, set from `PLOT_SIZES`; the footprint tile drops `textScale` and its width rule; the footprint test's text and plot-size checks (`gallery.spec.js:77-110`) give way to O2's, its key-alignment check stays (user, at approval) | a row variable because a new tile then can't undercut the floor; considered per-tile CSS minimums, ruled out (hand numbers drift). `.row { grid-template-columns: repeat(auto-fit, minmax(var(--row-min), 1fr)) }` | `gallery/index.html`, `tests/gallery.spec.js` | the O2 test over every framed tile | [#526] |
 | [#570] | Re-record the `throughFocus` entry of the renderer baseline right after [#525] | forced (user, at approval: re-record at the M2 verdict; recorded now, as [#519], because a red gate pushes nothing) | `tests/fixtures/renderers-baseline.json`, `scripts/record-renderers.mjs` | `tests/unit/split.test.js` green | [#525] |
 | [#572] | `index.d.ts`: `ThroughFocusProps` with `width`; spot's `textScale` docs name ADR-0003 (CR [#571]) | forced (the plan's Decisions approve a `width` doc per framed renderer, as CR [#536]) | `packages/plots/src/index.d.ts`, `tests/types/curve.ts` | `tests/types/curve.ts`: `throughFocus({ width })` compiles | [#525] |
-| [#528] | Unskip M2's cases (`scale.test.js`; map2D's was unskipped at [#524]); re-run the baseline script before the M2 verdict if `throughFocus()`'s output moved since [#570] (user, at approval); log U14 for bars, map2D, spot | forced (`workflow.md`, TDD) | `tests/unit/scale.test.js`, `tests/map2d.spec.js`, `tests/fixtures/renderers-baseline.json` | green | [#522]-[#527], [#570], [#572] |
+| [#528] | Unskip M2's cases (`scale.test.js`; map2D's was unskipped at [#524]); re-run the baseline script before the M2 verdict if `throughFocus()`'s output moved since [#570] (user, at approval); log U14 for bars, map2D, spot | forced (`workflow.md`, TDD) | `tests/unit/scale.test.js`, `tests/map2d.spec.js`, `tests/fixtures/renderers-baseline.json` | green | [#522]-[#527], [#570], [#572], [#575] |
 
 ### M3: Svelte and the release GitHub: `P512 M3: plots-svelte and release`
 
@@ -291,6 +292,9 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-04 CR [#573] (orchestrator): accepted; [#526]'s table is typed, which needs its `index.d.ts` declaration, a Core change the
   Decisions already approve; `index.d.ts` joins [#526]'s Files, no new item (as CR [#535]).
 
+- 2026-11-04 CR [#574] (orchestrator): accepted; [#328]'s line is in the root `README.md`, not `packages/plots/README.md` as [#526]'s
+  Files had it; item [#575] in M2, [#528] after it.
+
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#155]: https://github.com/ELEOptics/eleo-ui/issues/155
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156
@@ -368,5 +372,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#571]: https://github.com/ELEOptics/eleo-ui/issues/571
 [#572]: https://github.com/ELEOptics/eleo-ui/issues/572
 [#573]: https://github.com/ELEOptics/eleo-ui/issues/573
+[#574]: https://github.com/ELEOptics/eleo-ui/issues/574
+[#575]: https://github.com/ELEOptics/eleo-ui/issues/575
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
