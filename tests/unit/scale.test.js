@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
+import * as scale from '../../packages/plots/src/scale.js';
 import { frameText as fText, frameWeight as fWeight, frameOf, layoutText as lText, layoutWeight as lWeight } from '../../packages/plots/src/scale.js';
 
 const TOL = 0.01; // px
@@ -155,4 +156,41 @@ test('text and weight per renderer (U18): bars, spot, throughFocus', { skip: '#5
     checkText(`throughFocus ${width}`, svg, F[0], tf);
   }
   assert.deepEqual([...tf].sort(), ['above', 'below', 'inside'], 'throughFocus widths cover the floor, the band and the knee');
+});
+
+// Plan #512, outcome O2 (issue #526): PLOT_SIZES is computed from scale.js and the renderers' margins. oracle: closed-form ADR-0003,
+// the renderer itself as the measure: drawn at its table minimum, each renderer's plot frame is F_LO wide and its text is the 9 px floor.
+// A figure of n panels needs minWidth + (n - 1) * panelStep; spot and throughFocus frames are panels (rect width + 1).
+test("table matches each renderer's floor width", () => {
+  const T = scale.PLOT_SIZES;
+  assert.ok(T, 'PLOT_SIZES is exported');
+  assert.deepEqual(Object.keys(T).sort(), ['bars', 'curve', 'layout2D', 'map2D', 'rayFan', 'spot', 'throughFocus']);
+  const at = (k, n = 1) => T[k].minWidth + (n - 1) * T[k].panelStep;
+  const only = (a, k) => { a.forEach((f) => near(f, a[0], `${k}: one frame width`)); return a[0]; };
+  const floorText = (svg, k) => sizes(svg).forEach((s) => near(s, 9, `${k} text at the floor`));
+  const svgs = {
+    curve: ELEO.curve({ ...curveInput, width: at('curve') }),
+    bars: ELEO.bars({ categories: ['a', 'b'], series: [{ values: [2, 5] }], width: at('bars') }),
+    rayFan: ELEO.rayFan({ ...sample, width: at('rayFan', 3) }),
+  };
+  for (const k of Object.keys(svgs)) { near(only(frames(svgs[k]), k), 162, `${k} frame at its minWidth`); floorText(svgs[k], k); }
+  assert.equal(frames(svgs.rayFan).length, 6, 'rayFan draws three columns of two rows');
+  const spot = ELEO.spot({ ...sample, width: at('spot', 3) }), tf = ELEO.throughFocus({ ...sample, width: at('throughFocus', 5) });
+  near(only(panelFrames(spot), 'spot'), 162, 'spot panel at its minWidth'); floorText(spot, 'spot');
+  assert.equal(panelFrames(spot).length, 3);
+  near(only(panelFrames(tf), 'throughFocus'), 162, 'throughFocus panel at its minWidth'); floorText(tf, 'throughFocus');
+  assert.equal(panelFrames(tf).length, 12, 'three rows of the four columns framed in --plot-grid (the focus column is --ink-subtle)');
+  // layout2D: labels show at its minimum and not a pixel under.
+  const L = fixture('analysis'), lay = (width) => sizes(ELEO.layout2D({ data: L, labels: ['a', 'b', 'c'], width }));
+  assert.ok(lay(at('layout2D')).length > 0 && lay(at('layout2D') - 1).length === 0, 'layout2D labels start at minWidth');
+  lay(at('layout2D')).forEach((s) => near(s, 9, 'layout2D text at the floor'));
+  // ADR-0003's figures: spot 530, throughFocus about 894 (the renderer's own floor is within 1 %).
+  near(at('spot', 3), 530, 'spot, three panels');
+  assert.ok(Math.abs(at('throughFocus', 5) / 894 - 1) <= 0.01, `throughFocus, five columns: ${at('throughFocus', 5)} against about 894`);
+  // The defaults: each renderer's own default width, and the aspect it draws at.
+  assert.deepEqual([T.curve.width, T.bars.width, T.map2D.width, T.layout2D.width, T.rayFan.width, T.spot.width], [460, 460, 460, 1000, 228, 150]);
+  near(T.curve.aspect, 260 / 460, 'curve aspect'); near(T.map2D.aspect, 360 / 460, 'map2D aspect');
+  const d = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(ELEO.curve(curveInput));
+  near(+d[1] * T.curve.aspect, +d[2], 'a default curve draws at the table aspect');
+  assert.equal(T.layout2D.aspect, null);
 });

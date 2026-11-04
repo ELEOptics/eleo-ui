@@ -714,3 +714,21 @@ test('text follows ADR-0003', async ({ page }) => {
   }
   expect([...branches].sort()).toEqual(['above', 'below', 'inside']);
 });
+
+// #526: drawn at its table minimum, the typed map's plot frame is F_LO wide and its text 9 px (no colorbar, short x tick labels). oracle: closed-form ADR-0003.
+test('map2D draws its frame at F_LO at PLOT_SIZES.map2D.minWidth', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const width = window.ELEO.PLOT_SIZES.map2D.minWidth;
+    el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, width }));
+    const svg = el.lastElementChild;
+    svg.style.width = width + 'px'; // drawn at its own px width, so the screen scale is 1
+    const out = { width, F: +svg.querySelector('rect').getAttribute('width'), sizes: [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) };
+    el.removeChild(svg);
+    return out;
+  });
+  expect(Math.abs(r.F - 162), `frame ${r.F} at width ${r.width}`).toBeLessThanOrEqual(0.01);
+  expect(r.sizes.length).toBeGreaterThan(0);
+  for (const s of r.sizes) expect(Math.abs(s - 9), `text ${s}px`).toBeLessThanOrEqual(0.09);
+});

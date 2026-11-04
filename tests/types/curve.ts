@@ -38,3 +38,12 @@ const tf: string = throughFocus({ width: 600 });
 // @ts-expect-error width is a number
 throughFocus({ width: '600' });
 export { tf };
+// PLOT_SIZES is the typed size table (ADR-0003, #526, CR #573); also on the default ELEO.
+import type { PlotSize } from '../../packages/plots/src/index';
+import { PLOT_SIZES } from '../../packages/plots/src/index';
+const curveSize: PlotSize = PLOT_SIZES.curve, floorWidth: number = PLOT_SIZES.spot.minWidth + 2 * PLOT_SIZES.spot.panelStep, tfAspect: number | null = PLOT_SIZES.throughFocus.aspect, viaTable: number = ELEO.PLOT_SIZES.layout2D.width;
+// @ts-expect-error aspect can be null (the height follows the content)
+const aspect: number = PLOT_SIZES.layout2D.aspect;
+// @ts-expect-error there is no renderer by that name
+PLOT_SIZES.layout3D;
+export { curveSize, floorWidth, tfAspect, viaTable, aspect };

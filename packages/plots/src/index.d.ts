@@ -345,6 +345,7 @@ export * from './physics.js';
 interface ScaleRule {
   frameText: typeof frameText; frameWeight: typeof frameWeight; frameOf: typeof frameOf; layoutText: typeof layoutText; layoutWeight: typeof layoutWeight;
   TEXT_MIN: typeof TEXT_MIN; TEXT_MAX: typeof TEXT_MAX; F_LO: typeof F_LO; F_HI: typeof F_HI; W_LO: typeof W_LO; W_HI: typeof W_HI;
+  PLOT_SIZES: typeof PLOT_SIZES;
 }
 declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
@@ -367,3 +368,18 @@ export declare function layoutText(W: number): number | null;
 export declare function layoutWeight(W: number): number;
 /** The rule's breakpoints and text limits, in px. */
 export declare const TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910;
+/** One renderer's row of PLOT_SIZES, in px. */
+export interface PlotSize {
+  /** The default drawing width of one panel (what the renderer draws without `width`). */
+  width: number;
+  /** Height over width of that default drawing, or null where the height follows the content. */
+  aspect: number | null;
+  /** The narrowest width of a one-panel figure: its plot frame is F_LO wide, its text 9 px. */
+  minWidth: number;
+  /** The width each further panel adds at that floor (0 for a single plot): a figure of n panels needs `minWidth + (n - 1) * panelStep`. */
+  panelStep: number;
+}
+/** The size table of ADR-0003, computed from the scale rule and the renderers' margins. The curve family's figures assume the shortest right margin (1.2 text units): wider tick labels or map2D's colorbar need `TEXT_MIN` px more per text unit. */
+export declare const PLOT_SIZES: {
+  curve: PlotSize; rayFan: PlotSize; bars: PlotSize; map2D: PlotSize; spot: PlotSize; throughFocus: PlotSize; layout2D: PlotSize;
+};
