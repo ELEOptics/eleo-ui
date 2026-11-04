@@ -149,6 +149,7 @@ patch. Proves: O1, O2
 | #501 | CR #502: `spot` takes `textScale`, scaling its text and the gap, line pitch, foot and width estimate with it | a `spot` option, because the layout is in fixed user units no style rule can move (user, CR #502, with its Core change); considered rewriting `spot`'s output in the gallery (breaks on any markup change) | `packages/plots/src/spot.js`, `packages/plots/src/index.d.ts` (core, CR #502), `packages/plots/README.md`, `.changeset/footprint-circle.md`, `tests/unit/spot.test.js`, `tests/types/panels.ts` | `spot.test.js::text scale`, `types.test.js` | #500 |
 | #505 | CR #504: `textScale`'s font size as an inline style, which beats `plots.css`'s class rule | an inline `style`, because a class rule beats a presentation attribute (CR #504, raised by #503's worker); considered dropping the size from `plots.css` (every plot's text) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `spot.test.js::text scale` | #501 |
 | #503 | CR #502: the footprint tile uses `textScale` in place of #500's style rule, its caption tight to the plot | forced (CR #502) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: plot and text sizes kept, spacing at most 2.2x the text | #501, #505 |
+| #506 | `spot.test.js::text scale` reads `.eleo-tick` and `.eleo-val`'s sizes from `plots.css` | forced (review M1 round 14 finding 1, pulled in) | `tests/unit/spot.test.js` | `spot.test.js::text scale` | #503 |
 
 ## Risks and spikes
 
@@ -209,3 +210,4 @@ patch. Proves: O1, O2
 - 2026-11-04 review M1 round 13: 0 blocking; CR #499 fixed. Backlog #501 (spot's fixed caption line pitch) not pulled in: a library API change, for the plot-scale row. M1 ticked again, awaiting the user's demo.
 - 2026-11-04 M1 demo (user): "too much empty space around the text. Tighten that up to the plot." CR #502; the user approved the Core change (`SpotDiagramProps.textScale`). Items #501 (reused) and #503. M1 unticked.
 - 2026-11-04 #503 parked on CR #504 (its worker found `textScale`'s `font-size` attribute loses to `.eleo-tick`'s class rule in a browser; #501's test checked the attribute only). Accepted by the orchestrator: item #505, an inline style; #503 after it.
+- 2026-11-04 review M1 round 14: 0 blocking; CRs #502 and #504 fixed. Finding 1 (the test copies plots.css's sizes by hand) pulled in as #506.
