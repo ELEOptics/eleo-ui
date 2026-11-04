@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release (done 2026-11-02) GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -141,6 +141,7 @@ patch. Proves: O1, O2
 | #489 | the footprint gallery tests' headers and oracles over the right tests | forced (review M1 round 5 finding 1, pulled in) | `tests/gallery.spec.js` | `gallery.spec.js -g footprint` stays green (comments only) | #488 |
 | #490 | the footprint tile draws `spot` at its body's `clientWidth`, redrawn on resize, so its text matches the title at every viewport | the measured width, because a 1:1 SVG keeps `spot`'s own font size with no change to `spot.js`; considered non-scaling text in CSS px (fights the SVG's viewBox scaling) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint text heights at 1440, 1100 and 700 | #489 |
 | #491 | the footprint tile's measured width never goes below 0 | forced (review M1 round 7 finding 1, pulled in) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: hide and show the footprint body | #490 |
+| #493 | CR #492: the footprint tile draws at a fixed width again, so its text scales with the plot; #490's resize redraw removed | a fixed drawing width (#488's 520), because a uniformly scaled SVG keeps text and plot in proportion (user, CR #492); considered text sized in proportion to the panel inside `spot.js` (a library change for one tile) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: text-to-plot ratio constant at 1440, 1100, 700 | #491 |
 
 ## Risks and spikes
 
@@ -191,3 +192,4 @@ patch. Proves: O1, O2
 - 2026-11-02 M1 demo (user): "Fix #490 first". #490 into M1 as a work item; the orchestrator chose the measured width (gallery only) over non-scaling text. M1 unticked.
 - 2026-11-02 review M1 round 7: 0 blocking; CR #487 fixed at every viewport. Finding 1 (a hidden body gives a negative width) pulled in as #491.
 - 2026-11-02 review M1 round 8: 0 blocking, nothing pulled in; M1 ticked again, awaiting the user's demo of #490.
+- 2026-11-04 M1 demo (user): "The text should scale with the plot size"; the plot was too large against the text. CR #492 reverses #490's goal: item #493 draws at a fixed width again. M1 unticked.
