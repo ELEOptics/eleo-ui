@@ -283,6 +283,11 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-04 CR [#571] (orchestrator): accepted; `throughFocus` reads `width` since [#525] but `index.d.ts` lacks it, and spot's `textScale`
   docs predate ADR-0003; item [#572] in M2, [#528] after it.
 
+- 2026-11-04 orchestrator: wave 2's full gate went red in `tests/gallery.spec.js`, which `--fast` skips: [#524]'s colorbar (found
+  by a 10 px width) and [#525]'s footprint tile (text at the meta size). Fixed forward in one `M2 #<i>` commit each, not reverted, because
+  [#570] and [#572] build on [#525]. The footprint test's text, plot-size and ratio checks give way to O2's now, not at [#527]
+  (the user's approval, at the plan's approval, moved earlier); its key-alignment check stays.
+
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#155]: https://github.com/ELEOptics/eleo-ui/issues/155
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156
