@@ -6,16 +6,24 @@ import { fmt } from "./color.js";
 function niceHalf(v) {
   if (!(v > 0) || !isFinite(v)) return 1;
   var e = Math.pow(10, Math.floor(Math.log10(v))), m = [1, 2, 2.5, 4, 5, 10].find(function (k) { return k * e >= v * (1 - 1e-12); });
-  return m * e;
+  return m * e > 0 ? m * e : 1;
 }
-/* 3 significant digits below 1000, whole numbers from there up; never an exponent. */
-var sig3 = function (v) { return Math.abs(v) < 1000 ? v.toPrecision(3) : v.toFixed(0); };
+/* v to p significant digits, never an exponent (a number below 1e-100 prints as 0). */
+function plain(v, p) {
+  var s = v.toPrecision(p);
+  if (!/e/.test(s)) return s;
+  if (Math.abs(v) < 1e-100) return "0";
+  return Math.abs(v) >= 1 ? v.toFixed(0) : v.toFixed(Math.min(100, p - 1 - Math.floor(Math.log10(Math.abs(v)))));
+}
+var sig3 = function (v) { return plain(v, 3); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
   var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
-  var anyStats = false;
+  var circleOf = function (p) { return p.circle && isFinite(p.circle.radius) && p.circle.radius > 0 ? +p.circle.radius : 0; };
+  var anyStats = false, ts = isFinite(o.textScale) && o.textScale > 0 ? +o.textScale : 1;
+  var fs = function (cls) { return ts === 1 ? "" : ' style="font-size:' + +((cls === "eleo-val" ? 10.5 : 10) * ts).toPrecision(12) + 'px"'; };
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
     series.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { sx += +q[0]; sy += +q[1]; k++; } }); });
@@ -28,18 +36,24 @@ function typedSpot(o) {
   }), n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
   var notesMax = Math.max.apply(null, [0].concat(panels.map(function (p) { return (p.notes || []).length; })));
   /* One caption line per active setting, each at x=0 and short enough for a one-panel figure. */
-  var radii = panels.map(airyOf).filter(Boolean), r3 = function (r) { return +r.toPrecision(3); };
+  var radii = panels.map(airyOf).filter(Boolean);
   var cap = ["Reference: " + ref];
-  if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return r3(r) === r3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
+  if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return sig3(r) === sig3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
+  var circles = panels.filter(circleOf), labelOf = function (p) { return String(p.circle.label == null ? "" : p.circle.label).trim(); }, cl = circles.length ? labelOf(circles[0]) : "";
+  var shared = circles.length > 0 && circles.length === n && circles.every(function (p) { return sig3(circleOf(p)) === sig3(circleOf(circles[0])) && labelOf(p) === cl; });
+  var line = shared && cl ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
+  if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
-  var foot = 28 + 15 * notesMax + 1 + 15 * cap.length, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
+  var foot = (28 + 15 * notesMax + 15 * cap.length) * ts + 1, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
   if (o.height) side = Math.min(side, o.height - foot - 8);
   side = Math.max(side, 1);
-  var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * Math.max.apply(null, cap.map(function (t) { return t.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
-  var ext = panels.map(function (p) { var m = airyOf(p); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
-  var common = isFinite(o.half) && o.half > 0 ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
+  var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * ts * Math.max.apply(null, cap.map(function (t) { return t.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
+  var ext = panels.map(function (p) { var m = Math.max(airyOf(p), circleOf(p)); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
+  var common = isFinite(o.half) && o.half > 0 && isFinite(side / 2 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {
-    var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common, s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
+    var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common;
+    if (!isFinite(side / 2 / half)) half = 1;
+    var s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
     g += '<rect x="' + (ox + .5) + '" y="' + (top + .5) + '" width="' + (side - 1) + '" height="' + (side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
     g += '<path d="M' + (ox + 6) + "," + (top + cx) + " H" + (ox + side - 6) + " M" + (ox + cx) + "," + (top + 6) + " V" + (top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
     g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, cx, cx].join(" ") + ')">';
@@ -48,12 +62,13 @@ function typedSpot(o) {
       g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="2.2" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
     });
     if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
+    if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
-    var ty = top + side + 18;
-    g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + +half.toPrecision(6) + unit + "</text>";
-    (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick" x="' + ox + '" y="' + (ty + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
+    var ty = top + side + 18 * ts;
+    g += (p.title ? '<text class="eleo-val"' + fs("eleo-val") + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + fs() + ' x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
+    (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick"' + fs() + ' x="' + ox + '" y="' + (ty + 15 * ts * (j + 1)) + '">' + esc(t) + "</text>"; });
   });
-  cap.forEach(function (t, j) { g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
+  cap.forEach(function (t, j) { g += '<text class="eleo-tick"' + fs() + ' x="0" y="' + (top + side + 18 * ts + 15 * ts * notesMax + 15 * ts * (j + 1)) + '">' + esc(t) + "</text>"; });
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
 /* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`; RMS and GEO are the renderer's. */
@@ -68,7 +83,7 @@ export function spotPanels(D, o) {
     return p;
   });
   var r = { panels: panels, reference: "centroid", unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height", "origin", "reference", "showStats", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
   return r;
 }
 export function spot(o) {

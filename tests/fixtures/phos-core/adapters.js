@@ -65,6 +65,26 @@
         })
       };
     },
+    /* footprint(recording) -> { panels, unit, origin, ... }: one panel, a series per field (index = field) of the alive rays' stop-local
+       x/y in mm (verbatim, at the wavelength nearest the header's referenceWavelengthNm), and the stop's semi-diameter as `circle`.
+       Every field fills the stop and the overlap is the point, so no panel per field. */
+    footprint: function (rec) {
+      return {
+        unit: 'mm',
+        origin: 'stop vertex, local x/y',
+        showStats: false,
+        showAiry: false,
+        label: 'Beam footprint',
+        panels: [{
+          series: rec.sources.map(function (s, i) {
+            var w = 0;
+            s.wavelengths.forEach(function (nm, j) { if (Math.abs(nm - rec.referenceWavelengthNm) < Math.abs(s.wavelengths[w] - rec.referenceWavelengthNm)) w = j; });
+            return { points: s.points[w], index: i };
+          }),
+          circle: { radius: rec.semiDiameter, label: 'Semi-diameter' }
+        }]
+      };
+    },
     /* seidel(recording) -> { categories, series, total, y }: at the result nearest the reference wavelength, the surface numbers as
        categories and a series per Seidel term (SI to SV, CL, CT; index 0 to 6) found by key name, in a fixed order. phos-core's total
        (the last element of each term) is stripped: bars() recomputes the sum from `total`, 'Σ'.

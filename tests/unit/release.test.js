@@ -76,6 +76,34 @@ test('a plots minor leaves plots-svelte unplanned and its peer range kept', () =
   });
 });
 
+// Plan #464 (agent_docs/plans/464-beam-footprint.md), outcome O2 (issue #465; #469 unskips). Row N: the footprint circle
+// is a plots minor; plots-svelte ships its widened peer as a patch, in its own file (#85).
+// oracle: spec: @changesets/cli's plan of the named files; #457
+test('row N changesets', () => {
+  const read = (f) => {
+    const text = readFileSync(join(repo, '.changeset', f), 'utf8');
+    const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    assert.ok(m, `.changeset/${f} has no front matter`);
+    return { text, body: m[2] };
+  };
+  const plots = read('footprint-circle.md');
+  const svelte = read('plots-svelte-peer-0.7.md');
+  assert.match(svelte.body, />=0\.7\.0 <1/, 'the plots-svelte body names the widened peer');
+  withWorkspace({ '@eleoptics/plots': 'minor' }, (ws) => {
+    rmSync(join(ws, '.changeset/bumps.md'));
+    writeFileSync(join(ws, '.changeset/footprint-circle.md'), plots.text);
+    writeFileSync(join(ws, '.changeset/plots-svelte-peer-0.7.md'), svelte.text);
+    run(ws, 'git', ['add', '-A']);
+    run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'row N']);
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    const type = (name) => releases.find((r) => r.name === name)?.type;
+    assert.equal(type('@eleoptics/plots'), 'minor');
+    assert.equal(type('@eleoptics/plots-svelte'), 'patch');
+    assert.deepEqual(releases.map((r) => r.name).sort(), ['@eleoptics/plots', '@eleoptics/plots-svelte'], 'only plots and plots-svelte are planned');
+  });
+});
+
 // #104 (plan #90): the release asks plots, plots-svelte and tokens minors. A tokens minor falls outside a
 // `^0.1.0` peer, so changesets would rewrite it to `^0.2.0` and bump its dependents (the #21 lesson); widened to
 // `>=0.1.0 <1`, both tokens peers survive `changeset version` and every package goes exactly one minor.
@@ -334,10 +362,11 @@ test('map2D changeset became minors',
     assert.equal(entry('plots-svelte', MAP2D_SVELTE_ENTRY).kind, 'Minor');
   });
 
-// Plan #389, issue #333 (CR #332's `later`): BarPlot needs `bars`, first published in plots 0.5.0, so the
-// plots-svelte peer must exclude 0.4.0 and admit 0.5.0. Plots is 0.5.0 on npm and in the workspace, so `npm ci` resolves.
+// Plan #389, issue #333 (CR #332's `later`), raised by #457 (plan #464): BarPlot needs `bars` (plots 0.5.0) and the typed
+// Map2D needs `map2D` (plots 0.7.0), so the plots-svelte peer must exclude 0.6.0 and admit 0.7.0. Plots is 0.7.0 on npm and in
+// the workspace, so `npm ci` resolves.
 // oracle: spec semver (a `>=X.Y.Z <M` range admits v when X.Y.Z <= v and v's major < M).
-test('plots-svelte peers plots >=0.5.0', () => {
+test('plots-svelte peers plots >=0.7.0', () => {
   const range = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
   const m = range.match(/^>=(\d+)\.(\d+)\.(\d+) <(\d+)$/);
   assert.ok(m, `the plots peer ${range} is not >=X.Y.Z <M`);
@@ -347,16 +376,15 @@ test('plots-svelte peers plots >=0.5.0', () => {
     const cmp = p.map((n, i) => n - lo[i]).find((d) => d !== 0) ?? 0;
     return cmp >= 0 && p[0] < hi;
   };
-  assert.ok(!admits('0.4.0'), `${range} admits plots 0.4.0, which has no bars`);
-  assert.ok(admits('0.5.0'), `${range} excludes plots 0.5.0`);
+  assert.ok(!admits('0.6.0'), `${range} admits plots 0.6.0, which has no map2D`);
+  assert.ok(admits('0.7.0'), `${range} excludes plots 0.7.0`);
 });
 
-// Plan #389, issue #456 (CR #455): the peer stays >=0.5.0, but older plots has no typed map2D, so a typed Map2D fails; the
-// README's Map2D paragraph (where a reader meets the typed props) must name the plots version that has them. That is
-// 0.7.0, not 0.6.0 (CR #458): main's Version Packages (#388) already took 0.6.0 for the layout2D ray-start change.
-test('plots-svelte README says typed Map2D needs plots 0.7.0', () => {
+// Plan #389, issue #456 (CR #455), retired by #457 (plan #464): the peer is now >=0.7.0, which has the typed map2D, so the
+// README's Map2D paragraph no longer carries a "needs plots 0.7.0" note.
+test('plots-svelte README drops the typed Map2D plots-version note', () => {
   const readme = readFileSync(join(repo, 'packages/plots-svelte/README.md'), 'utf8');
   const para = readme.split('\n\n').find((p) => p.startsWith('`Map2D` draws a typed grid'));
   assert.ok(para, 'no Map2D paragraph in the plots-svelte README');
-  assert.match(para, /0\.7\.0/);
+  assert.doesNotMatch(para, /0\.7\.0/);
 });

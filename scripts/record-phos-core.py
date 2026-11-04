@@ -41,6 +41,11 @@ does not rewrite them:
     It also records phos-core's tutorial Cassegrain (models/src/example/cassegrain.rs: parabolic primary with an annular
     aperture, hyperbolic secondary, obscuration; fields 0/0.35/0.5 deg), built through InterfaceBuilder, in the same shape
     without `glass` and with `mirror` on the two mirrors, `hole` (10 mm) on the primary and `obscuration` on the obscuration, as tests/fixtures/phos-core/cassegrain-layout.json. It exits non-zero unless the 0 degree chief is dead before the image.
+  `footprint`: BeamFootprint of the Cooke triplet at its aperture stop (step = stop + 1), per source `{fieldAngleDeg,
+    wavelengths, points[w], maxRadius}`: the rays alive there, x/y in mm in the stop's local frame (CoordinateFrame of
+    its location() and rotation()). Header `surface` (the stop's interface index), `referenceWavelengthNm` (must be a recorded wavelength) and `semiDiameter` (max(w, h, 2 * norm) / 2
+    of its aperture()). It exits non-zero unless there is a stop, the semi-diameter is finite and positive, and every alive
+    point is within semiDiameter x (1 + 1e-4). Writes tests/fixtures/phos-core/cooke-footprint.json.
 """
 import argparse
 import json
@@ -516,12 +521,72 @@ def record(phos, lens, model, meta, outdir, header):
         yield path
 
 
+FOOTPRINT_TOL = 1e-4  # relative: ray aiming may land a rim ray just past the aperture's own semi-diameter
+
+
+def footprint(phos, model, outdir, header):
+    # BeamFootprint.locations(step) is global mm, one entry per ray, wavelength by wavelength (equal blocks); `step` is a trace-output
+    # index, so interface k is step k + 1. Dead rays stay in the list where they last were, so only ALIVE ones are kept.
+    stop = model.system(0).aperture_stop_index()
+    if stop is None:
+        sys.exit("footprint: the model has no aperture stop")
+    itf = model.interfaces(0)[stop]
+    ext, norm = itf.aperture().extent(), itf.aperture().normalization()
+    semi = max(ext.width, ext.height, 2 * norm) / 2
+    if not finite(semi) or semi <= 0:
+        sys.exit(f"footprint: the stop's semi-diameter is {semi}, expected finite and positive")
+    ref = model.system(0).reference_wavelength()
+    if ref is None:
+        sys.exit("footprint: the model has no reference wavelength")
+    ref_nm = rnd(ref * 1000)
+    frame = phos.CoordinateFrame(list(itf.location()), list(itf.rotation()), False)
+    sources = model.sources(0)
+    s = phos.BeamFootprintSettings()
+    s.set_system_index(0)
+    runs = s.run(model)
+    if len(runs) != len(sources):
+        sys.exit(f"footprint: {len(runs)} results for {len(sources)} sources, expected one each")
+    out = []
+    for src, run in zip(sources, runs):
+        wl = [e.wavelength() for e in src.emission_data()]
+        if run.num_steps() <= stop + 1:
+            sys.exit(f"footprint: {run.num_steps()} steps, expected more than the stop's step {stop + 1}")
+        locs, stats = run.locations(stop + 1), run.statuses(stop + 1)
+        if len(locs) != len(stats) or not wl or len(locs) % len(wl):
+            sys.exit(f"footprint: {len(locs)} locations and {len(stats)} statuses for {len(wl)} wavelengths, expected equal blocks")
+        per = len(locs) // len(wl)
+        points, biggest = [], 0.0
+        for w in range(len(wl)):
+            keep = []
+            for k in range(w * per, (w + 1) * per):
+                if not isinstance(stats[k], phos.RayStatus.ALIVE):
+                    continue
+                x, y, _ = frame.inverse_transform_point_optical(locs[k])
+                if not finite(x, y):
+                    sys.exit(f"footprint: alive ray {k} has a non-finite point")
+                keep.append([x, y])
+                biggest = max(biggest, math.hypot(x, y))
+            points.append(keep)
+        if biggest > semi * (1 + FOOTPRINT_TOL):
+            sys.exit(f"footprint: alive point {biggest - semi:.2g} beyond the semi-diameter {semi:.6g}")
+        out.append({"fieldAngleDeg": rnd(field_angle_deg(src)), "wavelengths": [rnd(w * 1000) for w in wl],
+                    "points": [pts(p) for p in points], "maxRadius": rnd(biggest)})
+    for i, o in enumerate(out):
+        if ref_nm not in o["wavelengths"]:
+            sys.exit(f"footprint: reference wavelength {ref_nm} nm is not among source {i}'s recorded {o['wavelengths']}")
+    doc = {**header, "lens": "cooke", "analysis": "footprint", "referenceWavelengthNm": ref_nm, "kind": "rays alive at the aperture stop, local x/y in mm",
+           "surface": stop, "semiDiameter": rnd(semi), "sources": out}
+    path = outdir / "cooke-footprint.json"
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    return path
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--phos", required=True, help="<phos-core>/clients/python/src")
     default_out = str(ROOT / "tests/fixtures/phos-core")
     ap.add_argument("--out", default=default_out)
-    ap.add_argument("--only", choices=["seidel", "layout", "maps"], help="record only this analysis; the other fixtures are left as they are")
+    ap.add_argument("--only", choices=["seidel", "layout", "maps", "footprint"], help="record only this analysis; the other fixtures are left as they are")
     ap.add_argument("--triplet", default=str(DEFAULT_TRIPLET), help="phos's fixtures/triplet.toml (--only layout)")
     args = ap.parse_args()
     sys.path.insert(0, args.phos)
@@ -531,11 +596,15 @@ def main():
     sha = subprocess.check_output(["git", "-C", str(core), "rev-parse", "HEAD"], text=True).strip()
     header = {"phosCore": {"sha": sha}, "script": "scripts/record-phos-core.py",
               "args": ["--phos", "<phos>"] + ([] if args.out == default_out else ["--out", "<out>"]) + (["--only", args.only] if args.only else [])}
-    if args.only == "layout":
+    if args.only in ("layout", "footprint"):
         outdir = Path(args.out)
         outdir.mkdir(parents=True, exist_ok=True)
         shown = outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir
-        for path in (wandersleb(phos, Path(args.triplet), outdir, header), cassegrain(phos, outdir, header)):
+        if args.only == "layout":
+            paths = (wandersleb(phos, Path(args.triplet), outdir, header), cassegrain(phos, outdir, header))
+        else:
+            paths = (footprint(phos, phos.OpticalModel.cooke_triplet_kingslake(), outdir, header),)
+        for path in paths:
             print(f"wrote {shown}/{path.name} (phos-core {sha[:10]})")
         return
     sample = json.loads((ROOT / "packages/plots/src/sample.json").read_text())

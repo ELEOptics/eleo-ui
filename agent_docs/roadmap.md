@@ -32,8 +32,8 @@ workflow.md TDD > Oracles). Agents propose the oracles; the user approves the co
 | U3 | `layout2D` draws any recorded sequential system: surfaces with their real profiles, crown or flint glass, a standalone stop, the image plane and a ray fan per field, labelled at the image, with an optional shared-scale `box`. The format is typed in `index.d.ts`, and the sample is one instance of it. | `fixture: the website's layouts recorded by its scripts/layout.py, plus the sample: inverting each SVG's transform recovers every surface profile and ray within 0.01 mm` | B |
 | U4 | A page without a bundler can load `layout2D` alone, as it can the physics helpers (`eleo-physics.js`). | `property: the entry loads in a page with no other ELEO script and draws U3's fixtures` | B |
 | U5 | An ADR fixes the boundary and the styling rule, and weighs Observable Plot and d3 as the alternative. eleo-ui ships renderers by data shape (layout, points, curves, maps, bars) and the plot shell (`PlotCard`, legend, colorbar, hover readout, zoom, export), emits interaction events, and holds no app state. phos's app components (editors, workflow, tables) stay in phos, and one moves here only once a second consumer needs it. A renderer's options carry data, labels and a role per series (field k, wavelength k, tangential, sagittal, reference, limit), never a color, font or stroke width; that option-name rule is checked at each row's review. CSS custom properties on an ancestor are the one override. | `property: a unit test finds no color literal or font name in packages/plots/src outside plots.css, the named colormaps and listed exemptions (layout3D's tone composition and label font)` | D |
-| U6 | `curve` draws any set of typed series (points, role, axis labels and units, optional panels) with no analysis `kind`. MTF, field curvature, distortion, the ray and OPD fans (in panels) and a cumulative probability curve are each built by the caller from it, in the gallery from recorded phos-core results; chromatic focus stays on sample data until phos-core computes it, and the fans until its Python client exposes TransverseRayError (ELEOptics/phos-core#371; user 2026-10-11). | `fixture: phos-core results recorded by scripts/record-phos-core.py for the sample achromat and the Cooke triplet (ModulationTransfer2d, FieldCurvature, Distortion; MonteCarloTolerance in row tolerance-curve): inverting each SVG's transform recovers every point within 0.5 px`; `fixture: sample.json fans and opdFans` for the fans until ELEOptics/phos-core#371 (user 2026-10-11) | D, E, N, tolerance-curve |
-| U7 | `spot` draws typed points per series and panel, with an optional reference circle and centroid; spot diagrams and beam footprints are caller-built from recorded phos-core results; through-focus stays on sample data until phos-core computes it. | `fixture: recorded phos-core SpotDiagram results (E) and BeamFootprint results (row N, after ELEOptics/phos-core#440): every point recovered within 0.5 px; property: one common scale across panels when asked` | E, N |
+| U6 | `curve` draws any set of typed series (points, role, axis labels and units, optional panels) with no analysis `kind`. MTF, field curvature, distortion, the ray and OPD fans (in panels) and a cumulative probability curve are each built by the caller from it, in the gallery from recorded phos-core results; chromatic focus stays on sample data until phos-core computes it, and the ray fans until TransverseRayError marks dead rays (ELEOptics/phos-core#2142; user, plan [#464]). | `fixture: phos-core results recorded by scripts/record-phos-core.py for the sample achromat and the Cooke triplet (ModulationTransfer2d, FieldCurvature, Distortion; MonteCarloTolerance in row tolerance-curve): inverting each SVG's transform recovers every point within 0.5 px`; `fixture: sample.json fans and opdFans` for the fans until row recorded-fans (ELEOptics/phos-core#2142; user, plan [#464]) | D, E, recorded-fans, tolerance-curve |
+| U7 | `spot` draws typed points per series and panel, with an optional reference circle and centroid; spot diagrams and beam footprints are caller-built from recorded phos-core results; through-focus stays on sample data until phos-core computes it. | `fixture: recorded phos-core SpotDiagram results (E) and BeamFootprint results (row N: the Cooke triplet's stop, its semi-diameter as a labelled `circle`): every point recovered within 0.5 px; property: one common scale across panels when asked` | E, N |
 | U8 | `map2D` draws a typed grid (extent, values, null or NaN as masked, linear or log scale, sequential or diverging map); wavefront and PSF are caller-built from recorded results and irradiance from a synthetic Gaussian; phos-core's 2D MTF is curves, drawn by `curve` (user, plan [#389]). | `fixture: recorded phos-core WavefrontError (polar rings × spokes, drawn as sectors) and PointSpread results: each sampled pixel matches its value's colormap step; masked samples draw the surface color` | F |
 | U9 | `bars` draws signed grouped bars by category and series with a total, and every curve and bar plot takes limit lines and bands (e.g. a requirement such as MTF ≥ 0.3 at 50 lp/mm). | `fixture: recorded phos-core SeidelCoefficients for the sample: every bar's height recovered within 0.5 px; user: the gallery tile in both themes and palettes` | G |
 | U10 | `layout3D` takes typed input (phos-core's 3D surface points and normals from `OpticalModel::visualize`, or the 2D layout revolved, as today) with U12's glass fills. The interactive 3D viewport stays in phos (three.js through threlte). | `fixture: recorded phos-core 3D visualize of the sample: projected surface points match an independent projection within 0.5 px` | J |
@@ -75,7 +75,8 @@ renderers and are independent of each other after D; H and I follow them (they t
 | C | [#90] | Glass identity: `glass` takes `{name, nd, vd}`, a fill per glass on the glass-map rule, a glass legend, a committed table of public catalog glasses, in `layout2D` and its Svelte wrapper. Absorbs the recorded-data validation B deferred ([#60], [#74], [#75]: this row replaces the glass string and edits their checks in `layout2d.js`), [#76] (gallery merit tile blanks on a rejected fixture) and [#47] (classic build's `ELEO.sample` stays null; the gallery pins `ZIMG` because of it). Then phos switches its 2D layout to `layout2D` (adapter in phos). | U12 passes; the website's crown and flint layouts unchanged; the release is planned (changesets). phos's switch moved to ELEOptics/phos#31 (user, 2026-10-07). | done |
 | D | [#162] | First item: split `renderers.js` into one module per renderer plus a typed data module, and capture the gallery's Playwright screenshots as the baseline. Then `scripts/record-phos-core.py` (phos-core's Python client; the legacy REST client for results the uniffi client lacks), the ADR (boundary, styling rule, why not Observable Plot), the source lint, and `curve` generic; the gallery builds MTF, field curvature and distortion from recorded results. Absorbs [#121] (`legend` throws under SSR on null theme state: the split moves `legend` into its own module) and [#137] (the gallery's `sampleTile` wraps: this row rebuilds those tiles from recorded results). | U5 passes; U6 passes for MTF, field curvature, distortion; `<Legend kind="field" />` renders under SSR. | done |
 | E | [#232] | Fans as paneled curves (`curve` gains panels; `rayFan` a thin wrapper) on the sample's fans, and `spot` on typed points; the gallery builds the spot tile from SpotDiagram recorded by `scripts/record-phos-core.py`. Split by the user (2026-10-11): phos-core's Python client has no TransverseRayError, MonteCarloTolerance or BeamFootprint, so the cumulative curve and the footprint move to row tolerance-footprint. Absorbs [#207] and [#208] (their fallbacks live in the axis layout this row rewrites for panels) and [#226] (the recorded-tile helper, written for the tiles this row adds). | U6 passes for the fans on sample data; U7 passes for SpotDiagram. | done |
-| N |  | The beam footprint through `spot` and the ray fans moved to recorded TransverseRayError, each recorded by `scripts/record-phos-core.py` (both in phos-core's Python client since 2026-10-30: ELEOptics/phos-core#371, ELEOptics/phos-core#440, closed by phos-core plan 1799); the OPD fans stay on the sample's data (TransverseRayError has no OPD, and the recorded WavefrontError is the 0° source only). The recorder writes the footprint as one surface's alive rays (the stop by default) projected into that surface's local x/y, with its semi-diameter as `reference`; the tile turns stats and the Airy circle off. Split from row tolerance-footprint by the user (2026-10-31): the cumulative curve moved to row tolerance-curve. Absorbs [#269] and [#278] (`spot.js`, which the footprint extends) and [#457] (plots-svelte's peer `>=0.7.0 <1`: plots 0.7.0 is on npm since 2026-11-01 UTC). The plan interview asks whether the fan and footprint adapters are written against phos-core's recorded keys, so `clients/plots/adapters.mjs` can copy them verbatim. | U6 passes for the ray fans on recorded TransverseRayError (adding TransverseRayError to U6's fixture oracle in place of the sample's ray fans is an oracle change, the user's, approved at N's plan); U7 passes for BeamFootprint; the release is planned (changesets). | next |
+| N | [#464] | The beam footprint through `spot`, recorded by `scripts/record-phos-core.py` (`--only footprint`: the Cooke triplet's stop, alive rays in its local x/y, with its semi-diameter as a labelled `circle`, a new `SpotPanel` field); the tile turns stats and the Airy circle off. The recorded ray fans moved to row recorded-fans (user, plan [#464]: TransverseRayError takes a dead ray's last location as its error, ELEOptics/phos-core#2142). Absorbs [#269] and [#278] (`spot.js`, which the footprint extends) and [#457] (plots-svelte's peer `>=0.7.0 <1`). Fixtures stay in this repo's camelCase format (user, plan [#464]). | U7 passes for BeamFootprint; the release is planned (changesets). | done |
+| recorded-fans |  | The ray fans moved to recorded TransverseRayError for the achromat and the Cooke triplet (`--only fans` in `scripts/record-phos-core.py`, an adapter to `curve` panels, the gallery's ray fan tile on the recorded achromat); the OPD fans stay on the sample's data. Waits on ELEOptics/phos-core#2142 (dead rays marked), split from N by the user (plan [#464]). | U6 passes for the ray fans on recorded TransverseRayError (U6's fixture oracle for the ray fans moves from `sample.json` to it, approved by the user at plan [#464]). | later, waits on ELEOptics/phos-core#2142 |
 | tolerance-curve |  | The cumulative probability curve (MonteCarloTolerance) through `curve`, recorded by `scripts/record-phos-core.py`, once ELEOptics/phos-core#372 puts MonteCarloTolerance in phos-core's Python client. | U6 passes for the cumulative curve. | later |
 | ray-visibility |  | Per-point ray status and visibility toggles in `layout2D` (U17), from the user (2026-11-01): `alive[f][r]` is one prefix count and `dead[f][r]` only how the ray ends, so a ray that goes Alive, Virtual, then Dead loses its virtual part, and no caller can switch a kind of segment off. Adds optional `status[field][ray][point]` (the Rust `RayStatus` names, mapped once from the Python client's `ALIVE`, `VIRTUAL`, `DEAD_E`; row M's rule: never a new vocabulary) and a `show` prop on `Layout2DProps` (the Svelte wrapper spreads its props, so it needs no edit). `alive`/`dead` stay; a legacy tail reads as `Virtual`. Each status keeps a stroke from the existing set (solid, the `1 3` dotted tail, the chief's `6 4` dash on its `Alive` part) or a role, never a caller color (U5). Hidden segments still count toward `layoutBounds`, so toggling `show` never reflows a drawing. `scripts/record-phos-core.py` computes every point's status over all interfaces and drops it: it writes each kept point's status (truncated to `rays`), re-recording at the fixtures' pinned sha so U16's recorded facts hold. The plan settles only the default `show` (recommended: all shown, today's drawing). A new gallery tile: the Cassegrain layout with `Dead` hidden. Typed in `index.d.ts` (Core: the plan opens with a change request). Shares the recorder and `tests/fixtures/phos-core/` with N: runs after N or rebases on it. Not here: which statuses phos-core assigns (whether a mirror's reflection latches `Virtual`), and its adapter passing `status` after this row's release. | U17 passes; U16, U3 and U4 still pass; every existing layout tile unchanged; the Cassegrain `Dead`-hidden tile approved; the release is planned (changesets). | later |
 | plot-scale |  | One system for how plots render and at what ratios ([#498]; the user at plan [#464]'s M1 demo, 2026-11-04: "a unified system for how plots are rendered and at what ratios"). Measured state: [#498] (each renderer sizes text in its own viewBox units and each tile stretches its SVG to its column, so text size and ratio drift by renderer and tile width; the footprint took three CRs, [#487], [#492], [#496], for want of a rule). Writes ADR-0003 (Core: the plan opens with a change request): one text-to-plot-side ratio for framed renderers, layout2D's text relative to its viewBox width, a px floor at the gallery's narrowest tile and a ceiling, and a per-renderer table of viewBox width, aspect ratio, text size and minimum container width; every renderer in `packages/plots/src/` draws to it by default; `gallery/index.html` takes its tile spans from the table; a unit test checks the ratio on each renderer's SVG, and N's footprint ratio test in `tests/gallery.spec.js` grows to check the floor on every framed tile. Absorbs [#486]'s `values` (plots-svelte `Legend` passes `legend()`'s values); its caller-chosen placement waits for a consumer (phos) that places a legend outside the footer, so the plan files it as its own issue (user, 2026-11-04, review finding 2). Then a plots minor and a plots-svelte minor, the changesets naming the visible change. Edits `spot.js` and the gallery with N: runs after N. | U18 passes; U3, U4, U6–U9 and U16 still pass; every tile's change is text size, plot size or tile span only, approved at M1's demo in both themes and palettes, with the website's U3 layout fixtures (eleoptics.com's look, row L); the release is planned (changesets). | later |
@@ -177,6 +178,7 @@ it is the only record of a deferral (no issue comments), and `git log -p` is its
 
 One bullet per entry (bare lines render as one paragraph).
 
+- 2026-11-01: N planned as [#464], footprint only. The user split the ray fans into new later row recorded-fans, waiting on ELEOptics/phos-core#2142 (filed at the plan: TransverseRayError takes a dead ray's last location as its error); U6's Plan and oracle text follow. U7's "semi-diameter as `reference`" became a new `SpotPanel.circle` (`reference` already names spot's recentring mode).
 - 2026-11-04: U18 and row plot-scale (later, after N) added by the user ([#498], at plan [#464]'s M1 demo): one rule for viewBox width, aspect ratio and text-to-plot ratio across every renderer and gallery tile. Interview (user): text scales with the plot at one ratio plus a px floor, and the gallery sizes tiles so no plot outgrows its text; aspect ratios and tile sizes in scope; renderer defaults change (a plots minor), not the gallery only; the rule is ADR-0003; [#486] absorbed (Legend `values` and placement); oracle measured on every tile; kill on a ratio-versus-floor clash. Review (below) narrowed the ratio to framed renderers, moved it to a unit test (it is viewport-independent), kept the floor in Playwright, and named the website's fixtures at M1.
 - 2026-11-04: review (roadmap-reviewer, claude-opus-5-5)
   - 1: accepted
@@ -342,7 +344,31 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-10-30 plan [#337] (user, CR [#381]): U16's "byte-identical" property reworded to "after the start". The user chose ray starts on a pupil-centred arc, always on, which moves every collimated layout's start points.
 
 - 2026-10-30 plan [#337]: row M done (PR [#348]). Beyond the row: mirror bodies with an optional central hole (CR [#360], [#371]), dead rays drawn without tails (CR [#372]), and collimated ray starts on a pupil-centred arc (CR [#381]); a recorded Cassegrain joins the fixtures (CR [#352]).
+- 2026-11-02 plan [#464]: row N done (PR [#470]). Beyond the row: `legend(kind, n, values)` takes explicit field angles or wavelengths, so the footprint tile keys its recorded fields (user, CR [#483]); plots-svelte's `Legend` passing `values`, placeable anywhere (user), left as [#486], a plots-svelte minor.
+- 2026-11-02 plan [#464]: row N back to active: the user asked for the footprint tile's caption text in line with its title (CR [#487]).
+- 2026-11-04 plan [#464]: row N done again (PR [#470]). After the first ready, the user reshaped the footprint tile over seven demo passes (CRs [#487], [#492], [#496], [#499], [#502], [#507]): it now draws as the spot tile does, with `spot`'s new `textScale` (Core, user) keeping its caption at the meta's size and tight to the plot, and the tile as wide as its plot. The general rule is row plot-scale ([#498]).
 
+[#2]: https://github.com/ELEOptics/eleo-ui/issues/2
+[#3]: https://github.com/ELEOptics/eleo-ui/issues/3
+[#4]: https://github.com/ELEOptics/eleo-ui/issues/4
+[#6]: https://github.com/ELEOptics/eleo-ui/issues/6
+[#14]: https://github.com/ELEOptics/eleo-ui/issues/14
+[#21]: https://github.com/ELEOptics/eleo-ui/issues/21
+[#27]: https://github.com/ELEOptics/eleo-ui/issues/27
+[#28]: https://github.com/ELEOptics/eleo-ui/issues/28
+[#29]: https://github.com/ELEOptics/eleo-ui/issues/29
+[#30]: https://github.com/ELEOptics/eleo-ui/issues/30
+[#42]: https://github.com/ELEOptics/eleo-ui/issues/42
+[#47]: https://github.com/ELEOptics/eleo-ui/issues/47
+[#57]: https://github.com/ELEOptics/eleo-ui/issues/57
+[#60]: https://github.com/ELEOptics/eleo-ui/issues/60
+[#63]: https://github.com/ELEOptics/eleo-ui/issues/63
+[#70]: https://github.com/ELEOptics/eleo-ui/issues/70
+[#74]: https://github.com/ELEOptics/eleo-ui/issues/74
+[#75]: https://github.com/ELEOptics/eleo-ui/issues/75
+[#76]: https://github.com/ELEOptics/eleo-ui/issues/76
+[#86]: https://github.com/ELEOptics/eleo-ui/issues/86
+[#90]: https://github.com/ELEOptics/eleo-ui/issues/90
 [#111]: https://github.com/ELEOptics/eleo-ui/issues/111
 [#112]: https://github.com/ELEOptics/eleo-ui/issues/112
 [#114]: https://github.com/ELEOptics/eleo-ui/issues/114
@@ -356,7 +382,6 @@ One bullet per entry (bare lines render as one paragraph).
 [#137]: https://github.com/ELEOptics/eleo-ui/issues/137
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
-[#14]: https://github.com/ELEOptics/eleo-ui/issues/14
 [#144]: https://github.com/ELEOptics/eleo-ui/issues/144
 [#152]: https://github.com/ELEOptics/eleo-ui/issues/152
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156
@@ -365,10 +390,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#162]: https://github.com/ELEOptics/eleo-ui/issues/162
 [#186]: https://github.com/ELEOptics/eleo-ui/issues/186
 [#199]: https://github.com/ELEOptics/eleo-ui/issues/199
-[#2]: https://github.com/ELEOptics/eleo-ui/issues/2
 [#207]: https://github.com/ELEOptics/eleo-ui/issues/207
 [#208]: https://github.com/ELEOptics/eleo-ui/issues/208
-[#21]: https://github.com/ELEOptics/eleo-ui/issues/21
 [#226]: https://github.com/ELEOptics/eleo-ui/issues/226
 [#230]: https://github.com/ELEOptics/eleo-ui/issues/230
 [#231]: https://github.com/ELEOptics/eleo-ui/issues/231
@@ -378,15 +401,10 @@ One bullet per entry (bare lines render as one paragraph).
 [#258]: https://github.com/ELEOptics/eleo-ui/issues/258
 [#263]: https://github.com/ELEOptics/eleo-ui/issues/263
 [#269]: https://github.com/ELEOptics/eleo-ui/issues/269
-[#27]: https://github.com/ELEOptics/eleo-ui/issues/27
 [#270]: https://github.com/ELEOptics/eleo-ui/issues/270
 [#278]: https://github.com/ELEOptics/eleo-ui/issues/278
-[#28]: https://github.com/ELEOptics/eleo-ui/issues/28
 [#281]: https://github.com/ELEOptics/eleo-ui/issues/281
 [#284]: https://github.com/ELEOptics/eleo-ui/issues/284
-[#29]: https://github.com/ELEOptics/eleo-ui/issues/29
-[#3]: https://github.com/ELEOptics/eleo-ui/issues/3
-[#30]: https://github.com/ELEOptics/eleo-ui/issues/30
 [#302]: https://github.com/ELEOptics/eleo-ui/issues/302
 [#310]: https://github.com/ELEOptics/eleo-ui/issues/310
 [#311]: https://github.com/ELEOptics/eleo-ui/issues/311
@@ -411,10 +429,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#387]: https://github.com/ELEOptics/eleo-ui/issues/387
 [#388]: https://github.com/ELEOptics/eleo-ui/issues/388
 [#389]: https://github.com/ELEOptics/eleo-ui/issues/389
-[#4]: https://github.com/ELEOptics/eleo-ui/issues/4
 [#409]: https://github.com/ELEOptics/eleo-ui/issues/409
 [#410]: https://github.com/ELEOptics/eleo-ui/issues/410
-[#42]: https://github.com/ELEOptics/eleo-ui/issues/42
 [#423]: https://github.com/ELEOptics/eleo-ui/issues/423
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#441]: https://github.com/ELEOptics/eleo-ui/issues/441
@@ -422,20 +438,14 @@ One bullet per entry (bare lines render as one paragraph).
 [#450]: https://github.com/ELEOptics/eleo-ui/issues/450
 [#457]: https://github.com/ELEOptics/eleo-ui/issues/457
 [#458]: https://github.com/ELEOptics/eleo-ui/issues/458
-[#47]: https://github.com/ELEOptics/eleo-ui/issues/47
-[#57]: https://github.com/ELEOptics/eleo-ui/issues/57
-[#6]: https://github.com/ELEOptics/eleo-ui/issues/6
-[#60]: https://github.com/ELEOptics/eleo-ui/issues/60
-[#63]: https://github.com/ELEOptics/eleo-ui/issues/63
-[#70]: https://github.com/ELEOptics/eleo-ui/issues/70
-[#74]: https://github.com/ELEOptics/eleo-ui/issues/74
-[#75]: https://github.com/ELEOptics/eleo-ui/issues/75
-[#76]: https://github.com/ELEOptics/eleo-ui/issues/76
-[#86]: https://github.com/ELEOptics/eleo-ui/issues/86
-[#90]: https://github.com/ELEOptics/eleo-ui/issues/90
+[#464]: https://github.com/ELEOptics/eleo-ui/issues/464
+[#470]: https://github.com/ELEOptics/eleo-ui/issues/470
+[#483]: https://github.com/ELEOptics/eleo-ui/issues/483
 [#486]: https://github.com/ELEOptics/eleo-ui/issues/486
 [#487]: https://github.com/ELEOptics/eleo-ui/issues/487
 [#492]: https://github.com/ELEOptics/eleo-ui/issues/492
 [#496]: https://github.com/ELEOptics/eleo-ui/issues/496
 [#498]: https://github.com/ELEOptics/eleo-ui/issues/498
-[#464]: https://github.com/ELEOptics/eleo-ui/issues/464
+[#499]: https://github.com/ELEOptics/eleo-ui/issues/499
+[#502]: https://github.com/ELEOptics/eleo-ui/issues/502
+[#507]: https://github.com/ELEOptics/eleo-ui/issues/507

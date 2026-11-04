@@ -84,6 +84,8 @@ export interface SpotPanel {
   series: SpotSeries[];
   /** Airy radius in the panel's unit, drawn as a circle when `showAiry` is not false. */
   airy?: number;
+  /** A labelled circle about the origin, drawn like the Airy circle and counted in the box size. The caption line reads "<label> <radius> <unit>" when every panel has a circle and their radii (as printed) and labels agree, else the first circle's "<label>", and no line when that label is empty, blank or missing. A radius that is not finite and above 0 draws nothing. */
+  circle?: { radius: number; label: string };
   /** Extra caption lines under the panel, after the RMS and GEO lines. */
   notes?: string[];
 }
@@ -106,6 +108,8 @@ export interface SpotPanelsProps {
   unit?: string;
   /** The SVG's aria-label. Default "Spot diagrams". */
   label?: string;
+  /** Multiplies the font size of every text `spot` draws and the gaps, line pitch, foot and caption width estimate around it. Default 1; a value that is not a finite number above 0 means 1. */
+  textScale?: number;
   width?: number;
   height?: number;
   data?: never;
@@ -130,6 +134,8 @@ export interface SpotSampleProps {
   showStats?: boolean;
   /** Draw each panel's Airy circle. Default true. */
   showAiry?: boolean;
+  /** Multiplies the font size of every text `spot` draws and the gaps, line pitch, foot and caption width estimate around it. Default 1; a value that is not a finite number above 0 means 1. */
+  textScale?: number;
   width?: number;
   height?: number;
   panels?: never;
@@ -314,8 +320,8 @@ export interface ELEO {
   icon(name: string, props?: { style?: "line" | "glass" | "blueprint"; size?: number; label?: string }): string;
   /** Every icon name and title, by set. */
   icons: { optical: { name: string; title: string }[]; interface: { name: string; title: string }[] };
-  /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. With a sample loaded, field/wavelength keys carry its values (n defaults to its count); without one they draw n index keys (F1.., λ1..) without values, and none without n. ts and rays are fixed either way. */
-  legend(kind: "field" | "wavelength" | "ts" | "rays", n?: number): string;
+  /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. With a sample loaded, field/wavelength keys carry its values (n defaults to its count); without one they draw n index keys (F1.., λ1..) without values, and none without n. `values` (deg or nm) replaces the sample's, one key per value, n defaulting to its length; a non-finite entry draws the index key alone. ts and rays are fixed either way. */
+  legend(kind: "field" | "wavelength" | "ts" | "rays", n?: number, values?: readonly number[]): string;
 }
 import type * as Physics from './physics.js';
 export * from './physics.js';

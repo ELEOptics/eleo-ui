@@ -178,6 +178,9 @@ test('typed spot hardening', async () => {
   assert.ok(!/<circle/.test(inf) && !/Infinity/.test(inf), 'no circle drawn for Infinity');
   assert.equal(ELEO.spot({ panels: [{ series: pts }], half: Infinity }), base, 'a non-finite half is ignored');
   assert.equal(ELEO.spot({ panels: [{ series: pts }], half: '1e400' }), base, 'a string half beyond range is ignored');
+  // #269: a subnormal half or extent must not make the scale non-finite.
+  assert.ok(!/Infinity|NaN/.test(ELEO.spot({ panels: [{ series: pts }], half: 1e-310 })), 'a subnormal half gives a finite scale');
+  assert.ok(!/Infinity|NaN/.test(ELEO.spot({ panels: [{ series: [{ points: [[5e-324, 0]] }] }], scale: 'auto' })), 'a subnormal extent gives a finite scale');
 });
 
 // #271 (CR #270): reference 'chief' draws the points as given, 'centroid' re-centres each panel on its mean; a caption names the reference.
@@ -239,6 +242,36 @@ test('Airy circle toggled and labelled', () => {
   assert.ok(texts(mixed).some((t) => t.includes('Airy circle') && !t.includes('radius')), 'differing radii: Airy circle');
 });
 
+// Plan #464, O1 (issue #466): a panel's `circle {radius, label}` draws like the Airy circle and is captioned `<label> <r> <unit>`.
+// oracle: property: radius 1.5 maps to 1.5 within 0.5 px, the caption line says `Semi-diameter 1.50 mm`, the half covers the circle, and no circle gives markup identical to today's.
+test('labelled circle', () => {
+  const series = [{ points: [[0.5, 0.2], [-0.3, 0.4]] }];
+  const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  const base = { unit: 'mm', width: 300, height: 200 };
+  const on = ELEO.spot({ panels: [{ series, circle: { radius: 1.5, label: 'Semi-diameter' } }], ...base });
+  const [g] = panelGroups(on);
+  const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(on);
+  assert.ok(r, 'the circle is drawn');
+  assert.ok(Math.abs(Math.abs(g.M[0]) * (+r[1] - 1.5)) <= TOL_PX, 'its radius maps to 1.5');
+  assert.ok(texts(on).includes('Semi-diameter 1.50 mm'), 'caption: ' + texts(on));
+  assert.ok(texts(on).some((t) => /^±2 mm$/.test(t)), 'the half covers the circle: ' + texts(on));
+  const plain = ELEO.spot({ panels: [{ series }], ...base });
+  assert.equal(ELEO.spot({ panels: [{ series, circle: undefined }], ...base }), plain, 'undefined circle: same markup');
+  const two = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: 'Stop' } }, { series, circle: { radius: 2, label: 'Stop' } }], unit: 'mm' });
+  assert.ok(texts(two).includes('Stop') && !texts(two).some((t) => /^Stop \d/.test(t)), 'differing radii: label alone');
+  const same = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: 'Stop' } }, { series, circle: { radius: 1, label: 'Stop' } }], unit: 'mm' });
+  assert.equal(texts(same).filter((t) => t === 'Stop 1.00 mm').length, 1, 'equal radii: one shared line');
+  const ab = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: 'Stop A' } }, { series, circle: { radius: 1, label: 'Stop B' } }], unit: 'mm' });
+  assert.ok(!texts(ab).includes('Stop A 1.00 mm') && texts(ab).includes('Stop A'), 'equal radii, differing labels: the first label alone: ' + texts(ab));
+  const empty = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: '' } }, { series, circle: { radius: 2, label: '' } }], unit: 'mm' });
+  assert.ok(!texts(empty).includes(''), 'an empty label with differing radii adds no caption text: ' + JSON.stringify(texts(empty)));
+  const noLine = (svg) => !texts(svg).some((t) => !t.trim() || t === '1.00 mm');
+  const emptyEq = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: '' } }, { series, circle: { radius: 1, label: '' } }], unit: 'mm' });
+  assert.ok(noLine(emptyEq), 'an empty label at equal radii adds no caption line: ' + JSON.stringify(texts(emptyEq)));
+  const blank = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: ' ' } }, { series, circle: { radius: 2, label: ' ' } }], unit: 'mm' });
+  assert.ok(noLine(blank), 'a blank label adds no caption line: ' + JSON.stringify(texts(blank)));
+});
+
 // #275 (CR #270): the caption is one line per active setting, inside the figure; stats at 3 significant digits; centroid default for the sample.
 // oracle: property: each caption line's estimated width (6 px a character, as layout2D estimates) <= the viewBox width; radii equal at 3 digits print once.
 test('caption lines and stats labels', async () => {
@@ -274,8 +307,116 @@ test('caption lines and stats labels', async () => {
   assert.ok(mixed.includes('Airy circle') && !mixed.some((t) => /^Airy radius/.test(t)), 'mixed panels say Airy circle: ' + mixed);
   const cross = texts(ELEO.spot({ panels: [{ series: [{ points: [[3, 0], [-3, 0], [0, 4], [0, -4]] }] }], unit: 'µm' }));
   assert.ok(cross.includes('GEO 4.00 µm') && cross.includes('RMS 3.54 µm'), 'three significant digits: ' + cross);
+  // #278: no exponent at 999.6 or below 1e-6, and the shared-radius check compares what the caption prints.
+  const edge = texts(ELEO.spot({ panels: [{ series: pts, airy: 999.6 }], unit: 'µm' }));
+  assert.ok(edge.includes('Airy radius 1000 µm'), '999.6 prints 1000: ' + edge);
+  const tiny = texts(ELEO.spot({ panels: [{ series: [{ points: [[4e-7, 0], [-4e-7, 0]] }], airy: 4e-7 }], unit: 'mm' }));
+  assert.ok(!tiny.some((t) => /\de[+-]?\d/.test(t)), 'no exponent below 1e-6: ' + tiny);
+  assert.ok(tiny.includes('±0.0000004 mm'), 'the half label has no exponent: ' + tiny);
+  const radii = texts(ELEO.spot({ panels: [{ series: pts, airy: 1231, circle: { radius: 1231, label: 'X' } }, { series: pts, airy: 1234, circle: { radius: 1234, label: 'X' } }], unit: 'µm' }));
+  assert.ok(radii.includes('Airy circle') && !radii.some((t) => /^Airy radius/.test(t)), '1231 and 1234 differ as printed: ' + radii);
+  assert.ok(radii.includes('X') && !radii.some((t) => /^X \d/.test(t)), 'nor does the circle line share them: ' + radii);
+  // #473: a value below 1e-100 prints as 0, not 100 digits.
+  const deep = texts(ELEO.spot({ panels: [{ series: pts, airy: 1e-200 }], unit: 'mm' }));
+  assert.ok(deep.includes('Airy radius 0 mm'), '1e-200 prints 0: ' + deep);
+  assert.ok(deep.every((t) => t.length <= 40), 'no caption line longer than 40 characters: ' + deep);
   const small = ELEO.spot({ panels: [{ series: pts, airy: 2.87 }], height: 60 });
   const Hs = +/viewBox="0 0 [\d.]+ ([\d.]+)/.exec(small)[1];
   const tys = [...small.matchAll(/<text[^>]*\by="([\d.]+)"/g)].map((m) => +m[1]);
   assert.ok(tys.length && tys.every((y) => y < Hs), `every text y inside the viewBox height ${Hs}: ${tys}`);
+});
+
+// Plan #464 (agent_docs/plans/464-beam-footprint.md), outcome O1 (issue #465; #469 unskips).
+// oracle: fixture: recorded phos-core BeamFootprint of the Cooke triplet (scripts/record-phos-core.py)
+// The shapes this test assumes:
+//  - tests/fixtures/phos-core/cooke-footprint.json: header semiDiameter (mm); per source rec.sources[i]: points[w] (alive rays, [x, y] in the stop's local mm).
+//  - ELEOAdapters.footprint(rec) returns { unit: 'mm', panels: [{ series: [{ points, index }], circle: { radius, label } }] }, one panel.
+//  - ELEO.spot draws a panel's `circle` as a <circle r="…"> in the matrix <g>, in data units, like `airy`.
+test('recorded footprint round trip (U7)', async () => {
+  await import('../fixtures/phos-core/adapters.js');
+  const { ELEOAdapters } = globalThis;
+  assert.ok(ELEOAdapters && typeof ELEOAdapters.footprint === 'function', 'adapters.js assigns globalThis.ELEOAdapters.footprint');
+  const rec = fixture('cooke-footprint');
+  const { panels, unit, scale: given } = ELEOAdapters.footprint(rec);
+  const R = rec.semiDiameter;
+  assert.ok(R > 0 && Number.isFinite(R), 'the recording carries a semi-diameter');
+  assert.equal(panels.length, 1, 'one panel');
+  assert.equal(panels[0].circle.radius, R, 'the circle is the recorded semi-diameter');
+  // The series are the recording's: a series per field, index = field, the points of exactly one wavelength verbatim (mm).
+  assert.equal(panels[0].series.length, rec.sources.length, 'a series per field');
+  panels[0].series.forEach((s, i) => {
+    assert.equal(s.index, i, `series ${i}: index is the field`);
+    assert.ok(s.points.length > 0, `series ${i}: not empty`);
+    const same = (pts) => pts.length === s.points.length && pts.every(([x, y], j) => x === s.points[j][0] && y === s.points[j][1]);
+    const match = rec.sources[i].points.filter(same);
+    assert.equal(match.length, 1, `series ${i}: the points of exactly one recorded wavelength, verbatim in mm`);
+  });
+  for (const scale of ['common', 'auto']) {
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.spot({ panels, scale: given ?? scale, unit, width, height, showStats: false, showAiry: false });
+      const label = `${scale} ${width}px`;
+      const [g] = panelGroups(svg);
+      assert.ok(g, `${label}: a panel is drawn`);
+      const [a, b, c, d] = g.M;
+      assert.ok(Math.abs(b) < 1e-9 && Math.abs(c) < 1e-9 && Math.abs(Math.abs(a) - Math.abs(d)) <= 1e-9 * Math.abs(a), `${label}: one scale on both axes`);
+      assert.equal(g.paths.length, panels[0].series.length, `${label}: one path per series`);
+      panels[0].series.forEach((s, k) => {
+        const drawn = g.paths[k].flat();
+        assert.equal(drawn.length, s.points.length, `${label} series ${k}: every alive point drawn`);
+        s.points.forEach((pt, i) => {
+          const [ex, ey] = toPx(g.M, pt), [gx, gy] = toPx(g.M, toData(g.M, toPx(g.M, drawn[i])));
+          assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${label} series ${k} point ${i} within ${TOL_PX} px`);
+          assert.ok(Math.hypot(...pt) <= R * (1 + 1e-4), `${label} series ${k} point ${i} lies within the semi-diameter`);
+        });
+      });
+      const r = /<circle\b[^>]*\br="([\d.eE+\-]+)"/.exec(svg);
+      assert.ok(r, `${label}: the semi-diameter circle is drawn`);
+      assert.ok(Math.abs(Math.abs(a) * (+r[1] - R)) <= TOL_PX, `${label}: the circle's radius maps to the semi-diameter within ${TOL_PX} px`);
+    }
+  }
+});
+
+// oracle: property: the docs state the rule spot.js follows (labelled circle's cases)
+test('circle caption rule stated alike in index.d.ts and README', async () => {
+  const { readFileSync } = await import('node:fs');
+  const dts = readFileSync(new URL('../../packages/plots/src/index.d.ts', import.meta.url), 'utf8');
+  const readme = readFileSync(new URL('../../packages/plots/README.md', import.meta.url), 'utf8');
+  const jsdoc = dts.split('\n').find((l, i, a) => /^\s*circle\??:/.test(a[i + 1] || '') && l.includes('/**'));
+  const bullet = readme.split('\n').find((l) => l.startsWith('- **`panels`:**') && l.includes('circle: { radius, label }'));
+  assert.ok(jsdoc, 'SpotPanel.circle JSDoc found');
+  assert.ok(bullet, 'panels bullet found');
+  for (const [name, text] of [['index.d.ts', jsdoc], ['README', bullet]]) {
+    assert.match(text, /labels? (all )?agree/, `${name}: the shared line needs the labels to agree`);
+    assert.match(text, /empty, blank or missing/, `${name}: no line for an empty, blank or missing label`);
+  }
+});
+
+// #501 (CR #502): textScale multiplies spot's text and the layout around it; a missing or unusable value draws today's markup.
+// oracle: property: the class sizes are read from plots.css (.eleo-tick, .eleo-val); layout is 18 under the plot, 15 per line, 28 foot
+test('text scale', async () => {
+  const base = { panels: [{ title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], airy: 2.87, notes: ['n1'] }], unit: 'µm', reference: 'centroid', width: 300 };
+  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ y: +/\by="([\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
+  const css = (await import('node:fs')).readFileSync(new URL('../../packages/plots/src/plots.css', import.meta.url), 'utf8');
+  const px = (cls) => +new RegExp(`\\.${cls}\\s*\\{\\s*font:\\s*[\\w-]+\\s+([\\d.]+)px`).exec(css)[1];
+  const size = { 'eleo-tick': px('eleo-tick'), 'eleo-val': px('eleo-val') };
+  const full = ELEO.spot(base), half = ELEO.spot({ ...base, textScale: 0.5 });
+  const a = texts(full), b = texts(half);
+  assert.equal(a.length, b.length);
+  const plotBottom = a[0].y - 18;
+  b.forEach((t, i) => {
+    assert.ok(t.size, `text ${i} has an inline style font-size`);
+    assert.equal(+t.size[1], size[t.cls] / 2, `text ${i} font size is half the class's`);
+    assert.ok(Math.abs((t.y - plotBottom) - (a[i].y - plotBottom) / 2) < 1e-9, `text ${i} sits half as far under the plot`);
+  });
+  const hOf = (m) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(m)[1];
+  // RMS, GEO and one note (3 lines) and 3 caption lines: the foot's scaled part is 28 + 15 * (3 + 3) = 118; the 1 stays.
+  assert.ok(Math.abs((hOf(full) - hOf(half)) - 118 / 2) < 1e-9, 'the viewBox height shrinks by the scaled foot');
+  for (const v of [undefined, 1, NaN, 0, -1, Infinity, 'x']) assert.equal(ELEO.spot({ ...base, textScale: v }), ELEO.spot(base), `textScale ${String(v)} changes nothing`);
+  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const sm = texts(ELEO.spot({ data: sample, textScale: 0.5 }));
+  assert.ok(sm.length > 0 && sm.every((t) => t.size && +t.size[1] === size[t.cls] / 2), 'the sample call draws half-size inline font sizes');
+  assert.equal(ELEO.spot({ data: sample, textScale: 1 }), ELEO.spot({ data: sample }), 'the sample call at 1 is unchanged');
+  const nar = { panels: base.panels, origin: 'a rather long origin name for the reference caption line that is wide', reference: 'chief' };
+  const wOf = (m) => +/viewBox="0 0 ([\d.]+) /.exec(m)[1];
+  assert.ok(wOf(ELEO.spot({ ...nar, textScale: 0.5 })) < wOf(ELEO.spot(nar)), 'the caption width estimate shrinks');
 });

@@ -14,7 +14,7 @@ const panelled: CurvePlotProps = {
 const html: string = curve(panelled);
 
 const dots: SpotSeries = { points: [[0.1, -0.2], [0.3, 0.4]], index: 0 };
-const panel: SpotPanel = { title: '0.0°', series: [dots], airy: 2.4 };
+const panel: SpotPanel = { title: '0.0°', series: [dots], airy: 2.4, circle: { radius: 3, label: 'Semi-diameter' } };
 const spots: SpotDiagramProps = {
   panels: [panel],
   origin: 'chief ray',
@@ -26,6 +26,7 @@ const spots: SpotDiagramProps = {
   unit: 'µm',
   label: 'Spot diagrams',
   width: 300,
+  textScale: 0.5,
 };
 const svg: string = spot(spots);
 
@@ -39,3 +40,4 @@ const sampled: string = spot({ colorBy: 'field', showStats: false, reference: 'c
 // @ts-expect-error the sample call ignores a label (spotPanels hard-codes it)
 spot({ colorBy: 'field', label: 'x' });
 export { html, svg, sampled };
+const scaled: string = spot({ colorBy: 'field', textScale: 0.5 });

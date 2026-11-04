@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // The gallery's tile count.
-const TILES = 26;
+const TILES = 27;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -53,7 +53,7 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 
 // Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
 // tile doesn't blank the others. The 404 and the gallery's own report of it are the expected console errors.
-for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain']], ['psf', 'cooke', ['psf-recorded', 'psf-log']], ['wavefront', 'cooke', ['wavefront-recorded']]]) {
+for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain']], ['psf', 'cooke', ['psf-recorded', 'psf-log']], ['wavefront', 'cooke', ['wavefront-recorded']], ['footprint', 'cooke', ['footprint']]]) {
   test(`a missing phos-core fixture blanks only its tiles: ${lens === 'achromat' ? '' : lens + ' '}${fixture}`, async ({ page }) => {
     const thrown = [];
     page.on('pageerror', (e) => thrown.push(e.message));
@@ -72,6 +72,66 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
     }
   });
 }
+
+// Plan #464, CR #499, #500, #502, #503, #507, #508: the footprint tile's bottom text is at the meta's size, the plot keeps #497's size, the text sits close to the plot, and the header key ends at the plot frame's right edge.
+// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame is 447 px wide within 1%; the first text baseline is at most 2.2 times that size below the frame, and consecutive baselines at most 2.2 times apart; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%; at 1440, 1100 and 700 px the .eleo-plot__key's right edge is within 4 px of the frame's right edge (the header and the body share the same 12 px right padding and the tile's border, so they cancel; the gap is the frame's own inset, measured 1.5 / 2.4 / 1.5 px).
+test('the footprint tile text is at the meta size with the plot unchanged and the text close to it', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const at = async (width) => {
+      await page.setViewportSize({ width, height: 900 });
+      return page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"]`).evaluate((t) => {
+        const svg = t.querySelector('svg');
+        const side = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().width;
+        const ticks = [...svg.querySelectorAll('.eleo-tick')];
+        const sizes = ticks.map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a);
+        const frame = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().bottom;
+        const base = (x) => +x.getAttribute('y') * x.getScreenCTM().d + x.getScreenCTM().f;
+        const bs = [...new Set(ticks.map(base))].sort((a, b) => a - b);
+        const gaps = [bs[0] - frame].concat(bs.slice(1).map((v, i) => v - bs[i]));
+        const key = t.querySelector('.eleo-plot__key').getBoundingClientRect().right;
+        const keyGap = Math.abs(t.querySelector('svg rect[rx="3"]').getBoundingClientRect().right - key);
+        return { keyGap, n: ticks.length, sizes, side, gaps, meta: parseFloat(getComputedStyle(t.querySelector('.eleo-plot__meta')).fontSize), ratio: sizes.map((s) => s / side) };
+      });
+    };
+    const w = await at(1440);
+    expect(w.n, `${theme} footprint ticks`).toBeGreaterThan(0);
+    for (const s of w.sizes) expect(Math.abs(s - w.meta), `${theme} tick ${s}px vs meta ${w.meta}px`).toBeLessThanOrEqual(1);
+    expect(Math.abs(w.side / 447 - 1), `${theme} plot side ${w.side}px vs 447`).toBeLessThan(0.01);
+    for (const g of w.gaps) expect(g, `${theme} text spacing ${g}px vs 2.2 x ${w.meta}px`).toBeLessThanOrEqual(2.2 * w.meta);
+    // CR #507, #508, #510: the header key ends at the plot frame's right edge. The header and the body share the same 12 px right padding and border, so they cancel; what remains is the frame's own inset (0.5 viewBox units), so the bound is 4 px.
+    expect(w.keyGap, `${theme} key to frame at 1440`).toBeLessThanOrEqual(4);
+    for (const width of [1100, 700]) {
+      const r = await at(width);
+      expect(r.keyGap, `${theme} key to frame at ${width}`).toBeLessThanOrEqual(4);
+      r.ratio.forEach((v, i) => expect(Math.abs(v / w.ratio[i] - 1), `${theme} ${width} ratio`).toBeLessThan(0.01));
+    }
+  }
+});
+
+// Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
+// oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
+test('the footprint tile has a field legend from the recording', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const keys = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"] .eleo-legend .eleo-key`);
+    await expect(keys, `${theme} footprint legend`).toHaveText(['F1 0.0\u00b0', 'F2 17.0\u00b0', 'F3 24.0\u00b0']);
+  }
+});
+
+// Missing fixture: the legend is empty, like the tile. The 404 is the expected console error.
+test('a missing footprint fixture leaves its legend empty', async ({ page }) => {
+  await page.route('**/cooke-footprint.json', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"] .eleo-legend`);
+    await expect(el, `${theme} footprint legend element`).toHaveCount(1);
+    await expect(el).toBeEmpty();
+  }
+});
 
 // Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
 // labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
@@ -109,7 +169,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'irradiance-gaussian', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);

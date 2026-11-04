@@ -407,3 +407,117 @@ print(json.dumps({"ok": wf(64, 64), "dead": wf(64, 64, drop=1), "few": wf(32, 64
   assert.match(out.few, /2048 samples.*expected 4096/, 'half the samples are refused');
   assert.match(out.skew, /spoke/, 'rings whose spokes drift apart are refused');
 });
+
+// Plan #464 work item #467. oracle: phos-core BeamFootprint of the Cooke triplet at its stop (step = stop + 1), the rays alive there,
+// in the stop's local x/y mm through CoordinateFrame(location(), rotation()); semiDiameter = max(w, h, 2 * normalization) / 2.
+test('footprint shape', () => {
+  const f = read('../fixtures/phos-core/cooke-footprint.json');
+  assert.equal(f.analysis, 'footprint');
+  assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/);
+  assert.equal(f.referenceWavelengthNm, 550, 'the reference is one of the recorded wavelengths');
+  assert.ok(Number.isInteger(f.surface) && f.surface >= 0, `surface ${f.surface} is a stop index`);
+  assert.ok(Math.abs(f.semiDiameter - 8.99687) < 1e-4, `Cooke stop semi-diameter ${f.semiDiameter}`);
+  assert.equal(f.sources.length, 3);
+  f.sources.forEach((s, i) => {
+    assert.ok(Math.abs(s.fieldAngleDeg - [0, 17, 24][i]) < 0.05, `source ${i} field ${s.fieldAngleDeg}`);
+    assert.deepEqual(s.wavelengths.map(Math.round), [450, 550, 650], `source ${i} wavelengths`);
+    assert.equal(s.points.length, 3, 'points by wavelength');
+    let max = 0;
+    for (const pw of s.points) {
+      assert.ok(pw.length > 0, `source ${i}: alive points`);
+      for (const [x, y] of pw) {
+        assert.ok(Number.isFinite(x) && Number.isFinite(y));
+        max = Math.max(max, Math.hypot(x, y));
+      }
+    }
+    assert.ok(Math.abs(max - s.maxRadius) <= 1e-5 * s.maxRadius, `source ${i}: maxRadius ${s.maxRadius} vs points ${max}`);
+    assert.ok(s.maxRadius <= f.semiDiameter * (1 + 1e-4), `source ${i}: inside the stop`);
+  });
+});
+
+// The recorder's refusals for footprint(), on stand-ins for phos-core.
+test('footprint recorder guards', () => {
+  const py = String.raw`
+import importlib.util, json, math, tempfile
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("rec", "scripts/record-phos-core.py")
+rec = importlib.util.module_from_spec(spec); spec.loader.exec_module(rec)
+
+class Rect:
+    def __init__(self, w, h): self.width, self.height = w, h
+class Ap:
+    def __init__(self, w, h, n): self.w, self.h, self.n = w, h, n
+    def extent(self): return Rect(self.w, self.h)
+    def normalization(self): return self.n
+class Itf:
+    ap = Ap(10.0, 10.0, 5.0)
+    def aperture(self): return Itf.ap
+    def location(self): return [0.0, 0.0, 3.0]
+    def rotation(self): return [0.0, 0.0, 0.0, 1.0]
+class Em:
+    def wavelength(self): return 0.55
+class Boundary:
+    def rotation(self): return (0.0, 0.0, 0.0, 1.0)
+class Src:
+    def boundary(self): return Boundary()
+    def emission_data(self): return [Em()]
+class Sys:
+    stop = 0
+    ref = 0.55
+    def aperture_stop_index(self): return Sys.stop
+    def reference_wavelength(self): return Sys.ref
+class Model:
+    def system(self, i): return Sys()
+    def interfaces(self, i): return [Itf()]
+    def sources(self, i): return [Src()]
+class Frame:
+    def __init__(self, loc, rot, flip): self.loc = loc
+    def inverse_transform_point_optical(self, p): return [p[0] - self.loc[0], p[1] - self.loc[1], p[2] - self.loc[2]]
+class Alive: pass
+class Dead: pass
+class RayStatus:
+    ALIVE = Alive
+class FP:
+    xs = [1.0, 4.0]
+    def num_steps(self): return 2
+    def locations(self, step): return [[x, 0.0, 3.0] for x in FP.xs] + [[50.0, 0.0, 3.0]]
+    def statuses(self, step): return [Alive() for _ in FP.xs] + [Dead()]
+class S:
+    def __getattr__(self, name):
+        if name.startswith("set_"): return lambda *a: None
+        raise AttributeError(name)
+    def run(self, model): return [FP()]
+class Phos:
+    BeamFootprintSettings = S
+    CoordinateFrame = Frame
+    RayStatus = RayStatus
+
+def go(stop=0, ap=(10.0, 10.0, 5.0), xs=(1.0, 4.0), ref=0.55):
+    Sys.stop, Itf.ap, FP.xs, Sys.ref = stop, Ap(*ap), list(xs), ref
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            rec.footprint(Phos, Model(), Path(d), {})
+            return json.loads((Path(d) / "cooke-footprint.json").read_text())
+        except SystemExit as e: return str(e)
+ok = go()
+print(json.dumps({
+  "ok": ok,
+  "noStop": go(stop=None), "zero": go(ap=(0.0, 0.0, 0.0)), "nan": go(ap=(float("nan"), 1.0, 1.0)),
+  "outside": go(xs=(1.0, 5.0012)), "edge": go(xs=(1.0, 5.0004)), "badRef": go(ref=0.6), "noRef": go(ref=None),
+}))
+`;
+  const r = spawnSync('python3', ['-B', '-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.ok.semiDiameter, 5, 'max(w, h, 2 * norm) / 2');
+  assert.deepEqual(out.ok.sources[0].points, [[[1, 0], [4, 0]]], 'the dead ray is dropped, local x/y');
+  assert.equal(out.ok.sources[0].maxRadius, 4);
+  assert.match(out.noStop, /footprint: .*stop/, 'no aperture stop is refused');
+  assert.match(out.zero, /footprint: .*semi-diameter/, 'a zero semi-diameter is refused');
+  assert.match(out.nan, /footprint: .*semi-diameter/, 'a non-finite semi-diameter is refused');
+  assert.match(out.outside, /footprint: alive point .* beyond the semi-diameter/, 'an alive point beyond the stop is refused');
+  assert.match(out.badRef, /footprint: reference wavelength 600(\.0)? nm/, 'a reference that was not recorded is refused');
+  assert.match(out.noRef, /footprint: .*reference wavelength/, 'no reference wavelength is refused');
+  assert.equal(out.ok.referenceWavelengthNm, 550);
+  assert.equal(typeof out.edge, 'object', 'within the 1e-4 ray-aiming tolerance passes');
+});
