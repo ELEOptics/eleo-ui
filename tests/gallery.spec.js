@@ -486,7 +486,9 @@ test('layouts stay inside the viewBox (#117)', async ({ page }) => {
 
 // Plan #144, O3, issue #145: on a page with only tokens.css, layout2D's texts look as `.eleo-tick` does under
 // plots.css. oracle: spec plots.css .eleo-tick (plots.css:127), through a bare <svg><text class="eleo-tick"> that
-// layout2D didn't draw, on a page loading tokens.css and plots.css.
+// layout2D didn't draw, on a page loading tokens.css and plots.css, for fontFamily, fontWeight and fill. The size is
+// ADR-0003's on purpose (plan #512, #518): fontSize is layoutText(width) for the fixture's drawing (1000 px), closed-form,
+// not the class's 10 px.
 test('standalone label style (#112)', async ({ page }) => {
   const props = (el) => { const c = getComputedStyle(el); return { fontFamily: c.fontFamily, fontSize: c.fontSize, fontWeight: c.fontWeight, fill: c.fill }; };
   await page.goto('/tests/fixtures/standalone-layout.html');
@@ -504,7 +506,9 @@ test('standalone label style (#112)', async ({ page }) => {
       document.body.insertAdjacentHTML('beforeend', '<svg id="bare"><text class="eleo-tick">10 mm</text></svg>');
     }));
     const bare = await ref.locator('#bare text').evaluate(props);
-    expect(drawn).toEqual(bare);
+    const { fontSize, ...rest } = drawn, { fontSize: _bare, ...bareRest } = bare;
+    expect(rest).toEqual(bareRest);
+    expect(parseFloat(fontSize)).toBeCloseTo(layoutText(1000), 2);
   } finally {
     await ref.close();
   }
