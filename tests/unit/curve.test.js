@@ -210,7 +210,7 @@ test('aria-label escapes labels once', () => {
 test('caller ticks in exponent notation keep their decimals', () => {
   const xTexts = (ticks, hi) => {
     const svg = ELEO.curve({ series: [{ points: [[0, 0], [hi, 1]], role: 'reference' }], x: { range: [0, hi], ticks }, y: { range: [0, 1], ticks: [0] } });
-    return [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
+    return [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle"(?: style="[^"]*")?>([^<]*)<\/text>/g)].map((m) => m[1]);
   };
   assert.deepEqual(xTexts([0, 1e-7, 2e-7], 2e-7), ['0.0000000', '0.0000001', '0.0000002']);
   assert.deepEqual(xTexts([0, 1e-10, 2e-10], 2e-10), ['0.0000000000', '0.0000000001', '0.0000000002']);
@@ -219,13 +219,13 @@ test('caller ticks in exponent notation keep their decimals', () => {
 
 test('caller ticks given as strings draw', () => {
   const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], role: 'reference' }], x: { range: [0, 1], ticks: ['0', '0.5'] }, y: { range: [0, 1], ticks: [0] } });
-  const texts = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
+  const texts = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle"(?: style="[^"]*")?>([^<]*)<\/text>/g)].map((m) => m[1]);
   assert.deepEqual(texts, ['0.0', '0.5']);
 });
 
 test('caller ticks print exactly at a shared precision', () => {
   const svg = ELEO.curve({ series: [{ points: [[0, 0], [3, 1]], role: 'reference' }], x: { range: [0, 3], ticks: [0, 1.5, 3] }, y: { range: [0, 1], ticks: [0] } });
-  const texts = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)].map((m) => m[1]);
+  const texts = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle"(?: style="[^"]*")?>([^<]*)<\/text>/g)].map((m) => m[1]);
   assert.deepEqual(texts, ['0.0', '1.5', '3.0']);
 });
 
@@ -275,34 +275,37 @@ test('string ranges draw as numbers', () => {
 });
 
 // user plan #162 M1 demo
-test('every role draws a 1 px stroke', () => {
+test('every role draws a stroke of ADR-0003 weight', () => {
   const pts = [[0, 0], [1, 1]];
   for (const role of ['tangential', 'sagittal', 'reference', undefined]) {
     const svg = ELEO.curve({ series: [{ points: pts, role }], x: { range: [0, 1] }, y: { range: [0, 1] } });
-    const widths = [...svg.matchAll(/<polyline[^>]*\sstroke-width="([^"]*)"/g)].map((m) => m[1]);
-    assert.deepEqual(widths, ['1'], String(role));
+    const widths = [...svg.matchAll(/<polyline[^>]*\sstroke-width="([^"]*)"/g)].map((m) => +m[1]);
+    const F = frame(svg).pw, w = F > 234 ? Math.sqrt(F / 234) : 1; // oracle: ADR-0003, weight 1 up to F = 234, then sqrt(F / 234)
+    assert.equal(widths.length, 1, String(role));
+    assert.ok(Math.abs(widths[0] - w) <= 0.01, `${role}: ${widths[0]} against ${w}`);
   }
 });
 
-// CR #212: the right margin grows to half the last x label's width (6 px a character, as layout2D estimates)
+// CR #212: the right margin grows to half the last x label's width (0.6 em a character, ADR-0003: half is 0.3 text units a character, at least 1.2)
 test('x tick labels stay inside the viewBox', () => {
   const W = 460, series = [{ points: [[-0.004, 0], [0, 1]], index: 0 }];
   const svg = ELEO.curve({ series, x: { range: [-0.004, 0], ticks: [-0.004, 0] }, y: { range: [0, 1] }, width: W, height: 300 });
-  const labels = [...svg.matchAll(/<text class="eleo-tick" x="([\d.]+)" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)]
-    .map((m) => ({ cx: +m[1], half: 3 * [...m[2]].length }));
+  const labels = [...svg.matchAll(/<text class="eleo-tick" x="([\d.]+)" y="[\d.]+" text-anchor="middle" style="font-size:([\d.]+)px">([^<]*)<\/text>/g)]
+    .map((m) => ({ cx: +m[1], half: 0.3 * +m[2] * [...m[3]].length }));
   assert.equal(labels.length, 2);
   for (const l of labels) {
     assert.ok(l.cx + l.half <= W + 1e-6, `label centred at ${l.cx} with half-width ${l.half} fits in ${W}`);
     assert.ok(l.cx - l.half >= 0);
   }
-  // a range ending at 400: "400" needs 9 px, so the margin stays 12
+  // a range ending at 400: "400" needs 0.9 text units, so the margin stays 1.2
   const s2 = ELEO.curve({ series: [{ points: [[0, 0], [400, 1]], index: 0 }], x: { range: [0, 400], ticks: [0, 200, 400] }, y: { range: [0, 1] }, width: W, height: 300 });
   const box = /<svg\b[^>]*\bx="([\d.]+)"[^>]*\bwidth="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(s2);
-  assert.equal(+box[1] + +box[2], W - 12);
+  const t2 = +/style="font-size:([\d.]+)px"/.exec(s2)[1];
+  assert.ok(Math.abs(+box[1] + +box[2] - (W - 1.2 * t2)) <= 0.01);
   // ticks in descending order: the margin follows the largest shown tick, "10000" (half-width 15), not the last in array order
   const s3 = ELEO.curve({ series: [{ points: [[0, 0], [10000, 1]], index: 0 }], x: { range: [0, 10000], ticks: [10000, 0] }, y: { range: [0, 1] }, width: W, height: 300 });
-  const l3 = [...s3.matchAll(/<text class="eleo-tick" x="([\d.]+)" y="[\d.]+" text-anchor="middle">([^<]*)<\/text>/g)]
-    .map((m) => ({ cx: +m[1], half: 3 * [...m[2]].length }));
+  const l3 = [...s3.matchAll(/<text class="eleo-tick" x="([\d.]+)" y="[\d.]+" text-anchor="middle" style="font-size:([\d.]+)px">([^<]*)<\/text>/g)]
+    .map((m) => ({ cx: +m[1], half: 0.3 * +m[2] * [...m[3]].length }));
   assert.equal(l3.length, 2);
   for (const l of l3) assert.ok(l.cx + l.half <= W + 1e-6, `label centred at ${l.cx} with half-width ${l.half} fits in ${W}`);
 });
@@ -600,4 +603,32 @@ test('unknown roles and bad indexes throw (#199)', () => {
   assert.equal(idx(-1), idx(7));
   assert.equal(idx(-9), idx(7));
   assert.equal(idx(8), idx(0));
+});
+
+// Plan #512, issue #517. oracle: closed-form ADR-0003 (frameOf's F + m * t(F) = W, margins in text units 4.6 left, 3.6 bottom, 2.6 top, the right one 1.2 or 0.3 a character of the widest x label)
+test('text and margins follow ADR-0003', async () => {
+  const { frameText, frameWeight, frameOf } = await import('../../packages/plots/src/scale.js');
+  const series = [{ points: [[0, 0], [1, 2], [2, 1]], index: 0, role: 'tangential' }];
+  const input = { series, x: { label: 'Frequency', unit: 'cy/mm', range: [0, 2], ticks: [0, 1, 2] }, y: { label: 'Modulus', range: [0, 2], ticks: [0, 1, 2] } };
+  const near = (a, b, msg) => assert.ok(Math.abs(a - b) <= 0.01, `${msg}: ${a} against ${b}`);
+  const m = 4.6 + 1.2;
+  for (const W of [200, 300, 460, 1200]) {
+    const svg = ELEO.curve({ ...input, width: W });
+    const rect = /<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="none" stroke="var\(--plot-grid\)"\/>/.exec(svg);
+    const [L, T, F, ph] = rect.slice(1).map(Number), t = frameText(F);
+    near(F, frameOf(W, m), `${W}: frame width is frameOf`);
+    near(F + m * t, W, `${W}: F + m t = W`);
+    near(L, 4.6 * t, `${W}: left margin`);
+    near(T, 2.6 * t, `${W}: top margin`);
+    near(T + ph + 3.6 * t, W * 260 / 460, `${W}: a missing height is 260/460 of the width, bottom margin 3.6 t`);
+    const sizes = [...svg.matchAll(/<text\b[^>]*>/g)].map((x) => /style="font-size:([\d.]+)px"/.exec(x[0]));
+    assert.ok(sizes.length >= 8 && sizes.every(Boolean), `${W}: every text carries an inline size`);
+    sizes.forEach((s) => near(+s[1], t, `${W}: text size`));
+    const widths = [...svg.matchAll(/<polyline\b[^>]*\bstroke-width="([\d.]+)"/g)].map((x) => +x[1]);
+    assert.equal(widths.length, 1);
+    near(widths[0], frameWeight(F), `${W}: series stroke`);
+  }
+  // the frame height clamps to 1
+  const flat = ELEO.curve({ ...input, width: 300, height: 20 });
+  assert.match(flat, /<rect [^>]*height="1" fill="none" stroke="var\(--plot-grid\)"/);
 });

@@ -2,16 +2,17 @@ import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
+import { frameText, frameWeight, frameOf } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
 
-/* Role to style (ADR-0001). Callers give a role and an index, never a color, font or stroke width. */
-function roleStyle(s) {
+/* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). */
+function roleStyle(s, wt) {
   var r = s.role, i = s.index === undefined ? 0 : s.index;
   if (r !== undefined && r !== "tangential" && r !== "sagittal" && r !== "reference" && r !== "limit") throw new TypeError('curve: unknown role "' + r + '"');
   if (typeof i !== "number" || !isFinite(i) || Math.floor(i) !== i || i < 0) throw new TypeError("curve: index must be a non-negative integer");
-  if (r === "reference") return { col: "var(--ink)", dash: "1 3", w: 1, cap: "round" };
+  if (r === "reference") return { col: "var(--ink)", dash: "1 3", w: wt, cap: "round" };
   if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: 1, cap: "butt", fill: "var(--ink)", fillOpacity: 0.06 };
-  return { col: idx(i), dash: r === "sagittal" ? "5 3" : "", w: 1, cap: "round" };
+  return { col: idx(i), dash: r === "sagittal" ? "5 3" : "", w: wt, cap: "round" };
 }
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */
@@ -39,8 +40,8 @@ function seriesPath(pts) {
   flush();
   return d;
 }
-function seriesMarkup(s, panel) {
-  var st = roleStyle(s), pts = s.points || [];
+function seriesMarkup(s, panel, wt) {
+  var st = roleStyle(s, wt), pts = s.points || [];
   var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
   if (panel) return '<path d="' + seriesPath(pts) + '"' + attrs;
   return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;
@@ -55,23 +56,27 @@ export function scales(o, groups, panel) {
   var xr = axisRange(x, [].concat.apply(limitValues(lim, "x"), all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
   var yr = axisRange(y, [].concat.apply(limitValues(lim, "y"), all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
   var xt = axisTicks(x, xr), yt = axisTicks(y, yr);
-  /* The right margin: 12 px, or half the rightmost shown x label's width (6 px a character, as layout2D estimates) when that is more. */
-  var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), R = 12;
-  if (shown.length) R = Math.max(R, 3 * Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length);
-  return { xr: xr, yr: yr, xt: xt, yt: yt, R: R };
+  /* The right margin: 12 px (1.2 text units), or half the rightmost shown x label's width (6 px a character, as layout2D estimates) when that is more. */
+  var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), R = 12, Rt = 1.2, n = 0;
+  if (shown.length) { n = Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length; R = Math.max(R, 3 * n); Rt = Math.max(Rt, 0.3 * n); }
+  /* R in px for the fixed-margin renderers (bars, map2D); Rt the same room in text units (0.6 em a character, halved) for curve. */
+  return { xr: xr, yr: yr, xt: xt, yt: yt, R: R, Rt: Rt };
 }
 /* The frame's left and bottom margins in px; bars reads them to place its category labels. */
 export var PLOT_L = 46, PLOT_B = 36, PLOT_T = 26;
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
-export function plotCell(sc, series, w, h, T, panel, body, limits) {
-  var L = PLOT_L, Bm = PLOT_B, ph = h - T - Bm, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
-  var pw = w - L - sc.R, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
+/* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
+export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
+  mg = mg || { L: PLOT_L, B: PLOT_B, R: sc.R };
+  var L = mg.L, Bm = mg.B, ph = Math.max(1, h - T - Bm), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
+  var u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
+  var pw = Math.max(1, w - L - mg.R), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
   g += '<rect x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="none" stroke="var(--plot-grid)"/>';
-  xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + (T + ph) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + X(v) + '" y="' + (T + ph + 13) + '" text-anchor="middle">' + fmt(v, xt.decimals) + "</text>"; });
-  yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + (L + pw) + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + (L - 6) + '" y="' + Y(v) + '" dy="3" text-anchor="end">' + fmt(v, yt.decimals) + "</text>"; });
+  xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + (T + ph) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + X(v) + '" y="' + (T + ph + o(13)) + '" text-anchor="middle"' + ts + '>' + fmt(v, xt.decimals) + "</text>"; });
+  yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + (L + pw) + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + (L - o(6)) + '" y="' + Y(v) + '" dy="' + o(3) + '" text-anchor="end"' + ts + '>' + fmt(v, yt.decimals) + "</text>"; });
   if (xr[0] < 0 && xr[1] > 0) g += '<line x1="' + X(0) + '" y1="' + T + '" x2="' + X(0) + '" y2="' + (T + ph) + '" stroke="var(--plot-axis)"/>';
   if (yr[0] < 0 && yr[1] > 0) g += '<line x1="' + L + '" y1="' + Y(0) + '" x2="' + (L + pw) + '" y2="' + Y(0) + '" stroke="var(--plot-axis)"/>';
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
@@ -79,12 +84,12 @@ export function plotCell(sc, series, w, h, T, panel, body, limits) {
   g += '<svg x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"><g transform="matrix(' + M.join(" ") + ')">';
   if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
   g += "</g></svg>";
-  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: L + pw, top: T });
+  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: L + pw, top: T }).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
 }
 /* The `limit` role's style, as attributes for a line and for a band. */
 export function limitStyle() {
-  var st = roleStyle({ role: "limit" });
+  var st = roleStyle({ role: "limit" }, 1);
   return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
 }
 /* A series group's markup with the limits: bands under `inner`, lines over it. */
@@ -92,25 +97,33 @@ export function limitBody(limits, sc, inner) {
   var m = limitMarks(limits, sc.xr, sc.yr, limitStyle());
   return m.under + inner + m.over;
 }
+/* ADR-0003's margins in text units: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
+function curveMargins(sc, w) {
+  var F = frameOf(w, 4.6 + sc.Rt), t = frameText(F);
+  return { L: 4.6 * t, B: 3.6 * t, R: sc.Rt * t, t: t, wt: +frameWeight(F).toFixed(3) };
+}
 function typedCurve(o) {
-  var W = o.width || 460, H = o.height || 260, x = o.x || {}, y = o.y || {};
+  var W = o.width || 460, H = o.height || W * 260 / 460, x = o.x || {}, y = o.y || {};
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
-  var labels = function () { return '<text class="eleo-tick" x="' + (W - sc.R) + '" y="' + (H - 4) + '" text-anchor="end">' + lab(x) + '</text><text class="eleo-tick" x="4" y="10">' + lab(y) + "</text>"; };
+  var r2 = function (v) { return +v.toFixed(2); };
+  var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(H - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
   var sc, g = "", lim = checkLimits(o.limits, "curve");
-  var cell = function (series, w, h, T, panel) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel); }).join("")), lim); };
+  var cell = function (series, w, h, T, panel, mg) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel, mg.wt); }).join("")), lim, mg); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
-    var top = 14, cw = W / cols, ch = (H - top) / rows, T = 22;
+    var cw = W / cols;
     sc = scales({ x: x, y: y, limits: lim }, panels.map(function (p) { return p.series || []; }), true);
+    var mg = curveMargins(sc, cw), top = 1.4 * mg.t, ch = (H - top) / rows, T = 2.2 * mg.t;
     panels.forEach(function (p, i) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
-      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="46" y="' + (T - 6) + '">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true) + "</g>";
+      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="' + r2(mg.L) + '" y="' + r2(T - 0.6 * mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true, mg) + "</g>";
     });
-    return svg(W, H, g + labels(), lab(y) + " against " + lab(x) + " plot");
+    return svg(W, H, g + labels(mg), lab(y) + " against " + lab(x) + " plot");
   }
   sc = scales({ x: x, y: y, limits: lim }, [o.series]);
-  g = cell(o.series, W, H, PLOT_T, false) + labels();
+  var m1 = curveMargins(sc, W);
+  g = cell(o.series, W, H, 2.6 * m1.t, false, m1) + labels(m1);
   return svg(W, H, g, lab(y) + " against " + lab(x) + " plot");
 }
 
