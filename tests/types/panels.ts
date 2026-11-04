@@ -26,6 +26,7 @@ const spots: SpotDiagramProps = {
   unit: 'µm',
   label: 'Spot diagrams',
   width: 300,
+  textScale: 0.5,
 };
 const svg: string = spot(spots);
 
@@ -39,3 +40,4 @@ const sampled: string = spot({ colorBy: 'field', showStats: false, reference: 'c
 // @ts-expect-error the sample call ignores a label (spotPanels hard-codes it)
 spot({ colorBy: 'field', label: 'x' });
 export { html, svg, sampled };
+const scaled: string = spot({ colorBy: 'field', textScale: 0.5 });

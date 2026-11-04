@@ -108,6 +108,8 @@ export interface SpotPanelsProps {
   unit?: string;
   /** The SVG's aria-label. Default "Spot diagrams". */
   label?: string;
+  /** Multiplies the font size of every text `spot` draws and the gaps, line pitch, foot and caption width estimate around it. Default 1; a value that is not a finite number above 0 means 1. */
+  textScale?: number;
   width?: number;
   height?: number;
   data?: never;
@@ -132,6 +134,8 @@ export interface SpotSampleProps {
   showStats?: boolean;
   /** Draw each panel's Airy circle. Default true. */
   showAiry?: boolean;
+  /** Multiplies the font size of every text `spot` draws and the gaps, line pitch, foot and caption width estimate around it. Default 1; a value that is not a finite number above 0 means 1. */
+  textScale?: number;
   width?: number;
   height?: number;
   panels?: never;

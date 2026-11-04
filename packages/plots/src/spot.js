@@ -22,7 +22,8 @@ function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
   var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
   var circleOf = function (p) { return p.circle && isFinite(p.circle.radius) && p.circle.radius > 0 ? +p.circle.radius : 0; };
-  var anyStats = false;
+  var anyStats = false, ts = isFinite(o.textScale) && o.textScale > 0 ? +o.textScale : 1;
+  var fs = function (cls) { return ts === 1 ? "" : ' font-size="' + +((cls === "eleo-val" ? 10.5 : 10) * ts).toPrecision(12) + '"'; };
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
     series.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { sx += +q[0]; sy += +q[1]; k++; } }); });
@@ -43,10 +44,10 @@ function typedSpot(o) {
   var line = shared && cl ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
   if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
-  var foot = 28 + 15 * notesMax + 1 + 15 * cap.length, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
+  var foot = (28 + 15 * notesMax + 15 * cap.length) * ts + 1, side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
   if (o.height) side = Math.min(side, o.height - foot - 8);
   side = Math.max(side, 1);
-  var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * Math.max.apply(null, cap.map(function (t) { return t.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
+  var W = o.width || Math.max(n * side + (n - 1) * gap, 6 * ts * Math.max.apply(null, cap.map(function (t) { return t.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
   var ext = panels.map(function (p) { var m = Math.max(airyOf(p), circleOf(p)); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
   var common = isFinite(o.half) && o.half > 0 && isFinite(side / 2 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   panels.forEach(function (p, i) {
@@ -63,11 +64,11 @@ function typedSpot(o) {
     if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
-    var ty = top + side + 18;
-    g += (p.title ? '<text class="eleo-val" x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick" x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
-    (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick" x="' + ox + '" y="' + (ty + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
+    var ty = top + side + 18 * ts;
+    g += (p.title ? '<text class="eleo-val"' + fs("eleo-val") + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + fs() + ' x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
+    (p.notes || []).forEach(function (t, j) { g += '<text class="eleo-tick"' + fs() + ' x="' + ox + '" y="' + (ty + 15 * ts * (j + 1)) + '">' + esc(t) + "</text>"; });
   });
-  cap.forEach(function (t, j) { g += '<text class="eleo-tick" x="0" y="' + (top + side + 18 + 15 * notesMax + 15 * (j + 1)) + '">' + esc(t) + "</text>"; });
+  cap.forEach(function (t, j) { g += '<text class="eleo-tick"' + fs() + ' x="0" y="' + (top + side + 18 * ts + 15 * ts * notesMax + 15 * ts * (j + 1)) + '">' + esc(t) + "</text>"; });
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
 /* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`; RMS and GEO are the renderer's. */
@@ -82,7 +83,7 @@ export function spotPanels(D, o) {
     return p;
   });
   var r = { panels: panels, reference: "centroid", unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height", "origin", "reference", "showStats", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
   return r;
 }
 export function spot(o) {
