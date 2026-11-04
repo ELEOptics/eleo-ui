@@ -103,7 +103,7 @@ function curveMargins(sc, w) {
   return { L: 4.6 * t, B: 3.6 * t, R: sc.Rt * t, t: t, wt: +frameWeight(F).toFixed(3) };
 }
 function typedCurve(o) {
-  var W = o.width || 460, H = o.height || W * 260 / 460, x = o.x || {}, y = o.y || {};
+  var W = o.width || 460, H = o.height || Math.round(W * 260 / 460), x = o.x || {}, y = o.y || {};
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var r2 = function (v) { return +v.toFixed(2); };
   var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(H - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };

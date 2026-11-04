@@ -620,7 +620,7 @@ test('text and margins follow ADR-0003', async () => {
     near(F + m * t, W, `${W}: F + m t = W`);
     near(L, 4.6 * t, `${W}: left margin`);
     near(T, 2.6 * t, `${W}: top margin`);
-    near(T + ph + 3.6 * t, W * 260 / 460, `${W}: a missing height is 260/460 of the width, bottom margin 3.6 t`);
+    near(T + ph + 3.6 * t, Math.round(W * 260 / 460), `${W}: a missing height is 260/460 of the width in whole px, bottom margin 3.6 t`);
     const sizes = [...svg.matchAll(/<text\b[^>]*>/g)].map((x) => /style="font-size:([\d.]+)px"/.exec(x[0]));
     assert.ok(sizes.length >= 8 && sizes.every(Boolean), `${W}: every text carries an inline size`);
     sizes.forEach((s) => near(+s[1], t, `${W}: text size`));
@@ -631,4 +631,22 @@ test('text and margins follow ADR-0003', async () => {
   // the frame height clamps to 1
   const flat = ELEO.curve({ ...input, width: 300, height: 20 });
   assert.match(flat, /<rect [^>]*height="1" fill="none" stroke="var\(--plot-grid\)"/);
+});
+
+// Plan #512, issue #540, CR #538. oracle: spec (CR #538): an auto-height SVG lays out at scale 1 in a box of its own width, so its height is whole px
+test('default heights are whole px', async () => {
+  const { rayFan } = await import('../../packages/plots/src/fan.js');
+  const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const series = [{ points: [[0, 0], [1, 2], [2, 1]], index: 0, role: 'tangential' }];
+  const input = { series, x: { label: 'Frequency', unit: 'cy/mm', range: [0, 2], ticks: [0, 1, 2] }, y: { label: 'Modulus', range: [0, 2], ticks: [0, 1, 2] } };
+  const h = (svg) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1];
+  for (const W of [300.6, 461, 999.9]) {
+    const v = h(ELEO.curve({ ...input, width: W }));
+    assert.ok(Number.isInteger(v) && Math.abs(v - W * 260 / 460) <= 0.5, `curve ${W}: height ${v}`);
+  }
+  const cols = sample.fans.length, base = cols * (170 + 58);
+  for (const W of [450.3, 901]) {
+    const v = h(rayFan({ data: sample, width: W }));
+    assert.ok(Number.isInteger(v) && Math.abs(v - W * 314 / base) <= 0.5, `rayFan ${W}: height ${v}`);
+  }
 });
