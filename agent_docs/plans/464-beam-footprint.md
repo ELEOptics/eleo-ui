@@ -142,6 +142,7 @@ patch. Proves: O1, O2
 | #490 | the footprint tile draws `spot` at its body's `clientWidth`, redrawn on resize, so its text matches the title at every viewport | the measured width, because a 1:1 SVG keeps `spot`'s own font size with no change to `spot.js`; considered non-scaling text in CSS px (fights the SVG's viewBox scaling) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint text heights at 1440, 1100 and 700 | #489 |
 | #491 | the footprint tile's measured width never goes below 0 | forced (review M1 round 7 finding 1, pulled in) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: hide and show the footprint body | #490 |
 | #493 | CR #492: the footprint tile draws at a fixed width again, so its text scales with the plot; #490's resize redraw removed | a fixed drawing width (#488's 520), because a uniformly scaled SVG keeps text and plot in proportion (user, CR #492); considered text sized in proportion to the panel inside `spot.js` (a library change for one tile) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: text-to-plot ratio constant at 1440, 1100, 700 | #491 |
+| #494 | the footprint ratio test measures font size times screen scale, not rounded glyph boxes | forced (review M1 round 9 finding 1, pulled in); considered the svg's width over the plot side with a fixed font-size attribute | `tests/gallery.spec.js` | `gallery.spec.js`: the ratio check, repeated | #493 |
 
 ## Risks and spikes
 
@@ -193,3 +194,4 @@ patch. Proves: O1, O2
 - 2026-11-02 review M1 round 7: 0 blocking; CR #487 fixed at every viewport. Finding 1 (a hidden body gives a negative width) pulled in as #491.
 - 2026-11-02 review M1 round 8: 0 blocking, nothing pulled in; M1 ticked again, awaiting the user's demo of #490.
 - 2026-11-04 M1 demo (user): "The text should scale with the plot size"; the plot was too large against the text. CR #492 reverses #490's goal: item #493 draws at a fixed width again. M1 unticked.
+- 2026-11-04 review M1 round 9: 0 blocking; CR #492 fixed. Finding 1 (the ratio test rounds glyph heights) pulled in as #494.
