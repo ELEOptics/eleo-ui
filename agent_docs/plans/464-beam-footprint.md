@@ -152,6 +152,7 @@ patch. Proves: O1, O2
 | #506 | `spot.test.js::text scale` reads `.eleo-tick` and `.eleo-val`'s sizes from `plots.css` | forced (review M1 round 14 finding 1, pulled in) | `tests/unit/spot.test.js` | `spot.test.js::text scale` | #503 |
 | #508 | CR #507: the footprint tile as wide as its plot, so the header key ends at the plot's right edge | the tile's width does the narrowing, not the SVG's (user, CR #507); considered moving the key into the body | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: key within 16 px of the frame's right edge | #506 |
 | #509 | the footprint gallery test's header and oracle name CR #507 and the key bound | forced (review M1 round 16 finding 1, pulled in) | `tests/gallery.spec.js` | `gallery.spec.js -g footprint` stays green (comments only) | #508 |
+| #510 | the footprint key bound's derivation corrected (the paddings cancel; the gap is the frame's inset) and tightened to 4 px | forced (review M1 round 17 finding 1, pulled in); considered keeping 16 px with the corrected text | `tests/gallery.spec.js` | `gallery.spec.js -g footprint`, repeated, and against 5fe0ec4's gallery | #509 |
 
 ## Risks and spikes
 
@@ -216,3 +217,4 @@ patch. Proves: O1, O2
 - 2026-11-04 review M1 round 15: 0 blocking, nothing pulled in. M1 ticked again, awaiting the user's demo of CR #502.
 - 2026-11-04 M1 demo (user): "the color: field entry sits too far to the right of the plot". CR #507, item #508. M1 unticked.
 - 2026-11-04 review M1 round 16: 0 blocking; CR #507 fixed. Finding 1 (the oracle line omits the key bound) pulled in as #509.
+- 2026-11-04 review M1 round 17: 0 blocking. Finding 1 (the key bound's stated derivation is wrong) pulled in as #510.
