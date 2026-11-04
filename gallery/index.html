@@ -22,6 +22,8 @@
     .row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
     .map { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .map .eleo-colorbar i { height: 100%; }
+    /* Footprint tile bottom text at the meta's 11px: the SVG draws at 3x at 1440 (630px over a 210-unit viewBox), so 11 / 3 = 3.667 user units. The plot's size is the viewBox's, so it is unchanged and the text still scales with it. */
+    [data-tile="footprint"] svg .eleo-tick { font-size: 3.667px; }
     .icons { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-muted); }
   </style>
 </head>
