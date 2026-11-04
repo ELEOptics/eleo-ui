@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release (done 2026-11-04) GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -145,6 +145,7 @@ patch. Proves: O1, O2
 | #494 | the footprint ratio test measures font size times screen scale, not rounded glyph boxes | forced (review M1 round 9 finding 1, pulled in); considered the svg's width over the plot side with a fixed font-size attribute | `tests/gallery.spec.js` | `gallery.spec.js`: the ratio check, repeated | #493 |
 | #495 | the footprint ratio assertion matches its 1% oracle and names font size | forced (review M1 round 10 finding 1, pulled in) | `tests/gallery.spec.js` | `gallery.spec.js -g footprint`, repeated | #494 |
 | #497 | CR #496: the footprint tile drawn as the spot tile is (no `width`), so its text-to-plot ratio matches | match the spot tile, the same renderer (user, CR #496); considered a gallery-wide ratio (#498, a later row) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint font/plot within 5% of the spot tile's | #495 |
+| #500 | CR #499: the footprint tile's bottom text at the meta's size (11 px at 1440), the plot unchanged | a gallery style rule on this tile's `.eleo-tick`, because the plot's size comes from the drawing's width, not the font (user, CR #499); considered a font option in `spot` (a Core API change) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: bottom text at the meta's size, plot side unchanged | #497 |
 
 ## Risks and spikes
 
@@ -201,3 +202,4 @@ patch. Proves: O1, O2
 - 2026-11-04 review M1 round 11: 0 blocking, nothing pulled in; M1 ticked again, awaiting the user's demo of CR #492.
 - 2026-11-04 M1 demo (user): all gallery plots at one ratio; the footprint's plot too large for its text. "For this work, match the spot tile": CR #496, item #497. A unified plot-rendering row for later: #498. M1 unticked.
 - 2026-11-04 review M1 round 12: 0 blocking, nothing pulled in; CR #496 fixed, #487 superseded. M1 ticked again, awaiting the user's demo.
+- 2026-11-04 M1 demo (user): "Reduce the size of the text in the bottom, but keep the same ratio of title to plot size", at the meta's size: CR #499, item #500. M1 unticked.
