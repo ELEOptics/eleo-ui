@@ -22,8 +22,8 @@
     .row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
     .map { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .map .eleo-colorbar i { height: 100%; }
-    /* Footprint tile: spot's textScale 11/30 draws the text at 11 / 30 of its default size inside a 150-unit viewBox (the plot frame alone), which at 3x is 450 px; the tile's 630 px column would draw it at 4.2x, so the svg is 450 / 630 of the body. The plot stays 447 px and the text 11 px (the meta's size) at 1440, and both scale with the viewport. */
-    .eleo-plot__body[data-svg="footprint"] svg:not(.eleo-icon) { width: 71.4286%; }
+    /* Footprint tile: spot's textScale 11/30 draws the text at 11 / 30 of its default size inside a 150-unit viewBox (the plot frame alone), which at 3x is 450 px; the row's full-width column would draw it at 4.2x. So the tile itself is as wide as its plot: the svg keeps 450 / 630 of the row's body width (the row minus the tile's 2 px border and the body's 24 px padding), so the tile is 450 / 630 of the row plus (1 - 450 / 630) of that 26 px, 71.4286% + 7.4286px. The header key, the legend and the body then end at the plot's edge; the plot stays 447 px and the text 11 px at 1440, and both scale with the viewport. */
+    [data-tile="footprint"] { justify-self: start; width: calc(71.4286% + 7.4286px); }
     .icons { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-muted); }
   </style>
 </head>

@@ -90,7 +90,9 @@ test('the footprint tile text is at the meta size with the plot unchanged and th
         const base = (x) => +x.getAttribute('y') * x.getScreenCTM().d + x.getScreenCTM().f;
         const bs = [...new Set(ticks.map(base))].sort((a, b) => a - b);
         const gaps = [bs[0] - frame].concat(bs.slice(1).map((v, i) => v - bs[i]));
-        return { n: ticks.length, sizes, side, gaps, meta: parseFloat(getComputedStyle(t.querySelector('.eleo-plot__meta')).fontSize), ratio: sizes.map((s) => s / side) };
+        const key = t.querySelector('.eleo-plot__key').getBoundingClientRect().right;
+        const keyGap = Math.abs(t.querySelector('svg rect[rx="3"]').getBoundingClientRect().right - key);
+        return { keyGap, n: ticks.length, sizes, side, gaps, meta: parseFloat(getComputedStyle(t.querySelector('.eleo-plot__meta')).fontSize), ratio: sizes.map((s) => s / side) };
       });
     };
     const w = await at(1440);
@@ -98,8 +100,11 @@ test('the footprint tile text is at the meta size with the plot unchanged and th
     for (const s of w.sizes) expect(Math.abs(s - w.meta), `${theme} tick ${s}px vs meta ${w.meta}px`).toBeLessThanOrEqual(1);
     expect(Math.abs(w.side / 447 - 1), `${theme} plot side ${w.side}px vs 447`).toBeLessThan(0.01);
     for (const g of w.gaps) expect(g, `${theme} text spacing ${g}px vs 2.2 x ${w.meta}px`).toBeLessThanOrEqual(2.2 * w.meta);
+    // CR #507, #508: the header key ends at the plot frame's right edge, within the body's 12 px padding plus the tile's 1 px border and the frame's own inset.
+    expect(w.keyGap, `${theme} key to frame at 1440`).toBeLessThanOrEqual(16);
     for (const width of [1100, 700]) {
       const r = await at(width);
+      expect(r.keyGap, `${theme} key to frame at ${width}`).toBeLessThanOrEqual(16);
       r.ratio.forEach((v, i) => expect(Math.abs(v / w.ratio[i] - 1), `${theme} ${width} ratio`).toBeLessThan(0.01));
     }
   }
