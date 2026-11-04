@@ -127,7 +127,7 @@ function checkText(name, svg, F, branches) {
   t.forEach((s, i) => near(s, frameText(F), `${name} (F ${F}) text ${i} font size`));
   branches.add(frameBranch(F));
 }
-test('text and weight per renderer (U18): bars, spot, throughFocus', { skip: '#522' }, () => {
+test('text and weight per renderer (U18): bars, spot, throughFocus', () => {
   const bars = new Set();
   for (const width of [200, 300, 1200]) {
     const svg = ELEO.bars({ categories: ['a', 'b'], series: [{ values: [2, 5] }], width });

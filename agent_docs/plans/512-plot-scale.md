@@ -382,3 +382,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#577]: https://github.com/ELEOptics/eleo-ui/issues/577
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
+
+- 2026-11-04 measured at [#528]: U14 (`PERF=1 npx playwright test tests/perf.spec.js`, median of 20 redraws, budget 16 ms) for the M2 renderers:
+  bars 1.20 ms, map2D 2.60 ms, spot 3.40 ms. `throughFocus()`'s output has not moved since [#570] (`split.test.js` green against the recorded
+  baseline), so its entry is not re-recorded.
