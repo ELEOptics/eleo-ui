@@ -133,6 +133,17 @@ test('frame geometry has at most 2 decimals', () => {
         assert.match(v, /^-?\d+(\.\d{1,2})?$/, `width ${width}: ${a}="${v}"`);
       }
     }
+    // #565: every position attribute outside the data group (grid and tick lines, zero lines, tick texts, limit labels, axis titles) is rounded too.
+    const lim = ELEO.curve({ series: [{ points: [[-5, -1], [7, 3]], index: 0 }], limits: [{ y: 1.3, label: 'a' }, { x: 2.7, label: 'b' }], x: { label: 'F', unit: 'u' }, y: { label: 'M' }, width, height: 260 });
+    for (const [name, doc] of [['single', svg], ['limits', lim], ['panels', ELEO.curve({ panels: [{ title: 'a', series: [{ points: [[-5, -1], [7, 3]], index: 0 }] }, { title: 'b', series: [{ points: [[0, 0], [1, 1]], index: 1 }] }], columns: 2, x: { label: 'F' }, y: { label: 'M' }, width, height: 260 })]]) {
+      const outside = doc.replace(/<g transform="matrix\([^"]*"[^>]*>[\s\S]*?<\/g>/g, '');
+      let n = 0;
+      for (const m of outside.matchAll(/\s(x|y|x1|y1|x2|y2)="([^"]*)"/g)) {
+        n++;
+        assert.match(m[2], /^-?\d+(\.\d{1,2})?$/, `width ${width} ${name}: ${m[1]}="${m[2]}"`);
+      }
+      assert.ok(n > 10, `width ${width} ${name}: attributes found`);
+    }
   }
 });
 
@@ -489,7 +500,7 @@ test('limits draw single and paneled', () => {
     const { range: _x, ...xa } = x, { range: _y, ...ya } = y;
     svg = ELEO.curve({ series, x: xa, y: ya, limits: [...limits, { y: 1.6 }, { x: [-20, 500] }], width, height });
     const f = frame(svg), g = seriesGroup(svg);
-    const [xlo, ylo] = toData(g.M, [-0.01, f.ph + 0.01]), [xhi, yhi] = toData(g.M, [f.pw + 0.01, -0.01]); // the frame is written to 2 decimals (#557): 0.01 px of slack
+    const [xlo, ylo] = toData(g.M, [0, f.ph]), [xhi, yhi] = toData(g.M, [f.pw, 0]);
     assert.ok(ylo <= 0 && yhi >= 1.6 && xlo <= -20 && xhi >= 500, `${width}px auto range [${xlo},${xhi}]x[${ylo},${yhi}] contains the limits`);
     // A given range clips: a limit outside it leaves the range alone and draws no label.
     svg = ELEO.curve({ series, x, y, limits: [{ y: 9, label: 'far' }], width, height });
@@ -581,7 +592,7 @@ test('limit lines and bands round trip (U9)', async () => {
     const { range: _x, ...xAuto } = x, { range: _y, ...yAuto } = y;
     svg = ELEO.curve({ series, x: xAuto, y: yAuto, limits: wide, width, height });
     const f = frame(svg), g = seriesGroup(svg);
-    const [xlo, ylo] = toData(g.M, [-0.01, f.ph + 0.01]), [xhi, yhi] = toData(g.M, [f.pw + 0.01, -0.01]); // the frame is written to 2 decimals (#557): 0.01 px of slack
+    const [xlo, ylo] = toData(g.M, [0, f.ph]), [xhi, yhi] = toData(g.M, [f.pw, 0]);
     assert.ok(ylo <= 0 && yhi >= 1.6, `${width}px auto: the y range [${ylo}, ${yhi}] contains the limits 0 and 1.6`);
     assert.ok(xlo <= -20 && xhi >= 400, `${width}px auto: the x range [${xlo}, ${xhi}] contains the band -20 to 400`);
     // Panels: every panel carries the limits, recovered through its own transform.

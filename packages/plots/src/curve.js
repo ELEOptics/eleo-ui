@@ -70,22 +70,25 @@ export var PLOT_L = 46, PLOT_B = 36, PLOT_T = 26;
 /* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
 export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   mg = mg || { L: PLOT_L, B: PLOT_B, R: sc.R };
-  var L = mg.L, Bm = mg.B, ph = Math.max(1, h - T - Bm), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
+  var r2 = function (v) { return +v.toFixed(2); };
+  /* The frame is rounded to 2 decimals once, here: everything below derives from these, so the markup is small and doesn't depend on Math.cbrt's last bits. */
+  T = r2(T);
+  var L = r2(mg.L), Bm = mg.B, ph = r2(Math.max(1, h - T - Bm)), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
-  var pw = Math.max(1, w - L - mg.R), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
+  var pw = r2(Math.max(1, w - L - mg.R)), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
-  var fr = 'x="' + +L.toFixed(2) + '" y="' + +T.toFixed(2) + '" width="' + +pw.toFixed(2) + '" height="' + +ph.toFixed(2) + '"';
+  var fr = 'x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"', Bt = r2(T + ph), Rt = r2(L + pw);
   g += '<rect ' + fr + ' fill="none" stroke="var(--plot-grid)"/>';
-  xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + (T + ph) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + X(v) + '" y="' + (T + ph + o(13)) + '" text-anchor="middle"' + ts + '>' + fmt(v, xt.decimals) + "</text>"; });
-  yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + (L + pw) + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + (L - o(6)) + '" y="' + Y(v) + '" dy="' + o(3) + '" text-anchor="end"' + ts + '>' + fmt(v, yt.decimals) + "</text>"; });
-  if (xr[0] < 0 && xr[1] > 0) g += '<line x1="' + X(0) + '" y1="' + T + '" x2="' + X(0) + '" y2="' + (T + ph) + '" stroke="var(--plot-axis)"/>';
-  if (yr[0] < 0 && yr[1] > 0) g += '<line x1="' + L + '" y1="' + Y(0) + '" x2="' + (L + pw) + '" y2="' + Y(0) + '" stroke="var(--plot-axis)"/>';
+  xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + Bt + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + X(v) + '" y="' + r2(T + ph + o(13)) + '" text-anchor="middle"' + ts + '>' + fmt(v, xt.decimals) + "</text>"; });
+  yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + Rt + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + r2(L - o(6)) + '" y="' + Y(v) + '" dy="' + o(3) + '" text-anchor="end"' + ts + '>' + fmt(v, yt.decimals) + "</text>"; });
+  if (xr[0] < 0 && xr[1] > 0) g += '<line x1="' + X(0) + '" y1="' + T + '" x2="' + X(0) + '" y2="' + Bt + '" stroke="var(--plot-axis)"/>';
+  if (yr[0] < 0 && yr[1] > 0) g += '<line x1="' + L + '" y1="' + Y(0) + '" x2="' + Rt + '" y2="' + Y(0) + '" stroke="var(--plot-axis)"/>';
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
   var M = [sx, 0, 0, -sy, -xr[0] * sx, ph + yr[0] * sy].map(String);
   g += '<svg ' + fr + '><g transform="matrix(' + M.join(" ") + ')">';
   if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
   g += "</g></svg>";
-  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: L + pw, top: T }).replace(/<text [^>]*/g, function (m) { return m + ts; });
+  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
 }
 /* The `limit` role's style, as attributes for a line and for a band; the `limits` option's marks stay 1 px. */
