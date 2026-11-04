@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release (done 2026-11-04) GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -197,3 +197,4 @@ patch. Proves: O1, O2
 - 2026-11-04 M1 demo (user): "The text should scale with the plot size"; the plot was too large against the text. CR #492 reverses #490's goal: item #493 draws at a fixed width again. M1 unticked.
 - 2026-11-04 review M1 round 9: 0 blocking; CR #492 fixed. Finding 1 (the ratio test rounds glyph heights) pulled in as #494.
 - 2026-11-04 review M1 round 10: 0 blocking. Finding 1 (the assertion enforces 0.5% where the oracle says 1%) pulled in as #495.
+- 2026-11-04 review M1 round 11: 0 blocking, nothing pulled in; M1 ticked again, awaiting the user's demo of CR #492.
