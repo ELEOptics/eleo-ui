@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release (done 2026-11-04) GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -146,6 +146,8 @@ patch. Proves: O1, O2
 | #495 | the footprint ratio assertion matches its 1% oracle and names font size | forced (review M1 round 10 finding 1, pulled in) | `tests/gallery.spec.js` | `gallery.spec.js -g footprint`, repeated | #494 |
 | #497 | CR #496: the footprint tile drawn as the spot tile is (no `width`), so its text-to-plot ratio matches | match the spot tile, the same renderer (user, CR #496); considered a gallery-wide ratio (#498, a later row) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: footprint font/plot within 5% of the spot tile's | #495 |
 | #500 | CR #499: the footprint tile's bottom text at the meta's size (11 px at 1440), the plot unchanged | a gallery style rule on this tile's `.eleo-tick`, because the plot's size comes from the drawing's width, not the font (user, CR #499); considered a font option in `spot` (a Core API change) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: bottom text at the meta's size, plot side unchanged | #497 |
+| #501 | CR #502: `spot` takes `textScale`, scaling its text and the gap, line pitch, foot and width estimate with it | a `spot` option, because the layout is in fixed user units no style rule can move (user, CR #502, with its Core change); considered rewriting `spot`'s output in the gallery (breaks on any markup change) | `packages/plots/src/spot.js`, `packages/plots/src/index.d.ts` (core, CR #502), `packages/plots/README.md`, `.changeset/footprint-circle.md`, `tests/unit/spot.test.js`, `tests/types/panels.ts` | `spot.test.js::text scale`, `types.test.js` | #500 |
+| #503 | CR #502: the footprint tile uses `textScale` in place of #500's style rule, its caption tight to the plot | forced (CR #502) | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js`: plot and text sizes kept, spacing at most 2.2x the text | #501 |
 
 ## Risks and spikes
 
@@ -204,3 +206,4 @@ patch. Proves: O1, O2
 - 2026-11-04 review M1 round 12: 0 blocking, nothing pulled in; CR #496 fixed, #487 superseded. M1 ticked again, awaiting the user's demo.
 - 2026-11-04 M1 demo (user): "Reduce the size of the text in the bottom, but keep the same ratio of title to plot size", at the meta's size: CR #499, item #500. M1 unticked.
 - 2026-11-04 review M1 round 13: 0 blocking; CR #499 fixed. Backlog #501 (spot's fixed caption line pitch) not pulled in: a library API change, for the plot-scale row. M1 ticked again, awaiting the user's demo.
+- 2026-11-04 M1 demo (user): "too much empty space around the text. Tighten that up to the plot." CR #502; the user approved the Core change (`SpotDiagramProps.textScale`). Items #501 (reused) and #503. M1 unticked.
