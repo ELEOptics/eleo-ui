@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
+import { frameText as fText, frameWeight as fWeight, frameOf, layoutText as lText, layoutWeight as lWeight } from '../../packages/plots/src/scale.js';
 
 // Skipped until #521; the guard is the one line #521 removes.
 const SKIP = 'plan #512 O1: awaiting #517, #518; #521 unskips';
@@ -74,4 +75,46 @@ test('text and weight per renderer (U18)', { skip: SKIP }, () => {
     layoutBranches.add(layoutBranch(width));
   }
   assert.deepEqual([...layoutBranches].sort(), ['above', 'below', 'inside'], 'layout2D widths cover hidden, band and knee');
+});
+
+// ADR-0003 formulas at the band's edges: scale.js against hand-computed values (not the test's own copies above).
+test("formulas at the band's edges", () => {
+  // frameText: floor 9, band F / 18, knee 13 * (F / 234)^(1/3); continuous at 162 and 234.
+  near(fText(161.99), 9, 'text below the floor edge');
+  near(fText(162), 9, 'text at 162');
+  near(fText(234), 13, 'text at 234');
+  near(fText(234.01), 13 * Math.cbrt(234.01 / 234), 'text just above 234');
+  near(fText(468), 13 * Math.cbrt(2), 'text at 468');
+  near(fText(198), 11, 'text inside the band');
+  // frameWeight: 1 at and below 234, sqrt(F / 234) above.
+  assert.equal(fWeight(161.99), 1);
+  assert.equal(fWeight(234), 1);
+  near(fWeight(234.01), Math.sqrt(234.01 / 234), 'weight just above 234');
+  near(fWeight(936), 2, 'weight at 936');
+  // layoutText: null where W / 70 < 9, W / 70 to 910, 13 * sqrt(W / 910) above.
+  assert.equal(lText(629.99), null);
+  near(lText(630), 9, 'layout text at 630');
+  near(lText(910), 13, 'layout text at 910');
+  near(lText(910.01), 13 * Math.sqrt(910.01 / 910), 'layout text just above 910');
+  near(lText(3640), 26, 'layout text at 3640');
+  // layoutWeight: 1 up to 910, sqrt(W / 910) above.
+  assert.equal(lWeight(629.99), 1);
+  assert.equal(lWeight(910), 1);
+  near(lWeight(3640), 2, 'layout weight at 3640');
+  // frameOf: one branch each, solving F + m * t(F) = W; round trip through the formulas, both sides of each edge.
+  const m = 4.6;
+  const edgeW = [162 + 9 * m, 234 + 13 * m]; // floor/band and band/knee, from the ADR
+  near(frameOf(edgeW[0], m), 162, 'floor/band edge');
+  near(frameOf(edgeW[1], m), 234, 'band/knee edge');
+  near(frameOf(100, m), 100 - 9 * m, 'floor branch');
+  near(frameOf(250, m), 18 * 250 / (18 + m), 'band branch'); // 250 is between 203.4 and 293.8
+  for (const mm of [0, 2.6, 4.6, 7.2]) {
+    for (const W of [60, 161.99, 162 + 9 * mm - 0.01, 162 + 9 * mm, 234 + 13 * mm, 234 + 13 * mm + 0.01, 402, 1000, 5000]) {
+      const F = frameOf(W, mm);
+      if (F <= 1) { assert.equal(F, 1, `frameOf(${W}, ${mm}) clamps to 1`); continue; }
+      near(F + mm * fText(F), W, `frameOf(${W}, ${mm}) round trip`);
+    }
+  }
+  // A frame never goes under 1.
+  assert.equal(frameOf(10, 4.6), 1);
 });

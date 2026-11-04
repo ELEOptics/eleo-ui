@@ -1,7 +1,7 @@
 // A typed curve call compiles under --strict; a color option and an unknown role do not (#178, plan 162).
 // oracle: spec ADR-0001 (roles, no color option) and plan #162 Decisions (CurveSeries, CurveAxis, CurvePlotProps)
 import type { CurvePlotProps, CurveSeries } from '../../packages/plots/src/index';
-import { curve } from '../../packages/plots/src/index';
+import { curve, frameText, frameWeight, frameOf, layoutText, layoutWeight, TEXT_MIN } from '../../packages/plots/src/index';
 
 const mtf: CurveSeries = { points: [[0, 1], [100, 0.62]], index: 0, role: 'tangential' };
 const typed: CurvePlotProps = {
@@ -20,4 +20,7 @@ const badRole: CurveSeries = { points: [[0, 1]], role: 'meridional' };
 curve({ series: [{ points: [[0, 1]], color: 'red' }] });
 // @ts-expect-error nor a plot-level color
 curve({ series: [mtf], color: 'red' });
-export { html, badRole };
+const t: number = frameText(300), w: number = frameWeight(300), f: number = frameOf(1000, 4.6), lt: number | null = layoutText(500), lw: number = layoutWeight(1000), floor: 9 = TEXT_MIN;
+// @ts-expect-error layoutText can be null (hidden labels)
+const shown: number = layoutText(500);
+export { html, badRole, t, w, f, lt, lw, floor, shown };

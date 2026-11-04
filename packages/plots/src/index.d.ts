@@ -333,3 +333,17 @@ export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spo
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
   css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
   glassLegend: ELEO['glassLegend'];
+
+/* The plot scale rule of ADR-0003 (packages/plots/src/scale.js). Sizes are px. */
+/** Text size for a plot frame F px wide: 9 below 162, F / 18 to 234 (13), then 13 * (F / 234)^(1/3). */
+export declare function frameText(F: number): number;
+/** Weight of series strokes, rays and dots for a frame F px wide: 1 up to 234, then sqrt(F / 234). */
+export declare function frameWeight(F: number): number;
+/** The frame width F that solves F + m * frameText(F) = W, for a drawing W px wide and horizontal margins m in text units; at least 1. */
+export declare function frameOf(W: number, m: number): number;
+/** layout2D text size for a drawing W px wide: W / 70 from 630 to 910, then 13 * sqrt(W / 910); null where labels and the scale bar are hidden (W / 70 under 9). */
+export declare function layoutText(W: number): number | null;
+/** layout2D ray stroke weight for a drawing W px wide: 1 up to 910, then sqrt(W / 910). */
+export declare function layoutWeight(W: number): number;
+/** The rule's breakpoints and text limits, in px. */
+export declare const TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910;
