@@ -134,6 +134,9 @@ layout2D; O5.
 | [#546] | The scale rule's exports on the default `ELEO`, flat, so the classic build carries them (CR [#545]) | forced (the plan's Decisions approve the scale exports; the gallery loads the classic build); considered an `ELEO.scale` namespace, unlike `physics`, which is flat | `packages/plots/src/index.js`, `packages/plots/src/index.d.ts` | `tests/unit/fit.test.js::index exports fit and the scale rule at runtime` | [#539] |
 | [#543] | Gallery: the rayFan row's minimum column is `columns × (F_LO + m · TEXT_MIN)` plus the tile's 26 px of chrome, from the scale rule, capped at the row (CR [#544]; the floor frame is asserted at 1100 only, CR [#547]) | forced (user, 2026-11-04: pull the rayFan row's minimum into M1, computed); considered waiting for [#527], which leaves M1's rayFan tiles unusable | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::the rayFan row gives each panel a floor frame (#544)` | [#520], [#546] |
 | [#521] | Unskip O1, O2 for curve, rayFan, layout2D; log U14 for curve, panels and layout2D | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/scale.test.js`, `tests/gallery.spec.js` | both tests green | [#513]-[#520], [#537], [#539]-[#543], [#546] |
+| [#564] | README: `fit` subtracts borders too (CR [#563]) | forced (review M1 round 2 finding 1) | `packages/plots/README.md` | none (a doc line) | [#562] |
+| [#565] | `curve` rounds T, L, pw and ph once, so every line and text beside the frame has at most 2 decimals | forced (review M1 round 2 finding 2, pulled in: [#557] rounded only the rect) | `packages/plots/src/curve.js` | `tests/unit/curve.test.js::frame geometry has at most 2 decimals`, extended | [#557] |
+| [#566] | `layout2d.test.js`: the ray weight test's `oracle:` line names ADR-0003 | forced (review M1 round 2 finding 4, pulled in) | `tests/unit/layout2d.test.js` | the test, unchanged | [#558] |
 | [#559] | `curve`'s `limit` role draws at ADR-0003's weight; `index.d.ts`'s layout2D `marks` and `width` docs name STO and IMA below 630 (CRs [#548], [#551]) | forced (review M1 findings 1 and 4: ADR-0003 doesn't exempt `limit`; the doc lines ride with a tested change for the hook); considered documenting `limit` as 1 px, which edits the ADR's list | `packages/plots/src/curve.js`, `packages/plots/src/index.d.ts` | `tests/unit/curve.test.js::every role draws a stroke of ADR-0003 weight` | [#517] |
 | [#560] | plots-svelte README: the stroke weight follows ADR-0003 (CR [#549]) | forced (review M1 finding 2) | `packages/plots-svelte/README.md` | none (a doc line) | [#517] |
 | [#561] | READMEs: `eleo-layout.js` carries `fit`; `fit` and the scale exports documented (CR [#550]) | forced (review M1 finding 3) | `packages/plots/README.md`, `README.md` | none (doc lines) | [#546] |
@@ -250,6 +253,10 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-04 [#552] (user: "Re-record at 5028 B"): `layout-size.test.js`'s 2 kB budget re-recorded at row O's start, as rows
   L and M did; `fit.js` is written plainly again in [#562].
 
+- 2026-11-04 review M1 round 2: 1 blocking (CR [#563], accepted: the README's `fit` line lagged [#562]; item [#564]);
+  round 1's CRs fixed. Pulled in: [#565], [#566]. Plain issue: [#567] (ADR-0003's 1 px list, at the verdict). Breaker counts:
+  round 1, 4 blocking + 4 pulled in; round 2, 1 + 2.
+
 - 2026-11-04 measured at [#521]: U14 (`PERF=1 npx playwright test tests/perf.spec.js`, median of 20 redraws, budget 16 ms) for the M1 renderers:
   curve 1.30 ms, curve panels 0.90 ms, layout2D 2.20 ms. Bars, map2D and spot are logged at [#528].
 
@@ -319,5 +326,10 @@ One bullet per entry (bare lines render as one paragraph).
 [#560]: https://github.com/ELEOptics/eleo-ui/issues/560
 [#561]: https://github.com/ELEOptics/eleo-ui/issues/561
 [#562]: https://github.com/ELEOptics/eleo-ui/issues/562
+[#563]: https://github.com/ELEOptics/eleo-ui/issues/563
+[#564]: https://github.com/ELEOptics/eleo-ui/issues/564
+[#565]: https://github.com/ELEOptics/eleo-ui/issues/565
+[#566]: https://github.com/ELEOptics/eleo-ui/issues/566
+[#567]: https://github.com/ELEOptics/eleo-ui/issues/567
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
