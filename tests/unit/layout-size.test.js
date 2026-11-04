@@ -2,13 +2,14 @@
 // standalone layout entry, per roadmap row.
 // Plan #144 (agent_docs/plans/144-layout-defaults.md), issue #145: re-recorded at the start of row L.
 // Plan #337 (agent_docs/plans/337-ray-status.md), issue #338: re-recorded at the start of row M.
-// oracle: measurement gzipped size of dist/eleo-layout.js built from main at b76f242 (node zlib.gzipSync, default level)
+// Plan #512 (agent_docs/plans/512-plot-scale.md), issue #552: re-recorded at the start of row O.
+// oracle: measurement gzipped size of dist/eleo-layout.js built from main at 614422c (node zlib.gzipSync, default level)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
-const BASELINE = 3405; // bytes gzipped, main b76f242, recorded at the start of row M
+const BASELINE = 5028; // bytes gzipped, main 614422c, recorded at the start of row O
 const BUDGET = 2048; // bytes of growth the roadmap allows per row
 
 test('standalone layout entry within budget', () => {
