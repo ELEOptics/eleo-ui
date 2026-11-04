@@ -112,7 +112,7 @@ on a phos-core fix in a new row, recorded-fans.
 
 ## Milestones
 
-### M1: Beam footprint tile and release GitHub: `P464 M1: Beam footprint tile`
+### M1: Beam footprint tile and release (done 2026-11-04) GitHub: `P464 M1: Beam footprint tile`
 
 Demo: `npm run gallery`, the new footprint tile (Cooke triplet stop, three fields, a "Semi-diameter …
 mm" circle) in both themes and palettes. Then `npx changeset status` shows a plots minor and a plots-svelte
@@ -218,3 +218,4 @@ patch. Proves: O1, O2
 - 2026-11-04 M1 demo (user): "the color: field entry sits too far to the right of the plot". CR #507, item #508. M1 unticked.
 - 2026-11-04 review M1 round 16: 0 blocking; CR #507 fixed. Finding 1 (the oracle line omits the key bound) pulled in as #509.
 - 2026-11-04 review M1 round 17: 0 blocking. Finding 1 (the key bound's stated derivation is wrong) pulled in as #510.
+- 2026-11-04 review M1 round 18: 0 blocking, nothing pulled in. M1 ticked again, awaiting the user's demo of CR #507.
