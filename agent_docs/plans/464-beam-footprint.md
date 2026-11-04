@@ -219,3 +219,4 @@ patch. Proves: O1, O2
 - 2026-11-04 review M1 round 16: 0 blocking; CR #507 fixed. Finding 1 (the oracle line omits the key bound) pulled in as #509.
 - 2026-11-04 review M1 round 17: 0 blocking. Finding 1 (the key bound's stated derivation is wrong) pulled in as #510.
 - 2026-11-04 review M1 round 18: 0 blocking, nothing pulled in. M1 ticked again, awaiting the user's demo of CR #507.
+- 2026-11-04 M1 demo (user): go. M1 accepted; no `proposed` ADR exercised.
