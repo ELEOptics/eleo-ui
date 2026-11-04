@@ -110,6 +110,47 @@ test('the footprint tile text is at the meta size with the plot unchanged and th
   }
 });
 
+// Plan #512, outcomes O1 and O2 (issue #513; #521 unskips). The curve, rayFan and layout tiles; M2 adds the other framed tiles.
+// oracle: closed-form ADR-0003. At 1440, 1100 and 700 px in both themes, each tile's rendered text (computed font-size times getScreenCTM().a)
+// is within 1% of the formula for its rendered frame F (a plot frame's width in px; a layout tile's drawing width W) and at least 9 px.
+// A layout tile whose W / 70 is under 9 draws no text.
+const FRAMED_TILES = ['mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'chromaticFocus', 'rayFan', 'rayFan-opd'];
+const LAYOUT_TILES = ['layout2D', 'layout2D-fan', 'layout2D-shared', 'layout2D-glasses', 'layout2D-wandersleb', 'layout2D-cassegrain'];
+const frameText = (F) => (F < 162 ? 9 : F <= 234 ? F / 18 : 13 * Math.cbrt(F / 234));
+const layoutText = (W) => (W / 70 < 9 ? null : W <= 910 ? W / 70 : 13 * Math.sqrt(W / 910));
+test.skip('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      const tiles = await page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els, names) => els.filter((el) => names.includes(el.dataset.tile)).map((el) => {
+        const svg = el.querySelector('.eleo-plot__body svg');
+        const frame = svg && svg.querySelector('rect[stroke="var(--plot-grid)"]');
+        return {
+          tile: el.dataset.tile,
+          drawn: !!svg,
+          F: frame ? frame.getBoundingClientRect().width : null,
+          W: svg ? svg.getBoundingClientRect().width : null,
+          sizes: svg ? [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) : [],
+        };
+      }), FRAMED_TILES.concat(LAYOUT_TILES));
+      expect(tiles.map((t) => t.tile).sort(), `${theme} ${width} tiles`).toEqual(FRAMED_TILES.concat(LAYOUT_TILES).sort());
+      for (const t of tiles) {
+        const at = `${theme} ${width} ${t.tile}`;
+        expect(t.drawn, `${at} drawn`).toBe(true);
+        const layout = LAYOUT_TILES.includes(t.tile), want = layout ? layoutText(t.W) : frameText(t.F);
+        if (want === null) { expect(t.sizes, `${at} (W ${t.W}) labels hidden`).toEqual([]); continue; }
+        expect(t.sizes.length, `${at} has text`).toBeGreaterThan(0);
+        for (const s of t.sizes) {
+          expect(Math.abs(s / want - 1), `${at} text ${s}px against ${want}px for ${layout ? 'W ' + t.W : 'F ' + t.F}`).toBeLessThanOrEqual(0.01);
+          expect(s, `${at} text ${s}px is at least 9 px`).toBeGreaterThanOrEqual(9 - 1e-6);
+        }
+      }
+    }
+  }
+});
+
 // Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
 // oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
 test('the footprint tile has a field legend from the recording', async ({ page }) => {
