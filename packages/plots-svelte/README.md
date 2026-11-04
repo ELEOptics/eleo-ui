@@ -47,7 +47,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 <Layout2D data={after} {box} {labels} marks={false} label="Layout after optimization" />
 ```
 
-`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal`, `reference` or `limit`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role draws 1 px, the plot area clips, and a range left out is the nice range of the data. There is no color option:
+`CurvePlot` takes typed `series` (`points`, `index`, `role`: `tangential`, `sagittal`, `reference` or `limit`) with `x` and `y` axes (`label`, `unit`, `range`, `ticks`), or an analysis `kind` (`mtf`, `fieldCurvature`, `distortion`, `chromaticFocus`). Every role, `limit` included, draws the same stroke: 1 px up to a 234 px plot frame and `sqrt(F / 234)` px above it (F is the frame's width, [ADR-0003](../../agent_docs/adr/0003-plot-scale.md)). The plot area clips, and a range left out is the nice range of the data. There is no color option:
 
 ```svelte
 <CurvePlot
