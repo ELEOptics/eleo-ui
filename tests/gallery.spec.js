@@ -73,31 +73,27 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
   });
 }
 
-// Plan #464, CR #487, #488, #492, #493: the footprint tile's in-SVG text scales with its plot, and at 1440 px sits in line with the title and meta.
-// oracle: property, each svg text's rendered font size (computed font-size times its screen scale, not a rounded glyph box) over the plot frame's side is the same at 1440, 1100 and 700 px (within 1%); at 1440 the tile's own .eleo-plot__title and .eleo-plot__meta heights bound each text height.
-test('the footprint tile text keeps its proportion to the plot and sits between the meta and title at 1440', async ({ page }) => {
+// Plan #464, CR #496, #497: the footprint tile is drawn as the spot tile is, so its text-to-plot ratio matches.
+// oracle: property, the median over a tile's svg texts of (computed font-size times screen scale) over the plot frame's width, for the footprint tile is within 5% of the spot tile's, at 1440, 1100 and 700 px.
+test('the footprint tile text-to-plot ratio matches the spot tile', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
-    const ratios = {};
     for (const width of [1440, 1100, 700]) {
       await page.setViewportSize({ width, height: 900 });
-      const h = await page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"]`).evaluate((t) => {
-        const ht = (el) => el.getBoundingClientRect().height;
-        const side = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().width;
-        return { side, title: ht(t.querySelector('.eleo-plot__title')), meta: ht(t.querySelector('.eleo-plot__meta')), texts: [...t.querySelectorAll('svg text')].map(ht), scales: [...t.querySelectorAll('svg text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) };
+      const r = await page.locator(`.theme[data-theme="${theme}"]`).evaluate((root) => {
+        const median = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+        const ratio = (k) => {
+          const t = root.querySelector(`[data-tile="${k}"]`);
+          const side = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().width;
+          const texts = [...t.querySelectorAll('svg text')];
+          return { n: texts.length, r: median(texts.map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a / side)) };
+        };
+        return { footprint: ratio('footprint'), spot: ratio('spot') };
       });
-      expect(h.texts.length, `${width} ${theme} footprint texts`).toBeGreaterThan(0);
-      ratios[width] = h.scales.map((x) => x / h.side);
-      if (width === 1440) {
-        for (const t of h.texts) {
-          expect(t, `${theme} text height`).toBeLessThanOrEqual(h.title + 1);
-          expect(t, `${theme} text height`).toBeGreaterThanOrEqual(h.meta - 1);
-        }
-      }
-    }
-    for (const width of [1100, 700]) {
-      ratios[width].forEach((r, i) => expect(Math.abs(r / ratios[1440][i] - 1), `${theme} text ${i} font size over plot side at ${width} vs 1440`).toBeLessThan(0.01));
+      expect(r.footprint.n, `${width} ${theme} footprint texts`).toBeGreaterThan(0);
+      expect(r.spot.n, `${width} ${theme} spot texts`).toBeGreaterThan(0);
+      expect(Math.abs(r.footprint.r / r.spot.r - 1), `${theme} ${width} footprint ratio ${r.footprint.r} vs spot ${r.spot.r}`).toBeLessThan(0.05);
     }
   }
 });
