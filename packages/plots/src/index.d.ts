@@ -322,6 +322,8 @@ export interface ELEO {
   icons: { optical: { name: string; title: string }[]; interface: { name: string; title: string }[] };
   /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. With a sample loaded, field/wavelength keys carry its values (n defaults to its count); without one they draw n index keys (F1.., λ1..) without values, and none without n. `values` (deg or nm) replaces the sample's, one key per value, n defaulting to its length; a non-finite entry draws the index key alone. ts and rays are fixed either way. */
   legend(kind: "field" | "wavelength" | "ts" | "rays", n?: number, values?: readonly number[]): string;
+  /** Draw at the container's width: calls `draw(el.clientWidth)` now (not while the width is 0: it draws once the element gets a width), then again when the width changes (at most once per animation frame, never for a height-only change or a width of 0), through one shared ResizeObserver. `draw` writes the markup, e.g. `fit(body, (w) => { body.innerHTML = curve({ ...d, width: w }); })`. Returns `stop()`. */
+  fit(el: Element, draw: (width: number) => void): () => void;
 }
 import type * as Physics from './physics.js';
 export * from './physics.js';
@@ -332,7 +334,7 @@ export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spo
   throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
   css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
-  glassLegend: ELEO['glassLegend'];
+  glassLegend: ELEO['glassLegend'], fit: ELEO['fit'];
 
 /* The plot scale rule of ADR-0003 (packages/plots/src/scale.js). Sizes are px. */
 /** Text size for a plot frame F px wide: 9 below 162, F / 18 to 234 (13), then 13 * (F / 234)^(1/3). */

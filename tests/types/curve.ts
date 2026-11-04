@@ -1,7 +1,7 @@
 // A typed curve call compiles under --strict; a color option and an unknown role do not (#178, plan 162).
 // oracle: spec ADR-0001 (roles, no color option) and plan #162 Decisions (CurveSeries, CurveAxis, CurvePlotProps)
 import type { CurvePlotProps, CurveSeries } from '../../packages/plots/src/index';
-import { curve, frameText, frameWeight, frameOf, layoutText, layoutWeight, TEXT_MIN } from '../../packages/plots/src/index';
+import { curve, frameText, frameWeight, frameOf, layoutText, layoutWeight, TEXT_MIN, fit } from '../../packages/plots/src/index';
 
 const mtf: CurveSeries = { points: [[0, 1], [100, 0.62]], index: 0, role: 'tangential' };
 const typed: CurvePlotProps = {
@@ -24,3 +24,5 @@ const t: number = frameText(300), w: number = frameWeight(300), f: number = fram
 // @ts-expect-error layoutText can be null (hidden labels)
 const shown: number = layoutText(500);
 export { html, badRole, t, w, f, lt, lw, floor, shown };
+const stopFit: () => void = fit(document.body, (width: number) => { document.body.innerHTML = curve({ kind: 'mtf', width }); });
+export { stopFit };
