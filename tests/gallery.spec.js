@@ -74,7 +74,7 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
 }
 
 // Plan #464, CR #499, #500, #502, #503, #507, #508: the footprint tile's bottom text is at the meta's size, the plot keeps #497's size, the text sits close to the plot, and the header key ends at the plot frame's right edge.
-// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame is 447 px wide within 1%; the first text baseline is at most 2.2 times that size below the frame, and consecutive baselines at most 2.2 times apart; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%; at 1440, 1100 and 700 px the .eleo-plot__key's right edge is within 16 px of the frame's right edge (the body's 12 px padding plus the tile's 1 px border plus the frame's own inset).
+// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame is 447 px wide within 1%; the first text baseline is at most 2.2 times that size below the frame, and consecutive baselines at most 2.2 times apart; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%; at 1440, 1100 and 700 px the .eleo-plot__key's right edge is within 4 px of the frame's right edge (the header and the body share the same 12 px right padding and the tile's border, so they cancel; the gap is the frame's own inset, measured 1.5 / 2.4 / 1.5 px).
 test('the footprint tile text is at the meta size with the plot unchanged and the text close to it', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -100,11 +100,11 @@ test('the footprint tile text is at the meta size with the plot unchanged and th
     for (const s of w.sizes) expect(Math.abs(s - w.meta), `${theme} tick ${s}px vs meta ${w.meta}px`).toBeLessThanOrEqual(1);
     expect(Math.abs(w.side / 447 - 1), `${theme} plot side ${w.side}px vs 447`).toBeLessThan(0.01);
     for (const g of w.gaps) expect(g, `${theme} text spacing ${g}px vs 2.2 x ${w.meta}px`).toBeLessThanOrEqual(2.2 * w.meta);
-    // CR #507, #508: the header key ends at the plot frame's right edge, within the body's 12 px padding plus the tile's 1 px border and the frame's own inset.
-    expect(w.keyGap, `${theme} key to frame at 1440`).toBeLessThanOrEqual(16);
+    // CR #507, #508, #510: the header key ends at the plot frame's right edge. The header and the body share the same 12 px right padding and border, so they cancel; what remains is the frame's own inset (0.5 viewBox units), so the bound is 4 px.
+    expect(w.keyGap, `${theme} key to frame at 1440`).toBeLessThanOrEqual(4);
     for (const width of [1100, 700]) {
       const r = await at(width);
-      expect(r.keyGap, `${theme} key to frame at ${width}`).toBeLessThanOrEqual(16);
+      expect(r.keyGap, `${theme} key to frame at ${width}`).toBeLessThanOrEqual(4);
       r.ratio.forEach((v, i) => expect(Math.abs(v / w.ratio[i] - 1), `${theme} ${width} ratio`).toBeLessThan(0.01));
     }
   }
