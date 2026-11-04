@@ -134,6 +134,13 @@ layout2D; O5.
 | [#546] | The scale rule's exports on the default `ELEO`, flat, so the classic build carries them (CR [#545]) | forced (the plan's Decisions approve the scale exports; the gallery loads the classic build); considered an `ELEO.scale` namespace, unlike `physics`, which is flat | `packages/plots/src/index.js`, `packages/plots/src/index.d.ts` | `tests/unit/fit.test.js::index exports fit and the scale rule at runtime` | [#539] |
 | [#543] | Gallery: the rayFan row's minimum column is `columns × (F_LO + m · TEXT_MIN)` plus the tile's 26 px of chrome, from the scale rule, capped at the row (CR [#544]; the floor frame is asserted at 1100 only, CR [#547]) | forced (user, 2026-11-04: pull the rayFan row's minimum into M1, computed); considered waiting for [#527], which leaves M1's rayFan tiles unusable | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::the rayFan row gives each panel a floor frame (#544)` | [#520], [#546] |
 | [#521] | Unskip O1, O2 for curve, rayFan, layout2D; log U14 for curve, panels and layout2D | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/scale.test.js`, `tests/gallery.spec.js` | both tests green | [#513]-[#520], [#537], [#539]-[#543], [#546] |
+| [#559] | `curve`'s `limit` role draws at ADR-0003's weight; `index.d.ts`'s layout2D `marks` and `width` docs name STO and IMA below 630 (CRs [#548], [#551]) | forced (review M1 findings 1 and 4: ADR-0003 doesn't exempt `limit`; the doc lines ride with a tested change for the hook); considered documenting `limit` as 1 px, which edits the ADR's list | `packages/plots/src/curve.js`, `packages/plots/src/index.d.ts` | `tests/unit/curve.test.js::every role draws a stroke of ADR-0003 weight` | [#517] |
+| [#560] | plots-svelte README: the stroke weight follows ADR-0003 (CR [#549]) | forced (review M1 finding 2) | `packages/plots-svelte/README.md` | none (a doc line) | [#517] |
+| [#561] | READMEs: `eleo-layout.js` carries `fit`; `fit` and the scale exports documented (CR [#550]) | forced (review M1 finding 3) | `packages/plots/README.md`, `README.md` | none (doc lines) | [#546] |
+| [#552] | `layout-size.test.js`'s baseline re-recorded at row O's start | forced (review M1 finding 5; the user, 2026-11-04: re-record at 5028 B, as rows L and M did) | `tests/unit/layout-size.test.js` | the test, against 614422c's measured size | none |
+| [#562] | `fit` subtracts borders as well as padding; `fit.js` written plainly again | forced (review M1 finding 7, pulled in); considered keeping the compacted form, which the old budget forced | `packages/plots/src/fit.js`, `packages/plots/src/index.d.ts` | `tests/unit/fit.test.js::subtracts borders` | [#552], [#539] |
+| [#557] | `curve` rounds its frame geometry to 2 decimals | forced (review M1 finding 9, pulled in) | `packages/plots/src/curve.js` | `tests/unit/curve.test.js::frame geometry has at most 2 decimals` | [#517] |
+| [#558] | `layout2d.test.js`: the ray weight test's name and comment say ADR-0003 | forced (review M1 finding 12, pulled in) | `tests/unit/layout2d.test.js` | the renamed test | [#518] |
 
 ### M2: every framed renderer, and the table GitHub: `P512 M2: Scale rule for every framed renderer`
 
@@ -236,6 +243,13 @@ One bullet per entry (bare lines render as one paragraph).
   short of the 668.6 px three floor frames need, so [#543] asserts the floor frame at 1100 only (157.8 px at 1440, up from
   46.5). The two-theme layout at 1440 goes to the M1 demo.
 
+- 2026-11-04 review M1 round 1 (code-reviewer): 4 blocking, all published docs and types behind the code: CRs [#548] to
+  [#551], accepted (orchestrator; for `limit`, the code follows ADR-0003), items [#559] to [#561]. Backlog pulled into M1
+  (within the milestone): [#557], [#558], [#562]. Plain issues: [#553] (ADR-0001, at the verdict), [#554], [#555], [#556].
+
+- 2026-11-04 [#552] (user: "Re-record at 5028 B"): `layout-size.test.js`'s 2 kB budget re-recorded at row O's start, as rows
+  L and M did; `fit.js` is written plainly again in [#562].
+
 - 2026-11-04 measured at [#521]: U14 (`PERF=1 npx playwright test tests/perf.spec.js`, median of 20 redraws, budget 16 ms) for the M1 renderers:
   curve 1.30 ms, curve panels 0.90 ms, layout2D 2.20 ms. Bars, map2D and spot are logged at [#528].
 
@@ -290,5 +304,20 @@ One bullet per entry (bare lines render as one paragraph).
 [#545]: https://github.com/ELEOptics/eleo-ui/issues/545
 [#546]: https://github.com/ELEOptics/eleo-ui/issues/546
 [#547]: https://github.com/ELEOptics/eleo-ui/issues/547
+[#548]: https://github.com/ELEOptics/eleo-ui/issues/548
+[#549]: https://github.com/ELEOptics/eleo-ui/issues/549
+[#550]: https://github.com/ELEOptics/eleo-ui/issues/550
+[#551]: https://github.com/ELEOptics/eleo-ui/issues/551
+[#552]: https://github.com/ELEOptics/eleo-ui/issues/552
+[#553]: https://github.com/ELEOptics/eleo-ui/issues/553
+[#554]: https://github.com/ELEOptics/eleo-ui/issues/554
+[#555]: https://github.com/ELEOptics/eleo-ui/issues/555
+[#556]: https://github.com/ELEOptics/eleo-ui/issues/556
+[#557]: https://github.com/ELEOptics/eleo-ui/issues/557
+[#558]: https://github.com/ELEOptics/eleo-ui/issues/558
+[#559]: https://github.com/ELEOptics/eleo-ui/issues/559
+[#560]: https://github.com/ELEOptics/eleo-ui/issues/560
+[#561]: https://github.com/ELEOptics/eleo-ui/issues/561
+[#562]: https://github.com/ELEOptics/eleo-ui/issues/562
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
