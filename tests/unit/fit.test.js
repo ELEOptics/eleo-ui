@@ -15,7 +15,7 @@ globalThis.ResizeObserver = class {
 globalThis.requestAnimationFrame = (cb) => { frames.push(cb); return frames.length; };
 globalThis.cancelAnimationFrame = (id) => { frames[id - 1] = null; };
 // elements are boxes: getBoundingClientRect().width, with computed padding (node has no getComputedStyle)
-globalThis.getComputedStyle = (el) => ({ paddingLeft: (el.pl || 0) + 'px', paddingRight: (el.pr || 0) + 'px' });
+globalThis.getComputedStyle = (el) => ({ paddingLeft: (el.pl || 0) + 'px', paddingRight: (el.pr || 0) + 'px', borderLeftWidth: (el.bl || 0) + 'px', borderRightWidth: (el.br || 0) + 'px' });
 const box = (width, extra) => ({ width, getBoundingClientRect() { return { width: this.width }; }, ...extra });
 const flush = () => { const f = frames; frames = []; f.forEach((cb) => cb && cb(0)); };
 
@@ -63,6 +63,14 @@ test('draws at the fractional content width', () => {
   assert.deepEqual(widths, [276.6], 'rounding to 2 decimals hides sub-0.01 changes');
   el.width = 20; notify([{ target: el }]); flush();
   assert.deepEqual(widths, [276.6], 'padding wider than the box draws nothing');
+  stop();
+});
+
+test('subtracts borders', () => {
+  const el = box(300.6, { pl: 12, pr: 12, bl: 1, br: 1 });
+  const widths = [];
+  const stop = fit(el, (w) => widths.push(w));
+  assert.deepEqual(widths, [274.6], 'box minus padding and borders');
   stop();
 });
 
