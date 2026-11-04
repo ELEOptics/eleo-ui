@@ -151,6 +151,39 @@ test.skip('text follows ADR-0003 on every framed tile (U18)', async ({ page }) =
   }
 });
 
+// Plan #512, issue #543, CRs #544 and #547. oracle: closed-form ADR-0003 (the floor frame F = 162). The rayFan row's minimum column is
+// --fan-min = columns x (F_LO + m x TEXT_MIN) + the tile's 26 px of chrome, capped at the row. At 1440 and 700 px the row is narrower than the floor needs
+// (CR #547: the two-theme grid leaves 656 px), so those assert only the tile width and no sideways scroll; at 1100 the row has room and every panel's frame is at least 162.
+test('the rayFan row gives each panel a floor frame (#544)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      // fit redraws after a ResizeObserver tick and a frame: settle before measuring.
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
+      const r = await page.evaluate((t) => {
+        const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fan-min')) || 0;
+        const tiles = [...document.querySelectorAll(`.theme[data-theme="${t}"] [data-tile^="rayFan"]`)];
+        const row = tiles[0].closest('.row');
+        return {
+          min, row: row.getBoundingClientRect().width, tiles: tiles.map((el) => el.getBoundingClientRect().width),
+          frames: tiles.flatMap((el) => [...el.querySelectorAll('svg rect[stroke="var(--plot-grid)"]')].map((x) => x.getBoundingClientRect().width)),
+          scrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        };
+      }, theme);
+      const at = `${theme} ${width}`;
+      expect(r.tiles.length, `${at} tiles`).toBe(2);
+      for (const w of r.tiles) expect(w, `${at} tile ${w}px against min(${r.min}, ${r.row})`).toBeGreaterThanOrEqual(Math.min(r.min, r.row) - 0.5);
+      expect(r.scrolls, `${at} scrolls sideways`).toBe(false);
+      if (width === 1100) {
+        expect(r.frames.length, `${at} frames`).toBeGreaterThan(0);
+        for (const F of r.frames) expect(F, `${at} frame ${F}px`).toBeGreaterThanOrEqual(162 - 0.5);
+      }
+    }
+  }
+});
+
 // Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
 // oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
 test('the footprint tile has a field legend from the recording', async ({ page }) => {
