@@ -11,7 +11,7 @@ function roleStyle(s, wt) {
   if (r !== undefined && r !== "tangential" && r !== "sagittal" && r !== "reference" && r !== "limit") throw new TypeError('curve: unknown role "' + r + '"');
   if (typeof i !== "number" || !isFinite(i) || Math.floor(i) !== i || i < 0) throw new TypeError("curve: index must be a non-negative integer");
   if (r === "reference") return { col: "var(--ink)", dash: "1 3", w: wt, cap: "round" };
-  if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: 1, cap: "butt", fill: "var(--ink)", fillOpacity: 0.06 };
+  if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: wt, cap: "butt", fill: "var(--ink)", fillOpacity: 0.06 };
   return { col: idx(i), dash: r === "sagittal" ? "5 3" : "", w: wt, cap: "round" };
 }
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
@@ -87,7 +87,7 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: L + pw, top: T }).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
 }
-/* The `limit` role's style, as attributes for a line and for a band. */
+/* The `limit` role's style, as attributes for a line and for a band; the `limits` option's marks stay 1 px. */
 export function limitStyle() {
   var st = roleStyle({ role: "limit" }, 1);
   return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };

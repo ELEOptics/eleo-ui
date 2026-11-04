@@ -51,11 +51,11 @@ export interface Layout2DProps {
   colorBy?: IndexKey;
   /** Ray set per group. Default "marginal-chief" (3 rays). */
   rays?: "marginal-chief" | "fan" | "chief";
-  /** Drawing width in px; the drawing is always true scale. Default 1000. Labels and the scale bar are `width / 70` px from 630 to 910, then grow as `13 * sqrt(width / 910)`, and are not drawn below 630 (ADR-0003). Ray strokes are 1 px up to 910, then `sqrt(width / 910)`. */
+  /** Drawing width in px; the drawing is always true scale. Default 1000. Labels and the scale bar are `width / 70` px from 630 to 910, then grow as `13 * sqrt(width / 910)`, and are not drawn below 630, nor are the STO and IMA marks (ADR-0003). Ray strokes are 1 px up to 910, then `sqrt(width / 910)`. */
   width?: number;
   /** One text per fan, drawn 0.6 em past the image plane, beside the end of that fan's chief ray, with room kept for them (0.6 em and 0.6 em a character of the longest, on the right; an East Asian wide character counts as two). Below a width of 630 the labels are not drawn and no room is kept. An empty fan gets none. A null or undefined entry skips that fan; more labels than fans throws. Default none. */
   labels?: (string | null | undefined)[];
-  /** Draw the STO and IMA labels. Default true. */
+  /** Draw the STO and IMA labels (not drawn below a width of 630). Default true. */
   marks?: boolean;
 }
 export interface Layout3DProps {

@@ -277,12 +277,12 @@ test('string ranges draw as numbers', () => {
 // user plan #162 M1 demo
 test('every role draws a stroke of ADR-0003 weight', () => {
   const pts = [[0, 0], [1, 1]];
-  for (const role of ['tangential', 'sagittal', 'reference', undefined]) {
-    const svg = ELEO.curve({ series: [{ points: pts, role }], x: { range: [0, 1] }, y: { range: [0, 1] } });
+  for (const [role, width] of [['tangential'], ['sagittal'], ['reference'], [undefined], ['limit'], ['limit', 1200]]) {
+    const svg = ELEO.curve({ series: [{ points: pts, role }], x: { range: [0, 1] }, y: { range: [0, 1] }, ...(width && { width }) });
     const widths = [...svg.matchAll(/<polyline[^>]*\sstroke-width="([^"]*)"/g)].map((m) => +m[1]);
     const F = frame(svg).pw, w = F > 234 ? Math.sqrt(F / 234) : 1; // oracle: ADR-0003, weight 1 up to F = 234, then sqrt(F / 234)
     assert.equal(widths.length, 1, String(role));
-    assert.ok(Math.abs(widths[0] - w) <= 0.01, `${role}: ${widths[0]} against ${w}`);
+    assert.ok(Math.abs(widths[0] - w) <= 0.01, `${role} at ${width}: ${widths[0]} against ${w}`);
   }
 });
 
@@ -599,7 +599,7 @@ test('unknown roles and bad indexes throw (#199)', () => {
   }
   for (const role of ['tangential', 'sagittal', 'reference', undefined]) assert.doesNotThrow(() => draw({ role, index: 0 }), String(role));
   const lim = draw({ role: 'limit' });
-  assert.match(lim, /stroke="var\(--ink\)"[^>]*stroke-width="1"[^>]*stroke-linecap="butt"[^>]*stroke-dasharray="6 3 1 3"/);
+  assert.match(lim, /stroke="var\(--ink\)"[^>]*stroke-width="[\d.]+"[^>]*stroke-linecap="butt"[^>]*stroke-dasharray="6 3 1 3"/);
   assert.equal(idx(-1), idx(7));
   assert.equal(idx(-9), idx(7));
   assert.equal(idx(8), idx(0));
