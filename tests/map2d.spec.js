@@ -690,14 +690,14 @@ test('text follows ADR-0003', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const branches = new Set();
-  for (const width of [200, 300, 1400]) {
-    const r = await page.locator('.theme[data-theme="light"]').evaluate((el, w) => {
+  for (const [width, polar] of [200, 300, 1400].flatMap((w) => [[w, false], [w, true]])) {
+    const r = await page.locator('.theme[data-theme="light"]').evaluate((el, [w, pol]) => {
       const values = [[0, 1, 2, 3], [1, 2, 3, 4]];
-      el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, extent: [-2, 2, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, value: { label: 'Irradiance' }, width: w }));
+      el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, ...(pol ? { polar: { radii: [1, 2], angles: [0, 1.5, 3, 4.5] } } : {}), extent: [-2, 2, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, value: { label: 'Irradiance' }, width: w }));
       const svg = el.lastElementChild, F = +svg.querySelector('rect').getAttribute('width');
       el.removeChild(svg);
       return { F, sizes: null, svg: svg.outerHTML };
-    }, width);
+    }, [width, polar]);
     // Measure in the page: the drawing must be attached for getScreenCTM.
     const m = await page.locator('.theme[data-theme="light"]').evaluate((el, [html, w]) => {
       el.insertAdjacentHTML('beforeend', html);
@@ -708,8 +708,8 @@ test('text follows ADR-0003', async ({ page }) => {
       return sizes;
     }, [r.svg, width]);
     const want = r.F < 162 ? 9 : r.F <= 234 ? r.F / 18 : 13 * Math.cbrt(r.F / 234);
-    expect(m.length, `width ${width} has text`).toBeGreaterThan(0);
-    for (const s of m) expect(Math.abs(s / want - 1), `width ${width} (F ${r.F}) text ${s}px against ${want}px`).toBeLessThanOrEqual(0.01);
+    expect(m.length, `width ${width} polar ${polar} has text`).toBeGreaterThan(0);
+    for (const s of m) expect(Math.abs(s / want - 1), `width ${width} polar ${polar} (F ${r.F}) text ${s}px against ${want}px`).toBeLessThanOrEqual(0.01);
     branches.add(r.F < 162 ? 'below' : r.F <= 234 ? 'inside' : 'above');
   }
   expect([...branches].sort()).toEqual(['above', 'below', 'inside']);

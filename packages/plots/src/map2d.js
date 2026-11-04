@@ -81,8 +81,8 @@ function typedMap(o) {
       if (rr > rout) continue;
       /* Binary search: the first ring whose outer edge is above rr; the last spoke at or before the angle (shifted into [pa[0], pa[0] + TAU)) and its successor, which wraps to the first spoke + TAU. A pixel exactly on a ring edge takes the outer ring; an angular tie takes the first spoke in order. */
       var lo2 = 0, hi2 = mid.length; while (lo2 < hi2) { var m2 = (lo2 + hi2) >> 1; if (rr >= mid[m2]) lo2 = m2 + 1; else hi2 = m2; }
-      var ri = lo2, t = pa[0] + ((Math.atan2(qy, qx) - pa[0]) % TAU + TAU) % TAU, a0 = 0, a1 = na; while (a0 < a1) { var m3 = (a0 + a1) >> 1; if (pa[m3] <= t) a0 = m3 + 1; else a1 = m3; }
-      var ai = a0 - 1, nx = a0 < na ? a0 : 0, dn = (a0 < na ? pa[a0] : pa[0] + TAU) - t, dp = t - pa[ai];
+      var ri = lo2, ang = pa[0] + ((Math.atan2(qy, qx) - pa[0]) % TAU + TAU) % TAU, a0 = 0, a1 = na; while (a0 < a1) { var m3 = (a0 + a1) >> 1; if (pa[m3] <= ang) a0 = m3 + 1; else a1 = m3; }
+      var ai = a0 - 1, nx = a0 < na ? a0 : 0, dn = (a0 < na ? pa[a0] : pa[0] + TAU) - ang, dp = ang - pa[ai];
       while (ai > 0 && pa[ai - 1] === pa[ai]) ai--;
       if (dn < dp || (dn === dp && nx < ai)) ai = nx;
       if (cols[ri][ai]) put((j * bw + i) * 4, cols[ri][ai]);
