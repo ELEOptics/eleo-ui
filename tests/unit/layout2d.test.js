@@ -10,8 +10,6 @@ import * as plots from '../../packages/plots/src/index.js';
 const { layoutBounds } = layout2dModule;
 
 const TOL = 0.01; // mm
-// ADR-0003's layout text size in px, null where hidden, written out here (not imported) so the oracle is the ADR's.
-const T_OF = (W) => (W / 70 < 9 ? null : W <= 910 ? W / 70 : 13 * Math.sqrt(W / 910));
 const FIXTURES = ['analysis', 'merit-before', 'merit-after', 'focus', 'tolerance'];
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/layouts/${name}.json`, import.meta.url)));
 
@@ -358,20 +356,18 @@ test('layoutBounds names a bad input', () => {
 });
 
 // #155 (review M1 round 1 finding 2): a width the labels fill leaves a zero or negative scale, a mirrored drawing, so it is named.
-// Plan #512, #518: the room is 0.6 em a character after a 0.6 em gap (a wide character two), and none where the text is hidden (W under 630).
-// oracle: spec #155 and ADR-0003 (the width W - 2*PAD - room must be positive; PAD 2 px; at W = 700 the text is 10 px, room 6 + 6 px per character of the longest label)
+// oracle: spec #155 (the width W - 2*PAD - room must be positive; PAD 2 px, room 6 + 6 px per character of the longest label)
 test('a width too narrow for the labels is named', () => {
-  const L = fixture('merit-before'), narrow = { message: 'layout2D: width too narrow for the 4 px pad and the labels' };
-  // Hidden labels reserve no room, so a width under 630 is only too narrow for the pad.
-  assert.doesNotThrow(() => ELEO.layout2D({ data: L, width: 118, labels: ['a long field label'] }));
-  // The boundary at W = 700: room = 6 + 6 * 115 = 696 leaves nothing, 6 + 6 * 114 = 690 leaves 6 px.
-  assert.throws(() => ELEO.layout2D({ data: L, width: 700, labels: ['x'.repeat(115)] }), narrow);
-  assert.doesNotThrow(() => ELEO.layout2D({ data: L, width: 700, labels: ['x'.repeat(114)] }));
-  // #156: an East Asian wide character counts two.
-  assert.doesNotThrow(() => ELEO.layout2D({ data: L, width: 700, labels: ['光'.repeat(57)] }));
-  assert.throws(() => ELEO.layout2D({ data: L, width: 700, labels: ['光'.repeat(58)] }), narrow);
+  const L = fixture('merit-before'), label = 'a long field label';
+  assert.throws(() => ELEO.layout2D({ data: L, width: 40, labels: [label] }),
+    { message: 'layout2D: width too narrow for the 4 px pad and the labels' });
+  // The boundary: room = 6 + 6 * 18 = 114, so 118 leaves nothing, 119 leaves 1 px.
+  assert.throws(() => ELEO.layout2D({ data: L, width: 118, labels: [label] }),
+    { message: 'layout2D: width too narrow for the 4 px pad and the labels' });
+  assert.doesNotThrow(() => ELEO.layout2D({ data: L, width: 119, labels: [label] }));
   // No labels: the 4 px pad alone fills width 4.
-  assert.throws(() => ELEO.layout2D({ data: L, width: 4 }), narrow);
+  assert.throws(() => ELEO.layout2D({ data: L, width: 4 }),
+    { message: 'layout2D: width too narrow for the 4 px pad and the labels' });
 });
 
 test('labels must be an array', () => {
@@ -379,30 +375,6 @@ test('labels must be an array', () => {
   for (const labels of ['0°', 3, { 0: 'a' }]) {
     assert.throws(() => ELEO.layout2D({ data: L, labels }),
       { message: 'layout2D: labels must be an array (a string or null per fan)' }, `labels ${JSON.stringify(labels)}`);
-  }
-});
-
-// Plan #512, issue #518: label and scale-bar text follow ADR-0003's layout rule, hidden (and unreserved) where W / 70 is under 9.
-// oracle: closed-form ADR-0003 (text W / 70 from 630 to 910, 13 * sqrt(W / 910) above, null below 630; ray weight sqrt(W / 910) above 910;
-// room 0.6 em a character after a 0.6 em gap, an East Asian wide character two characters (#156); the 1.5 em room above the geometry, #63)
-test('labels follow ADR-0003, hidden below 630', () => {
-  const L = fixture('merit-before'), box = layoutBounds([L]), span = box.zmax - box.zmin, labels = ['a', '光学', null];
-  const sizes = (svg) => [...svg.matchAll(/<text\b[^>]*>/g)].map((m) => { const f = /style="font-size:([\d.]+)px"/.exec(m[0]); assert.ok(f, `inline font size on ${m[0]}`); return +f[1]; });
-  for (const [W, t] of [[629.99, null], [630, 9], [630.01, 630.01 / 70], [800, 800 / 70], [910, 13], [1000, 13 * Math.sqrt(1000 / 910)], [1820, 13 * Math.sqrt(2)]]) {
-    const svg = ELEO.layout2D({ data: L, box, width: W, labels }), got = sizes(svg), [a, , , , , ty] = geometry(svg).M;
-    if (t === null) {
-      assert.equal(got.length, 0, `${W}: no text at all (labels, STO, IMA, scale bar)`);
-      assert.ok(Math.abs(a - (W - 4) / span) <= 1e-6, `${W}: no label room reserved`);
-      continue;
-    }
-    assert.ok(got.length >= 4, `${W}: labels, marks and the scale bar are drawn`);
-    got.forEach((g) => assert.ok(Math.abs(g - t) <= 0.001, `${W}: font size ${g} is ${t}`));
-    const room = 0.6 * t * (1 + 4), s = (W - 4 - room) / span; // '光学' counts four
-    assert.ok(Math.abs(a - s) <= 1e-6, `${W}: scale ${a} from room ${room} is ${s}`);
-    assert.ok(Math.abs(ty - (1.5 * t + box.yhi * s)) <= 1e-3, `${W}: 1.5 em above the geometry`);
-    const w = [...svg.matchAll(/<polyline\b[^>]*style="stroke-width:([\d.]+)px"/g)].map((m) => +m[1]);
-    assert.ok(w.length > 0);
-    w.forEach((x) => assert.ok(Math.abs(x - Math.max(1, Math.sqrt(W / 910))) <= 0.001, `${W}: ray weight ${x}`));
   }
 });
 
@@ -422,20 +394,20 @@ test('box pins the transform', () => {
   const before = fixture('merit-before'), after = fixture('merit-after');
   const box = plots.layoutBounds([before, after]);
   for (const W of [1000, 480]) {
-    const s = (W - 4) / (box.zmax - box.zmin), top = T_OF(W) ? 1.5 * T_OF(W) : 2;
+    const s = (W - 4) / (box.zmax - box.zmin);
     for (const L of [before, after]) {
       const [a, , , d, tx, ty] = geometry(plots.layout2D({ data: L, box, width: W })).M;
       assert.ok(Math.abs(a - s) <= 1e-6 && Math.abs(d + s) <= 1e-6, `width ${W}: scale ${a} is (width - 4) / box z span ${s}`);
       assert.ok(Math.abs(tx - (2 - box.zmin * s)) <= 1e-3, `width ${W}: z = box.zmin sits at x = 2`);
-      assert.ok(Math.abs(ty - (top + box.yhi * s)) <= 1e-3, `width ${W}: y = box.yhi sits ${top} px down, the label room (1.5 em, or the 2 px pad where text is hidden)`);
+      assert.ok(Math.abs(ty - (15 + box.yhi * s)) <= 1e-3, `width ${W}: y = box.yhi sits 15 px down, the label room`);
     }
   }
   // #149: with labels the drawing keeps room = 6 + 6 × the longest drawn label's raw length px on the right, inside the pad:
   // s = (W - 4 - room) / span, tx unchanged. A null label costs nothing; a label of an empty fan still counts (CR #153), so
   // one box, width and labels give one scale whatever the fans hold.
   const labels = ['0°', '12°', '24.5°']; // the longest is 5 characters
-  for (const W of [1000, 640]) {
-    const room = 0.6 * T_OF(W) * (1 + 5), s = (W - 4 - room) / (box.zmax - box.zmin);
+  for (const W of [1000, 480]) {
+    const room = 6 + 6 * 5, s = (W - 4 - room) / (box.zmax - box.zmin);
     for (const L of [before, after]) {
       const [a, , , d, tx] = geometry(plots.layout2D({ data: L, box, width: W, labels })).M;
       assert.ok(Math.abs(a - s) <= 1e-6 && Math.abs(d + s) <= 1e-6, `width ${W}, labels: scale ${a} is (width - 4 - room) / box z span ${s}`);
@@ -449,7 +421,7 @@ test('box pins the transform', () => {
     const [a0] = geometry(plots.layout2D({ data: before, box, width: W, labels: [null, null, null] })).M;
     assert.ok(Math.abs(a0 - (W - 4) / (box.zmax - box.zmin)) <= 1e-6, `width ${W}: no drawn label, no room`);
     const [a1] = geometry(plots.layout2D({ data: before, box, width: W, labels: ['ab', null, 'xyz'] })).M;
-    assert.ok(Math.abs(a1 - (W - 4 - 0.6 * T_OF(W) * 4) / (box.zmax - box.zmin)) <= 1e-6, `width ${W}: room follows the longest drawn label (3 chars)`);
+    assert.ok(Math.abs(a1 - (W - 4 - 24) / (box.zmax - box.zmin)) <= 1e-6, `width ${W}: room follows the longest drawn label (3 chars)`);
   }
   const edge = { zmin: 0, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // the sample's stop is at z = 0
   const sto = attrs(/<text\b[^>]*>STO<\/text>/.exec(plots.layout2D({ data: sample.layout, box: edge }))[0]);
@@ -485,8 +457,7 @@ test('labels at the image', () => {
     { name: 'empty fan', L: { ...tol, rays: tol.rays.map((fan, k) => (k === 1 ? [] : fan)) }, labels: ['a', 'b', 'c'] },
   ];
   for (const { name, L, labels } of cases) {
-    for (const W of [1000, 640]) {
-      const u = T_OF(W) / 10;
+    for (const W of [1000, 480]) {
       const svg = ELEO.layout2D({ data: L, labels, width: W });
       const view = nums(/<svg\b[^>]*\bviewBox="([^"]*)"/.exec(svg)[1]);
       const [s, , , ns, tx, ty] = geometry(svg).M;
@@ -497,22 +468,21 @@ test('labels at the image', () => {
         assert.equal(got.length, 1, `${name} w${W}: label ${label} drawn once`);
         const ray = fan[L.chief?.[k] ?? Math.floor(fan.length / 2)], end = ray[ray.length - 1];
         const img = L.surfaces.find((x) => x.image), x = +got[0].x, y = +got[0].y;
-        const wantX = (img ? img.z : end[0]) * s + tx + 6 * u, wantY = end[1] * ns + ty + 4 * u;
+        const wantX = (img ? img.z : end[0]) * s + tx + 6, wantY = end[1] * ns + ty + 4;
         assert.equal(got[0]['text-anchor'], 'start', `${name} w${W}: label ${label} is start-anchored`);
-        assert.ok(Math.abs(x - wantX) <= 0.01, `${name} w${W}: label ${label} x ${x} is 0.6 em right of the image plane (${wantX.toFixed(2)})`);
-        assert.ok(Math.abs(y - wantY) <= 0.01, `${name} w${W}: label ${label} baseline ${y} is 0.4 em below its chief end (${wantY.toFixed(2)})`);
+        assert.ok(Math.abs(x - wantX) <= 0.01, `${name} w${W}: label ${label} x ${x} is 6 px right of the image plane (${wantX.toFixed(2)})`);
+        assert.ok(Math.abs(y - wantY) <= 0.01, `${name} w${W}: label ${label} baseline ${y} is 4 px below its chief end (${wantY.toFixed(2)})`);
         assert.ok(x >= 0 && x <= view[2] && y > 0 && y <= view[3], `${name} w${W}: label ${label} anchor inside the viewBox`);
         // #149: room is kept on the right for the longest label, 6 px a character, so the text ends inside the 2 px pad.
-        const room = 6 * u * (1 + Math.max(...labels.filter((t) => t != null).map((t) => t.length)));
-        assert.ok(x + 6 * u * label.length <= view[2] - 2 + 0.01, `${name} w${W}: label ${label} (${label.length} chars) ends inside the 2 px pad; room ${room}`);
+        const room = 6 + 6 * Math.max(...labels.filter((t) => t != null).map((t) => t.length));
+        assert.ok(x + 6 * label.length <= view[2] - 2 + 0.01, `${name} w${W}: label ${label} (${label.length} chars) ends inside the 2 px pad; room ${room}`);
       });
     }
   }
   // #64: with labels and marks on, IMA sits below the image line's lower end and clears every label and the scale bar.
-  // oracle: property labels don't overlap (IMA's baseline ≥ 1.4 em below the image line: the 0.9 em ascent + the 0.5 em gap `above` leaves; IMA's anchor ≥ 1.2 em from every label's, to the SVG's 2 dp, inside the viewBox; IMA's and the scale text's x ranges apart at 0.8 em a character)
+  // oracle: property labels don't overlap (IMA's baseline ≥ 14 px below the image line: the 9 px ascent of plots.css `.eleo-tick`'s 10 px font + the 5 px gap `above` leaves; IMA's anchor ≥ 12 px from every label's, to the SVG's 2 dp, inside the viewBox; IMA's and the scale text's x ranges apart at 8 px a character)
   for (const [name, L] of [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]]) {
-    for (const W of [1000, 640]) {
-      const u = T_OF(W) / 10;
+    for (const W of [1000, 480]) {
       const labels = L.rays.map((_, k) => `F${k}`);
       const svg = ELEO.layout2D({ data: L, labels, width: W });
       const view = nums(/<svg\b[^>]*\bviewBox="([^"]*)"/.exec(svg)[1]);
@@ -522,13 +492,13 @@ test('labels at the image', () => {
       assert.ok(iy >= 10 && iy <= view[3], `${name} w${W}: IMA (${ix}, ${iy}) inside the viewBox`);
       const [, , , ns, , ty] = geometry(svg).M, img = L.surfaces.find((x) => x.image);
       const low = Math.max(-img.sd, layoutBounds([L]).ylo) * ns + ty;
-      assert.ok(iy >= low + 14 * u - 0.01, `${name} w${W}: IMA (${iy}) at least 1.4 em below the image line's lower end (${low.toFixed(2)})`);
-      const span = (t) => { const x = +t.x, w = 8 * u * t.text.length, a = t['text-anchor'] || 'start'; return a === 'end' ? [x - w, x] : a === 'middle' ? [x - w / 2, x + w / 2] : [x, x + w]; };
+      assert.ok(iy >= low + 14 - 0.005, `${name} w${W}: IMA (${iy}) at least 14 px below the image line's lower end (${low.toFixed(2)})`);
+      const span = (t) => { const x = +t.x, w = 8 * t.text.length, a = t['text-anchor'] || 'start'; return a === 'end' ? [x - w, x] : a === 'middle' ? [x - w / 2, x + w / 2] : [x, x + w]; };
       const bar = span(T.find((t) => t.text === '10 mm')), im = span(ima[0]);
       assert.ok(im[0] > bar[1] || im[1] < bar[0], `${name} w${W}: IMA x ${im.map((v) => v.toFixed(1))} clear of the scale text x ${bar.map((v) => v.toFixed(1))}`);
       T.filter((t) => labels.includes(t.text)).forEach((t) => {
         const d = Math.hypot(+t.x - ix, +t.y - iy);
-        assert.ok(d >= 12 * u - 0.005, `${name} w${W}: IMA is ${d.toFixed(1)} px from label ${t.text}, want ≥ ${12 * u}`);
+        assert.ok(d >= 12 - 0.005, `${name} w${W}: IMA is ${d.toFixed(1)} px from label ${t.text}, want ≥ 12`);
       });
     }
   }
@@ -727,8 +697,7 @@ test('new defaults (#126)', () => {
   const texts = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
   const cases = [...FIXTURES.map((f) => [f, fixture(f)]), ['sample', sample.layout]];
   for (const [name, L] of cases) {
-    for (const W of [1000, 640]) {
-      const u = T_OF(W) / 10;
+    for (const W of [1000, 480]) {
       const labels = L.rays.map((_, k) => `F${k}`);
       const svg = ELEO.layout2D({ data: L, labels, width: W });
       const where = `${name} w${W}`;
@@ -741,14 +710,14 @@ test('new defaults (#126)', () => {
         assert.equal(got.length, 1, `${where}: label ${labels[k]} drawn once`);
         const ray = fan[L.chief?.[k] ?? Math.floor(fan.length / 2)], end = ray[ray.length - 1];
         assert.equal(got[0]['text-anchor'], 'start', `${where}: label ${labels[k]} is start-anchored`);
-        assert.ok(Math.abs(+got[0].x - (img.z * s + tx + 6 * u)) <= 0.01, `${where}: label ${labels[k]} x ${got[0].x} is 0.6 em right of the image plane ${(img.z * s + tx).toFixed(2)}`);
-        assert.ok(Math.abs(+got[0].y - (end[1] * ns + ty + 4 * u)) <= 0.01, `${where}: label ${labels[k]} baseline ${got[0].y} is 0.4 em below its chief end ${(end[1] * ns + ty).toFixed(2)}`);
+        assert.ok(Math.abs(+got[0].x - (img.z * s + tx + 6)) <= 0.01, `${where}: label ${labels[k]} x ${got[0].x} is 6 px right of the image plane ${(img.z * s + tx).toFixed(2)}`);
+        assert.ok(Math.abs(+got[0].y - (end[1] * ns + ty + 4)) <= 0.01, `${where}: label ${labels[k]} baseline ${got[0].y} is 4 px below its chief end ${(end[1] * ns + ty).toFixed(2)}`);
       });
-      // Every ray polyline (dashed chief included) is ADR-0003's weight wide (1 up to W = 910), inside one <g opacity=".85">.
+      // Every ray polyline (dashed chief included) is 1 px wide, inside one <g opacity=".85">.
       const { body, polylines } = drawn(svg);
       const grouped = [...body.matchAll(/<g opacity="\.85">([\s\S]*?)<\/g>/g)].flatMap((m) => [...m[1].matchAll(/<polyline\b[^>]*>/g)].map((p) => p[0]));
       assert.equal(grouped.length, polylines.length, `${where}: all ${polylines.length} ray polylines are inside <g opacity=".85">`);
-      for (const tag of grouped) assert.match(tag, new RegExp(`style="stroke-width:${+Math.max(1, Math.sqrt(W / 910)).toFixed(3)}px"`), `${where}: ray is ${Math.max(1, Math.sqrt(W / 910))} px wide: ${tag}`);
+      for (const tag of grouped) assert.match(tag, /\bstroke-width(="1(px)?"|:\s*1(px)?\s*[;"])/, `${where}: ray is 1px wide: ${tag}`);
       const bar = T.filter((t) => /mm/.test(t.text));
       assert.deepEqual(bar.map((t) => t.text), ['10 mm'], `${where}: the scale text is exactly 10 mm`);
     }
@@ -773,7 +742,7 @@ test('rays are 1 px at .85', () => {
       const inside = [...groups[0][1].matchAll(/<polyline\b[^>]*>/g)].map((m) => m[0]);
       assert.equal(inside.length, polylines.length, `${where}: all ${polylines.length} ray polylines are inside it`);
       for (const tag of inside) {
-        assert.match(tag, /style="stroke-width:1\.048px"/, `${where}: sqrt(1000 / 910) px wide at the default width (ADR-0003): ${tag}`);
+        assert.match(tag, /\bstroke-width(="1(px)?"|:\s*1(px)?\s*[;"])/, `${where}: 1px wide: ${tag}`);
         assert.ok(!/stroke-ray|stroke-opacity/.test(tag), `${where}: no --stroke-ray or per-polyline opacity: ${tag}`);
       }
     }
@@ -789,8 +758,7 @@ test('texts carry the tick style', () => {
   const decl = Object.fromEntries(rule[1].split(';').map((d) => d.trim()).filter(Boolean).map((d) => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()]));
   const font = /^(\d+)\s+(\d+)px\s+(.+)$/.exec(decl.font);
   assert.ok(font, `plots.css .eleo-tick has a font shorthand "weight size family", got "${decl.font}"`);
-  const want = { fill: decl.fill, 'font-family': font[3], 'font-weight': font[1] };
-  const size = `font-size:${+(13 * Math.sqrt(1000 / 910)).toFixed(3)}px`; // inline since #518 (ADR-0003): the class's size beats an attribute
+  const want = { fill: decl.fill, 'font-family': font[3], 'font-size': font[2], 'font-weight': font[1] };
   for (const [name, L] of [['merit-before', fixture('merit-before')], ['sample', sample.layout]]) {
     const svg = ELEO.layout2D({ data: L, labels: L.rays.map((_, k) => `F${k}`) });
     const tags = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
@@ -798,8 +766,6 @@ test('texts carry the tick style', () => {
     for (const t of tags) {
       assert.equal(t.class, 'eleo-tick', `${name}: "${t.text}" keeps class eleo-tick`);
       for (const [a, v] of Object.entries(want)) assert.equal(t[a], v, `${name}: "${t.text}" ${a}`);
-      assert.equal(t.style, size, `${name}: "${t.text}" size`);
-      assert.equal(t['font-size'], undefined, `${name}: "${t.text}" has no font-size attribute`);
     }
   }
 });

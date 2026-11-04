@@ -3,15 +3,9 @@
 // Geometry is drawn in mm inside one <g transform="matrix(s 0 0 -s tx ty)">; text and the scale bar in px.
 import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
-import { layoutText, layoutWeight } from './scale.js';
 
 // plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
-// The size is an inline style on each text (ADR-0003), since the class's size would beat an attribute.
-var TICK = 'class="eleo-tick" fill="var(--ink-muted)" font-family="var(--font-mono)" font-weight="400"';
-// A label's width in characters: an East Asian wide or fullwidth character counts two (#156).
-var WIDE = /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6\u{20000}-\u{3fffd}]/gu;
-// Its length with each wide character doubled.
-function cells(t) { return String(t).replace(WIDE, "  ").length; }
+var TICK = 'class="eleo-tick" fill="var(--ink-muted)" font-family="var(--font-mono)" font-size="10" font-weight="400"';
 
 // The fan's chief ray: `chief[k]` when recorded, else the middle ray (the site's rule; wrong for a vignetted fan).
 function chiefOf(L, k) {
@@ -184,17 +178,15 @@ export function layout2D(o) {
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
   if (!B || ![B.zmin, B.zmax, B.ylo, B.yhi].every(Number.isFinite) || !(B.zmin < B.zmax) || !(B.ylo < B.yhi)) throw new Error("layout2D: box needs finite zmin < zmax and ylo < yhi");
   // The drawing is padded 2 px in z at each end (more than half the widest stroke, --stroke-curve), so the image line and the ray caps sit inside the viewBox.
-  // The text size is ADR-0003's layoutText(W), null (no label, mark or scale bar, and no room) below W = 630; u is that size over the class's 10 px, which scales every text offset.
-  // Labels start 0.6 em past the image plane, so the right end keeps room = 0.6 em + 0.6 em a character of the longest non-null one
-  // (0 without), wide characters counted double, whatever its fan holds: the same box, width and labels give one scale. A null entry draws no label.
-  var W = o.width || 1000, tx0 = layoutText(W), u = (tx0 || 10) / 10;
-  var drawn = tx0 ? (o.labels || []).map(function (t) { return t != null ? cells(t) : 0; }).filter(Boolean) : [];
-  var PAD = 2, room = drawn.length ? 6 * u * (1 + Math.max.apply(null, drawn)) : 0, s = (W - 2 * PAD - room) / (B.zmax - B.zmin);
+  // Labels start 6 px past the image plane, so the right end keeps room = 6 + 6 px a character of the longest non-null one
+  // (0 without), whatever its fan holds: the same box, width and labels give one scale. A null entry draws no label.
+  var drawn = (o.labels || []).map(function (t) { return t != null ? String(t).length : 0; }).filter(Boolean);
+  var W = o.width || 1000, PAD = 2, room = drawn.length ? 6 + 6 * Math.max.apply(null, drawn) : 0, s = (W - 2 * PAD - room) / (B.zmax - B.zmin);
   // A width the pad and the label room fill leaves no scale (a negative one mirrors the drawing); `!(a > 0)` also catches NaN.
   if (!(W - 2 * PAD - room > 0)) throw new Error("layout2D: width too narrow for the 4 px pad and the labels");
-  // Room above the geometry for the labels, 1.5 em whatever the stops reach, so one box gives one transform; the pad alone when the text is hidden. The scale bar's room below is 2.7 em.
-  var top = tx0 ? 15 * u : PAD;
-  var H = Math.round((B.yhi - B.ylo) * s + top) + (tx0 ? 27 * u : PAD), tx = PAD - B.zmin * s, ty = top + B.yhi * s;
+  // Room above the geometry for the labels, 15 px whatever the stops reach, so one box gives one transform.
+  var top = 15;
+  var H = Math.round((B.yhi - B.ylo) * s + top) + 27, tx = PAD - B.zmin * s, ty = top + B.yhi * s;
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
@@ -231,7 +223,7 @@ export function layout2D(o) {
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
       // A ray with a < len alive points is two polylines sharing point a - 1: [0, a) as before, [max(a - 1, 0), len) dotted.
       var r = rays[i], a = L.alive ? L.alive[k][i] : r.length;
-      function part(q, dash) { return '<polyline points="' + pts(q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + " " + NS + "/>"; }
+      function part(q, dash) { return '<polyline points="' + pts(q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:1px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + " " + NS + "/>"; }
       // A dead ray is one polyline through its blocking point a, with no dotted part (a chief keeps its 6 4 dash).
       if (L.dead && L.dead[k][i]) { g += part(r.slice(0, a + 1), i === c && set !== "chief" ? "6 4" : ""); return; }
       if (a > 0) g += part(r.slice(0, a), i === c && set !== "chief" ? "6 4" : "");
@@ -242,26 +234,24 @@ export function layout2D(o) {
   g += "</g>" + bodies;
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>";
-  if (!tx0) return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
-  var tsz = ' style="font-size:' + n(tx0) + 'px"';
-  // A text's baseline 0.5 em above y (mm), kept 1 em inside the top.
-  function above(y) { return n(Math.max(10 * u, Y(y) - 5 * u)); }
-  function label(z, py, t, anchor) { return '<text ' + TICK + ' x="' + (anchor ? n(z) : X(z)) + '" y="' + n(py) + '" text-anchor="' + (anchor || (X(z) < 16 * u ? "start" : X(z) > W - 16 * u ? "end" : "middle")) + '"' + tsz + '>' + t + "</text>"; }
+  // A text's baseline 5 px above y (mm), kept 10 px inside the top.
+  function above(y) { return +Math.max(10, Y(y) - 5).toFixed(2); }
+  function label(z, py, t, anchor) { return '<text ' + TICK + ' x="' + (anchor ? z.toFixed(2) : X(z)) + '" y="' + py.toFixed(2) + '" text-anchor="' + (anchor || (X(z) < 16 ? "start" : X(z) > W - 16 ? "end" : "middle")) + '">' + t + "</text>"; }
   // Each field's label starts 6 px past the image plane (its own chief end's z with no image surface), its baseline 4 px
   // below its chief's end; the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: +Y(ends[k][1]) + 4 * u, t: esc(t) }); });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6, py: +Y(ends[k][1]) + 4, t: esc(t) }); });
   if (o.marks !== false) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
     if (img) {
       // With labels, IMA goes below the image line's lower end and a 12 px line below the lowest label.
-      // Its baseline drops the text's height (0.9 em: the ascent of plots.css `.eleo-tick`'s font) plus the 0.5 em gap `above` leaves.
-      var ys = tags.map(function (a) { return a.py; });
-      g += label(img.z, ys.length ? Math.max(+Y(Math.max(-img.sd, B.ylo)) + 14 * u, Math.max.apply(null, ys) + 12 * u) : above(img.sd), "IMA");
+      // Its baseline drops the text's height (9 px: the ascent of plots.css `.eleo-tick`'s 10 px font) plus the 5 px gap `above` leaves.
+      var IMA_DROP = 9 + 5, ys = tags.map(function (a) { return a.py; });
+      g += label(img.z, ys.length ? Math.max(+Y(Math.max(-img.sd, B.ylo)) + IMA_DROP, Math.max.apply(null, ys) + 12) : above(img.sd), "IMA");
     }
   }
   tags.forEach(function (a) { g += label(a.x, a.py, a.t, "start"); });
-  var by = H - 8 * u;
-  g += '<path d="M' + n(8 * u) + "," + n(by - 4 * u) + "v" + n(8 * u) + "m0," + n(-4 * u) + "h" + n(10 * s) + "m0," + n(-4 * u) + "v" + n(8 * u) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + n(10 * s + 16 * u) + '" y="' + n(by + 3 * u) + '"' + tsz + '>10 mm</text>';
+  var sb = 10 * s, by = H - 8;
+  g += '<path d="M8,' + (by - 4) + " V" + (by + 4) + " M8," + by + " H" + (8 + sb).toFixed(1) + " M" + (8 + sb).toFixed(1) + "," + (by - 4) + " V" + (by + 4) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + (16 + sb).toFixed(1) + '" y="' + (by + 3) + '">10 mm</text>';
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
 }
