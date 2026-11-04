@@ -121,6 +121,21 @@ test('recorded field curvature and distortion round trip (U6)', async () => {
   }
 });
 
+// Plan #512, issue #557 (review M1 finding 9). oracle: property: the frame rect's and the nested svg's x, y, width and height have at most 2 decimals, so the markup is small and doesn't depend on Math.cbrt's last bits.
+test('frame geometry has at most 2 decimals', () => {
+  for (const width of [200, 460, 1200]) {
+    const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], index: 0 }], width, height: 260 });
+    const tags = [/<rect\b[^>]*stroke="var\(--plot-grid\)"[^>]*>/.exec(svg), /<svg\b[^>]*\by="[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg)];
+    for (const tag of tags) {
+      assert.ok(tag, `width ${width}: frame tags found`);
+      for (const a of ['x', 'y', 'width', 'height']) {
+        const v = new RegExp(`\\s${a}="([^"]*)"`).exec(tag[0])[1];
+        assert.match(v, /^-?\d+(\.\d{1,2})?$/, `width ${width}: ${a}="${v}"`);
+      }
+    }
+  }
+});
+
 // Plan #284 #329 (CR from the M2 demo). oracle: property: a single plot's frame top sits at least 14 px under the y-axis title's baseline (y = 10), as bars.test.js checks for bars.
 test('the y-axis title has room above the frame', () => {
   const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], index: 0 }], x: { label: 'Frequency', unit: 'cy/mm' }, y: { label: 'Modulus' }, width: 460, height: 260 });
@@ -474,7 +489,7 @@ test('limits draw single and paneled', () => {
     const { range: _x, ...xa } = x, { range: _y, ...ya } = y;
     svg = ELEO.curve({ series, x: xa, y: ya, limits: [...limits, { y: 1.6 }, { x: [-20, 500] }], width, height });
     const f = frame(svg), g = seriesGroup(svg);
-    const [xlo, ylo] = toData(g.M, [0, f.ph]), [xhi, yhi] = toData(g.M, [f.pw, 0]);
+    const [xlo, ylo] = toData(g.M, [-0.01, f.ph + 0.01]), [xhi, yhi] = toData(g.M, [f.pw + 0.01, -0.01]); // the frame is written to 2 decimals (#557): 0.01 px of slack
     assert.ok(ylo <= 0 && yhi >= 1.6 && xlo <= -20 && xhi >= 500, `${width}px auto range [${xlo},${xhi}]x[${ylo},${yhi}] contains the limits`);
     // A given range clips: a limit outside it leaves the range alone and draws no label.
     svg = ELEO.curve({ series, x, y, limits: [{ y: 9, label: 'far' }], width, height });
@@ -566,7 +581,7 @@ test('limit lines and bands round trip (U9)', async () => {
     const { range: _x, ...xAuto } = x, { range: _y, ...yAuto } = y;
     svg = ELEO.curve({ series, x: xAuto, y: yAuto, limits: wide, width, height });
     const f = frame(svg), g = seriesGroup(svg);
-    const [xlo, ylo] = toData(g.M, [0, f.ph]), [xhi, yhi] = toData(g.M, [f.pw, 0]);
+    const [xlo, ylo] = toData(g.M, [-0.01, f.ph + 0.01]), [xhi, yhi] = toData(g.M, [f.pw + 0.01, -0.01]); // the frame is written to 2 decimals (#557): 0.01 px of slack
     assert.ok(ylo <= 0 && yhi >= 1.6, `${width}px auto: the y range [${ylo}, ${yhi}] contains the limits 0 and 1.6`);
     assert.ok(xlo <= -20 && xhi >= 400, `${width}px auto: the x range [${xlo}, ${xhi}] contains the band -20 to 400`);
     // Panels: every panel carries the limits, recovered through its own transform.
@@ -581,7 +596,7 @@ test('limit lines and bands round trip (U9)', async () => {
     svg = ELEO.curve({ panels, columns: 2, x: xAuto, y: yAuto, limits: wide, width, height });
     const pf = frame(svg);
     panelGroups(svg).forEach((pg, p) => {
-      const [plo, qlo] = toData(pg.M, [0, pf.ph]), [phi, qhi] = toData(pg.M, [pf.pw, 0]);
+      const [plo, qlo] = toData(pg.M, [-0.01, pf.ph + 0.01]), [phi, qhi] = toData(pg.M, [pf.pw + 0.01, -0.01]);
       assert.ok(qlo <= 0 && qhi >= 1.6 && plo <= -20 && phi >= 400, `${width}px panel ${p} auto range [${plo},${phi}]x[${qlo},${qhi}] contains the limits`);
     });
   }

@@ -74,14 +74,15 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   var u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
   var pw = Math.max(1, w - L - mg.R), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
-  g += '<rect x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" fill="none" stroke="var(--plot-grid)"/>';
+  var fr = 'x="' + +L.toFixed(2) + '" y="' + +T.toFixed(2) + '" width="' + +pw.toFixed(2) + '" height="' + +ph.toFixed(2) + '"';
+  g += '<rect ' + fr + ' fill="none" stroke="var(--plot-grid)"/>';
   xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + (T + ph) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + X(v) + '" y="' + (T + ph + o(13)) + '" text-anchor="middle"' + ts + '>' + fmt(v, xt.decimals) + "</text>"; });
   yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + (L + pw) + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + (L - o(6)) + '" y="' + Y(v) + '" dy="' + o(3) + '" text-anchor="end"' + ts + '>' + fmt(v, yt.decimals) + "</text>"; });
   if (xr[0] < 0 && xr[1] > 0) g += '<line x1="' + X(0) + '" y1="' + T + '" x2="' + X(0) + '" y2="' + (T + ph) + '" stroke="var(--plot-axis)"/>';
   if (yr[0] < 0 && yr[1] > 0) g += '<line x1="' + L + '" y1="' + Y(0) + '" x2="' + (L + pw) + '" y2="' + Y(0) + '" stroke="var(--plot-axis)"/>';
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
   var M = [sx, 0, 0, -sy, -xr[0] * sx, ph + yr[0] * sy].map(String);
-  g += '<svg x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"><g transform="matrix(' + M.join(" ") + ')">';
+  g += '<svg ' + fr + '><g transform="matrix(' + M.join(" ") + ')">';
   if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
   g += "</g></svg>";
   if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: L + pw, top: T }).replace(/<text [^>]*/g, function (m) { return m + ts; });
