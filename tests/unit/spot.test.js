@@ -392,17 +392,20 @@ test('circle caption rule stated alike in index.d.ts and README', async () => {
 });
 
 // #501 (CR #502): textScale multiplies spot's text and the layout around it; a missing or unusable value draws today's markup.
-// oracle: property: classes are 10 px (.eleo-tick) and 10.5 px (.eleo-val) in plots.css; layout is 18 under the plot, 15 per line, 28 foot
+// oracle: property: the class sizes are read from plots.css (.eleo-tick, .eleo-val); layout is 18 under the plot, 15 per line, 28 foot
 test('text scale', async () => {
   const base = { panels: [{ title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], airy: 2.87, notes: ['n1'] }], unit: 'µm', reference: 'centroid', width: 300 };
   const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ y: +/\by="([\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
+  const css = (await import('node:fs')).readFileSync(new URL('../../packages/plots/src/plots.css', import.meta.url), 'utf8');
+  const px = (cls) => +new RegExp(`\\.${cls}\\s*\\{\\s*font:\\s*[\\w-]+\\s+([\\d.]+)px`).exec(css)[1];
+  const size = { 'eleo-tick': px('eleo-tick'), 'eleo-val': px('eleo-val') };
   const full = ELEO.spot(base), half = ELEO.spot({ ...base, textScale: 0.5 });
   const a = texts(full), b = texts(half);
   assert.equal(a.length, b.length);
   const plotBottom = a[0].y - 18;
   b.forEach((t, i) => {
     assert.ok(t.size, `text ${i} has an inline style font-size`);
-    assert.equal(+t.size[1], (t.cls === 'eleo-val' ? 10.5 : 10) / 2, `text ${i} font size is half the class's`);
+    assert.equal(+t.size[1], size[t.cls] / 2, `text ${i} font size is half the class's`);
     assert.ok(Math.abs((t.y - plotBottom) - (a[i].y - plotBottom) / 2) < 1e-9, `text ${i} sits half as far under the plot`);
   });
   const hOf = (m) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(m)[1];
@@ -411,7 +414,7 @@ test('text scale', async () => {
   for (const v of [undefined, 1, NaN, 0, -1, Infinity, 'x']) assert.equal(ELEO.spot({ ...base, textScale: v }), ELEO.spot(base), `textScale ${String(v)} changes nothing`);
   const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
   const sm = texts(ELEO.spot({ data: sample, textScale: 0.5 }));
-  assert.ok(sm.length > 0 && sm.every((t) => t.size && +t.size[1] === (t.cls === 'eleo-val' ? 10.5 : 10) / 2), 'the sample call draws half-size inline font sizes');
+  assert.ok(sm.length > 0 && sm.every((t) => t.size && +t.size[1] === size[t.cls] / 2), 'the sample call draws half-size inline font sizes');
   assert.equal(ELEO.spot({ data: sample, textScale: 1 }), ELEO.spot({ data: sample }), 'the sample call at 1 is unchanged');
   const nar = { panels: base.panels, origin: 'a rather long origin name for the reference caption line that is wide', reference: 'chief' };
   const wOf = (m) => +/viewBox="0 0 ([\d.]+) /.exec(m)[1];
