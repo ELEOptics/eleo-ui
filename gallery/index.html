@@ -103,34 +103,38 @@
     // Each tile names the data it needs and draws from it. draw() below calls a tile only when `need()` gives something;
     // otherwise the tile draws nothing and the rest of the page draws.
     function sampleBox() { return SAMPLE_BOX; }
-    function meritTile(k) {
-      try { return ELEO.layout2D({ data: MERIT[k], width: 1000, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
+    function meritTile(k, w) {
+      try { return ELEO.layout2D({ data: MERIT[k], width: w, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
       catch (e) { console.error('merit-' + k + ':', e); return ''; }
     }
     // A recorded tile: draws REC[k] (the adapter's result) through the renderer `render`; blank while REC[k] is unset.
-    function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d) { return render(d); } }; }
+    // draw(data, w) gets the body's content width; the curve, rayFan and layout tiles (FIT) pass it on as `width` (ADR-0003), the rest ignore it.
+    function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d, w) { return render(d, w); } }; }
+    function atWidth(d, w, more) { return Object.assign({}, d, more, { width: w }); }
+    var FIT = ['layout2D', 'layout2D-fan', 'merit-before', 'merit-after', 'layout2D-glasses', 'layout2D-wandersleb', 'layout2D-cassegrain',
+      'rayFan', 'rayFan-opd', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'chromaticFocus'];
     var SVG = {
-      'layout2D': { need: sampleBox, draw: function (box) { return ELEO.layout2D({ width: 1000, box: box }); } },
-      'layout2D-fan': { need: sampleBox, draw: function (box) { return ELEO.layout2D({ width: 1000, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
-      'merit-before': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('before'); } },
-      'merit-after': { need: function () { return MERIT_BOX; }, draw: function () { return meritTile('after'); } },
-      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d) { return ELEO.layout2D({ data: d, width: 1000, marks: false }); } },
-      'layout2D-wandersleb': recTile('layout', ELEO.layout2D),
-      'layout2D-cassegrain': recTile('cassegrainLayout', ELEO.layout2D),
+      'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box }); } },
+      'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
+      'merit-before': { need: function () { return MERIT_BOX; }, draw: function (_, w) { return meritTile('before', w); } },
+      'merit-after': { need: function () { return MERIT_BOX; }, draw: function (_, w) { return meritTile('after', w); } },
+      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w) { return ELEO.layout2D({ data: d, width: w, marks: false }); } },
+      'layout2D-wandersleb': recTile('layout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
+      'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
       'spot': recTile('spot', ELEO.spot),
       'footprint': recTile('footprint', function (d) { return ELEO.spot(Object.assign({}, d, { textScale: 11 / 30 })); }),
       // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
       'seidel': recTile('seidel', function (d) { return ELEO.bars(Object.assign({}, d, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', ELEO.bars),
       'throughFocus': { need: sampleBox, draw: function () { return ELEO.throughFocus(); } },
-      'rayFan': { need: sampleBox, draw: function () { return ELEO.rayFan(); } },
-      'rayFan-opd': { need: sampleBox, draw: function () { return ELEO.rayFan({ kind: 'opd' }); } },
-      'mtf': recTile('mtf', ELEO.curve),
+      'rayFan': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ width: w }); } },
+      'rayFan-opd': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ kind: 'opd', width: w }); } },
+      'mtf': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
-      'mtf-limits': recTile('mtf', function (d) { return ELEO.curve(Object.assign({}, d, { limits: [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }] })); }),
-      'fieldCurvature': recTile('fieldCurvature', ELEO.curve),
-      'distortion': recTile('distortion', ELEO.curve),
-      'chromaticFocus': { need: sampleBox, draw: function () { return ELEO.curve({ kind: 'chromaticFocus' }); } }
+      'mtf-limits': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w, { limits: [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }] })); }),
+      'fieldCurvature': recTile('fieldCurvature', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
+      'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
+      'chromaticFocus': { need: sampleBox, draw: function (_, w) { return ELEO.curve({ kind: 'chromaticFocus', width: w }); } }
     };
     function airyTile(canvas) {
       var n = canvas.width, ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
@@ -179,7 +183,9 @@
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
         theme.querySelectorAll('[data-svg]').forEach(function (el) {
           var tile = SVG[el.dataset.svg], need = tile.need();
-          el.innerHTML = need ? tile.draw(need) : '';
+          if (!need) el.innerHTML = '';
+          else if (FIT.indexOf(el.dataset.svg) >= 0) ELEO.fit(el, function (w) { el.innerHTML = tile.draw(need, w); });
+          else el.innerHTML = tile.draw(need);
         });
         // The glass and footprint legends key their own recordings; empty, like the tile, if its fixture failed.
         // The field and wavelength legends key the sample; empty, like its tiles, without it.
