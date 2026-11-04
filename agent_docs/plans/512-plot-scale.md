@@ -159,7 +159,9 @@ stopgap (about 18 px text at 1440, full row). Proves: O1, O2 for every framed re
 | [#525] | `spot` and `throughFocus` draw to the rule from their panel side; `textScale` multiplies it; `throughFocus` gains `width` | the panel side is the frame (U18 measured spot at the panel); considered the whole figure's width, ruled out because a 3-panel spot would get 3× the text. Rewrites `spot.test.js:394-421`'s "10 × ts" oracle; README `width`/`textScale` lines | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` (and README) | `tests/unit/spot.test.js::text follows ADR-0003 per panel` | [#522] |
 | [#526] | The size table: `PLOT_SIZES` per renderer (default width, aspect, minimum width per panel: one frame at 9 px plus its margins), typed; README section, `limits.js` moved to the helpers sentence (absorbs [#328]) | computed from `scale.js` and each renderer's margins so it can't drift; per panel because a 3-panel spot at its floor (530 px) or throughFocus (about 894 px) would overflow a 630 px gallery column; considered a hand-written table, ruled out by drift | `packages/plots/src/scale.js`, `packages/plots/README.md`, `tests/types/curve.ts` | `tests/unit/scale.test.js::table matches each renderer's floor width` | [#523], [#524], [#525] |
 | [#527] | Gallery: every framed tile through `fit`; one `--row-min` per row, set from `PLOT_SIZES`; the footprint tile drops `textScale` and its width rule; the footprint test's text and plot-size checks (`gallery.spec.js:77-110`) give way to O2's, its key-alignment check stays (user, at approval) | a row variable because a new tile then can't undercut the floor; considered per-tile CSS minimums, ruled out (hand numbers drift). `.row { grid-template-columns: repeat(auto-fit, minmax(var(--row-min), 1fr)) }` | `gallery/index.html`, `tests/gallery.spec.js` | the O2 test over every framed tile | [#526] |
-| [#528] | Unskip M2's cases; re-record `throughFocus()`'s baseline entry from this branch at the M2 verdict (user, at approval); log U14 for bars, map2D, spot | forced (`workflow.md`, TDD) | `tests/unit/scale.test.js`, `tests/map2d.spec.js`, `tests/fixtures/renderers-baseline.json` | green | [#522]-[#527] |
+| [#570] | Re-record the `throughFocus` entry of the renderer baseline right after [#525] | forced (user, at approval: re-record at the M2 verdict; recorded now, as [#519], because a red gate pushes nothing) | `tests/fixtures/renderers-baseline.json`, `scripts/record-renderers.mjs` | `tests/unit/split.test.js` green | [#525] |
+| [#572] | `index.d.ts`: `ThroughFocusProps` with `width`; spot's `textScale` docs name ADR-0003 (CR [#571]) | forced (the plan's Decisions approve a `width` doc per framed renderer, as CR [#536]) | `packages/plots/src/index.d.ts`, `tests/types/curve.ts` | `tests/types/curve.ts`: `throughFocus({ width })` compiles | [#525] |
+| [#528] | Unskip M2's cases (`scale.test.js`; map2D's was unskipped at [#524]); re-run the baseline script before the M2 verdict if `throughFocus()`'s output moved since [#570] (user, at approval); log U14 for bars, map2D, spot | forced (`workflow.md`, TDD) | `tests/unit/scale.test.js`, `tests/map2d.spec.js`, `tests/fixtures/renderers-baseline.json` | green | [#522]-[#527], [#570], [#572] |
 
 ### M3: Svelte and the release GitHub: `P512 M3: plots-svelte and release`
 
@@ -271,6 +273,16 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-04 measured at [#521]: U14 (`PERF=1 npx playwright test tests/perf.spec.js`, median of 20 redraws, budget 16 ms) for the M1 renderers:
   curve 1.30 ms, curve panels 0.90 ms, layout2D 2.20 ms. Bars, map2D and spot are logged at [#528].
 
+- 2026-11-04 orchestrator: [#524] unskipped map2D's `text follows ADR-0003` case, its own named test, so [#528] has no map2D case left;
+  `recorded PSF cells (U8)` draws its masked copy at 600 px, since the larger margins leave a default drawing's cells under the 2 px its
+  one-pixel screenshot needs (U8's oracle unchanged).
+
+- 2026-11-04 orchestrator: [#570] records the `throughFocus` baseline right after [#525], as [#519] did for `layout2D` in M1: the gate is
+  red until it does and a red gate pushes nothing; [#528] re-runs the script before the verdict if the output moves again.
+
+- 2026-11-04 CR [#571] (orchestrator): accepted; `throughFocus` reads `width` since [#525] but `index.d.ts` lacks it, and spot's `textScale`
+  docs predate ADR-0003; item [#572] in M2, [#528] after it.
+
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#155]: https://github.com/ELEOptics/eleo-ui/issues/155
 [#156]: https://github.com/ELEOptics/eleo-ui/issues/156
@@ -344,5 +356,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#567]: https://github.com/ELEOptics/eleo-ui/issues/567
 [#568]: https://github.com/ELEOptics/eleo-ui/issues/568
 [#569]: https://github.com/ELEOptics/eleo-ui/issues/569
+[#570]: https://github.com/ELEOptics/eleo-ui/issues/570
+[#571]: https://github.com/ELEOptics/eleo-ui/issues/571
+[#572]: https://github.com/ELEOptics/eleo-ui/issues/572
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
