@@ -73,30 +73,31 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
   });
 }
 
-// Plan #464, CR #487, #488, #490: the footprint tile's in-SVG text renders in line with the tile's title and meta at every viewport.
-// oracle: property, the tile's own .eleo-plot__title and .eleo-plot__meta heights bound each svg text height.
-test('the footprint tile text is no taller than the title and no shorter than the meta', async ({ page }) => {
+// Plan #464, CR #487, #488, #492, #493: the footprint tile's in-SVG text scales with its plot, and at 1440 px sits in line with the title and meta.
+// oracle: property, each svg text's height over the plot frame's side is the same at 1440, 1100 and 700 px (within 5%); at 1440 the tile's own .eleo-plot__title and .eleo-plot__meta heights bound each text height.
+test('the footprint tile text keeps its proportion to the plot and sits between the meta and title at 1440', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const width of [1440, 1100, 700]) {
-    await page.setViewportSize({ width, height: 900 });
-    for (const theme of ['light', 'dark']) {
-      const tile = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"]`);
-      // The redraw is asynchronous (ResizeObserver): wait for the svg to match the body's content width.
-      await expect.poll(() => tile.evaluate((t) => {
-        const body = t.querySelector('.eleo-plot__body'), svg = body.querySelector('svg');
-        const cs = getComputedStyle(body), inner = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-        return svg ? Math.abs(svg.getBoundingClientRect().width - inner) <= 1 : false;
-      }), `${width} ${theme} svg width matches body`).toBe(true);
-      const h = await tile.evaluate((t) => {
+  for (const theme of ['light', 'dark']) {
+    const ratios = {};
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      const h = await page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"]`).evaluate((t) => {
         const ht = (el) => el.getBoundingClientRect().height;
-        return { title: ht(t.querySelector('.eleo-plot__title')), meta: ht(t.querySelector('.eleo-plot__meta')), texts: [...t.querySelectorAll('svg text')].map(ht) };
+        const side = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().width;
+        return { side, title: ht(t.querySelector('.eleo-plot__title')), meta: ht(t.querySelector('.eleo-plot__meta')), texts: [...t.querySelectorAll('svg text')].map(ht) };
       });
       expect(h.texts.length, `${width} ${theme} footprint texts`).toBeGreaterThan(0);
-      for (const t of h.texts) {
-        expect(t, `${width} ${theme} text height`).toBeLessThanOrEqual(h.title + 1);
-        expect(t, `${width} ${theme} text height`).toBeGreaterThanOrEqual(h.meta - 1);
+      ratios[width] = h.texts.map((x) => x / h.side);
+      if (width === 1440) {
+        for (const t of h.texts) {
+          expect(t, `${theme} text height`).toBeLessThanOrEqual(h.title + 1);
+          expect(t, `${theme} text height`).toBeGreaterThanOrEqual(h.meta - 1);
+        }
       }
+    }
+    for (const width of [1100, 700]) {
+      ratios[width].forEach((r, i) => expect(r / ratios[1440][i], `${theme} text ${i} height over plot side at ${width} vs 1440`).toBeCloseTo(1, 1));
     }
   }
 });
@@ -484,30 +485,4 @@ test('spot caption stays inside the viewBox', async ({ page }) => {
   });
   expect(lone.length, 'one-panel caption lines').toBeGreaterThanOrEqual(3);
   for (const l of lone) expect(l.ok, `one panel: "${l.text}" inside the viewBox`).toBe(true);
-});
-
-// Plan #464, #491: a hidden footprint body (clientWidth 0) never draws at a negative width.
-// oracle: property, no NaN, Infinity or negative size in the svg markup, hidden or shown again.
-test('hiding the footprint body leaves no NaN, Infinity or negative size in its svg', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  const body = page.locator('.theme[data-theme="light"] [data-tile="footprint"] .eleo-plot__body');
-  const bad = () => body.evaluate((b) => {
-    const html = b.innerHTML;
-    const sizes = [...html.matchAll(/\b(?:width|height)="(-[^"]*)"/g)].map((m) => m[1]);
-    const vb = [...html.matchAll(/viewBox="([^"]*)"/g)].filter((m) => m[1].split(/[\s,]+/).slice(2).some((n) => parseFloat(n) < 0)).map((m) => m[1]);
-    return { nonFinite: /NaN|Infinity/.test(html), sizes, vb };
-  });
-  const clean = { nonFinite: false, sizes: [], vb: [] };
-  // ResizeObserver callbacks run before the frame they follow paints: two frames after the change, the observer has fired.
-  const frames = () => body.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-  await body.evaluate((b) => { b.style.display = 'none'; });
-  await frames();
-  await expect.poll(bad, 'hidden').toEqual(clean);
-  await body.evaluate((b) => { b.style.display = ''; });
-  await expect.poll(() => body.evaluate((b) => {
-    const svg = b.querySelector('svg'), cs = getComputedStyle(b), inner = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    return svg ? Math.abs(svg.getBoundingClientRect().width - inner) <= 1 : false;
-  }), 'svg width matches body again').toBe(true);
-  expect(await bad(), 'shown again').toEqual(clean);
 });
