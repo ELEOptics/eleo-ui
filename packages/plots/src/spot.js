@@ -50,10 +50,8 @@ function typedSpot(o) {
   var tOf = function (F) { return frameText(F) * ts; }, footOf = function (F) { return (2.8 + 1.5 * (notesMax + cap.length)) * tOf(F) + 1; };
   var side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
   if (o.height && side + 8 + footOf(side) > o.height) {
-    /* The largest side that fits the height: side + foot(side) grows with side, so bisect. */
-    var lo = 1, hi = side;
-    for (var it = 0; it < 50; it++) { var mid = (lo + hi) / 2; if (mid + 8 + footOf(mid) > o.height) hi = mid; else lo = mid; }
-    side = lo;
+    /* side + 8 + foot(side) = height is F + m * frameText(F) = height - 9 (ADR-0003), which frameOf solves. */
+    side = frameOf(o.height - 9, (2.8 + 1.5 * (notesMax + cap.length)) * ts);
   }
   side = Math.max(Math.floor(side * 100) / 100, 1);
   var t = tOf(side), foot = footOf(side), wt = frameWeight(side), sty = ' style="font-size:' + +t.toFixed(2) + 'px"';

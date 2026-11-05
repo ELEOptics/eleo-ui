@@ -454,3 +454,28 @@ test('text follows ADR-0003 per panel', async () => {
   }
   assert.deepEqual([...tfSeen].sort(), ['above', 'below', 'inside']);
 });
+
+// #579: a height too small for the notes and caption sets the panel side to frameOf(height - 9, m), floored to 2 decimals.
+// oracle: closed-form ADR-0003
+test('height fit solves frameOf', async () => {
+  const { frameOf } = await import('../../packages/plots/src/scale.js');
+  const floor2 = (v) => Math.floor(v * 100) / 100;
+  const pts = [[1, 2], [-2, 1], [0.5, -1]];
+  const seen = new Set();
+  for (const extra of [0, 3]) {
+    for (const ts of [1, 2]) {
+      // Two stats notes plus `extra` given ones; two caption lines (Reference, RMS/GEO).
+      const notes = Array.from({ length: extra }, (_, i) => `note ${i}`);
+      const m = (2.8 + 1.5 * (2 + extra + 2)) * ts;
+      for (const height of [300, 330, 380, 500, 900]) {
+        const svg = ELEO.spot({ panels: [{ series: [{ points: pts }], notes }], width: 2000, height, textScale: ts });
+        const side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(svg)[1], F = frameOf(height - 9, m);
+        seen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
+        assert.equal(side, Math.max(floor2(F), 1), `${height} x${ts} +${extra}: side is floor2(frameOf(height - 9, m))`);
+        const H = +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1];
+        assert.ok(H <= height + 0.011, `${height} x${ts} +${extra}: the figure fits the height (${H})`);
+      }
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['above', 'below', 'inside']);
+});
