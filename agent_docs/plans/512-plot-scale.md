@@ -186,6 +186,10 @@ Demo: `npx playwright test tests/svelte.spec.js --headed`: each framed wrapper i
 | [#486] reuse | `Legend` takes `values` | forced ([#486]'s fix as written) | `packages/plots-svelte/src/lib/Legend.svelte`, `packages/plots-svelte/README.md` | `tests/unit/legend.test.js::Legend passes values (#486)` | [#529] |
 | [#531] | Changesets: `"@eleoptics/plots": minor` (the rule, `fit`, the table; visible text and stroke change), `"@eleoptics/plots-svelte": minor` (measuring wrappers, `Legend` values) | forced (roadmap row O, release). `npx changeset status` lists both as minor | `.changeset/plot-scale.md`, `.changeset/plots-svelte-scale.md` | `tests/unit/release.test.js::row O changesets` | [#529] |
 | [#532] | Unskip O3, O4 (each item unskipped its own case: O3's two at [#530], CR [#593]; `Legend`'s at [#486]; changesets' at [#531]; nothing left but the full gate's evidence) | forced (`workflow.md`, TDD) | the test files | green | [#529], [#530], [#486], [#531] |
+| [#596] | `row O changesets` and `row N changesets` skip once consumed, with CHANGELOG twins (CR [#594]) | forced (review M3 round 1 finding 1: the ray-status / map2D pair) | `tests/unit/release.test.js` | consumed copy passes | [#531] |
+| [#597] | The six wrappers measure with `bind:contentRect` (fractional width); `CurvePlot.svelte`'s stroke comment per ADR-0003 (CR [#595]) | forced (review M3 round 1 findings 4 and 2: `fit`'s fractional width, [#539]) | `packages/plots-svelte/src/lib/{CurvePlot,RayFan,BarPlot,Map2D,SpotDiagram,Layout2D}.svelte`, `tests/svelte.spec.js` | `svelte.spec.js::wrappers draw at their fractional width` | [#530] |
+| [#598] | plots-svelte's peer on plots `>=0.8.0 <1` | forced (review M3 round 1 finding 3, pulled in; precedent `plots-svelte-peer-0.7.md`) | `packages/plots-svelte/package.json`, `.changeset/plots-svelte-scale.md`, `tests/unit/release.test.js` | the peer test | [#596] |
+| [#599] | `Layout2D.svelte` passes a measured width only above 8 px | forced (review M3 round 1 finding 5, pulled in) | `packages/plots-svelte/src/lib/Layout2D.svelte`, `tests/svelte.spec.js` | `svelte.spec.js::Layout2D in a narrow box draws its default` | [#597] |
 
 ## Risks and spikes
 
@@ -405,6 +409,12 @@ One bullet per entry (bare lines render as one paragraph).
 [#591]: https://github.com/ELEOptics/eleo-ui/issues/591
 [#592]: https://github.com/ELEOptics/eleo-ui/issues/592
 [#593]: https://github.com/ELEOptics/eleo-ui/issues/593
+[#594]: https://github.com/ELEOptics/eleo-ui/issues/594
+[#595]: https://github.com/ELEOptics/eleo-ui/issues/595
+[#596]: https://github.com/ELEOptics/eleo-ui/issues/596
+[#597]: https://github.com/ELEOptics/eleo-ui/issues/597
+[#598]: https://github.com/ELEOptics/eleo-ui/issues/598
+[#599]: https://github.com/ELEOptics/eleo-ui/issues/599
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
 
@@ -431,3 +441,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 orchestrator: by the same rule [#486] wrote its `Legend` test running and [#531] unskipped `row O changesets` in its own
   commit, so [#532] has no change left: it is labelled done on the full gate's evidence (every O3 and O4 test runs and passes), not closed.
   [#531]'s plots changeset was reworded by the orchestrator: `layout2D` follows `W / 70`, not the framed `F / 18`.
+
+- 2026-11-05 review M3 round 1: 2 blocking, 3 backlog. CR [#594] (orchestrator): accepted, item [#596]. CR [#595] (orchestrator):
+  accepted, fixed in [#597] (same file; a comment-only source change has no test for the hook). Pulled in (within the milestone): [#597],
+  [#598], [#599]. Breaker count: 2 + 3.
