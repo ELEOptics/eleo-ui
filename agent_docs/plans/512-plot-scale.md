@@ -182,10 +182,10 @@ Demo: `npx playwright test tests/svelte.spec.js --headed`: each framed wrapper i
 | Issue | Work item | Approach | Files | Test | After |
 | -- | -- | -- | -- | -- | -- |
 | [#529] | O3, O4 acceptance tests, skipped; the Playwright page compiles the wrappers with `svelte/compiler` (client) and mounts them | forced (`workflow.md`, TDD); a compiled page because SSR has no layout, so `clientWidth` is never measured there | `tests/svelte.spec.js`, `tests/unit/release.test.js`, `tests/unit/plots-svelte.test.js` | skipped | [#528] |
-| [#530] | The six framed wrappers (`CurvePlot`, `RayFan`, `BarPlot`, `Map2D`, `SpotDiagram`, `Layout2D`) bind their box's `clientWidth` and pass it as `width` when the caller gives none and it is > 0; README notes the server draws the default and the client redraws on hydration | `bind:clientWidth` because it is Svelte's own resize observer and keeps `{@html}` reactive and SSR-safe; considered `fit` as an action, ruled out because it writes `innerHTML` behind Svelte's back. One line per wrapper, one behaviour, six files | `packages/plots-svelte/src/lib/*.svelte` (the six), `packages/plots-svelte/README.md` | `tests/svelte.spec.js::wrappers draw at their width`, `tests/unit/plots-svelte.test.js::wrappers pass width through on the server` | [#529] |
+| [#530] | The six framed wrappers (`CurvePlot`, `RayFan`, `BarPlot`, `Map2D`, `SpotDiagram`, `Layout2D`) bind their box's `clientWidth` and pass it as `width` when the caller gives none and it is > 0; README notes the server draws the default and the client redraws on hydration | `bind:clientWidth` because it is Svelte's own resize observer and keeps `{@html}` reactive and SSR-safe; considered `fit` as an action, ruled out because it writes `innerHTML` behind Svelte's back. One line per wrapper, one behaviour, six files | `packages/plots-svelte/src/lib/*.svelte` (the six), `packages/plots-svelte/README.md`, `tests/svelte.spec.js`, `tests/unit/plots-svelte.test.js` (unskip, CR [#593]) | `tests/svelte.spec.js::wrappers draw at their width`, `tests/unit/plots-svelte.test.js::wrappers pass width through on the server` | [#529] |
 | [#486] reuse | `Legend` takes `values` | forced ([#486]'s fix as written) | `packages/plots-svelte/src/lib/Legend.svelte`, `packages/plots-svelte/README.md` | `tests/unit/legend.test.js::Legend passes values (#486)` | [#529] |
 | [#531] | Changesets: `"@eleoptics/plots": minor` (the rule, `fit`, the table; visible text and stroke change), `"@eleoptics/plots-svelte": minor` (measuring wrappers, `Legend` values) | forced (roadmap row O, release). `npx changeset status` lists both as minor | `.changeset/plot-scale.md`, `.changeset/plots-svelte-scale.md` | `tests/unit/release.test.js::row O changesets` | [#529] |
-| [#532] | Unskip O3, O4 | forced (`workflow.md`, TDD) | the test files | green | [#529], [#530], [#486], [#531] |
+| [#532] | Unskip O3, O4 (O3's two cases unskipped at [#530], CR [#593]) | forced (`workflow.md`, TDD) | the test files | green | [#529], [#530], [#486], [#531] |
 
 ## Risks and spikes
 
@@ -404,6 +404,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#590]: https://github.com/ELEOptics/eleo-ui/issues/590
 [#591]: https://github.com/ELEOptics/eleo-ui/issues/591
 [#592]: https://github.com/ELEOptics/eleo-ui/issues/592
+[#593]: https://github.com/ELEOptics/eleo-ui/issues/593
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
 
@@ -423,3 +424,6 @@ One bullet per entry (bare lines render as one paragraph).
 
 - 2026-11-05 CR [#592] (orchestrator): accepted; [#529]'s server test needs `tests/unit/plots-svelte.test.js`, which its Files omitted;
   the file joins [#529]'s Files, no new item.
+
+- 2026-11-05 CR [#593] (orchestrator): accepted; [#530] changed sources without a test, which the commit hook refuses; it unskips
+  its own two O3 cases (as [#524] did in M2), and [#532] unskips the `Legend` and changesets ones. No new item.
