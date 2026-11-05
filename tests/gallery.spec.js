@@ -124,7 +124,8 @@ test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
         return {
           tile: el.dataset.tile,
           drawn: !!svg,
-          F: frame ? frame.getBoundingClientRect().width : null,
+          // spot, throughFocus and footprint inset their rx="3" panel rect 0.5 px each side (width = side - 1): F is the side.
+          F: frame ? frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0) : null,
           W: svg ? svg.getBoundingClientRect().width : null,
           sizes: svg ? [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) : [],
         };
