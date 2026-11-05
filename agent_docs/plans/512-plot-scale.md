@@ -174,7 +174,7 @@ stopgap (about 18 px text at 1440, full row). Proves: O1, O2 for every framed re
 | [#591] | Gallery test: every `data-size` names a `PLOT_SIZES` row | forced (review M2 round 2 finding 3, pulled in) | `tests/gallery.spec.js` | `tests/gallery.spec.js::every data-size names a PLOT_SIZES row` | [#583] |
 | [#528] | Unskip M2's cases (`scale.test.js`; map2D's was unskipped at [#524]); re-run the baseline script before the M2 verdict if `throughFocus()`'s output moved since [#570] (user, at approval); log U14 for bars, map2D, spot | forced (`workflow.md`, TDD) | `tests/unit/scale.test.js`, `tests/map2d.spec.js`, `tests/fixtures/renderers-baseline.json` | green | [#522]-[#527], [#570], [#572], [#575], [#577] |
 
-### M3: Svelte and the release GitHub: `P512 M3: plots-svelte and release`
+### M3: Svelte and the release (done 2026-11-05) GitHub: `P512 M3: plots-svelte and release`
 
 Demo: `npx playwright test tests/svelte.spec.js --headed`: each framed wrapper in a 300 and a 900 px box; then
 `npx changeset status` printing a plots minor and a plots-svelte minor. Proves: O3, O4.
@@ -456,3 +456,6 @@ One bullet per entry (bare lines render as one paragraph).
 
 - 2026-11-05 review M3 round 2: 0 blocking, 3 backlog; carried CRs [#592] to [#595] resolved. Pulled in: [#600], [#601]. Plain issue:
   [#602] (wrappers ignore ancestor transforms, an ADR-0003 wording question for the user). Breaker counts: 2 + 3, 0 + 2.
+
+- 2026-11-05 review M3 round 3: 0 blocking, nothing pulled in; M3 ticked. CI green on 1e72825. Per round (blocking + pulled in): 2 + 3,
+  0 + 2, 0 + 0.
