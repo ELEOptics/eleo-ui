@@ -114,6 +114,7 @@ Each item unskips its own acceptance case (the commit hook refuses a source chan
 | [#613] | Review M1 findings 2 and 6: the missing-fixture table gains `['fans', 'achromat', ['rayFan']]`; the `--row-min` CSS comment names `ELEO.minWidth` | the table's own row because every other recorded tile has one; considered a separate test, which duplicates the loop | `tests/gallery.spec.js`, `gallery/index.html` | `tests/gallery.spec.js::a missing phos-core fixture blanks only its tiles` | [#555] |
 | [#614] | Review M1 findings 3 and 4: `fan_axis` writes `null` for a non-finite non-`Alive` coordinate; `record_fans` deletes a stale `cooke-clipped-fans.json` when the default Cooke has a `Dead` sample | `null` because a dead sample's position is still data and the adapter nulls it anyway; considered refusing it, which stops a re-record over one dead ray | `scripts/record-phos-core.py`, `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::fan_axis keeps a non-Alive NaN as null and record_fans removes a stale clipped file` | [#605] |
 | [#615] | Review M1 finding 5: `ELEOAdapters.fans` titles format the angle as `fanPanels`' `fmt` (U+2212 for a negative) | copied, as the step rule is, because adapters.js is a classic script; considered `fmt` on `ELEO`, a public API change | `tests/fixtures/phos-core/adapters.js`, `tests/unit/curve.test.js` | `tests/unit/curve.test.js::recorded ray fans round trip (U6)` with a negative-angle clone | [#606] |
+| [#619] | CR [#618] (review M1 round 2, finding 1): the fixtures README's fans row names the `null` a non-finite non-`Alive` coordinate becomes, and the stale clipped file's deletion | the README row because it is the fixture format's one owner; considered the recorder's docstring alone | `tests/fixtures/phos-core/README.md`, `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::recorded fans facts` (every coordinate finite or `null`, `null` only off `Alive`) | [#614] |
 
 End of plan (orchestrator, not a work item): the roadmap's U6 text and oracle name the recorded fans; row P done.
 
@@ -133,6 +134,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 critique (general-purpose, claude-fable-5-1): all 17 findings accepted. 1: the default Cooke likely has no dead fan sample (its footprint loss is the grid's corners), so the recorder records the stop-clipped Cooke when needed; 2: the sha check is structural (the `statuses` arrays), the merge sha goes in the README; 3: four status names through one helper, the adapter nulls every non-`Alive` sample; 4 and 15: `colorbarUnits` became `mapMargins` (the x-tick margin was missing); 5: the floor test asserts only where a row reaches its minimum and replaces the `#544` test; 6: `rayFan` joins `ownData`; 7: `psf-recorded` and `irradiance-gaussian` gain `data-size`; 8: no sample counts one panel; 9: roadmap edits at plan end; 10: lock file and plots-svelte README in [#598]'s Files, the user merges; 11: two changesets and a consumed twin; 12: README docs in items 6 and 7; 13: the copied step rule pinned against `fan.js`, wavelengths in nm; 14: the types test's `oracle:` line; 16: `sizes.js` kept, its cell now cites `README.md`; 17: no change.
 - 2026-11-05 orchestrator: [#605]'s clipped-Cooke trigger is "no `Dead` sample", not "no non-`Alive` sample" (the default Cooke's 24° y fan has 9 `Virtual` samples and no `Dead` one; the Constraints, the M1 demo and round 2's pre-mortem ask for dead tails).
 - 2026-11-05 review M1 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 7 backlog. Findings 2 to 6 are small and named, pulled into M1 as [#613], [#614], [#615]; finding 1 ([#616], the rayFan footer) is for the M1 demo; finding 7 ([#617]) stays backlog.
+- 2026-11-05 review M1 round 2 (code-reviewer, claude-opus-5-5): 1 blocking (the fixtures README after [#614]), filed as CR [#618], accepted by the orchestrator (a non-Core doc, every invariant kept), item [#619].
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
@@ -163,4 +165,6 @@ One bullet per entry (bare lines render as one paragraph).
 [#615]: https://github.com/ELEOptics/eleo-ui/issues/615
 [#616]: https://github.com/ELEOptics/eleo-ui/issues/616
 [#617]: https://github.com/ELEOptics/eleo-ui/issues/617
+[#618]: https://github.com/ELEOptics/eleo-ui/issues/618
+[#619]: https://github.com/ELEOptics/eleo-ui/issues/619
 [#85]: https://github.com/ELEOptics/eleo-ui/issues/85
