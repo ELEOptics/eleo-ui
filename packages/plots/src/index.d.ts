@@ -110,6 +110,7 @@ export interface SpotPanelsProps {
   label?: string;
   /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
+  /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels`, is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
   width?: number;
   height?: number;
   data?: never;
@@ -136,6 +137,7 @@ export interface SpotSampleProps {
   showAiry?: boolean;
   /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
+  /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels`, is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
   width?: number;
   height?: number;
   panels?: never;
@@ -200,8 +202,9 @@ export interface Map2DGridProps {
   value?: CurveAxis;
   /** Element whose tokens color the map. Default the document root. */
   el?: Element;
-  /** viewBox size in px. Default 460 by 360. */
+  /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
+  /** Drawing height in px. Default `round(width * 360 / 460)`. */
   height?: number;
   /** Accessible name of the svg. Default "Map". */
   label?: string;
@@ -299,8 +302,9 @@ export interface BarPlotProps {
   y?: CurveAxis;
   /** y limits only: a category axis has no x value to draw at (an x limit throws). */
   limits?: PlotLimitY[];
-  /** viewBox size in px. Default 460 by 260. */
+  /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
+  /** Drawing height in px. Default `round(width * 260 / 460)`. */
   height?: number;
 }
 export interface ELEO {
