@@ -169,6 +169,9 @@ stopgap (about 18 px text at 1440, full row). Proves: O1, O2 for every framed re
 | [#582] | O2's gallery test reads spot's inset panel rect + 1 as F | forced (review M2 round 1 finding 7, pulled in) | `tests/gallery.spec.js` | the O2 test, corrected | [#527] |
 | [#583] | `rowMins` keeps the 240 px default and skips an unknown `data-size` | forced (review M2 round 1 finding 9, pulled in) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::a missing sample script blanks only the sample tiles`, extended | [#527] |
 | [#584] | README: `scale.js` and `fit.js` among the shared helpers | forced (review M2 round 1 finding 10, pulled in) | `README.md` | none (a doc line) | [#575] |
+| [#589] | `index.d.ts`: spot's `width` doc names the `height` cap; spot's `height` gets a doc | forced (review M2 round 2 finding 1, pulled in) | `packages/plots/src/index.d.ts`, `tests/types/curve.ts` | `tests/types/curve.ts`: `spot({ width, height })` compiles | [#580] |
+| [#590] | `spot`: one foot-margin variable for `footOf` and the height fit | forced (review M2 round 2 finding 2, pulled in) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `tests/unit/spot.test.js::height fit solves frameOf`, unchanged | [#579] |
+| [#591] | Gallery test: every `data-size` names a `PLOT_SIZES` row | forced (review M2 round 2 finding 3, pulled in) | `tests/gallery.spec.js` | `tests/gallery.spec.js::every data-size names a PLOT_SIZES row` | [#583] |
 | [#528] | Unskip M2's cases (`scale.test.js`; map2D's was unskipped at [#524]); re-run the baseline script before the M2 verdict if `throughFocus()`'s output moved since [#570] (user, at approval); log U14 for bars, map2D, spot | forced (`workflow.md`, TDD) | `tests/unit/scale.test.js`, `tests/map2d.spec.js`, `tests/fixtures/renderers-baseline.json` | green | [#522]-[#527], [#570], [#572], [#575], [#577] |
 
 ### M3: Svelte and the release GitHub: `P512 M3: plots-svelte and release`
@@ -397,6 +400,9 @@ One bullet per entry (bare lines render as one paragraph).
 [#586]: https://github.com/ELEOptics/eleo-ui/issues/586
 [#587]: https://github.com/ELEOptics/eleo-ui/issues/587
 [#588]: https://github.com/ELEOptics/eleo-ui/issues/588
+[#589]: https://github.com/ELEOptics/eleo-ui/issues/589
+[#590]: https://github.com/ELEOptics/eleo-ui/issues/590
+[#591]: https://github.com/ELEOptics/eleo-ui/issues/591
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
 
@@ -406,3 +412,5 @@ One bullet per entry (bare lines render as one paragraph).
 
 - 2026-11-04 review M2 round 1: 1 blocking, 9 backlog. CR [#578] (orchestrator): accepted, item [#579]. Pulled in: [#580], [#581], [#582], [#583], [#584].
   Plain issues: [#585], [#586], [#587], [#588].
+
+- 2026-11-04 review M2 round 2: 0 blocking, 3 backlog, all pulled in: [#589], [#590], [#591]; every carried CR resolved.
