@@ -73,9 +73,10 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
   });
 }
 
-// Plan #464, CR #499, #500, #502, #503, #507, #508: the footprint tile's bottom text is at the meta's size, the plot keeps #497's size, the text sits close to the plot, and the header key ends at the plot frame's right edge.
-// oracle: at 1440 px, each .eleo-tick's rendered size (computed font-size times getScreenCTM().a) is within 1 px of the tile's .eleo-plot__meta computed size; the plot frame is 447 px wide within 1%; the first text baseline is at most 2.2 times that size below the frame, and consecutive baselines at most 2.2 times apart; at 1100 and 700 px the text-to-plot ratio equals the 1440 one within 1%; at 1440, 1100 and 700 px the .eleo-plot__key's right edge is within 4 px of the frame's right edge (the header and the body share the same 12 px right padding and the tile's border, so they cancel; the gap is the frame's own inset, measured 1.5 / 2.4 / 1.5 px).
-test('the footprint tile text is at the meta size with the plot unchanged and the text close to it', async ({ page }) => {
+// Plan #464, CR #507, #508, #510: the footprint tile's header key ends at the plot frame's right edge.
+// The text-size, plot-size, text-spacing and text-to-plot ratio checks of CR #499, #500, #502, #503 are superseded by plan #512 (user, at approval): O2's 'text follows ADR-0003 on every framed tile (U18)' covers the footprint tile.
+// oracle: at 1440, 1100 and 700 px the .eleo-plot__key's right edge is within 4 px of the frame's right edge (the header and the body share the same 12 px right padding and the tile's border, so they cancel; the gap is the frame's own inset, measured 1.5 / 2.4 / 1.5 px).
+test('the footprint tile header key ends at the plot frame right edge', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
@@ -83,29 +84,97 @@ test('the footprint tile text is at the meta size with the plot unchanged and th
       await page.setViewportSize({ width, height: 900 });
       return page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"]`).evaluate((t) => {
         const svg = t.querySelector('svg');
-        const side = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().width;
         const ticks = [...svg.querySelectorAll('.eleo-tick')];
-        const sizes = ticks.map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a);
-        const frame = t.querySelector('svg rect[rx="3"]').getBoundingClientRect().bottom;
-        const base = (x) => +x.getAttribute('y') * x.getScreenCTM().d + x.getScreenCTM().f;
-        const bs = [...new Set(ticks.map(base))].sort((a, b) => a - b);
-        const gaps = [bs[0] - frame].concat(bs.slice(1).map((v, i) => v - bs[i]));
         const key = t.querySelector('.eleo-plot__key').getBoundingClientRect().right;
         const keyGap = Math.abs(t.querySelector('svg rect[rx="3"]').getBoundingClientRect().right - key);
-        return { keyGap, n: ticks.length, sizes, side, gaps, meta: parseFloat(getComputedStyle(t.querySelector('.eleo-plot__meta')).fontSize), ratio: sizes.map((s) => s / side) };
+        return { keyGap, n: ticks.length };
       });
     };
     const w = await at(1440);
     expect(w.n, `${theme} footprint ticks`).toBeGreaterThan(0);
-    for (const s of w.sizes) expect(Math.abs(s - w.meta), `${theme} tick ${s}px vs meta ${w.meta}px`).toBeLessThanOrEqual(1);
-    expect(Math.abs(w.side / 447 - 1), `${theme} plot side ${w.side}px vs 447`).toBeLessThan(0.01);
-    for (const g of w.gaps) expect(g, `${theme} text spacing ${g}px vs 2.2 x ${w.meta}px`).toBeLessThanOrEqual(2.2 * w.meta);
     // CR #507, #508, #510: the header key ends at the plot frame's right edge. The header and the body share the same 12 px right padding and border, so they cancel; what remains is the frame's own inset (0.5 viewBox units), so the bound is 4 px.
     expect(w.keyGap, `${theme} key to frame at 1440`).toBeLessThanOrEqual(4);
     for (const width of [1100, 700]) {
       const r = await at(width);
       expect(r.keyGap, `${theme} key to frame at ${width}`).toBeLessThanOrEqual(4);
-      r.ratio.forEach((v, i) => expect(Math.abs(v / w.ratio[i] - 1), `${theme} ${width} ratio`).toBeLessThan(0.01));
+    }
+  }
+});
+
+// Plan #512, outcomes O1 and O2 (issue #513; #521 unskips; #527 adds the spot, throughFocus, footprint, bars and map2D tiles). Canvas tiles are exempt.
+// oracle: closed-form ADR-0003. At 1440, 1100 and 700 px in both themes, each tile's rendered text (computed font-size times getScreenCTM().a)
+// is within 1% of the formula for its rendered frame F (a plot frame's width in px; a layout tile's drawing width W) and at least 9 px.
+// A layout tile whose W / 70 is under 9 draws no text.
+const FRAMED_TILES = ['mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'chromaticFocus', 'rayFan', 'rayFan-opd',
+  'spot', 'throughFocus', 'footprint', 'seidel', 'seidel-terms', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'irradiance-gaussian'];
+const LAYOUT_TILES = ['layout2D', 'layout2D-fan', 'layout2D-shared', 'layout2D-glasses', 'layout2D-wandersleb', 'layout2D-cassegrain'];
+const frameText = (F) => (F < 162 ? 9 : F <= 234 ? F / 18 : 13 * Math.cbrt(F / 234));
+const layoutText = (W) => (W / 70 < 9 ? null : W <= 910 ? W / 70 : 13 * Math.sqrt(W / 910));
+test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      // fit redraws after a ResizeObserver tick and a frame: settle before measuring.
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
+      const tiles = await page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els, names) => els.filter((el) => names.includes(el.dataset.tile)).map((el) => {
+        const svg = el.querySelector('.eleo-plot__body svg');
+        const frame = svg && svg.querySelector('rect[stroke="var(--plot-grid)"]');
+        return {
+          tile: el.dataset.tile,
+          drawn: !!svg,
+          // spot, throughFocus and footprint inset their rx="3" panel rect 0.5 px each side (width = side - 1): F is the side.
+          F: frame ? frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0) : null,
+          W: svg ? svg.getBoundingClientRect().width : null,
+          sizes: svg ? [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) : [],
+        };
+      }), FRAMED_TILES.concat(LAYOUT_TILES));
+      expect(tiles.map((t) => t.tile).sort(), `${theme} ${width} tiles`).toEqual(FRAMED_TILES.concat(LAYOUT_TILES).sort());
+      for (const t of tiles) {
+        const at = `${theme} ${width} ${t.tile}`;
+        expect(t.drawn, `${at} drawn`).toBe(true);
+        const layout = LAYOUT_TILES.includes(t.tile), want = layout ? layoutText(t.W) : frameText(t.F);
+        if (want === null) { expect(t.sizes, `${at} (W ${t.W}) labels hidden`).toEqual([]); continue; }
+        expect(t.sizes.length, `${at} has text`).toBeGreaterThan(0);
+        for (const s of t.sizes) {
+          expect(Math.abs(s / want - 1), `${at} text ${s}px against ${want}px for ${layout ? 'W ' + t.W : 'F ' + t.F}`).toBeLessThanOrEqual(0.01);
+          expect(s, `${at} text ${s}px is at least 9 px (less 0.01 px: throughFocus floors its panel side to 2 decimals)`).toBeGreaterThanOrEqual(9 - 0.01);
+        }
+      }
+    }
+  }
+});
+
+// Plan #512, issue #543, CRs #544 and #547. oracle: closed-form ADR-0003 (the floor frame F = 162). The rayFan row's minimum column is
+// the row's --row-min (from PLOT_SIZES.rayFan) = columns x (F_LO + m x TEXT_MIN) + the tile's 26 px of chrome, capped at the row. At 1440 and 700 px the row is narrower than the floor needs
+// (CR #547: the two-theme grid leaves 656 px), so those assert only the tile width and no sideways scroll; at 1100 the row has room and every panel's frame is at least 162.
+test('the rayFan row gives each panel a floor frame (#544)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      // fit redraws after a ResizeObserver tick and a frame: settle before measuring.
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
+      const r = await page.evaluate((t) => {
+        const tiles = [...document.querySelectorAll(`.theme[data-theme="${t}"] [data-tile^="rayFan"]`)];
+        const row = tiles[0].closest('.row');
+        const min = parseFloat(row.style.getPropertyValue('--row-min')) || 0;
+        return {
+          min, row: row.getBoundingClientRect().width, tiles: tiles.map((el) => el.getBoundingClientRect().width),
+          frames: tiles.flatMap((el) => [...el.querySelectorAll('svg rect[stroke="var(--plot-grid)"]')].map((x) => x.getBoundingClientRect().width)),
+          scrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        };
+      }, theme);
+      const at = `${theme} ${width}`;
+      expect(r.tiles.length, `${at} tiles`).toBe(2);
+      for (const w of r.tiles) expect(w, `${at} tile ${w}px against min(${r.min}, ${r.row})`).toBeGreaterThanOrEqual(Math.min(r.min, r.row) - 0.5);
+      expect(r.scrolls, `${at} scrolls sideways`).toBe(false);
+      if (width === 1100) {
+        expect(r.frames.length, `${at} frames`).toBeGreaterThan(0);
+        for (const F of r.frames) expect(F, `${at} frame ${F}px`).toBeGreaterThanOrEqual(162 - 0.5);
+      }
     }
   }
 });
@@ -169,6 +238,10 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
+  // oracle: property: every row keeps at least its 240 px default, sample or not
+  const mins = await page.$$eval('.row', (rs) => rs.map((r) => parseFloat(r.style.getPropertyValue('--row-min') || '240')));
+  expect(mins.length).toBeGreaterThan(0);
+  for (const m of mins) expect(m).toBeGreaterThanOrEqual(240);
   const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
@@ -309,11 +382,13 @@ test('recorded wavefront tile draws with its map and aperture, the log PSF with 
     expect(wf.even, `${theme} aperture even-odd path`).toBe(1);
 
     const bar = await page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-log"] svg[role="img"]`).evaluate((svg) => {
-      const rect = [...svg.querySelectorAll('rect')].find((r) => r.getAttribute('width') === '10');
-      const top = +rect.getAttribute('y'), h = +rect.getAttribute('height');
-      const ys = [...svg.querySelectorAll('line')].filter((l) => +l.getAttribute('x2') - +l.getAttribute('x1') === 3 && +l.getAttribute('x1') === +rect.getAttribute('x') + 10)
+      // ADR-0003 text units: t is the tick text's inline font-size; the colorbar is the rect t wide, its ticks 0.3 t long from the bar's right edge, their labels 0.4 t past it.
+      const t = parseFloat(svg.querySelector('text.eleo-tick').style.fontSize), near = (a, b) => Math.abs(a - b) < 0.02;
+      const rect = [...svg.querySelectorAll('rect')].find((r) => near(+r.getAttribute('width'), t));
+      const top = +rect.getAttribute('y'), h = +rect.getAttribute('height'), right = +rect.getAttribute('x') + +rect.getAttribute('width');
+      const ys = [...svg.querySelectorAll('line')].filter((l) => near(+l.getAttribute('x2') - +l.getAttribute('x1'), 0.3 * t) && near(+l.getAttribute('x1'), right))
         .map((l) => +l.getAttribute('y1')).sort((a, b) => b - a);
-      const topLabel = [...svg.querySelectorAll('text.eleo-tick')].find((t) => Math.abs(+t.getAttribute('y') - ys[ys.length - 1]) < 0.01 && +t.getAttribute('x') === +rect.getAttribute('x') + 14);
+      const topLabel = [...svg.querySelectorAll('text.eleo-tick')].find((l) => Math.abs(+l.getAttribute('y') - ys[ys.length - 1]) < 0.01 && near(+l.getAttribute('x'), right + 0.4 * t));
       return { h, t: ys.map((y) => (top + h - y) / h), topLabel: topLabel ? topLabel.textContent : null };
     });
     expect(bar.t.length, `${theme} log colorbar ticks`).toBeGreaterThanOrEqual(4);
@@ -445,7 +520,9 @@ test('layouts stay inside the viewBox (#117)', async ({ page }) => {
 
 // Plan #144, O3, issue #145: on a page with only tokens.css, layout2D's texts look as `.eleo-tick` does under
 // plots.css. oracle: spec plots.css .eleo-tick (plots.css:127), through a bare <svg><text class="eleo-tick"> that
-// layout2D didn't draw, on a page loading tokens.css and plots.css.
+// layout2D didn't draw, on a page loading tokens.css and plots.css, for fontFamily, fontWeight and fill. The size is
+// ADR-0003's on purpose (plan #512, #518): fontSize is layoutText(width) for the fixture's drawing (1000 px), closed-form,
+// not the class's 10 px.
 test('standalone label style (#112)', async ({ page }) => {
   const props = (el) => { const c = getComputedStyle(el); return { fontFamily: c.fontFamily, fontSize: c.fontSize, fontWeight: c.fontWeight, fill: c.fill }; };
   await page.goto('/tests/fixtures/standalone-layout.html');
@@ -463,7 +540,9 @@ test('standalone label style (#112)', async ({ page }) => {
       document.body.insertAdjacentHTML('beforeend', '<svg id="bare"><text class="eleo-tick">10 mm</text></svg>');
     }));
     const bare = await ref.locator('#bare text').evaluate(props);
-    expect(drawn).toEqual(bare);
+    const { fontSize, ...rest } = drawn, { fontSize: _bare, ...bareRest } = bare;
+    expect(rest).toEqual(bareRest);
+    expect(parseFloat(fontSize)).toBeCloseTo(layoutText(1000), 2);
   } finally {
     await ref.close();
   }
@@ -493,4 +572,46 @@ test('spot caption stays inside the viewBox', async ({ page }) => {
   });
   expect(lone.length, 'one-panel caption lines').toBeGreaterThanOrEqual(3);
   for (const l of lone) expect(l.ok, `one panel: "${l.text}" inside the viewBox`).toBe(true);
+});
+
+// Plan #512 M2 review r1 finding 6 (issue #581): fit's first draw is synchronous, so a typed map must not be drawn again by the load-time canvas pass. oracle: property, ELEO.map2D calls with a `values` prop per tile.
+test('each typed map draws once at load', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__mapCalls = {};
+    let real;
+    Object.defineProperty(window, 'ELEO', {
+      configurable: true,
+      get: () => real,
+      set: (v) => {
+        const orig = v.map2D;
+        v.map2D = function (props) {
+          if (props && props.values && props.el) {
+            const t = props.el.dataset.tile + '|' + props.el.closest('.theme').dataset.theme;
+            window.__mapCalls[t] = (window.__mapCalls[t] || 0) + 1;
+          }
+          return orig.apply(this, arguments);
+        };
+        real = v;
+      },
+    });
+  });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tiles = await page.locator('[data-map]').evaluateAll((els) => els.map((e) => e.parentNode.dataset.tile + '|' + e.closest('.theme').dataset.theme));
+  expect(tiles.length).toBeGreaterThan(0);
+  const calls = await page.evaluate(() => window.__mapCalls);
+  for (const t of tiles) expect(calls[t], t).toBe(1);
+});
+
+// #591: rowMins skips a data-size that isn't a PLOT_SIZES key, so a typo would silently drop that tile's row floor.
+// oracle: property, every data-size in the page names a PLOT_SIZES row.
+test('every data-size names a PLOT_SIZES row', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const { sizes, rows } = await page.evaluate(() => ({
+    sizes: [...document.querySelectorAll('[data-size]')].map((el) => el.dataset.size),
+    rows: Object.keys(window.ELEO.PLOT_SIZES),
+  }));
+  expect(sizes.length).toBeGreaterThan(0);
+  expect(sizes.filter((s) => !rows.includes(s))).toEqual([]);
 });

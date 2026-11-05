@@ -8,5 +8,6 @@ nav = [
   { "Home" = "index.md" },
   { "Decisions" = [
     { "ADR-0001: Plot boundary and styling rule" = "adr/0001-plot-boundary.md" },
+    { "ADR-0003: Plot scale" = "adr/0003-plot-scale.md" },
   ] },
 ]

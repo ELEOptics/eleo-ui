@@ -281,9 +281,9 @@ test('caption lines and stats labels', async () => {
   const one = ELEO.spot({ panels: [{ series, airy: 2.87 }], unit: 'µm', reference: 'centroid' });
   const cap = texts(one).filter((t) => /^(Reference|Airy|RMS, GEO)/.test(t));
   assert.deepEqual(cap, ['Reference: centroid', 'Airy radius 2.87 µm', 'RMS, GEO'], 'one line per clause');
-  cap.forEach((t) => assert.ok(6 * t.length <= vbw(one), `caption line "${t}" fits ${vbw(one)} px`));
+  cap.forEach((t) => assert.ok(5.4 * t.length <= vbw(one), `caption line "${t}" fits ${vbw(one)} px`));
   const ys = [...one.matchAll(/<text[^>]*\by="([\d.]+)"[^>]*>(Reference|Airy radius|RMS, GEO)/g)].map((m) => +m[1]);
-  assert.ok(ys[1] - ys[0] === 15 && ys[2] - ys[1] === 15, 'lines 15 px apart');
+  assert.ok(Math.abs(ys[1] - ys[0] - 13.5) < 0.011 && Math.abs(ys[2] - ys[1] - 13.5) < 0.011, 'lines 1.5 text units (13.5 px at the 9 px floor) apart');
   const H = +/viewBox="0 0 [\d.]+ ([\d.]+)/.exec(one)[1];
   assert.ok(ys[2] < H, 'last line inside the height');
   const mm = texts(ELEO.spot({ panels: [{ series: [{ points: [[0.001234, 0], [-0.001234, 0]] }] }], unit: 'mm' }));
@@ -299,7 +299,7 @@ test('caption lines and stats labels', async () => {
   const eq = texts(ELEO.spot({ panels: [{ series: pts, airy: 2.87 }, { series: pts, airy: 2.87 + 2 * Number.EPSILON * 2.87 }], unit: 'µm' }));
   assert.ok(eq.includes('Airy radius 2.87 µm') && !eq.includes('Airy circle'), 'radii equal at the printed precision print one radius: ' + eq);
   const lone = ELEO.spot({ panels: [{ series: pts }], origin: 'paraxial chief ray' });
-  texts(lone).filter((t) => /^Reference/.test(t)).forEach((t) => assert.ok(6 * t.length + 12 <= vbw(lone), `one-panel "${t}" fits ${vbw(lone)} px`));
+  texts(lone).filter((t) => /^Reference/.test(t)).forEach((t) => assert.ok(5.4 * t.length + 12 <= vbw(lone)+0.011, `one-panel "${t}" fits ${vbw(lone)} px`));
   const big = texts(ELEO.spot({ panels: [{ series: [{ points: [[1234, 0], [-1234, 0]] }], airy: 4 }], unit: 'µm' }));
   assert.ok(big.includes('GEO 1234 µm') && big.includes('RMS 1234 µm'), 'no exponent from 1000 up: ' + big);
   assert.ok(big.includes('Airy radius 4.00 µm'), 'the Airy radius prints through the same formatter: ' + big);
@@ -391,32 +391,110 @@ test('circle caption rule stated alike in index.d.ts and README', async () => {
   }
 });
 
-// #501 (CR #502): textScale multiplies spot's text and the layout around it; a missing or unusable value draws today's markup.
-// oracle: property: the class sizes are read from plots.css (.eleo-tick, .eleo-val); layout is 18 under the plot, 15 per line, 28 foot
-test('text scale', async () => {
-  const base = { panels: [{ title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], airy: 2.87, notes: ['n1'] }], unit: 'µm', reference: 'centroid', width: 300 };
-  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ y: +/\by="([\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
-  const css = (await import('node:fs')).readFileSync(new URL('../../packages/plots/src/plots.css', import.meta.url), 'utf8');
-  const px = (cls) => +new RegExp(`\\.${cls}\\s*\\{\\s*font:\\s*[\\w-]+\\s+([\\d.]+)px`).exec(css)[1];
-  const size = { 'eleo-tick': px('eleo-tick'), 'eleo-val': px('eleo-val') };
-  const full = ELEO.spot(base), half = ELEO.spot({ ...base, textScale: 0.5 });
-  const a = texts(full), b = texts(half);
-  assert.equal(a.length, b.length);
-  const plotBottom = a[0].y - 18;
-  b.forEach((t, i) => {
-    assert.ok(t.size, `text ${i} has an inline style font-size`);
-    assert.equal(+t.size[1], size[t.cls] / 2, `text ${i} font size is half the class's`);
-    assert.ok(Math.abs((t.y - plotBottom) - (a[i].y - plotBottom) / 2) < 1e-9, `text ${i} sits half as far under the plot`);
-  });
-  const hOf = (m) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(m)[1];
-  // RMS, GEO and one note (3 lines) and 3 caption lines: the foot's scaled part is 28 + 15 * (3 + 3) = 118; the 1 stays.
-  assert.ok(Math.abs((hOf(full) - hOf(half)) - 118 / 2) < 1e-9, 'the viewBox height shrinks by the scaled foot');
-  for (const v of [undefined, 1, NaN, 0, -1, Infinity, 'x']) assert.equal(ELEO.spot({ ...base, textScale: v }), ELEO.spot(base), `textScale ${String(v)} changes nothing`);
+// ADR-0003 (plan #512, #525): spot's text is frameText(F) for F = one panel's side, times textScale; the layout around it is in text units
+// (1.8 under a panel, 1.5 a line, a foot of 2.8 + 1.5 a line); dots weigh 2.2 * frameWeight(F). throughFocus takes `width` the same way.
+// oracle: closed-form ADR-0003
+test('text follows ADR-0003 per panel', async () => {
+  const { frameText, frameWeight, frameOf } = await import('../../packages/plots/src/scale.js');
   const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
-  const sm = texts(ELEO.spot({ data: sample, textScale: 0.5 }));
-  assert.ok(sm.length > 0 && sm.every((t) => t.size && +t.size[1] === size[t.cls] / 2), 'the sample call draws half-size inline font sizes');
-  assert.equal(ELEO.spot({ data: sample, textScale: 1 }), ELEO.spot({ data: sample }), 'the sample call at 1 is unchanged');
+  const near = (a, b, m) => assert.ok(Math.abs(a - b) <= 0.01, `${m}: ${a} against ${b}`);
+  const base = { panels: [{ title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], airy: 2.87, notes: ['n1'] }], unit: 'µm', reference: 'centroid' };
+  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ y: +/\by="(-?[\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
+  const hOf = (m) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(m)[1];
+  const dots = (m) => [...m.matchAll(/<path d="M[^"]*h0[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
+  const seen = new Set();
+  // One panel: F is the width. 100 is under the band, 200 inside it, 1200 above.
+  for (const width of [100, 200, 1200]) {
+    const F = width, t = frameText(F);
+    seen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
+    for (const ts of [1, 0.5, 2]) {
+      const m = ELEO.spot({ ...base, width, textScale: ts }), tx = texts(m);
+      assert.ok(tx.length > 0, `${width}: text drawn`);
+      tx.forEach((x, i) => { assert.ok(x.size, `${width}: text ${i} has an inline size`); near(+x.size[1], t * ts, `${width} x${ts} text ${i} size`); });
+      // 3 lines under the panel (±half, RMS, GEO) and a note: first text is the title at 1.8 t under the panel; lines 1.5 t apart.
+      const plotBottom = tx[0].y - 1.8 * t * ts;
+      near(plotBottom, 4 + width, `${width} x${ts} the panel ends at its side`);
+      near(tx[2].y - tx[1].y, 1.5 * t * ts, `${width} x${ts} line pitch`);
+      // 3 notes + 3 caption lines: the foot is (2.8 + 1.5 * 6) t + 1.
+      near(hOf(m), width + 8 + (2.8 + 1.5 * 6) * t * ts + 1, `${width} x${ts} height`);
+      dots(m).forEach((w) => near(w, 2.2 * frameWeight(F), `${width} dot width`));
+      assert.ok(dots(m).length > 0, 'dots drawn');
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['above', 'below', 'inside']);
+  // Three panels: F is one panel's side, (width - 2 gaps) / 3, not the figure's width.
+  const m3 = ELEO.spot({ data: sample, width: 1500 }), F3 = (1500 - 44) / 3;
+  texts(m3).forEach((x, i) => near(+x.size[1], frameText(F3), `three panels text ${i}`));
+  // A height that bites shrinks the panel; the text follows the smaller side.
+  const mh = ELEO.spot({ ...base, width: 600, height: 300 }), side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(mh)[1];
+  assert.ok(side < 300, 'the height shrank the panel');
+  texts(mh).forEach((x, i) => near(+x.size[1], frameText(side), `height-bound text ${i}`));
+  assert.ok(hOf(mh) <= 300 + 0.011, 'it fits the height');
+  // textScale 1 or unusable draws the default.
+  for (const v of [undefined, 1, NaN, 0, -1, Infinity, 'x']) assert.equal(ELEO.spot({ ...base, width: 300, textScale: v }), ELEO.spot({ ...base, width: 300 }), `textScale ${String(v)} changes nothing`);
+  // The default panel is 150, which is the floor.
+  texts(ELEO.spot({ ...base })).forEach((x, i) => near(+x.size[1], 9, `default text ${i}`));
   const nar = { panels: base.panels, origin: 'a rather long origin name for the reference caption line that is wide', reference: 'chief' };
   const wOf = (m) => +/viewBox="0 0 ([\d.]+) /.exec(m)[1];
   assert.ok(wOf(ELEO.spot({ ...nar, textScale: 0.5 })) < wOf(ELEO.spot(nar)), 'the caption width estimate shrinks');
+
+  // throughFocus: width gives the row label and the panels (3 columns here); F is a panel's side, rect width + 1.
+  const tfSeen = new Set(), tfRects = (m) => [...m.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1);
+  const cols = 5; // the sample's defocus steps
+  for (const width of [500, 1100, 3000]) {
+    const m = ELEO.throughFocus({ data: sample, width }), F = tfRects(m)[0], t = frameText(F);
+    tfSeen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
+    assert.ok(F > 1, `${width}: panels drawn`);
+    texts(m).forEach((x, i) => { assert.ok(x.size, `${width}: text ${i} inline`); near(+x.size[1], t, `${width} text ${i}`); });
+    near(+/viewBox="0 0 ([\d.]+) /.exec(m)[1], width, `${width}: the figure is as wide as asked`);
+    const radii = [...m.matchAll(/<circle\b[^>]*r="([\d.]+)"/g)].map((c) => +c[1]);
+    assert.ok(radii.length > 0);
+    radii.forEach((r) => near(r, 0.9 * frameWeight(F), `${width} dot radius`));
+    near(F, frameOf((width - cols * 10) / cols, 4.2 / cols), `${width}: F solves the row label's room`);
+  }
+  assert.deepEqual([...tfSeen].sort(), ['above', 'below', 'inside']);
+});
+
+// #579: a height too small for the notes and caption sets the panel side to frameOf(height - 9, m), floored to 2 decimals.
+// oracle: closed-form ADR-0003
+test('height fit solves frameOf', async () => {
+  const { frameOf } = await import('../../packages/plots/src/scale.js');
+  const floor2 = (v) => Math.floor(v * 100) / 100;
+  const pts = [[1, 2], [-2, 1], [0.5, -1]];
+  const seen = new Set();
+  for (const extra of [0, 3]) {
+    for (const ts of [1, 2]) {
+      // Two stats notes plus `extra` given ones; two caption lines (Reference, RMS/GEO).
+      const notes = Array.from({ length: extra }, (_, i) => `note ${i}`);
+      const m = (2.8 + 1.5 * (2 + extra + 2)) * ts;
+      for (const height of [300, 330, 380, 500, 900]) {
+        const svg = ELEO.spot({ panels: [{ series: [{ points: pts }], notes }], width: 2000, height, textScale: ts });
+        const side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(svg)[1], F = frameOf(height - 9, m);
+        seen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
+        assert.equal(side, Math.max(floor2(F), 1), `${height} x${ts} +${extra}: side is floor2(frameOf(height - 9, m))`);
+        const H = +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1];
+        assert.ok(H <= height + 0.011, `${height} x${ts} +${extra}: the figure fits the height (${H})`);
+      }
+    }
+  }
+  assert.deepEqual([...seen].sort(), ['above', 'below', 'inside']);
+});
+
+// #590: the height fit and the drawn foot are one quantity: a fitted figure's bottom is the height, and sits 5 + t below the last caption baseline.
+// oracle: closed-form ADR-0003 (foot = (2.8 + 1.5 lines) t + 1; last baseline = side + 4 + (1.8 + 1.5 lines) t)
+test('height fit margin is the drawn foot', async () => {
+  const pts = [[1, 2], [-2, 1], [0.5, -1]];
+  for (const extra of [0, 3]) {
+    for (const ts of [1, 2]) {
+      const notes = Array.from({ length: extra }, (_, i) => `note ${i}`);
+      for (const height of [300, 380, 500, 900]) {
+        const svg = ELEO.spot({ panels: [{ series: [{ points: pts }], notes }], width: 2000, height, textScale: ts });
+        const H = +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1], t = +/font-size:([\d.]+)px/.exec(svg)[1];
+        const lastY = Math.max(...[...svg.matchAll(/<text\b[^>]*\sy="([\d.]+)"/g)].map((m) => +m[1]));
+        const tag = `${height} x${ts} +${extra}`;
+        assert.ok(Math.abs(H - height) < 0.05, `${tag}: the fitted figure ends at the height (${H})`);
+        assert.ok(Math.abs(H - lastY - (5 + t)) < 0.05, `${tag}: the foot below the last baseline is 5 + t (${H - lastY} vs ${5 + t})`);
+      }
+    }
+  }
 });

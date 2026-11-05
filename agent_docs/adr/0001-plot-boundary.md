@@ -1,6 +1,6 @@
 # ADR-0001: Plot boundary and styling rule
 
-Status: accepted
+Status: accepted; its "1 px stroke at any plot size" rule is superseded by [ADR-0003](0003-plot-scale.md) (plan #512, 2026-11-04)
 Date: 2026-10-09
 
 ## Context

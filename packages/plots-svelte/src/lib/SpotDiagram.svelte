@@ -5,8 +5,10 @@
 <script>
   import { spot } from '@eleoptics/plots';
   /** @type {import('@eleoptics/plots').SpotDiagramProps & { label?: string }} */
-  let { label, ...props } = $props();
-  const svg = $derived(spot(props));
+  let { label, width, ...props } = $props();
+  let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
+  const w = $derived(width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined));
+  const svg = $derived(spot({ ...props, width: w }));
 </script>
 
-<div class="eleo-svg" role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
+<div class="eleo-svg" bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>

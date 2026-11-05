@@ -1,7 +1,7 @@
 // A typed curve call compiles under --strict; a color option and an unknown role do not (#178, plan 162).
 // oracle: spec ADR-0001 (roles, no color option) and plan #162 Decisions (CurveSeries, CurveAxis, CurvePlotProps)
 import type { CurvePlotProps, CurveSeries } from '../../packages/plots/src/index';
-import { curve } from '../../packages/plots/src/index';
+import { bars, map2D, spot, throughFocus, curve, frameText, frameWeight, frameOf, layoutText, layoutWeight, TEXT_MIN, fit, rayFan } from '../../packages/plots/src/index';
 
 const mtf: CurveSeries = { points: [[0, 1], [100, 0.62]], index: 0, role: 'tangential' };
 const typed: CurvePlotProps = {
@@ -20,4 +20,38 @@ const badRole: CurveSeries = { points: [[0, 1]], role: 'meridional' };
 curve({ series: [{ points: [[0, 1]], color: 'red' }] });
 // @ts-expect-error nor a plot-level color
 curve({ series: [mtf], color: 'red' });
-export { html, badRole };
+const t: number = frameText(300), w: number = frameWeight(300), f: number = frameOf(1000, 4.6), lt: number | null = layoutText(500), lw: number = layoutWeight(1000), floor: 9 = TEXT_MIN;
+// @ts-expect-error layoutText can be null (hidden labels)
+const shown: number = layoutText(500);
+export { html, badRole, t, w, f, lt, lw, floor, shown };
+const stopFit: () => void = fit(document.body, (width: number) => { document.body.innerHTML = curve({ kind: 'mtf', width }); });
+export { stopFit };
+// rayFan takes the figure's width and height in px (ADR-0003, #537).
+const fan: string = rayFan({ width: 900, height: 300 });
+export { fan };
+// The default ELEO carries the scale rule flat (classic build: window.ELEO.F_LO, #546).
+import ELEO from '../../packages/plots/src/index';
+const fLo: 162 = ELEO.F_LO, viaDefault: number = ELEO.frameOf(1000, 4.6);
+export { fLo, viaDefault };
+// throughFocus takes a drawing width in px (ADR-0003, #572, CR #571).
+const tf: string = throughFocus({ width: 600 });
+// @ts-expect-error width is a number
+throughFocus({ width: '600' });
+export { tf };
+// PLOT_SIZES is the typed size table (ADR-0003, #526, CR #573); also on the default ELEO.
+import type { PlotSize } from '../../packages/plots/src/index';
+import { PLOT_SIZES } from '../../packages/plots/src/index';
+const curveSize: PlotSize = PLOT_SIZES.curve, floorWidth: number = PLOT_SIZES.spot.minWidth + 2 * PLOT_SIZES.spot.panelStep, tfAspect: number | null = PLOT_SIZES.throughFocus.aspect, viaTable: number = ELEO.PLOT_SIZES.layout2D.width;
+// @ts-expect-error aspect can be null (the height follows the content)
+const aspect: number = PLOT_SIZES.layout2D.aspect;
+// @ts-expect-error there is no renderer by that name
+PLOT_SIZES.layout3D;
+export { curveSize, floorWidth, tfAspect, viaTable, aspect };
+// bars, map2D and spot take a drawing width in px (ADR-0003, #580).
+const barsW: string = bars({ categories: ['a'], series: [{ values: [1] }], width: 600 });
+const mapW: string = map2D({ values: [[1]], extent: [0, 1, 0, 1], width: 600 });
+const spotW: string = spot({ width: 600 });
+const spotH: string = spot({ width: 600, height: 300 });
+// @ts-expect-error width is a number
+bars({ categories: ['a'], series: [{ values: [1] }], width: '600' });
+export { barsW, mapW, spotW, spotH };

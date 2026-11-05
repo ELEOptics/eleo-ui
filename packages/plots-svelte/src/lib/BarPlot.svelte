@@ -7,12 +7,14 @@
 <script>
   import * as plots from '@eleoptics/plots';
   /** @type {import('@eleoptics/plots').BarPlotProps & { label?: string }} */
-  let { label, ...props } = $props();
+  let { label, width, ...props } = $props();
+  let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
+  const w = $derived(width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined));
   // A namespace import: plots before 0.5.0 has no `bars`, and a named import would fail the whole package at link time.
   const svg = $derived.by(() => {
     if (typeof plots.bars !== 'function') throw new Error('BarPlot needs @eleoptics/plots 0.5.0 or later (bars)');
-    return plots.bars(props);
+    return plots.bars({ ...props, width: w });
   });
 </script>
 
-<div class="eleo-svg" role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
+<div class="eleo-svg" bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>

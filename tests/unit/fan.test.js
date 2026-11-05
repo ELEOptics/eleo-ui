@@ -43,3 +43,15 @@ test("fanPanels carries the sample's fans", () => {
   assert.equal(f.panels[0].title, `${sample.fields[2].toFixed(1)}° · Py`);
   assert.equal(f.panels[1].series[0].points[5][1], sample.fans[0].T[0][5]);
 });
+
+// Plan #512, issue #517. oracle: closed-form ADR-0003: a rayFan of width W has columns of W / columns, each frame frameOf(W / columns, 4.6 + 1.2)
+test('rayFan draws each panel to the rule', async () => {
+  const { frameOf } = await import('../../packages/plots/src/scale.js');
+  const { rayFan } = await import('../../packages/plots/src/fan.js');
+  for (const width of [450, 900, 3600]) {
+    const svg = rayFan({ data: sample, width }), cols = sample.fans.length;
+    const frames = [...svg.matchAll(/<rect [^>]*width="([\d.]+)"[^>]*stroke="var\(--plot-grid\)"/g)].map((m) => +m[1]);
+    assert.equal(frames.length, 2 * cols);
+    frames.forEach((f) => assert.ok(Math.abs(f - frameOf(width / cols, 4.6 + 1.2)) <= 0.01, `${width}: frame ${f}`));
+  }
+});

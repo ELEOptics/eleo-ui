@@ -129,27 +129,73 @@ test('non-numeric values draw no bar', () => {
   assert.equal(mr[1].height, 3, 'Σ leaves the skipped value out');
 });
 
-// Plan #284 #307. oracle: property: every series stays named and inside the viewBox; one key line at 460 px keeps the old height; a null series throws.
+// Plan #284 #307; sizes follow ADR-0003 (#523). oracle: property: every series stays named and inside the viewBox; one key line where the entries fit, with the line where ADR-0003 puts it (1.2 t above the bottom); a null series throws.
 test('key row wraps inside the viewBox and null series throw', () => {
   const labels = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'];
   const series = labels.map((label, index) => ({ values: [1, -2], index, label }));
-  const keys = (svg) => [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="8" height="8"[^>]*\/><text class="eleo-tick" x="([\d.]+)" y="([\d.]+)">([^<]*)<\/text>/g)]
-    .map((m) => ({ x: Number(m[1]), y: Number(m[2]), tx: Number(m[3]), text: m[5] }));
-  for (const [width, height] of [[240, 260], [460, 260]]) {
+  const keys = (svg) => [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="[\d.]+" height="[\d.]+" fill="var\(--series-[^"]*\)"\/><text class="eleo-tick" x="([\d.]+)" y="([\d.]+)" style="font-size:([\d.]+)px">([^<]*)<\/text>/g)]
+    .map((m) => ({ x: Number(m[1]), y: Number(m[2]), tx: Number(m[3]), t: Number(m[5]), text: m[6] }));
+  for (const [width, height] of [[240, 260], [920, 260]]) {
     const svg = ELEO.bars({ categories: ['1', '2'], series, y: { label: 'n' }, width, height });
     const k = keys(svg);
     assert.deepEqual(k.map((e) => e.text), labels, `${width}px: every series is named`);
     for (const e of k) {
-      assert.ok(e.tx + 6 * e.text.length <= width, `${width}px: ${e.text} ends inside the viewBox`);
-      assert.ok(e.y >= 0 && e.y + 8 <= height, `${width}px: ${e.text} sits inside the height`);
+      assert.ok(e.tx + 0.6 * e.t * e.text.length <= width, `${width}px: ${e.text} ends inside the viewBox`);
+      assert.ok(e.y >= 0 && e.y + 0.8 * e.t <= height + 0.01, `${width}px: ${e.text} sits inside the height`);
     }
     const rows = new Set(k.map((e) => e.y)).size;
-    if (width === 460) {
-      assert.equal(rows, 1, 'one key line at 460 px');
-      assert.equal(k[0].y, height - 12, 'the single line is where it was');
+    if (width === 920) {
+      assert.equal(rows, 1, 'one key line at 920 px');
+      assert.ok(Math.abs(k[0].y - (height - 1.2 * k[0].t)) <= 0.01, 'the single line is 1.2 t above the bottom');
     } else assert.ok(rows > 1, '240 px wraps to a second line');
   }
   assert.throws(() => ELEO.bars({ categories: ['1'], series: [null] }), { name: 'TypeError', message: 'bars: each series must be an object' });
+});
+
+// Plan #512 #523 (outcome O1). oracle: closed-form ADR-0003: F is the plot frame's width; text t(F) is 9 px below F = 162, F / 18 to F = 234, 13 * (F / 234)^(1/3) above;
+// margins in text units (4.6 left, 3.6 bottom, 2.6 top, 1.2 right with no x ticks), F + 5.8 t = W; label room, key pitch 1.4 t and swatch 0.8 t follow t.
+test('text follows ADR-0003', () => {
+  const tOf = (F) => (F < 162 ? 9 : F <= 234 ? F / 18 : 13 * Math.cbrt(F / 234));
+  const near = (a, b, msg) => assert.ok(Math.abs(a - b) <= 0.03, `${msg}: ${a} against ${b}`);
+  const sizesOf = (svg) => [...svg.matchAll(/<text\b[^>]*>/g)].map((m) => { const px = /font-size:\s*([\d.]+)px/.exec(m[0]); return px ? +px[1] : NaN; });
+  const branches = new Set();
+  for (const [width, height] of [[200, 200], [300, 260], [460, 260], [700, 400], [1200, 600]]) {
+    const svg = ELEO.bars({ categories: ['a', 'b'], series: [{ values: [2, 5] }], y: { label: 'n' }, width, height });
+    const fr = /<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="none" stroke="var\(--plot-grid\)"/.exec(svg);
+    const [L, T, F, ph] = fr.slice(1).map(Number), t = tOf(F);
+    branches.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
+    near(F + 5.8 * t, width, `${width}: the frame solves F + 5.8 t = W`);
+    near(L, 4.6 * t, `${width}: left margin`);
+    near(T, 2.6 * t, `${width}: top margin`);
+    near(height - T - ph, 3.6 * t, `${width}: bottom margin`);
+    near(width - L - F, 1.2 * t, `${width}: right margin`);
+    const sz = sizesOf(svg);
+    assert.ok(sz.length >= 4, `${width}: text is drawn`);
+    sz.forEach((s, i) => near(s, t, `${width}: text ${i} font size`));
+    const l = labelsOf(svg).filter((x) => ['a', 'b'].includes(x.text));
+    l.forEach((x) => near(Number(/\by="([\d.]+)"/.exec(x.attrs)[1]), T + ph + 1.3 * t, `${width}: category label baseline`));
+    const title = /<text class="eleo-tick" x="([\d.]+)" y="([\d.]+)"[^>]*>n</.exec(svg);
+    near(+title[1], 0.4 * t, `${width}: title x`);
+    near(+title[2], t, `${width}: title baseline`);
+  }
+  assert.deepEqual([...branches].sort(), ['above', 'below', 'inside'], 'widths cover the floor, the band and the knee');
+  // Key rows: swatch 0.8 t, a line every 1.4 t, the first line 1.2 t above the figure's bottom (less the lines below it).
+  const series = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'].map((label, index) => ({ values: [1, -2], index, label }));
+  for (const [width, height] of [[240, 260], [460, 260], [900, 400]]) {
+    const svg = ELEO.bars({ categories: ['1', '2'], series, y: { label: 'n' }, width, height });
+    const fr = /<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="none" stroke="var\(--plot-grid\)"/.exec(svg);
+    const [L, T, F, ph] = fr.slice(1).map(Number), t = tOf(F);
+    const keys = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="var\(--series-[^"]*\)"\/><text class="eleo-tick" x="([\d.]+)" y="([\d.]+)"/g)].map((m) => m.slice(1).map(Number));
+    assert.equal(keys.length, 7, `${width}: every series is named`);
+    const lines = [...new Set(keys.map((k) => k[1]))].sort((a, b) => a - b);
+    const Hf = T + ph + 3.6 * t;
+    keys.forEach((k) => { near(k[2], 0.8 * t, `${width}: swatch width`); near(k[3], 0.8 * t, `${width}: swatch height`); near(k[4], k[0] + 1.2 * t, `${width}: key text offset`); near(k[5], k[1] + 0.8 * t, `${width}: key text baseline`); });
+    near(lines.at(-1), height - 1.2 * t, `${width}: the last line is 1.2 t above the figure's bottom`);
+    near(lines[0], Hf - 1.2 * t, `${width}: the first line is 1.2 t above the frame's margin`);
+    lines.slice(1).forEach((y, i) => near(y - lines[i], 1.4 * t, `${width}: key line pitch`));
+    near(keys[0][0], L, `${width}: the key starts at the frame's left edge`);
+    assert.equal(Math.round(height - Hf), Math.round(1.4 * t * (lines.length - 1)), `${width}: each extra line takes 1.4 t from the figure`);
+  }
 });
 
 test('seidel adapter labels by term name', async () => {
@@ -196,9 +242,10 @@ test('group dividers and title room', () => {
   });
   assert.equal(marks(group, 'line').length, 0, 'no dividers in the data group');
   assert.ok(svg.indexOf(dots[0]) < svg.indexOf('<g transform="matrix'), 'the dividers come before the data group, so the bars paint over them');
-  assert.ok(T >= 10 + 14, `frame top ${T} is at least 14 px under the title baseline`);
+  const tt = Number(/<text class="eleo-tick" x="[\d.]+" y="([\d.]+)"[^>]*>Seidel sum, mm</.exec(svg)[1]);
+  assert.ok(T >= tt + 1.4 * tt - 0.01, `frame top ${T} is at least 1.4 text sizes under the title baseline ${tt}`);
   const many = ELEO.bars({ categories: Array.from({ length: 40 }, (_, i) => String(i + 1)), series: [{ values: Array.from({ length: 40 }, () => 1), index: 0 }], total: 'Σ', width: 460, height: 260 });
-  const ticks = [...many.matchAll(/<text class="eleo-tick"[^>]*text-anchor="middle">/g)].length - 1;
+  const ticks = [...many.matchAll(/<text class="eleo-tick"[^>]*text-anchor="middle"/g)].length - 1;
   const step = Math.ceil(40 / ticks);
   assert.ok(step > 1, 'labels are thinned');
   const cuts = [...many.matchAll(/<line\b[^>]*stroke="var\(--plot-grid\)"[^>]*>/g)].map((m) => m[0]).filter(isVertical).length;
@@ -224,14 +271,16 @@ test('recorded Seidel grouped by coefficient and as a subset', async () => {
     // Caller-built calls, no gallery adapter.
     const bySurface = { categories: surfaces, series: terms.map((label, i) => ({ label, index: i, values: v[i] })), total: 'Σ', y };
     const byCoef = { categories: terms, series: [...surfaces.map((_, s) => ({ label: surfaces[s], index: s, values: terms.map((__, t) => v[t][s]) })), { label: 'Σ', index: surfaces.length, values: sums }], y };
-    // The gallery adapter's by-term call is the hand-built one (its y has no shared range).
+    // The gallery adapter's by-term call has the hand-built call's categories, indexes and values (its y has no shared range; its labels are S1.., then Σ).
     const viaAdapter = ELEOAdapters.seidel(rec, { by: 'term' });
     assert.deepEqual(viaAdapter.categories, byCoef.categories, `${lens}: adapter by-term categories`);
+    assert.deepEqual(viaAdapter.series.map((x) => x.label), [...surfaces.map((_, i) => `S${i + 1}`), 'Σ'], `${lens}: adapter by-term labels S1.., Σ`);
     assert.deepEqual(viaAdapter.series.map((x) => [x.index, x.values]), byCoef.series.map((x) => [x.index, x.values]), `${lens}: adapter by-term values and indexes`);
     assert.throws(() => ELEOAdapters.seidel(rec, { by: 'terms' }), /by/, 'an unknown by throws');
     const pick = [0, 1], tPick = [0, 1, 2];
     const subset = { categories: tPick.map((t) => terms[t]), series: pick.map((s) => ({ label: surfaces[s], index: s, values: tPick.map((t) => v[t][s]) })), y };
-    for (const [width, height] of SIZES) {
+    // The keys of the two calls must take the same number of lines (README): widths where seven entries fit one line.
+    for (const [width, height] of [[920, 600], [1400, 800]]) {
       // Each bar's height in data units, from its pixel height and the group's own scale, keyed by what it shows.
       const draw = (opts, key) => {
         const svg = ELEO.bars({ ...opts, width, height });

@@ -6,11 +6,13 @@ import ELEO from './renderers.js';
 import * as physics from './physics.js';
 import * as layout from './layout2d.js';
 import * as glass from './glass.js';
+import * as scale from './scale.js';
 
-Object.assign(ELEO, physics, { layoutBounds: layout.layoutBounds, glassLegend: glass.glassLegend });
+Object.assign(ELEO, physics, scale, { layoutBounds: layout.layoutBounds, glassLegend: glass.glassLegend });
 
 export default ELEO;
 export const {
-  layout2D, layout3D, spot, throughFocus, rayFan, map2D, curve, bars, legend, icon, icons, gradient, fmt, css, maps, useSample, layoutBounds, glassLegend,
+  layout2D, layout3D, spot, throughFocus, rayFan, map2D, curve, bars, legend, icon, icons, gradient, fmt, css, maps, useSample, layoutBounds, glassLegend, fit,
 } = ELEO;
 export * from './physics.js';
+export * from './scale.js';

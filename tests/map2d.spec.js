@@ -225,7 +225,7 @@ test('recorded PSF cells (U8)', async ({ page }) => {
       // In a plot tile, as the gallery draws it, so the page behind the image is the tile's --surface.
       el.insertAdjacentHTML('beforeend', '<section class="eleo-plot" data-masked-copy><div class="eleo-plot__body"></div></section>');
       const tile = el.lastElementChild;
-      tile.firstElementChild.innerHTML = ELEO.map2D({ ...props(copy), el: tile });
+      tile.firstElementChild.innerHTML = ELEO.map2D({ ...props(copy), width: 600, el: tile }); // wider than the default: ADR-0003's margins leave a default drawing's cells under 2 px
       const msvg = tile.querySelector('svg');
       const mimg = msvg.querySelector('image');
       const mb = await createImageBitmap(await (await fetch(mimg.getAttribute('href'))).blob());
@@ -517,7 +517,7 @@ test('aperture masks outside', async ({ page }) => {
       const c = px(ap.x, ap.y);
       out[name] = {
         wrong, fill: mask.getAttribute('fill'), after: !!(img.compareDocumentPosition(mask) & Node.DOCUMENT_POSITION_FOLLOWING),
-        stroke: ring.getAttribute('stroke'), sw: ring.getAttribute('stroke-width'), ringFill: ring.getAttribute('fill'),
+        stroke: ring.getAttribute('stroke'), sw: ring.getAttribute('stroke-width'), F: +svg.querySelector('rect').getAttribute('width'), ringFill: ring.getAttribute('fill'),
         dc: Math.hypot(+ring.getAttribute('cx') - c.x, +ring.getAttribute('cy') - c.y), dr: Math.abs(+ring.getAttribute('r') - (ap.r / 4) * w),
       };
     }
@@ -529,7 +529,7 @@ test('aperture masks outside', async ({ page }) => {
     expect(q.fill, `${name}: mask fill is the surface role`).toBe('var(--surface)');
     expect(q.after, `${name}: mask drawn over the image`).toBe(true);
     expect(q.stroke, `${name}: ring stroke`).toBe('var(--plot-axis)');
-    expect(q.sw, `${name}: ring width`).toBe('1');
+    expect(+q.sw, `${name}: ring width (ADR-0003: 1 up to F = 234, sqrt(F / 234) above)`).toBeCloseTo(q.F > 234 ? Math.sqrt(q.F / 234) : 1, 2);
     expect(q.ringFill, `${name}: ring fill`).toBe('none');
     expect(q.dc, `${name}: ring centre off (px)`).toBeLessThan(0.05);
     expect(q.dr, `${name}: ring radius off (px)`).toBeLessThan(0.05);
@@ -681,4 +681,54 @@ test('gaussian irradiance tile', async ({ page }) => {
     });
     expect(r.wrong, `${theme}: cells off their step`).toBe(0);
   }
+});
+
+// Plan #512, outcome O1 for map2D (issues #522, #524; #528 has nothing left to unskip here). oracle: closed-form ADR-0003. At widths that put the frame F (the first
+// rect's width, in px) below the floor, inside the band and above the knee, every text of the drawing (axes and colorbar ticks:
+// computed font-size times getScreenCTM().a) is within 1% of 9 px below F = 162, F / 18 up to 234, 13 * (F / 234)^(1/3) above.
+test('text follows ADR-0003', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const branches = new Set();
+  for (const [width, polar] of [200, 300, 1400].flatMap((w) => [[w, false], [w, true]])) {
+    const r = await page.locator('.theme[data-theme="light"]').evaluate((el, [w, pol]) => {
+      const values = [[0, 1, 2, 3], [1, 2, 3, 4]];
+      el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, ...(pol ? { polar: { radii: [1, 2], angles: [0, 1.5, 3, 4.5] } } : {}), extent: [-2, 2, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, value: { label: 'Irradiance' }, width: w }));
+      const svg = el.lastElementChild, F = +svg.querySelector('rect').getAttribute('width');
+      el.removeChild(svg);
+      return { F, sizes: null, svg: svg.outerHTML };
+    }, [width, polar]);
+    // Measure in the page: the drawing must be attached for getScreenCTM.
+    const m = await page.locator('.theme[data-theme="light"]').evaluate((el, [html, w]) => {
+      el.insertAdjacentHTML('beforeend', html);
+      const svg = el.lastElementChild;
+      svg.style.width = w + 'px'; // drawn at its own px width, so the screen scale is 1
+      const sizes = [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a);
+      el.removeChild(svg);
+      return sizes;
+    }, [r.svg, width]);
+    const want = r.F < 162 ? 9 : r.F <= 234 ? r.F / 18 : 13 * Math.cbrt(r.F / 234);
+    expect(m.length, `width ${width} polar ${polar} has text`).toBeGreaterThan(0);
+    for (const s of m) expect(Math.abs(s / want - 1), `width ${width} polar ${polar} (F ${r.F}) text ${s}px against ${want}px`).toBeLessThanOrEqual(0.01);
+    branches.add(r.F < 162 ? 'below' : r.F <= 234 ? 'inside' : 'above');
+  }
+  expect([...branches].sort()).toEqual(['above', 'below', 'inside']);
+});
+
+// #526: drawn at its table minimum, the typed map's plot frame is F_LO wide and its text 9 px (no colorbar, short x tick labels). oracle: closed-form ADR-0003.
+test('map2D draws its frame at F_LO at PLOT_SIZES.map2D.minWidth', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const width = window.ELEO.PLOT_SIZES.map2D.minWidth;
+    el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, width }));
+    const svg = el.lastElementChild;
+    svg.style.width = width + 'px'; // drawn at its own px width, so the screen scale is 1
+    const out = { width, F: +svg.querySelector('rect').getAttribute('width'), sizes: [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) };
+    el.removeChild(svg);
+    return out;
+  });
+  expect(Math.abs(r.F - 162), `frame ${r.F} at width ${r.width}`).toBeLessThanOrEqual(0.01);
+  expect(r.sizes.length).toBeGreaterThan(0);
+  for (const s of r.sizes) expect(Math.abs(s - 9), `text ${s}px`).toBeLessThanOrEqual(0.09);
 });

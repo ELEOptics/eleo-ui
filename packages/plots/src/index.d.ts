@@ -51,11 +51,11 @@ export interface Layout2DProps {
   colorBy?: IndexKey;
   /** Ray set per group. Default "marginal-chief" (3 rays). */
   rays?: "marginal-chief" | "fan" | "chief";
-  /** viewBox width in px; the drawing is always true scale. Default 1000. */
+  /** Drawing width in px; the drawing is always true scale. Default 1000. Labels and the scale bar are `width / 70` px from 630 to 910, then grow as `13 * sqrt(width / 910)`, and are not drawn below 630, nor are the STO and IMA marks (ADR-0003). Ray strokes are 1 px up to 910, then `sqrt(width / 910)`. */
   width?: number;
-  /** One text per fan, drawn 6 px past the image plane, beside the end of that fan's chief ray, with room kept for them (an empty fan gets none). A null or undefined entry skips that fan; more labels than fans throws. Default none. */
+  /** One text per fan, drawn 0.6 em past the image plane, beside the end of that fan's chief ray, with room kept for them (0.6 em and 0.6 em a character of the longest, on the right; an East Asian wide character counts as two). Below a width of 630 the labels are not drawn and no room is kept. An empty fan gets none. A null or undefined entry skips that fan; more labels than fans throws. Default none. */
   labels?: (string | null | undefined)[];
-  /** Draw the STO and IMA labels. Default true. */
+  /** Draw the STO and IMA labels (not drawn below a width of 630). Default true. */
   marks?: boolean;
 }
 export interface Layout3DProps {
@@ -108,9 +108,11 @@ export interface SpotPanelsProps {
   unit?: string;
   /** The SVG's aria-label. Default "Spot diagrams". */
   label?: string;
-  /** Multiplies the font size of every text `spot` draws and the gaps, line pitch, foot and caption width estimate around it. Default 1; a value that is not a finite number above 0 means 1. */
+  /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
+  /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels` (less when `height` caps it), is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
   width?: number;
+  /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
   height?: number;
   data?: never;
   colorBy?: never;
@@ -134,11 +136,20 @@ export interface SpotSampleProps {
   showStats?: boolean;
   /** Draw each panel's Airy circle. Default true. */
   showAiry?: boolean;
-  /** Multiplies the font size of every text `spot` draws and the gaps, line pitch, foot and caption width estimate around it. Default 1; a value that is not a finite number above 0 means 1. */
+  /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
+  /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels` (less when `height` caps it), is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
   width?: number;
+  /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
   height?: number;
   panels?: never;
+}
+export interface ThroughFocusProps {
+  data?: object;
+  /** Box half-width in the data's unit. */
+  half?: number;
+  /** The figure's width in px. A panel's side is ADR-0003's frame, solved from it; 92 px without it. */
+  width?: number;
 }
 export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
 export interface RayFanProps {
@@ -149,6 +160,10 @@ export interface RayFanProps {
   fields?: number[];
   /** Full scale, same unit as kind. Default: next round value above the largest value. */
   fullScale?: number;
+  /** The figure's width in px, split per column (ADR-0003: each column's frame, text size and strokes follow curve's rule). Default: columns times (`panelWidth` + 58). */
+  width?: number;
+  /** The figure's height in px. Default 314 for the default shape, scaled with the width. */
+  height?: number;
   panelWidth?: number;
 }
 export interface Map2DProps {
@@ -189,13 +204,14 @@ export interface Map2DGridProps {
   value?: CurveAxis;
   /** Element whose tokens color the map. Default the document root. */
   el?: Element;
-  /** viewBox size in px. Default 460 by 360. */
+  /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
+  /** Drawing height in px. Default `round(width * 360 / 460)`. */
   height?: number;
   /** Accessible name of the svg. Default "Map". */
   label?: string;
 }
-/** One curve. Every role draws a 1 px stroke; there is no color, width or dash option (ADR-0001). */
+/** One curve. Every role draws the same stroke, 1 px up to a 234 px frame and `sqrt(F / 234)` px above it (F is the plot frame's width, ADR-0003); there is no color, width or dash option (ADR-0001). */
 export interface CurveSeries {
   /** [x, y] in data units. Points outside the axis ranges are clipped by the plot area. */
   points: [number, number][];
@@ -236,6 +252,7 @@ export interface CurveSeriesProps {
   y?: CurveAxis;
   /** Limit lines and bands; an auto range contains them. */
   limits?: PlotLimit[];
+  /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
   kind?: never;
@@ -250,6 +267,7 @@ export interface CurvePanelsProps {
   y?: CurveAxis;
   /** Limit lines and bands, drawn in every panel. */
   limits?: PlotLimit[];
+  /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
   kind?: never;
@@ -259,6 +277,7 @@ export interface CurvePanelsProps {
 export interface CurveKindProps {
   data?: object;
   kind: "mtf" | "fieldCurvature" | "distortion" | "chromaticFocus";
+  /** Drawing width in px, as for a typed call (ADR-0003). Default 460. */
   width?: number;
   height?: number;
   series?: never;
@@ -285,8 +304,9 @@ export interface BarPlotProps {
   y?: CurveAxis;
   /** y limits only: a category axis has no x value to draw at (an x limit throws). */
   limits?: PlotLimitY[];
-  /** viewBox size in px. Default 460 by 260. */
+  /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
+  /** Drawing height in px. Default `round(width * 260 / 460)`. */
   height?: number;
 }
 export interface ELEO {
@@ -308,7 +328,7 @@ export interface ELEO {
   glassLegend(data: RecordedLayout | LayoutSystem): string;
   layout3D(canvas: HTMLCanvasElement, props?: Layout3DProps): void;
   spot(props?: SpotDiagramProps): string;
-  throughFocus(props?: { data?: object; half?: number }): string;
+  throughFocus(props?: ThroughFocusProps): string;
   rayFan(props?: RayFanProps): string;
   /** A typed grid as SVG markup. */
   map2D(props: Map2DGridProps): string;
@@ -322,14 +342,50 @@ export interface ELEO {
   icons: { optical: { name: string; title: string }[]; interface: { name: string; title: string }[] };
   /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. With a sample loaded, field/wavelength keys carry its values (n defaults to its count); without one they draw n index keys (F1.., λ1..) without values, and none without n. `values` (deg or nm) replaces the sample's, one key per value, n defaulting to its length; a non-finite entry draws the index key alone. ts and rays are fixed either way. */
   legend(kind: "field" | "wavelength" | "ts" | "rays", n?: number, values?: readonly number[]): string;
+  /** Draw at the container's content width, a fractional px value (a CSS transform on an ancestor scales the measured box, since getBoundingClientRect includes transforms): `el.getBoundingClientRect().width` minus its computed left and right padding and border widths (content box), rounded to 2 decimals. Calls `draw(width)` now (not while the width is 0: it draws once the element gets a width), then again when the width changes (at most once per animation frame, only when that width changed, never for a height-only change or a width of 0 or less), through one shared ResizeObserver. `draw` writes the markup, e.g. `fit(body, (w) => { body.innerHTML = curve({ ...d, width: w }); })`. Returns `stop()`. */
+  fit(el: Element, draw: (width: number) => void): () => void;
 }
 import type * as Physics from './physics.js';
 export * from './physics.js';
 
-declare const ELEO: ELEO & typeof Physics;
+interface ScaleRule {
+  frameText: typeof frameText; frameWeight: typeof frameWeight; frameOf: typeof frameOf; layoutText: typeof layoutText; layoutWeight: typeof layoutWeight;
+  TEXT_MIN: typeof TEXT_MIN; TEXT_MAX: typeof TEXT_MAX; F_LO: typeof F_LO; F_HI: typeof F_HI; W_LO: typeof W_LO; W_HI: typeof W_HI;
+  PLOT_SIZES: typeof PLOT_SIZES;
+}
+declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
 export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spot: ELEO['spot'],
   throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
   css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
-  glassLegend: ELEO['glassLegend'];
+  glassLegend: ELEO['glassLegend'], fit: ELEO['fit'];
+
+/* The plot scale rule of ADR-0003 (packages/plots/src/scale.js). Sizes are px. */
+/** Text size for a plot frame F px wide: 9 below 162, F / 18 to 234 (13), then 13 * (F / 234)^(1/3). */
+export declare function frameText(F: number): number;
+/** Weight of series strokes, rays and dots for a frame F px wide: 1 up to 234, then sqrt(F / 234). */
+export declare function frameWeight(F: number): number;
+/** The frame width F that solves F + m * frameText(F) = W, for a drawing W px wide and horizontal margins m in text units; at least 1. */
+export declare function frameOf(W: number, m: number): number;
+/** layout2D text size for a drawing W px wide: W / 70 from 630 to 910, then 13 * sqrt(W / 910); null where labels and the scale bar are hidden (W / 70 under 9). */
+export declare function layoutText(W: number): number | null;
+/** layout2D ray stroke weight for a drawing W px wide: 1 up to 910, then sqrt(W / 910). */
+export declare function layoutWeight(W: number): number;
+/** The rule's breakpoints and text limits, in px. */
+export declare const TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910;
+/** One renderer's row of PLOT_SIZES, in px. */
+export interface PlotSize {
+  /** The default drawing width of one panel (what the renderer draws without `width`). */
+  width: number;
+  /** Height over width of that default drawing, or null where the height follows the content. */
+  aspect: number | null;
+  /** The narrowest width of a one-panel figure: its plot frame is F_LO wide, its text 9 px. */
+  minWidth: number;
+  /** The width each further panel adds at that floor (0 for a single plot): a figure of n panels needs `minWidth + (n - 1) * panelStep`. */
+  panelStep: number;
+}
+/** The size table of ADR-0003, computed from the scale rule and the renderers' margins. The curve family's figures assume the shortest right margin (1.2 text units): wider tick labels or map2D's colorbar need `TEXT_MIN` px more per text unit. */
+export declare const PLOT_SIZES: {
+  curve: PlotSize; rayFan: PlotSize; bars: PlotSize; map2D: PlotSize; spot: PlotSize; throughFocus: PlotSize; layout2D: PlotSize;
+};

@@ -79,7 +79,13 @@ test('a plots minor leaves plots-svelte unplanned and its peer range kept', () =
 // Plan #464 (agent_docs/plans/464-beam-footprint.md), outcome O2 (issue #465; #469 unskips). Row N: the footprint circle
 // is a plots minor; plots-svelte ships its widened peer as a patch, in its own file (#85).
 // oracle: spec: @changesets/cli's plan of the named files; #457
-test('row N changesets', () => {
+// Once `changeset version` deleted the files, the twin below reads the CHANGELOG entries they became (#594).
+const ROW_N_PLOTS_ENTRY = /`spot` panels take `circle: \{ radius, label \}`/;
+const ROW_N_SVELTE_ENTRY = /Peer `@eleoptics\/plots` is now `>=0\.7\.0 <1`/;
+const rowNConsumed = ['footprint-circle.md', 'plots-svelte-peer-0.7.md'].every((f) => !existsSync(join(repo, '.changeset', f)))
+  && ROW_N_PLOTS_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'))
+  && ROW_N_SVELTE_ENTRY.test(readFileSync(join(repo, 'packages/plots-svelte/CHANGELOG.md'), 'utf8'));
+test('row N changesets', { skip: rowNConsumed && 'consumed by changeset version' }, () => {
   const read = (f) => {
     const text = readFileSync(join(repo, '.changeset', f), 'utf8');
     const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
@@ -103,6 +109,12 @@ test('row N changesets', () => {
     assert.deepEqual(releases.map((r) => r.name).sort(), ['@eleoptics/plots', '@eleoptics/plots-svelte'], 'only plots and plots-svelte are planned');
   });
 });
+
+test('row N changesets became a plots minor and a plots-svelte patch',
+  { skip: !rowNConsumed && 'changesets not yet versioned' }, () => {
+    assert.equal(entry('plots', ROW_N_PLOTS_ENTRY).kind, 'Minor');
+    assert.equal(entry('plots-svelte', ROW_N_SVELTE_ENTRY).kind, 'Patch');
+  });
 
 // #104 (plan #90): the release asks plots, plots-svelte and tokens minors. A tokens minor falls outside a
 // `^0.1.0` peer, so changesets would rewrite it to `^0.2.0` and bump its dependents (the #21 lesson); widened to
@@ -388,3 +400,33 @@ test('plots-svelte README drops the typed Map2D plots-version note', () => {
   assert.ok(para, 'no Map2D paragraph in the plots-svelte README');
   assert.doesNotMatch(para, /0\.7\.0/);
 });
+
+// Plan #512 (agent_docs/plans/512-plot-scale.md), outcome O4 (issue #529; #531 writes the files and unskips). Row O: the visible
+// text and stroke change is a plots minor; the measuring wrappers and `Legend` values are a plots-svelte minor, each in its own file.
+// oracle: spec roadmap Constraints (a visible change ships as a minor); semver 0.x. `changeset status` plans those two minors.
+// Read as the bars-limits pair above: the files, or once `changeset version` deleted them, the CHANGELOG entries (#594).
+const ROW_O_PLOTS_ENTRY = /Plots draw at their width in px/;
+const ROW_O_SVELTE_ENTRY = /The framed wrappers measure their container/;
+const rowOPlotsConsumed = barsConsumed('plot-scale.md', 'plots', ROW_O_PLOTS_ENTRY);
+const rowOSvelteConsumed = barsConsumed('plots-svelte-scale.md', 'plots-svelte', ROW_O_SVELTE_ENTRY);
+const rowOConsumed = rowOPlotsConsumed && rowOSvelteConsumed;
+test('row O changesets', { skip: rowOConsumed && 'consumed by changeset version' }, () => {
+  const plots = parse('plot-scale.md');
+  const svelte = parse('plots-svelte-scale.md');
+  assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
+  assert.deepEqual(svelte.bumps, { '@eleoptics/plots-svelte': 'minor' });
+  assert.ok(plots.body && svelte.body, 'a changeset names no change');
+  withWorkspace({ ...plots.bumps, ...svelte.bumps }, (ws) => {
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    const type = (name) => releases.find((r) => r.name === name)?.type;
+    assert.equal(type('@eleoptics/plots'), 'minor');
+    assert.equal(type('@eleoptics/plots-svelte'), 'minor');
+  });
+});
+
+test('row O changesets became minors',
+  { skip: !rowOConsumed && 'changesets not yet versioned' }, () => {
+    assert.equal(entry('plots', ROW_O_PLOTS_ENTRY).kind, 'Minor');
+    assert.equal(entry('plots-svelte', ROW_O_SVELTE_ENTRY).kind, 'Minor');
+  });

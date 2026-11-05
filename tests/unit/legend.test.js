@@ -67,3 +67,26 @@ test('field and wavelength keys take explicit values (#484)', async () => {
   assert.deepEqual(keys(legend('field', undefined, [3])), ['F1 3.0°']);
   useSample(null);
 });
+
+// Plan #512 (agent_docs/plans/512-plot-scale.md), outcome O3, issue #486. oracle: reference legend() in @eleoptics/plots.
+// Appended last: it loads no sample, but the test above leaves the shared state clean (useSample(null)).
+test('Legend passes values (#486)', async () => {
+  const { compile } = await import('svelte/compiler');
+  const { render } = await import('svelte/server');
+  const { legend } = await import('../../packages/plots/src/legend.js');
+  const root = fileURLToPath(new URL('../../', import.meta.url));
+  const src = readFileSync(join(root, 'packages/plots-svelte/src/lib/Legend.svelte'), 'utf8');
+  const dir = mkdtempSync(join(root, 'node_modules', '.legend-'));
+  try {
+    const file = join(dir, 'Legend.js');
+    writeFileSync(file, compile(src, { generate: 'server', filename: 'Legend.svelte' }).js.code);
+    const { default: Legend } = await import(pathToFileURL(file).href);
+    const body = (props) => render(Legend, { props }).body;
+    const inner = (b) => b.replace(/^[\s\S]*?<div class="eleo-legend">/, '').replace(/<\/div>[\s\S]*$/, '').replaceAll('<!---->', '');
+    assert.equal(inner(body({ kind: 'field', values: [0, 17, 24] })), legend('field', 3, [0, 17, 24]));
+    assert.equal(inner(body({ kind: 'wavelength', values: [550] })), legend('wavelength', 1, [550]));
+    assert.equal(inner(body({ kind: 'field', n: 2, values: [0, 17, 24] })), legend('field', 2, [0, 17, 24]));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
