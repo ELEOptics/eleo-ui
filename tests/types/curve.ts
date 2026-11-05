@@ -51,6 +51,7 @@ export { curveSize, floorWidth, tfAspect, viaTable, aspect };
 const barsW: string = bars({ categories: ['a'], series: [{ values: [1] }], width: 600 });
 const mapW: string = map2D({ values: [[1]], extent: [0, 1, 0, 1], width: 600 });
 const spotW: string = spot({ width: 600 });
+const spotH: string = spot({ width: 600, height: 300 });
 // @ts-expect-error width is a number
 bars({ categories: ['a'], series: [{ values: [1] }], width: '600' });
-export { barsW, mapW, spotW };
+export { barsW, mapW, spotW, spotH };

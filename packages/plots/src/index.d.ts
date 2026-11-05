@@ -110,8 +110,9 @@ export interface SpotPanelsProps {
   label?: string;
   /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
-  /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels`, is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
+  /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels` (less when `height` caps it), is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
   width?: number;
+  /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
   height?: number;
   data?: never;
   colorBy?: never;
@@ -137,8 +138,9 @@ export interface SpotSampleProps {
   showAiry?: boolean;
   /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
-  /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels`, is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
+  /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels` (less when `height` caps it), is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
   width?: number;
+  /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
   height?: number;
   panels?: never;
 }
