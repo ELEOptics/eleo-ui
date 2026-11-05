@@ -521,3 +521,44 @@ print(json.dumps({
   assert.equal(out.ok.referenceWavelengthNm, 550);
   assert.equal(typeof out.edge, 'object', 'within the 1e-4 ray-aiming tolerance passes');
 });
+
+// Plan #603 work item #605. oracle: phos-core TransverseRayError (x_fan/y_fan and x_statuses/y_statuses, ELEOptics/phos-core#2167),
+// slice angle 0, 41 samples; points [pupil, error mm] as recorded, statuses by the Rust names.
+test('recorded fans facts', () => {
+  const NAMES = ['Alive', 'Virtual', 'Missed', 'Dead'];
+  const files = ['achromat-fans.json', 'cooke-fans.json'];
+  const clipped = new URL('cooke-clipped-fans.json', dir);
+  if (existsSync(clipped)) files.push('cooke-clipped-fans.json');
+  for (const file of files) {
+    assert.ok(existsSync(new URL(file, dir)), `${file} is recorded`);
+    const f = read(`../fixtures/phos-core/${file}`);
+    assert.equal(f.analysis, 'fans', file);
+    assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/, `${file}: phos-core sha`);
+    assert.ok(f.sources.length >= 1, `${file}: sources`);
+    let dead = 0;
+    f.sources.forEach((s, i) => {
+      assert.ok(Number.isFinite(s.fieldAngleDeg), `${file} source ${i}: field angle`);
+      assert.ok(s.wavelengths.length >= 1 && s.wavelengths.every((w) => w > 100), `${file} source ${i}: wavelengths in nm`);
+      for (const axis of ['x', 'y']) {
+        const { points, statuses } = s[axis];
+        assert.equal(points.length, s.wavelengths.length, `${file} ${i}.${axis}: a fan per wavelength`);
+        assert.equal(statuses.length, points.length, `${file} ${i}.${axis}: statuses per wavelength`);
+        points.forEach((fan, w) => {
+          assert.equal(fan.length, 41, `${file} ${i}.${axis}[${w}]: 41 samples`);
+          assert.equal(statuses[w].length, 41, `${file} ${i}.${axis}[${w}]: 41 statuses`);
+          fan.forEach(([pupil, err], k) => {
+            const st = statuses[w][k];
+            assert.ok(NAMES.includes(st), `${file} ${i}.${axis}[${w}][${k}]: status ${st}`);
+            assert.ok(Number.isFinite(pupil), `${file}: pupil finite`);
+            if (st === 'Alive') assert.ok(Number.isFinite(err), `${file} ${i}.${axis}[${w}][${k}]: alive error finite`);
+            if (st === 'Dead') dead++;
+          });
+        });
+      }
+    });
+    if (file === 'cooke-clipped-fans.json') assert.ok(dead > 0, 'the clipped Cooke has dead tails');
+  }
+  const cooke = read('../fixtures/phos-core/cooke-fans.json');
+  const some = cooke.sources.some((s) => ['x', 'y'].some((a) => s[a].statuses.flat().some((st) => st === 'Dead')));
+  assert.equal(existsSync(clipped), !some, 'the clipped Cooke is recorded exactly when the default one has no Dead sample');
+});
