@@ -91,7 +91,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 
 ## Milestones
 
-### M1: Recorded fans in the gallery, every row at the floor GitHub: `P603 M1: Recorded fans`
+### M1: Recorded fans in the gallery, every row at the floor (done 2026-11-05) GitHub: `P603 M1: Recorded fans`
 
 Demo: `npm run gallery`: the RayFan TRA tile reads "Achromat, recorded" and draws phos-core's fans, in both themes and
 palettes, at 1440, 1100 and 700 px; the Cooke triplet's 24° fans as a review image (draft `review-assets` release), their
@@ -137,6 +137,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 review M1 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 7 backlog. Findings 2 to 6 are small and named, pulled into M1 as [#613], [#614], [#615]; finding 1 ([#616], the rayFan footer) is for the M1 demo; finding 7 ([#617]) stays backlog.
 - 2026-11-05 review M1 round 2 (code-reviewer, claude-opus-5-5): 1 blocking (the fixtures README after [#614]), filed as CR [#618], accepted by the orchestrator (a non-Core doc, every invariant kept), item [#619].
 - 2026-11-05 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, 2 backlog; CR [#618] resolved. Both findings small and named, pulled into M1 as [#620].
+- 2026-11-05 review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; M1 ticked (rounds: 0+3, 1, 0+1, 0). Awaiting the user's M1 demo (O4).
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
