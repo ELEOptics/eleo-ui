@@ -430,3 +430,45 @@ test('row O changesets became minors',
     assert.equal(entry('plots', ROW_O_PLOTS_ENTRY).kind, 'Minor');
     assert.equal(entry('plots-svelte', ROW_O_SVELTE_ENTRY).kind, 'Minor');
   });
+
+// Plan #603 (agent_docs/plans/603-recorded-fans.md), outcome O3 (issue #604; #598's item unskips). Row P: `minWidth` is a plots minor; plots-svelte
+// peers `@eleoptics/plots >=0.8.0 <1` as a patch, in its own file (#85), because plots 0.7 ignores `width` (#598).
+// oracle: spec semver (the peer admits only plots that draw at a width); @changesets/cli's plan of the named files
+// Once `changeset version` deleted the files, the twin below reads the CHANGELOG entries they became, as row N's does (#594).
+const ROW_P_PLOTS_ENTRY = /`minWidth\(name, props\)`/;
+const ROW_P_SVELTE_ENTRY = /Peer `@eleoptics\/plots` is now `>=0\.8\.0 <1`/;
+const rowPConsumed = ['min-width.md', 'plots-svelte-peer-0.8.md'].every((f) => !existsSync(join(repo, '.changeset', f)))
+  && ROW_P_PLOTS_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'))
+  && ROW_P_SVELTE_ENTRY.test(readFileSync(join(repo, 'packages/plots-svelte/CHANGELOG.md'), 'utf8'));
+test.skip('row P changesets', { skip: '#598' }, () => {
+  const read = (f) => {
+    const text = readFileSync(join(repo, '.changeset', f), 'utf8');
+    const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    assert.ok(m, `.changeset/${f} has no front matter`);
+    return { text, body: m[2] };
+  };
+  const plots = read('min-width.md');
+  const svelte = read('plots-svelte-peer-0.8.md');
+  assert.match(plots.body, /minWidth/, 'the plots body names minWidth');
+  assert.match(svelte.body, />=0\.8\.0 <1/, 'the plots-svelte body names the raised peer');
+  assert.equal(manifest('plots-svelte').peerDependencies['@eleoptics/plots'], '>=0.8.0 <1', 'plots-svelte peers plots 0.8 and up');
+  withWorkspace({ '@eleoptics/plots': 'minor' }, (ws) => {
+    rmSync(join(ws, '.changeset/bumps.md'));
+    writeFileSync(join(ws, '.changeset/min-width.md'), plots.text);
+    writeFileSync(join(ws, '.changeset/plots-svelte-peer-0.8.md'), svelte.text);
+    run(ws, 'git', ['add', '-A']);
+    run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'row P']);
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    const type = (name) => releases.find((r) => r.name === name)?.type;
+    assert.equal(type('@eleoptics/plots'), 'minor');
+    assert.equal(type('@eleoptics/plots-svelte'), 'patch');
+    assert.deepEqual(releases.map((r) => r.name).sort(), ['@eleoptics/plots', '@eleoptics/plots-svelte'], 'only plots and plots-svelte are planned');
+  });
+});
+
+test.skip('row P changesets became a plots minor and a plots-svelte patch', { skip: '#598' }, () => {
+  assert.ok(rowPConsumed, 'changeset version consumed both files into the CHANGELOGs');
+  assert.equal(entry('plots', ROW_P_PLOTS_ENTRY).kind, 'Minor');
+  assert.equal(entry('plots-svelte', ROW_P_SVELTE_ENTRY).kind, 'Patch');
+});

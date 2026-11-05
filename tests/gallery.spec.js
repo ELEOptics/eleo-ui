@@ -615,3 +615,93 @@ test('every data-size names a PLOT_SIZES row', async ({ page }) => {
   expect(sizes.length).toBeGreaterThan(0);
   expect(sizes.filter((s) => !rows.includes(s))).toEqual([]);
 });
+
+// Plan #603 (agent_docs/plans/603-recorded-fans.md), outcomes O1 to O3 (issue #604). Each case is skipped until its item lands.
+const settle = (page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
+
+// O1, issue #607. oracle: fixture tests/fixtures/phos-core/achromat-fans.json (phos-core TransverseRayError, scripts/record-phos-core.py --only fans): its sources' field angles title the panels
+// ("<angle>° · Py" then "<angle>° · Px"), and the tile draws as many paths as the adapter's series count (a series per wavelength, per panel; a dead gap is a break inside a path).
+test.skip('rayFan tile draws the recording', { skip: '#607' }, async ({ page }) => {
+  const rec = JSON.parse(readFileSync(new URL('./fixtures/phos-core/achromat-fans.json', import.meta.url), 'utf8'));
+  const titles = ['Py', 'Px'].flatMap((k) => rec.sources.map((s) => `${s.fieldAngleDeg.toFixed(1)}° · ${k}`));
+  const series = 2 * rec.sources.reduce((n, s) => n + s.wavelengths.length, 0);
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const tile = page.locator(`.theme[data-theme="${theme}"] [data-tile="rayFan"]`);
+    await expect(tile.locator('.eleo-plot__meta'), `${theme} rayFan meta`).toContainText('Achromat, recorded');
+    const got = await tile.locator('.eleo-plot__body svg text').allTextContents();
+    for (const t of titles) expect(got, `${theme} rayFan panel title ${t}`).toContain(t);
+    expect(await tile.locator('.eleo-plot__body svg path[stroke]:not(.eleo-limit)').count(), `${theme} rayFan series paths`).toBeGreaterThanOrEqual(series);
+  }
+});
+
+// O2, issue #611. oracle: closed-form ADR-0003 (the floor frame F = 162). A row's --row-min is ELEO.minWidth for its tiles' calls plus the tile chrome (26 px), capped at the row.
+// Where a tile's rendered width reaches its row's --row-min every frame is at least 162 px (map frames included, #587); elsewhere only no sideways scroll is asserted (CR #547: the two-theme
+// grid leaves 656 px at 1440 and 700). Replaces 'the rayFan row gives each panel a floor frame (#544)'.
+test.skip('rows give each frame the floor (#587)', { skip: '#611' }, async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  let checked = 0, mapRows = 0;
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      await settle(page);
+      const rows = await page.evaluate((t) => [...document.querySelectorAll(`.theme[data-theme="${t}"] .row`)].map((row) => ({
+        min: parseFloat(row.style.getPropertyValue('--row-min')) || 0, width: row.getBoundingClientRect().width,
+        tiles: [...row.querySelectorAll('[data-tile]')].map((el) => ({
+          tile: el.dataset.tile, size: el.dataset.size, width: el.getBoundingClientRect().width,
+          frames: [...el.querySelectorAll('svg rect[stroke="var(--plot-grid)"]')].map((x) => x.getBoundingClientRect().width),
+        })),
+      })), theme);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), `${theme} ${width} scrolls sideways`).toBe(false);
+      for (const r of rows) for (const t of r.tiles) {
+        if (t.width < r.min - 0.5) continue;
+        if (t.size === 'map2D') mapRows++;
+        for (const F of t.frames) { checked++; expect(F, `${theme} ${width} ${t.tile} frame ${F}px at row-min ${r.min}`).toBeGreaterThanOrEqual(162 - 0.5); }
+      }
+    }
+  }
+  expect(checked, 'frames checked').toBeGreaterThan(0);
+  expect(mapRows, 'a map tile reached its row minimum somewhere').toBeGreaterThan(0);
+});
+
+// O2, issue #555 (reuse item). oracle: closed-form ADR-0003 (frameText, layoutText above). The tiles are enumerated by data-size, and the set equals every section holding a
+// [data-svg] or [data-map] (so it is not the hand list asserted against itself); layout tiles carry data-size="layout2D". Replaces FRAMED_TILES and LAYOUT_TILES.
+test.skip('text follows ADR-0003 on every tile by data-size (U18, #555)', { skip: '#555 reuse item' }, async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      await settle(page);
+      const r = await page.evaluate((t) => {
+        const col = document.querySelector(`.theme[data-theme="${t}"]`);
+        const sized = [...col.querySelectorAll('[data-tile][data-size]')];
+        const drawn = [...col.querySelectorAll('[data-tile]')].filter((el) => el.querySelector('[data-svg], [data-map]'));
+        return {
+          sized: sized.map((el) => el.dataset.tile).sort(), drawn: drawn.map((el) => el.dataset.tile).sort(),
+          tiles: sized.map((el) => {
+            const svg = el.querySelector('.eleo-plot__body svg');
+            const frame = svg && svg.querySelector('rect[stroke="var(--plot-grid)"]');
+            return {
+              tile: el.dataset.tile, layout: el.dataset.size === 'layout2D', drawn: !!svg,
+              F: frame ? frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0) : null,
+              W: svg ? svg.getBoundingClientRect().width : null,
+              sizes: svg ? [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) : [],
+            };
+          }),
+        };
+      }, theme);
+      expect(r.sized, `${theme} ${width}: the tiles with a data-size are every tile with a drawing`).toEqual(r.drawn);
+      for (const t of r.tiles) {
+        const at = `${theme} ${width} ${t.tile}`;
+        expect(t.drawn, `${at} drawn`).toBe(true);
+        const want = t.layout ? layoutText(t.W) : t.F === null ? undefined : frameText(t.F);
+        if (want === undefined) continue; // a canvas-only tile has no frame rect to measure
+        if (want === null) { expect(t.sizes, `${at} labels hidden`).toEqual([]); continue; }
+        for (const s of t.sizes) expect(Math.abs(s / want - 1), `${at} text ${s}px against ${want}px`).toBeLessThanOrEqual(0.01);
+      }
+    }
+  }
+});

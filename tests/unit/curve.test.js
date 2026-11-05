@@ -676,3 +676,60 @@ test('default heights are whole px', async () => {
     assert.ok(Number.isInteger(v) && Math.abs(v - W * 314 / base) <= 0.5, `rayFan ${W}: height ${v}`);
   }
 });
+
+// Plan #603 (agent_docs/plans/603-recorded-fans.md), outcome O1 (issue #604; #605 records the fixtures, #606 adds ELEOAdapters.fans and unskips).
+// oracle: fixture phos-core TransverseRayError recorded by scripts/record-phos-core.py --only fans (roadmap U6, user at plan #464): per source
+// { fieldAngleDeg, wavelengths (nm), x: { points: [wavelength][sample] of [pupil, error mm], statuses }, y: same }; a non-Alive sample is a gap.
+// What #606 must provide: ELEOAdapters.fans(rec) -> { panels, columns, x, y } in fanPanels' shape (row Py then row Px, a column per field, µm,
+// every non-Alive sample null, a symmetric y range at fanPanels' next nice step).
+test.skip('recorded ray fans round trip (U6)', { skip: '#606' }, async () => {
+  const { existsSync } = await import('node:fs');
+  const { fanPanels } = await import('../../packages/plots/src/fan.js');
+  await import('../fixtures/phos-core/adapters.js');
+  const { ELEOAdapters } = globalThis;
+  assert.ok(typeof ELEOAdapters?.fans === 'function', 'adapters.js assigns globalThis.ELEOAdapters.fans');
+  const names = ['achromat-fans', 'cooke-fans'].concat(existsSync(new URL('../fixtures/phos-core/cooke-clipped-fans.json', import.meta.url)) ? ['cooke-clipped-fans'] : []);
+  let dead = 0;
+  // A clone with one interior alive sample made Dead, as the sample fans test nulls one (the default recordings may have no dead sample).
+  const clone = structuredClone(fixture('achromat-fans'));
+  clone.sources[1].y.statuses[0][3] = 'Dead';
+  for (const [name, rec] of names.map((n) => [n, fixture(n)]).concat([['achromat-fans, one sample made dead', clone]])) {
+    const { panels, columns, x, y } = ELEOAdapters.fans(rec);
+    assert.equal(columns, rec.sources.length, `${name}: a column per field`);
+    assert.equal(panels.length, 2 * columns, `${name}: row Py then row Px`);
+    assert.equal(panels[0].title, `${rec.sources[0].fieldAngleDeg.toFixed(1)}° · Py`, `${name}: the first panel's title`);
+    // Every recorded sample is placed by its own pupil coordinate and error (mm to µm); every non-Alive one is null.
+    [['y', 0], ['x', columns]].forEach(([axis, base]) => rec.sources.forEach((src, f) => {
+      const want = src[axis].points.map((fan, w) => fan.map(([px, err], i) => (src[axis].statuses[w][i] === 'Alive' ? [px, err * 1000] : [px, null])));
+      assert.equal(panels[base + f].series.length, want.length, `${name} ${axis} field ${f}: a series per wavelength`);
+      panels[base + f].series.forEach((s, w) => s.points.forEach((pt, i) => {
+        assert.ok(Math.abs(pt[0] - want[w][i][0]) < 1e-9, `${name} ${axis} ${f}/${w}/${i}: pupil`);
+        if (want[w][i][1] === null) { dead++; assert.equal(pt[1], null, `${name} ${axis} ${f}/${w}/${i}: a non-Alive sample is null`); }
+        else assert.ok(Math.abs(pt[1] - want[w][i][1]) < 1e-9, `${name} ${axis} ${f}/${w}/${i}: error in µm`);
+      }));
+    }));
+    // The y range is fanPanels' rule on the same maximum (pinned against the copy in adapters.js).
+    const live = panels.flatMap((pn) => pn.series.flatMap((s) => s.points.map((pt) => pt[1]).filter((v) => v !== null)));
+    const probe = { fields: [0], fans: [{ T: [live], S: [live] }] };
+    assert.deepEqual(y.range, fanPanels(probe, { kind: 'tra' }).y.range, `${name}: the symmetric range at fanPanels' step`);
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.curve({ panels, columns, x, y, width, height });
+      const groups = panelGroups(svg);
+      assert.equal(groups.length, panels.length, `${name} ${width}px: one group per panel`);
+      groups.forEach((g, p) => panels[p].series.forEach((s, k) => {
+        const liveSamples = s.points.filter((pt) => pt[1] !== null);
+        const drawn = g.paths[k].flat();
+        assert.equal(drawn.length, liveSamples.length, `${name} ${width}px panel ${p} series ${k}: every alive sample drawn, no dead one`);
+        liveSamples.forEach((pt, i) => {
+          const back = toData(g.M, toPx(g.M, drawn[i]));
+          const [ex, ey] = toPx(g.M, pt), [gx, gy] = toPx(g.M, back);
+          assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${name} ${width}px panel ${p} series ${k} point ${i} within ${TOL_PX} px`);
+        });
+        let runs = 0, prev = false;
+        for (const pt of s.points) { const on = pt[1] !== null; if (on && !prev) runs++; prev = on; }
+        assert.equal(g.paths[k].length, runs, `${name} ${width}px panel ${p} series ${k}: a dead sample breaks the series`);
+      }));
+    }
+  }
+  assert.ok(dead > 0, 'some dead sample was drawn as a gap (the clone guarantees one)');
+});

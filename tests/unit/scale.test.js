@@ -194,3 +194,39 @@ test("table matches each renderer's floor width", () => {
   near(+d[1] * T.curve.aspect, +d[2], 'a default curve draws at the table aspect');
   assert.equal(T.layout2D.aspect, null);
 });
+
+// Plan #603 (agent_docs/plans/603-recorded-fans.md), outcome O2 (issue #604; #608 and #609 unskip).
+// oracle: closed-form ADR-0003 (F_LO = 162, TEXT_MIN = 9) and map2d.js's margins in text units: colorbar 3 + 0.6 x the widest label, x ticks max(1.2, 0.3 x the widest label)
+// What #608 must provide: mapMargins(props) -> { L, R } from map2d.js (the margins typedMap draws with, text units).
+const gridProps = (extra) => ({ values: [[0, 1, 2], [3, 4, 5], [6, 7, 8]], extent: [-1, 1, -1, 1], x: { label: 'x' }, y: { label: 'y' }, ...extra });
+test.skip('mapMargins gives map2D\'s margins', { skip: '#608' }, async () => {
+  const { mapMargins } = await import('../../packages/plots/src/map2d.js');
+  assert.equal(typeof mapMargins, 'function', 'map2d.js exports mapMargins');
+  // No colorbar: 4.6 left, and at least 1.2 right.
+  const plain = mapMargins(gridProps());
+  near(plain.L, 4.6, 'L'); near(plain.R, 1.2, 'R with no colorbar');
+  // A linear colorbar over 0..8 labels 0, 2, 4, 6, 8: one character wide, so 3 + 0.6 on top of the margin.
+  near(mapMargins(gridProps({ value: { label: 'v' }, range: [0, 8] })).R, 1.2 + 3 + 0.6, 'R with a linear colorbar');
+  // A log colorbar over 1e-3..1 labels 0.001 ... 1: the widest is five characters.
+  near(mapMargins(gridProps({ value: { label: 'v' }, scale: 'log', range: [1e-3, 1] })).R, 1.2 + 3 + 0.6 * 5, 'R with a log colorbar');
+  // A five-character x tick ("-0.05") widens R past 1.2 by 0.3 per character.
+  const wide = mapMargins({ ...gridProps(), extent: [-0.05, 0.05, -0.05, 0.05], x: { label: 'x', ticks: [-0.05, 0, 0.05] } });
+  near(wide.R, Math.max(1.2, 0.3 * 5), 'R from the widest x tick label');
+});
+// What #609 must provide: minWidth(name, props) on ELEO (packages/plots/src/sizes.js): F_LO + TEXT_MIN x (L + R) + (panels - 1) x panelStep.
+test.skip('minWidth gives the floor frame (#587)', { skip: '#609' }, async () => {
+  assert.equal(typeof ELEO.minWidth, 'function', 'ELEO.minWidth exists');
+  const { mapMargins } = await import('../../packages/plots/src/map2d.js');
+  const colorbar = gridProps({ value: { label: 'v' }, range: [0, 8] }), log = gridProps({ value: { label: 'v' }, scale: 'log', range: [1e-3, 1] });
+  // map2D draws on a canvas (the gallery's floor test draws it); here frameOf, ADR-0003's own function, gives the frame at a width and margins.
+  for (const [what, props] of [['map2D with a linear colorbar', colorbar], ['map2D with a log colorbar', log]]) {
+    const w = ELEO.minWidth('map2D', props), { L, R } = mapMargins(props);
+    assert.ok(Number.isFinite(w) && w > scale.F_LO, `${what}: a finite minimum above the frame floor`);
+    assert.ok(frameOf(w, L + R) >= scale.F_LO - TOL, `${what}: at minWidth the frame is at least F_LO`);
+    assert.ok(frameOf(w - 1, L + R) < scale.F_LO, `${what}: 1 px less is under F_LO`);
+  }
+  // A wider colorbar label costs TEXT_MIN px per text unit (0.6 a character): five characters against one.
+  near(ELEO.minWidth('map2D', log) - ELEO.minWidth('map2D', colorbar), scale.TEXT_MIN * 0.6 * 4, 'five characters against one');
+  // Without a sample a rayFan counts one panel; the table's width otherwise.
+  near(ELEO.minWidth('rayFan', {}), scale.PLOT_SIZES.rayFan.minWidth, 'rayFan with no sample is one panel');
+});
