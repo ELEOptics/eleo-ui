@@ -189,6 +189,8 @@ Demo: `npx playwright test tests/svelte.spec.js --headed`: each framed wrapper i
 | [#596] | `row O changesets` and `row N changesets` skip once consumed, with CHANGELOG twins (CR [#594]) | forced (review M3 round 1 finding 1: the ray-status / map2D pair) | `tests/unit/release.test.js` | consumed copy passes | [#531] |
 | [#597] | The six wrappers measure with `bind:contentRect` (fractional width); `CurvePlot.svelte`'s stroke comment per ADR-0003 (CR [#595]) | forced (review M3 round 1 findings 4 and 2: `fit`'s fractional width, [#539]) | `packages/plots-svelte/src/lib/{CurvePlot,RayFan,BarPlot,Map2D,SpotDiagram,Layout2D}.svelte`, `tests/svelte.spec.js` | `svelte.spec.js::wrappers draw at their fractional width` | [#530] |
 | [#599] | `Layout2D.svelte` passes a measured width only above 8 px | forced (review M3 round 1 finding 5, pulled in) | `packages/plots-svelte/src/lib/Layout2D.svelte`, `tests/svelte.spec.js` | `svelte.spec.js::Layout2D in a narrow box draws its default` | [#597] |
+| [#600] | The six wrappers round the measured width to 2 decimals, as `fit` does | forced (review M3 round 2 finding 1, pulled in) | `packages/plots-svelte/src/lib/{CurvePlot,RayFan,BarPlot,Map2D,SpotDiagram,Layout2D}.svelte`, `tests/svelte.spec.js` | `svelte.spec.js::wrappers round their width as fit does` | [#599] |
+| [#601] | The narrow-box test pins 8 px; the plots-svelte README names Layout2D's default at 8 px or less | forced (review M3 round 2 findings 2 and 3, pulled in) | `tests/svelte.spec.js`, `packages/plots-svelte/README.md` | the extended narrow-box case | [#600] |
 
 ## Risks and spikes
 
@@ -414,6 +416,9 @@ One bullet per entry (bare lines render as one paragraph).
 [#597]: https://github.com/ELEOptics/eleo-ui/issues/597
 [#598]: https://github.com/ELEOptics/eleo-ui/issues/598
 [#599]: https://github.com/ELEOptics/eleo-ui/issues/599
+[#600]: https://github.com/ELEOptics/eleo-ui/issues/600
+[#601]: https://github.com/ELEOptics/eleo-ui/issues/601
+[#602]: https://github.com/ELEOptics/eleo-ui/issues/602
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
 
@@ -448,3 +453,6 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 orchestrator: [#598] pulled back out of M3 and deferred: its peer `>=0.8.0 <1` breaks `npm ci` (ETARGET) while the
   workspace's plots is 0.7.0, so it was reverted (992d4f1). It waits for row O's Version packages PR, where plots is 0.8.0. Breaker
   count for round 1 stays 2 + 3 (pulled in, then deferred).
+
+- 2026-11-05 review M3 round 2: 0 blocking, 3 backlog; carried CRs [#592] to [#595] resolved. Pulled in: [#600], [#601]. Plain issue:
+  [#602] (wrappers ignore ancestor transforms, an ADR-0003 wording question for the user). Breaker counts: 2 + 3, 0 + 2.
