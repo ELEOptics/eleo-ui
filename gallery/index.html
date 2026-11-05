@@ -20,7 +20,7 @@
     .theme { background: var(--ground); color: var(--ink); padding: 24px 32px 48px; display: grid; gap: 12px; align-content: start; }
     .theme > h2 { margin: 0; font-size: 16px; }
     .row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(var(--row-min, 240px), 100%), 1fr)); }
-    /* --row-min is set per row from PLOT_SIZES by rowMins() below. */
+    /* --row-min is set per row from ELEO.minWidth for each tile's call, by rowMins() below. */
     .map { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .map .eleo-colorbar i { height: 100%; }
     .icons { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-muted); }
