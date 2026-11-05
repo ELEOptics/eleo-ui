@@ -389,10 +389,10 @@ test('plots-svelte README drops the typed Map2D plots-version note', () => {
   assert.doesNotMatch(para, /0\.7\.0/);
 });
 
-// Plan #512 (agent_docs/plans/512-plot-scale.md), outcome O4 (issue #529; #532 unskips; #531 writes the files). Row O: the visible
+// Plan #512 (agent_docs/plans/512-plot-scale.md), outcome O4 (issue #529; #531 writes the files and unskips). Row O: the visible
 // text and stroke change is a plots minor; the measuring wrappers and `Legend` values are a plots-svelte minor, each in its own file.
 // oracle: spec roadmap Constraints (a visible change ships as a minor); semver 0.x. `changeset status` plans those two minors.
-test('row O changesets', { skip: 'awaiting #531 (acceptance test from #529; #532 unskips)' }, () => {
+test('row O changesets', () => {
   const plots = parse('plot-scale.md');
   const svelte = parse('plots-svelte-scale.md');
   assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
