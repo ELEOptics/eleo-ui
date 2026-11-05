@@ -479,3 +479,22 @@ test('height fit solves frameOf', async () => {
   }
   assert.deepEqual([...seen].sort(), ['above', 'below', 'inside']);
 });
+
+// #590: the height fit and the drawn foot are one quantity: a fitted figure's bottom is the height, and sits 5 + t below the last caption baseline.
+// oracle: closed-form ADR-0003 (foot = (2.8 + 1.5 lines) t + 1; last baseline = side + 4 + (1.8 + 1.5 lines) t)
+test('height fit margin is the drawn foot', async () => {
+  const pts = [[1, 2], [-2, 1], [0.5, -1]];
+  for (const extra of [0, 3]) {
+    for (const ts of [1, 2]) {
+      const notes = Array.from({ length: extra }, (_, i) => `note ${i}`);
+      for (const height of [300, 380, 500, 900]) {
+        const svg = ELEO.spot({ panels: [{ series: [{ points: pts }], notes }], width: 2000, height, textScale: ts });
+        const H = +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1], t = +/font-size:([\d.]+)px/.exec(svg)[1];
+        const lastY = Math.max(...[...svg.matchAll(/<text\b[^>]*\sy="([\d.]+)"/g)].map((m) => +m[1]));
+        const tag = `${height} x${ts} +${extra}`;
+        assert.ok(Math.abs(H - height) < 0.05, `${tag}: the fitted figure ends at the height (${H})`);
+        assert.ok(Math.abs(H - lastY - (5 + t)) < 0.05, `${tag}: the foot below the last baseline is 5 + t (${H - lastY} vs ${5 + t})`);
+      }
+    }
+  }
+});
