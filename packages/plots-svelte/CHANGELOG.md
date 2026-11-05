@@ -1,5 +1,17 @@
 # @eleoptics/plots-svelte
 
+## 0.5.0
+
+### Minor Changes
+
+- 5f79c92: The framed wrappers measure their container and draw at its width; on the server they draw their default width.
+  
+  `Legend` takes `values`: explicit field angles or wavelengths for `field` and `wavelength` keys.
+
+### Patch Changes
+
+- c3b7e70: Peer `@eleoptics/plots` is now `>=0.7.0 <1`, the release that ships the typed `map2D` behind `<Map2D values>`.
+
 ## 0.4.0
 
 ### Minor Changes
