@@ -238,6 +238,10 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
+  // oracle: property: every row keeps at least its 240 px default, sample or not
+  const mins = await page.$$eval('.row', (rs) => rs.map((r) => parseFloat(r.style.getPropertyValue('--row-min') || '240')));
+  expect(mins.length).toBeGreaterThan(0);
+  for (const m of mins) expect(m).toBeGreaterThanOrEqual(240);
   const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);

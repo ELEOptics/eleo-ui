@@ -177,7 +177,7 @@
       });
     }
     // Each row's minimum column, from PLOT_SIZES (ADR-0003): the widest tile's minWidth + (panels - 1) * panelStep, plus the tile's 26 px of border and padding around the body.
-    // Panels: a rayFan's fans, a spot's panels, a throughFocus's defocus columns, else 1. A tile whose data is missing counts 1; the row keeps at least its default.
+    // Panels: a rayFan's fans, a spot's panels, a throughFocus's defocus columns, else 1. A tile whose data is missing counts 1; a tile with no table row is skipped; the row keeps at least its 240 px default.
     function panelsOf(k, tile) {
       var S = ELEO.sample;
       if (k === 'rayFan') return S ? Math.max(S.fans.length, S.opdFans.length) : 1;
@@ -187,12 +187,13 @@
     }
     function rowMins(theme) {
       theme.querySelectorAll('.row').forEach(function (row) {
-        var min = 0;
+        var min = 240;
         row.querySelectorAll('[data-size]').forEach(function (t) {
           var k = t.dataset.size, z = ELEO.PLOT_SIZES[k];
+          if (!z) return;
           min = Math.max(min, z.minWidth + (panelsOf(k, t.dataset.tile) - 1) * z.panelStep + 26);
         });
-        if (min) row.style.setProperty('--row-min', min + 'px');
+        row.style.setProperty('--row-min', min + 'px');
       });
     }
     function draw() {
