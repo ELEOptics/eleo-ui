@@ -146,7 +146,7 @@ layout2D; O5.
 | [#557] | `curve` rounds its frame geometry to 2 decimals | forced (review M1 finding 9, pulled in) | `packages/plots/src/curve.js` | `tests/unit/curve.test.js::frame geometry has at most 2 decimals` | [#517] |
 | [#558] | `layout2d.test.js`: the ray weight test's name and comment say ADR-0003 | forced (review M1 finding 12, pulled in) | `tests/unit/layout2d.test.js` | the renamed test | [#518] |
 
-### M2: every framed renderer, and the table GitHub: `P512 M2: Scale rule for every framed renderer`
+### M2: every framed renderer, and the table (done 2026-11-04) GitHub: `P512 M2: Scale rule for every framed renderer`
 
 Demo: the whole gallery at 1440, 1100 and 700 px, both themes and three palettes; the footprint tile without its
 stopgap (about 18 px text at 1440, full row). Proves: O1, O2 for every framed renderer.
@@ -414,3 +414,5 @@ One bullet per entry (bare lines render as one paragraph).
   Plain issues: [#585], [#586], [#587], [#588].
 
 - 2026-11-04 review M2 round 2: 0 blocking, 3 backlog, all pulled in: [#589], [#590], [#591]; every carried CR resolved.
+
+- 2026-11-04 review M2 round 3: 0 blocking, nothing pulled in; M2 ticked. Per round (blocking + pulled in): 1 + 5, 0 + 3, 0 + 0.
