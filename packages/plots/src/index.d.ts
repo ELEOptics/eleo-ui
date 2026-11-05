@@ -352,6 +352,7 @@ interface ScaleRule {
   frameText: typeof frameText; frameWeight: typeof frameWeight; frameOf: typeof frameOf; layoutText: typeof layoutText; layoutWeight: typeof layoutWeight;
   TEXT_MIN: typeof TEXT_MIN; TEXT_MAX: typeof TEXT_MAX; F_LO: typeof F_LO; F_HI: typeof F_HI; W_LO: typeof W_LO; W_HI: typeof W_HI;
   PLOT_SIZES: typeof PLOT_SIZES;
+  minWidth: typeof minWidth;
 }
 declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
@@ -385,7 +386,9 @@ export interface PlotSize {
   /** The width each further panel adds at that floor (0 for a single plot): a figure of n panels needs `minWidth + (n - 1) * panelStep`. */
   panelStep: number;
 }
-/** The size table of ADR-0003, computed from the scale rule and the renderers' margins. The curve family's figures assume the shortest right margin (1.2 text units): wider tick labels or map2D's colorbar need `TEXT_MIN` px more per text unit. */
+/** The size table of ADR-0003, computed from the scale rule and the renderers' margins. The curve family's figures assume the shortest right margin (1.2 text units); for a call's own labels, colorbar and panel count use `minWidth(name, props)`. */
 export declare const PLOT_SIZES: {
   curve: PlotSize; rayFan: PlotSize; bars: PlotSize; map2D: PlotSize; spot: PlotSize; throughFocus: PlotSize; layout2D: PlotSize;
 };
+/** The narrowest drawing width of a call, in px: its plot frame `F_LO` wide and its text `TEXT_MIN` px, with the margins the renderer draws for these props (a curve's x tick labels, map2D's colorbar and x ticks) and the panel count of `columns`, `panels`, the sample's fields or defocus steps. `props` are the ones you pass the renderer; without them it is `PLOT_SIZES[name]`'s one-panel figure. Throws a `TypeError` for an unknown renderer name. */
+export declare function minWidth(name: keyof typeof PLOT_SIZES, props?: object): number;

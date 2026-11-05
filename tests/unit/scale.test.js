@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as scale from '../../packages/plots/src/scale.js';
@@ -235,4 +236,18 @@ test('minWidth gives the floor frame (#587)', async () => {
   near(minWidth('rayFan', {}), T.minWidth + 2 * T.panelStep, 'rayFan with the sample loaded counts its three fields');
   ELEO.useSample(null);
   try { near(minWidth('rayFan', {}), T.minWidth, 'rayFan with no sample is one panel'); } finally { ELEO.useSample(sample); }
+});
+
+// Plan #603, issue #610: minWidth is public, on the module and on the classic build's window.ELEO, the one function of sizes.js.
+// oracle: tests/unit/layout2d.test.js's layoutBounds case (a public export is on ELEO so eleo-plots.js carries it)
+test('ELEO.minWidth is exported on the module and on the classic build (#610)', async () => {
+  const { minWidth } = await import('../../packages/plots/src/sizes.js');
+  const plots = await import('../../packages/plots/src/index.js');
+  assert.equal(typeof plots.default.minWidth, 'function', 'ELEO.minWidth');
+  assert.equal(plots.default.minWidth, minWidth, 'ELEO.minWidth is sizes.js minWidth');
+  assert.equal(plots.minWidth, minWidth, 'named export');
+  const win = {};
+  vm.runInNewContext(readFileSync(new URL('../../packages/plots/dist/eleo-plots.js', import.meta.url), 'utf8'), { window: win });
+  assert.equal(typeof win.ELEO.minWidth, 'function', 'window.ELEO.minWidth');
+  assert.equal(win.ELEO.minWidth('bars'), minWidth('bars'), 'same floor on the classic build');
 });
