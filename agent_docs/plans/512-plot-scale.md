@@ -416,3 +416,6 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-04 review M2 round 2: 0 blocking, 3 backlog, all pulled in: [#589], [#590], [#591]; every carried CR resolved.
 
 - 2026-11-04 review M2 round 3: 0 blocking, nothing pulled in; M2 ticked. Per round (blocking + pulled in): 1 + 5, 0 + 3, 0 + 0.
+
+- 2026-11-05 M2 demo (user): "Go". M2 accepted. The `throughFocus` baseline recorded at [#570] still holds (no output change since;
+  `split.test.js` green), so it is not re-recorded at this verdict.
