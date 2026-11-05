@@ -214,19 +214,25 @@ test('mapMargins gives map2D\'s margins', async () => {
   near(wide.R, Math.max(1.2, 0.3 * 5), 'R from the widest x tick label');
 });
 // What #609 must provide: minWidth(name, props) on ELEO (packages/plots/src/sizes.js): F_LO + TEXT_MIN x (L + R) + (panels - 1) x panelStep.
-test.skip('minWidth gives the floor frame (#587)', { skip: '#609' }, async () => {
-  assert.equal(typeof ELEO.minWidth, 'function', 'ELEO.minWidth exists');
+test('minWidth gives the floor frame (#587)', async () => {
+  // sizes.js directly: ELEO.minWidth is #610's export.
+  const { minWidth } = await import('../../packages/plots/src/sizes.js');
+  assert.equal(typeof minWidth, 'function', 'sizes.js exports minWidth');
   const { mapMargins } = await import('../../packages/plots/src/map2d.js');
   const colorbar = gridProps({ value: { label: 'v' }, range: [0, 8] }), log = gridProps({ value: { label: 'v' }, scale: 'log', range: [1e-3, 1] });
   // map2D draws on a canvas (the gallery's floor test draws it); here frameOf, ADR-0003's own function, gives the frame at a width and margins.
   for (const [what, props] of [['map2D with a linear colorbar', colorbar], ['map2D with a log colorbar', log]]) {
-    const w = ELEO.minWidth('map2D', props), { L, R } = mapMargins(props);
+    const w = minWidth('map2D', props), { L, R } = mapMargins(props);
     assert.ok(Number.isFinite(w) && w > scale.F_LO, `${what}: a finite minimum above the frame floor`);
     assert.ok(frameOf(w, L + R) >= scale.F_LO - TOL, `${what}: at minWidth the frame is at least F_LO`);
     assert.ok(frameOf(w - 1, L + R) < scale.F_LO, `${what}: 1 px less is under F_LO`);
   }
   // A wider colorbar label costs TEXT_MIN px per text unit (0.6 a character): five characters against one.
-  near(ELEO.minWidth('map2D', log) - ELEO.minWidth('map2D', colorbar), scale.TEXT_MIN * 0.6 * 4, 'five characters against one');
+  near(minWidth('map2D', log) - minWidth('map2D', colorbar), scale.TEXT_MIN * 0.6 * 4, 'five characters against one');
   // Without a sample a rayFan counts one panel; the table's width otherwise.
-  near(ELEO.minWidth('rayFan', {}), scale.PLOT_SIZES.rayFan.minWidth, 'rayFan with no sample is one panel');
+  // (Importing sample.js loaded the sample as the default data, and rayFan({}) would draw its three fields; unload it for the no-sample case.)
+  const T = scale.PLOT_SIZES.rayFan;
+  near(minWidth('rayFan', {}), T.minWidth + 2 * T.panelStep, 'rayFan with the sample loaded counts its three fields');
+  ELEO.useSample(null);
+  try { near(minWidth('rayFan', {}), T.minWidth, 'rayFan with no sample is one panel'); } finally { ELEO.useSample(sample); }
 });
