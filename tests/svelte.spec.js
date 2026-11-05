@@ -65,3 +65,30 @@ test('wrappers draw at their width', async ({ page }) => {
 test('wrappers draw at their fractional width', async ({ page }) => {
   for (const [key, width] of Object.entries(await drawn(page, [287.5]))) expect(width, key).toBe(287.5);
 });
+
+// oracle: reference `layout2D`'s default width (1000), drawn when the box is too narrow to measure (a collapsing panel, a transition).
+test('Layout2D in a narrow box draws its default', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.addScriptTag({ content: await bundle() });
+  const widths = await page.evaluate(async () => {
+    const { mount, Layout2D } = window.WRAPPERS;
+    const settle = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done))));
+    const out = {};
+    for (const box of [3, 5]) {
+      const host = document.createElement('div');
+      host.style.width = `${box}px`;
+      document.body.append(host);
+      mount(Layout2D, { target: host, props: {} });
+      await settle();
+      const svg = host.querySelector('svg');
+      out[box] = svg ? +svg.getAttribute('viewBox').split(/\s+/)[2] : null;
+      host.remove();
+    }
+    return out;
+  });
+  expect(errors).toEqual([]);
+  expect(widths).toEqual({ 3: 1000, 5: 1000 });
+});
