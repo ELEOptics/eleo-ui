@@ -1,6 +1,6 @@
 # Plan [#512]: One scale system for plots
 
-Status: approved 2026-11-04
+Status: done 2026-11-05
 Branch: `plan/512-plot-scale` PR: [#533] Depends on: plan [#464] (done) Roadmap: `agent_docs/roadmap.md`, row O
 
 ## Problem
@@ -459,3 +459,9 @@ One bullet per entry (bare lines render as one paragraph).
 
 - 2026-11-05 review M3 round 3: 0 blocking, nothing pulled in; M3 ticked. CI green on 1e72825. Per round (blocking + pulled in): 2 + 3,
   0 + 2, 0 + 0.
+
+- 2026-11-05 M3 demo (user): "Go". M3 accepted; every milestone demoed.
+
+- 2026-11-05 orchestrator: `CLAUDE.md` commands re-verified at plan end: `npm ci && npm run build`, `npm run test:unit` (190 pass,
+  0 fail), `npx playwright test` (62 passed), `npm run gallery` (serves `/gallery/`, 200), `npx changeset` (runs), `scripts/check.sh`
+  and `--fast` (green), `core.hooksPath` `.githooks`. Plan done; roadmap row O done.
