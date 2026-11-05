@@ -682,7 +682,7 @@ test('default heights are whole px', async () => {
 // { fieldAngleDeg, wavelengths (nm), x: { points: [wavelength][sample] of [pupil, error mm], statuses }, y: same }; a non-Alive sample is a gap.
 // What #606 must provide: ELEOAdapters.fans(rec) -> { panels, columns, x, y } in fanPanels' shape (row Py then row Px, a column per field, µm,
 // every non-Alive sample null, a symmetric y range at fanPanels' next nice step).
-test.skip('recorded ray fans round trip (U6)', { skip: '#606' }, async () => {
+test('recorded ray fans round trip (U6)', async () => {
   const { existsSync } = await import('node:fs');
   const { fanPanels } = await import('../../packages/plots/src/fan.js');
   await import('../fixtures/phos-core/adapters.js');
