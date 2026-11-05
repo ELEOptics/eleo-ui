@@ -110,6 +110,7 @@
     // draw(data, w) gets the body's content width; every framed tile passes it on as `width` (ADR-0003).
     function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d, w) { return render(d, w); } }; }
     function atWidth(d, w, more) { return Object.assign({}, d, more, { width: w }); }
+    var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }];
     var SVG = {
       'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box }); } },
       'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
@@ -129,7 +130,7 @@
       'rayFan-opd': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ kind: 'opd', width: w }); } },
       'mtf': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
-      'mtf-limits': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w, { limits: [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }] })); }),
+      'mtf-limits': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w, { limits: MTF_LIMITS })); }),
       'fieldCurvature': recTile('fieldCurvature', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       'chromaticFocus': { need: sampleBox, draw: function (_, w) { return ELEO.curve({ kind: 'chromaticFocus', width: w }); } }
@@ -177,23 +178,23 @@
         else ELEO.map2D(el, { kind: k });
       });
     }
-    // Each row's minimum column, from PLOT_SIZES (ADR-0003): the widest tile's minWidth + (panels - 1) * panelStep, plus the tile's 26 px of border and padding around the body.
-    // Panels: a rayFan's fans, a spot's panels, a throughFocus's defocus columns, else 1. A tile whose data is missing counts 1; a tile with no table row is skipped; the row keeps at least its 240 px default.
-    function panelsOf(k, tile) {
-      var S = ELEO.sample;
-      if (k === 'rayFan') return S ? Math.max(S.fans.length, S.opdFans.length) : 1;
-      if (k === 'throughFocus') return S && S.throughFocus ? S.throughFocus.defocus.length : 1;
-      if (k === 'spot') { var d = REC[tile === 'footprint' ? 'footprint' : 'spot']; return d && d.panels ? d.panels.length : 1; }
-      return 1;
+    // Each row's minimum column: the widest tile's ELEO.minWidth for the call it draws, plus the tile's 26 px of border and padding around the body (ADR-0003).
+    // The renderer counts its own panels and margins; a tile whose data is missing counts as the bare renderer; a tile with no data-size is skipped; the row keeps at least its 240 px default.
+    function tileMin(t) {
+      var k = t.dataset.size, tile = t.dataset.tile, m = t.querySelector('[data-map]');
+      try {
+        if (tile === 'rayFan') return REC.fans ? ELEO.minWidth('curve', REC.fans) : ELEO.minWidth('curve');
+        if (tile === 'mtf-limits') return REC.mtf ? ELEO.minWidth('curve', atWidth(REC.mtf, 0, { limits: MTF_LIMITS })) : ELEO.minWidth('curve');
+        if (k === 'curve') return ELEO.minWidth('curve', REC[tile]);
+        if (k === 'spot') return ELEO.minWidth('spot', REC[tile === 'footprint' ? 'footprint' : 'spot']);
+        if (k === 'map2D') return ELEO.minWidth('map2D', m && MAPS[m.dataset.map]);
+        return ELEO.minWidth(k);
+      } catch (e) { console.error('gallery: ' + tile + ' row minimum skipped:', e); return 0; }
     }
     function rowMins(theme) {
       theme.querySelectorAll('.row').forEach(function (row) {
         var min = 240;
-        row.querySelectorAll('[data-size]').forEach(function (t) {
-          var k = t.dataset.size, z = ELEO.PLOT_SIZES[k];
-          if (!z) return;
-          min = Math.max(min, z.minWidth + (panelsOf(k, t.dataset.tile) - 1) * z.panelStep + 26);
-        });
+        row.querySelectorAll('[data-size]').forEach(function (t) { min = Math.max(min, tileMin(t) + 26); });
         row.style.setProperty('--row-min', min + 'px');
       });
     }

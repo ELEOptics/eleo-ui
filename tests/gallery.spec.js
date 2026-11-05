@@ -146,39 +146,6 @@ test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
   }
 });
 
-// Plan #512, issue #543, CRs #544 and #547. oracle: closed-form ADR-0003 (the floor frame F = 162). The rayFan row's minimum column is
-// the row's --row-min (from PLOT_SIZES.rayFan) = columns x (F_LO + m x TEXT_MIN) + the tile's 26 px of chrome, capped at the row. At 1440 and 700 px the row is narrower than the floor needs
-// (CR #547: the two-theme grid leaves 656 px), so those assert only the tile width and no sideways scroll; at 1100 the row has room and every panel's frame is at least 162.
-test('the rayFan row gives each panel a floor frame (#544)', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    for (const width of [1440, 1100, 700]) {
-      await page.setViewportSize({ width, height: 900 });
-      // fit redraws after a ResizeObserver tick and a frame: settle before measuring.
-      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
-      const r = await page.evaluate((t) => {
-        const tiles = [...document.querySelectorAll(`.theme[data-theme="${t}"] [data-tile^="rayFan"]`)];
-        const row = tiles[0].closest('.row');
-        const min = parseFloat(row.style.getPropertyValue('--row-min')) || 0;
-        return {
-          min, row: row.getBoundingClientRect().width, tiles: tiles.map((el) => el.getBoundingClientRect().width),
-          frames: tiles.flatMap((el) => [...el.querySelectorAll('svg rect[stroke="var(--plot-grid)"]')].map((x) => x.getBoundingClientRect().width)),
-          scrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-        };
-      }, theme);
-      const at = `${theme} ${width}`;
-      expect(r.tiles.length, `${at} tiles`).toBe(2);
-      for (const w of r.tiles) expect(w, `${at} tile ${w}px against min(${r.min}, ${r.row})`).toBeGreaterThanOrEqual(Math.min(r.min, r.row) - 0.5);
-      expect(r.scrolls, `${at} scrolls sideways`).toBe(false);
-      if (width === 1100) {
-        expect(r.frames.length, `${at} frames`).toBeGreaterThan(0);
-        for (const F of r.frames) expect(F, `${at} frame ${F}px`).toBeGreaterThanOrEqual(162 - 0.5);
-      }
-    }
-  }
-});
-
 // Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
 // oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
 test('the footprint tile has a field legend from the recording', async ({ page }) => {
@@ -637,33 +604,35 @@ test('rayFan tile draws the recording', async ({ page }) => {
 });
 
 // O2, issue #611. oracle: closed-form ADR-0003 (the floor frame F = 162). A row's --row-min is ELEO.minWidth for its tiles' calls plus the tile chrome (26 px), capped at the row.
-// Where a tile's rendered width reaches its row's --row-min every frame is at least 162 px (map frames included, #587); elsewhere only no sideways scroll is asserted (CR #547: the two-theme
-// grid leaves 656 px at 1440 and 700). Replaces 'the rayFan row gives each panel a floor frame (#544)'.
-test.skip('rows give each frame the floor (#587)', { skip: '#611' }, async ({ page }) => {
+// The two-theme grid (CR #547) leaves 656 px at 1440 and 700, and wider tiles than --row-min elsewhere, so the viewport widths only assert no sideways scroll. The floor is asserted by
+// pinning each row to one column exactly --row-min wide: every frame is then at least 162 px (a map's first grid rect only: its colorbar has the same stroke, #587).
+// Replaces 'the rayFan row gives each panel a floor frame (#544)'.
+test('rows give each frame the floor (#587)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  let checked = 0, mapRows = 0;
+  for (const width of [1440, 1100, 700]) {
+    await page.setViewportSize({ width, height: 900 });
+    await settle(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), `${width} scrolls sideways`).toBe(false);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => document.querySelectorAll('.row').forEach((row) => {
+    row.style.gridTemplateColumns = `${parseFloat(row.style.getPropertyValue('--row-min')) || 240}px`;
+  }));
+  await settle(page);
+  let checked = 0, mapTiles = 0;
   for (const theme of ['light', 'dark']) {
-    for (const width of [1440, 1100, 700]) {
-      await page.setViewportSize({ width, height: 900 });
-      await settle(page);
-      const rows = await page.evaluate((t) => [...document.querySelectorAll(`.theme[data-theme="${t}"] .row`)].map((row) => ({
-        min: parseFloat(row.style.getPropertyValue('--row-min')) || 0, width: row.getBoundingClientRect().width,
-        tiles: [...row.querySelectorAll('[data-tile]')].map((el) => ({
-          tile: el.dataset.tile, size: el.dataset.size, width: el.getBoundingClientRect().width,
-          frames: [...el.querySelectorAll('svg rect[stroke="var(--plot-grid)"]')].map((x) => x.getBoundingClientRect().width),
-        })),
-      })), theme);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), `${theme} ${width} scrolls sideways`).toBe(false);
-      for (const r of rows) for (const t of r.tiles) {
-        if (t.width < r.min - 0.5) continue;
-        if (t.size === 'map2D') mapRows++;
-        for (const F of t.frames) { checked++; expect(F, `${theme} ${width} ${t.tile} frame ${F}px at row-min ${r.min}`).toBeGreaterThanOrEqual(162 - 0.5); }
-      }
+    const tiles = await page.evaluate((t) => [...document.querySelectorAll(`.theme[data-theme="${t}"] .row [data-tile][data-size]`)].map((el) => ({
+      tile: el.dataset.tile, size: el.dataset.size, min: parseFloat(el.closest('.row').style.getPropertyValue('--row-min')),
+      frames: [...el.querySelectorAll('svg rect[stroke="var(--plot-grid)"]')].slice(0, el.dataset.size === 'map2D' ? 1 : undefined).map((x) => x.getBoundingClientRect().width + (x.getAttribute('rx') === '3' ? 1 : 0)), // rx 3 frames are drawn inset by the stroke, as in the #555 test
+    })), theme);
+    for (const t of tiles) {
+      if (t.size === 'map2D') mapTiles++;
+      for (const F of t.frames) { checked++; expect(F, `${theme} ${t.tile} frame ${F}px at row-min ${t.min}`).toBeGreaterThanOrEqual(162 - 0.5); }
     }
   }
   expect(checked, 'frames checked').toBeGreaterThan(0);
-  expect(mapRows, 'a map tile reached its row minimum somewhere').toBeGreaterThan(0);
+  expect(mapTiles, 'map tiles checked').toBeGreaterThan(0);
 });
 
 // O2, issue #555 (reuse item). oracle: closed-form ADR-0003 (frameText, layoutText above). The tiles are enumerated by data-size, and the set equals every section holding a
