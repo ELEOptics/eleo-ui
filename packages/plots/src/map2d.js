@@ -8,20 +8,10 @@ import { colormap } from "./physics.js";
 
 var r2 = function (v) { return +v.toFixed(2); };
 
-/* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px. Text, margins and the colorbar follow ADR-0003, in units of the text size t(F) of the plot frame's width F (curve's margins: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks and the colorbar); the aperture ring grows by frameWeight(F).
-   Not in plotCell's data group: that group flips y and would draw row 0 at the bottom. Masked cells are alpha 0. */
-function typedMap(o) {
-  var W = o.width || 460, H = o.height || Math.round(W * 360 / 460), x = o.x || {}, y = o.y || {}, e = o.extent, rows = o.values, nr = rows && rows.length, nc = nr && rows[0] ? rows[0].length : 0;
+/* The margins of a typed map, in text units: L the left one and R the right one, which the colorbar and the x ticks widen (the loop below). map2D draws with them and minWidth counts them, so the floor cannot drift from the drawing. `o` is the map's props, valid as typedMap checks. */
+function margins(o, W, H) {
+  var x = o.x || {}, e = o.extent, rows = o.values;
   var live = function (v) { return typeof v === "number" && isFinite(v); };
-  if (!Array.isArray(rows) || !nr || !Array.isArray(rows[0]) || !nc) throw new TypeError("map2D: values must be a non-empty array of non-empty rows");
-  if (rows.some(function (r) { return !Array.isArray(r) || r.length !== nc; })) throw new TypeError("map2D: every row of values must have the same length");
-  if (!Array.isArray(e) || e.length !== 4 || !e.every(live) || !(e[0] < e[1]) || !(e[2] < e[3])) throw new TypeError("map2D: extent must be [x0, x1, y0, y1] with x0 < x1 and y0 < y1");
-  var pol = o.polar, pr, pa;
-  if (pol) {
-    pr = pol.radii; pa = pol.angles;
-    if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); }) || pa.some(function (q, i) { return i && q < pa[i - 1]; }) || pa[pa.length - 1] - pa[0] > 2 * Math.PI * (1 + 1e-12)) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite, sorted, within one turn)");
-    if (nr !== pr.length || nc !== pa.length) throw new TypeError("map2D: polar values need one row per radius and one value per angle");
-  }
   var lo = Infinity, hi = -Infinity;
   rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
   /* Value range: the data's, symmetric about 0 for "wave" (a diverging map's middle step means 0); `range` overrides. */
@@ -53,6 +43,29 @@ function typedMap(o) {
     if (need <= Rt + 1e-9) break;
     Rt = need;
   }
+  return { L: 4.6, R: Rt, F: F, t: t, T: T, Bm: Bm, pw: pw, ph: ph, xr: xr, yr: yr, lo: lo, hi: hi, log: log, dec: dec, cbt: cbt, CB: CB, Rt: Rt };
+}
+
+export function mapMargins(o) {
+  var W = o.width || 460, m = margins(o, W, o.height || Math.round(W * 360 / 460));
+  return { L: m.L, R: m.R };
+}
+
+/* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px. Text, margins and the colorbar follow ADR-0003, in units of the text size t(F) of the plot frame's width F (curve's margins: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks and the colorbar); the aperture ring grows by frameWeight(F).
+   Not in plotCell's data group: that group flips y and would draw row 0 at the bottom. Masked cells are alpha 0. */
+function typedMap(o) {
+  var W = o.width || 460, H = o.height || Math.round(W * 360 / 460), x = o.x || {}, y = o.y || {}, e = o.extent, rows = o.values, nr = rows && rows.length, nc = nr && rows[0] ? rows[0].length : 0;
+  var live = function (v) { return typeof v === "number" && isFinite(v); };
+  if (!Array.isArray(rows) || !nr || !Array.isArray(rows[0]) || !nc) throw new TypeError("map2D: values must be a non-empty array of non-empty rows");
+  if (rows.some(function (r) { return !Array.isArray(r) || r.length !== nc; })) throw new TypeError("map2D: every row of values must have the same length");
+  if (!Array.isArray(e) || e.length !== 4 || !e.every(live) || !(e[0] < e[1]) || !(e[2] < e[3])) throw new TypeError("map2D: extent must be [x0, x1, y0, y1] with x0 < x1 and y0 < y1");
+  var pol = o.polar, pr, pa;
+  if (pol) {
+    pr = pol.radii; pa = pol.angles;
+    if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); }) || pa.some(function (q, i) { return i && q < pa[i - 1]; }) || pa[pa.length - 1] - pa[0] > 2 * Math.PI * (1 + 1e-12)) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite, sorted, within one turn)");
+    if (nr !== pr.length || nc !== pa.length) throw new TypeError("map2D: polar values need one row per radius and one value per angle");
+  }
+  var M = margins(o, W, H), lo = M.lo, hi = M.hi, log = M.log, dec = M.dec, cbt = M.cbt, CB = M.CB, Rt = M.Rt, F = M.F, t = M.t, T = M.T, Bm = M.Bm, pw = M.pw, ph = M.ph, xr = M.xr, yr = M.yr, L = r2(4.6 * t), R = Rt * t;
   var ts = ' style="font-size:' + +t.toFixed(3) + 'px"', wt = +frameWeight(F).toFixed(3);
   var sc = { xr: xr, yr: yr, xt: axisTicks(x, xr), yt: axisTicks(y, yr), R: R, Rt: Rt };
   var lut = colormap(o.map || "ember", o.el), cv = document.createElement("canvas"), span = hi - lo;
