@@ -48,9 +48,11 @@ does not rewrite them:
     point is within semiDiameter x (1 + 1e-4). Writes tests/fixtures/phos-core/cooke-footprint.json.
   `fans`: TransverseRayError of the achromat and the Cooke triplet, 41 samples, pupil slice angle 0, the lens's own sources, per
     source `{fieldAngleDeg, wavelengths (nm), x: {points, statuses}, y: {points, statuses}}`, points `[pupil, error mm]`[wavelength][41]
-    as recorded, statuses the Rust names Alive/Virtual/Missed/Dead (status_name(); dead samples are kept). It exits non-zero on unequal
+    as recorded, except that a non-Alive sample's non-finite coordinate is written null (NaN is not JSON), statuses the Rust names
+    Alive/Virtual/Missed/Dead (status_name(); dead samples are kept). It exits non-zero on unequal
     shapes or a non-finite alive sample. If the Cooke has no Dead sample it also records phos-core's clipped Cooke (stop aperture
-    0.65 x its normalization) as cooke-clipped-fans.json, and refuses to write that unless it has dead tails.
+    0.65 x its normalization) as cooke-clipped-fans.json, and refuses to write that unless it has dead tails; if the Cooke has a
+    Dead sample it deletes a stale cooke-clipped-fans.json.
     Writes tests/fixtures/phos-core/{achromat,cooke}-fans.json.
 """
 import argparse
