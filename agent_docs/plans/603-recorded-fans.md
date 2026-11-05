@@ -115,6 +115,7 @@ Each item unskips its own acceptance case (the commit hook refuses a source chan
 | [#614] | Review M1 findings 3 and 4: `fan_axis` writes `null` for a non-finite non-`Alive` coordinate; `record_fans` deletes a stale `cooke-clipped-fans.json` when the default Cooke has a `Dead` sample | `null` because a dead sample's position is still data and the adapter nulls it anyway; considered refusing it, which stops a re-record over one dead ray | `scripts/record-phos-core.py`, `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::fan_axis keeps a non-Alive NaN as null and record_fans removes a stale clipped file` | [#605] |
 | [#615] | Review M1 finding 5: `ELEOAdapters.fans` titles format the angle as `fanPanels`' `fmt` (U+2212 for a negative) | copied, as the step rule is, because adapters.js is a classic script; considered `fmt` on `ELEO`, a public API change | `tests/fixtures/phos-core/adapters.js`, `tests/unit/curve.test.js` | `tests/unit/curve.test.js::recorded ray fans round trip (U6)` with a negative-angle clone | [#606] |
 | [#619] | CR [#618] (review M1 round 2, finding 1): the fixtures README's fans row names the `null` a non-finite non-`Alive` coordinate becomes, and the stale clipped file's deletion | the README row because it is the fixture format's one owner; considered the recorder's docstring alone | `tests/fixtures/phos-core/README.md`, `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::recorded fans facts` (every coordinate finite or `null`, `null` only off `Alive`) | [#614] |
+| [#620] | Review M1 round 3 findings 1 and 2: the recorder's `fans` docstring names [#614]'s `null` and the clipped file's deletion; the README fans row's paraxial parenthetical follows `x_fan()`/`y_fan()` | both in one item because both restate [#614]'s facts where the fans are described; considered the README alone, which leaves the script's header stale | `scripts/record-phos-core.py` (docstring), `tests/fixtures/phos-core/README.md` | none: docs only (not source under `SRC_RE`) | [#619] |
 
 End of plan (orchestrator, not a work item): the roadmap's U6 text and oracle name the recorded fans; row P done.
 
@@ -135,6 +136,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 orchestrator: [#605]'s clipped-Cooke trigger is "no `Dead` sample", not "no non-`Alive` sample" (the default Cooke's 24° y fan has 9 `Virtual` samples and no `Dead` one; the Constraints, the M1 demo and round 2's pre-mortem ask for dead tails).
 - 2026-11-05 review M1 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 7 backlog. Findings 2 to 6 are small and named, pulled into M1 as [#613], [#614], [#615]; finding 1 ([#616], the rayFan footer) is for the M1 demo; finding 7 ([#617]) stays backlog.
 - 2026-11-05 review M1 round 2 (code-reviewer, claude-opus-5-5): 1 blocking (the fixtures README after [#614]), filed as CR [#618], accepted by the orchestrator (a non-Core doc, every invariant kept), item [#619].
+- 2026-11-05 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, 2 backlog; CR [#618] resolved. Both findings small and named, pulled into M1 as [#620].
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
@@ -167,4 +169,5 @@ One bullet per entry (bare lines render as one paragraph).
 [#617]: https://github.com/ELEOptics/eleo-ui/issues/617
 [#618]: https://github.com/ELEOptics/eleo-ui/issues/618
 [#619]: https://github.com/ELEOptics/eleo-ui/issues/619
+[#620]: https://github.com/ELEOptics/eleo-ui/issues/620
 [#85]: https://github.com/ELEOptics/eleo-ui/issues/85
