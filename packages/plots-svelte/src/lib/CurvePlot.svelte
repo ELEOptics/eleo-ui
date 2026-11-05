@@ -5,14 +5,14 @@
     columns={3} x={{ label: 'Pupil', range: [-1, 1] }} y={{ label: 'Ray error', unit: 'µm' }} width={460} />
   Limits: <CurvePlot series={[...]} limits={[{ y: 0.5, label: 'spec' }, { x: [100, 200] }]} /> draws a line (a number) or a band (a pair) in the `limit` style; on panels, in every panel. A series may take role: 'limit' for a dash-dot ink line of its own.
   Panels share one scale and draw the axis labels once; a null coordinate breaks the line.
-  Every role draws 1 px; the plot area clips; ranges default to the nice range of the data. No color option. -->
+  Every role draws the same stroke: 1 px up to a 234 px frame, `sqrt(F / 234)` above it (ADR-0003); the plot area clips; ranges default to the nice range of the data. No color option. -->
 <script>
   import { curve } from '@eleoptics/plots';
   /** @type {import('@eleoptics/plots').CurvePlotProps & { label?: string }} */
   let { label, width, ...props } = $props();
-  let box = $state(0); // the box's clientWidth: 0 on the server, so the server draws the default and the client redraws on hydration
-  const w = $derived(width ?? (box > 0 ? box : undefined));
+  let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
+  const w = $derived(width ?? (rect?.width > 0 ? rect.width : undefined));
   const svg = $derived(curve({ ...props, width: w }));
 </script>
 
-<div class="eleo-svg" bind:clientWidth={box} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
+<div class="eleo-svg" bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>

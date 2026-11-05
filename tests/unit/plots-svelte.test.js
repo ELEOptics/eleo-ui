@@ -1,7 +1,7 @@
 // Plan #512 (agent_docs/plans/512-plot-scale.md), outcome O3 (issue #529, Files from CR #592; #530 writes the wrappers and unskips, CR #593).
 // oracle: reference the renderers (a width the caller gives reaches the renderer; none given reaches it as undefined, so it draws its default).
 // The six framed wrappers are compiled for the server against a stub `@eleoptics/plots` whose renderers print the width they got, in a temp
-// dir as map2d-svelte.test.js does. The server has no layout, so `bind:clientWidth` measures nothing there: the wrapper must pass the
+// dir as map2d-svelte.test.js does. The server has no layout, so `bind:contentRect` measures nothing there: the wrapper must pass the
 // caller's width, or none, never 0 or NaN. Map2D's typed SVG is drawn in an effect, which does not run in SSR, so it is checked for its frame only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

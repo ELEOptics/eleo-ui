@@ -1,7 +1,7 @@
 // plots-svelte wrappers (plan #512, agent_docs/plans/512-plot-scale.md), outcome O3 (issue #529; #530 unskips, CR #593). Run after `npm run build`.
 // oracle: reference the renderers (a drawing's viewBox width is its width in px).
 // The six framed wrappers are compiled with svelte/compiler for the client and bundled by esbuild, with `@eleoptics/plots` resolved to the
-// gallery page's `window.ELEO`; the page mounts them in boxes. A compiled page because SSR has no layout, so `clientWidth` is never measured there.
+// gallery page's `window.ELEO`; the page mounts them in boxes. A compiled page because SSR has no layout, so the box's `contentRect` is never measured there.
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
@@ -28,11 +28,11 @@ const bundle = async () => {
   return out.outputFiles[0].text;
 };
 
-test('wrappers draw at their width', async ({ page }) => {
+const drawn = async (page, boxes) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.addScriptTag({ content: await bundle() });
-  const widths = await page.evaluate(async () => {
+  return page.evaluate(async (boxes) => {
     const { mount, ...W } = window.WRAPPERS;
     const props = {
       CurvePlot: { series: [{ points: [[0, 1], [100, 0.62]], index: 0, role: 'tangential' }], x: { label: 'Spatial frequency', range: [0, 400] }, y: { label: 'Modulus', range: [0, 1] } },
@@ -44,7 +44,7 @@ test('wrappers draw at their width', async ({ page }) => {
     };
     const settle = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done))));
     const out = {};
-    for (const box of [300, 900]) for (const name of Object.keys(props)) {
+    for (const box of boxes) for (const name of Object.keys(props)) {
       const host = document.createElement('div');
       host.style.width = `${box}px`;
       document.body.append(host);
@@ -54,6 +54,14 @@ test('wrappers draw at their width', async ({ page }) => {
       host.remove();
     }
     return out;
-  });
-  for (const [key, width] of Object.entries(widths)) expect(width, key).toBe(+key.split(' ')[1]);
+  }, boxes);
+};
+
+test('wrappers draw at their width', async ({ page }) => {
+  for (const [key, width] of Object.entries(await drawn(page, [300, 900]))) expect(width, key).toBe(+key.split(' ')[1]);
+});
+
+// oracle: reference `fit` (#539), which draws at the box's fractional content width.
+test('wrappers draw at their fractional width', async ({ page }) => {
+  for (const [key, width] of Object.entries(await drawn(page, [287.5]))) expect(width, key).toBe(287.5);
 });
