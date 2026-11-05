@@ -602,3 +602,16 @@ test('each typed map draws once at load', async ({ page }) => {
   const calls = await page.evaluate(() => window.__mapCalls);
   for (const t of tiles) expect(calls[t], t).toBe(1);
 });
+
+// #591: rowMins skips a data-size that isn't a PLOT_SIZES key, so a typo would silently drop that tile's row floor.
+// oracle: property, every data-size in the page names a PLOT_SIZES row.
+test('every data-size names a PLOT_SIZES row', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const { sizes, rows } = await page.evaluate(() => ({
+    sizes: [...document.querySelectorAll('[data-size]')].map((el) => el.dataset.size),
+    rows: Object.keys(window.ELEO.PLOT_SIZES),
+  }));
+  expect(sizes.length).toBeGreaterThan(0);
+  expect(sizes.filter((s) => !rows.includes(s))).toEqual([]);
+});
