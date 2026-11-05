@@ -9,7 +9,7 @@
   /** @type {import('@eleoptics/plots').BarPlotProps & { label?: string }} */
   let { label, width, ...props } = $props();
   let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
-  const w = $derived(width ?? (rect?.width > 0 ? rect.width : undefined));
+  const w = $derived(width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined));
   // A namespace import: plots before 0.5.0 has no `bars`, and a named import would fail the whole package at link time.
   const svg = $derived.by(() => {
     if (typeof plots.bars !== 'function') throw new Error('BarPlot needs @eleoptics/plots 0.5.0 or later (bars)');

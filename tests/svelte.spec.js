@@ -46,7 +46,7 @@ const drawn = async (page, boxes) => {
     const out = {};
     for (const box of boxes) for (const name of Object.keys(props)) {
       const host = document.createElement('div');
-      host.style.width = `${box}px`;
+      host.style.width = typeof box === 'number' ? `${box}px` : box; // a number is px, a string a CSS width
       document.body.append(host);
       mount(W[name], { target: host, props: props[name] });
       await settle();
@@ -64,6 +64,13 @@ test('wrappers draw at their width', async ({ page }) => {
 // oracle: reference `fit` (#539), which draws at the box's fractional content width.
 test('wrappers draw at their fractional width', async ({ page }) => {
   for (const [key, width] of Object.entries(await drawn(page, [287.5]))) expect(width, key).toBe(287.5);
+});
+
+// oracle: reference `fit`'s `measure`, which rounds the measured width to 2 decimals.
+test('wrappers round their width as fit does', async ({ page }) => {
+  const widths = await drawn(page, ['calc(1000px / 3)']);
+  expect(Object.keys(widths)).toHaveLength(6);
+  for (const [key, width] of Object.entries(widths)) expect(width, key).toBe(333.33);
 });
 
 // oracle: reference `layout2D`'s default width (1000), drawn when the box is too narrow to measure (a collapsing panel, a transition).

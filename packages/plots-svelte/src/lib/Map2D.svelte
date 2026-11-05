@@ -22,7 +22,7 @@
     themeTick();
     if (typed) {
       if (!host) return;
-      const grid = /** @type {import('@eleoptics/plots').Map2DGridProps} */ ({ ...props, width: width ?? (rect?.width > 0 ? rect.width : undefined), range, el: host });
+      const grid = /** @type {import('@eleoptics/plots').Map2DGridProps} */ ({ ...props, width: width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined), range, el: host });
       svg = map2D(grid);
     } else if (canvas) {
       range = map2D(canvas, { ...props });
