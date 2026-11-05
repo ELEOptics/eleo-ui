@@ -163,6 +163,12 @@ stopgap (about 18 px text at 1440, full row). Proves: O1, O2 for every framed re
 | [#527] | Gallery: every framed tile through `fit`; one `--row-min` per row, set from `PLOT_SIZES`; the footprint tile drops `textScale` and its width rule; the footprint test's text and plot-size checks (`gallery.spec.js:77-110`) give way to O2's, its key-alignment check stays (user, at approval) | a row variable because a new tile then can't undercut the floor; considered per-tile CSS minimums, ruled out (hand numbers drift). `.row { grid-template-columns: repeat(auto-fit, minmax(var(--row-min), 1fr)) }` | `gallery/index.html`, `tests/gallery.spec.js` | the O2 test over every framed tile | [[#526], [#577] |
 | [#570] | Re-record the `throughFocus` entry of the renderer baseline right after [#525] | forced (user, at approval: re-record at the M2 verdict; recorded now, as [#519], because a red gate pushes nothing) | `tests/fixtures/renderers-baseline.json`, `scripts/record-renderers.mjs` | `tests/unit/split.test.js` green | [#525] |
 | [#572] | `index.d.ts`: `ThroughFocusProps` with `width`; spot's `textScale` docs name ADR-0003 (CR [#571]) | forced (the plan's Decisions approve a `width` doc per framed renderer, as CR [#536]) | `packages/plots/src/index.d.ts`, `tests/types/curve.ts` | `tests/types/curve.ts`: `throughFocus({ width })` compiles | [#525] |
+| [#579] | `spot`'s height fit through `frameOf`, the bisection gone (CR [#578]) | forced (review M2 round 1 finding 1: the equation is `F + m t(F) = W`, which `frameOf` solves); considered keeping the bisection, whose stated reason (no closed form) does not hold | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `tests/unit/spot.test.js::height fit solves frameOf` | [#525] |
+| [#580] | `width` docs for bars, map2D and spot in `index.d.ts`; README's map2D entry names the rule | forced (review M2 round 1 finding 4, pulled in; the Decisions approve these docs, as CR [#536], [#571]) | `packages/plots/src/index.d.ts`, `packages/plots/README.md`, `tests/types/curve.ts` | `tests/types/curve.ts`: bars, map2D, spot with `width` compile | [#572] |
+| [#581] | Gallery: each typed map draws once at load | forced (review M2 round 1 finding 6, pulled in) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::each typed map draws once at load` | [#527] |
+| [#582] | O2's gallery test reads spot's inset panel rect + 1 as F | forced (review M2 round 1 finding 7, pulled in) | `tests/gallery.spec.js` | the O2 test, corrected | [#527] |
+| [#583] | `rowMins` keeps the 240 px default and skips an unknown `data-size` | forced (review M2 round 1 finding 9, pulled in) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::a missing sample script blanks only the sample tiles`, extended | [#527] |
+| [#584] | README: `scale.js` and `fit.js` among the shared helpers | forced (review M2 round 1 finding 10, pulled in) | `README.md` | none (a doc line) | [#575] |
 | [#528] | Unskip M2's cases (`scale.test.js`; map2D's was unskipped at [#524]); re-run the baseline script before the M2 verdict if `throughFocus()`'s output moved since [#570] (user, at approval); log U14 for bars, map2D, spot | forced (`workflow.md`, TDD) | `tests/unit/scale.test.js`, `tests/map2d.spec.js`, `tests/fixtures/renderers-baseline.json` | green | [#522]-[#527], [#570], [#572], [#575], [#577] |
 
 ### M3: Svelte and the release GitHub: `P512 M3: plots-svelte and release`
@@ -380,9 +386,23 @@ One bullet per entry (bare lines render as one paragraph).
 [#575]: https://github.com/ELEOptics/eleo-ui/issues/575
 [#576]: https://github.com/ELEOptics/eleo-ui/issues/576
 [#577]: https://github.com/ELEOptics/eleo-ui/issues/577
+[#578]: https://github.com/ELEOptics/eleo-ui/issues/578
+[#579]: https://github.com/ELEOptics/eleo-ui/issues/579
+[#580]: https://github.com/ELEOptics/eleo-ui/issues/580
+[#581]: https://github.com/ELEOptics/eleo-ui/issues/581
+[#582]: https://github.com/ELEOptics/eleo-ui/issues/582
+[#583]: https://github.com/ELEOptics/eleo-ui/issues/583
+[#584]: https://github.com/ELEOptics/eleo-ui/issues/584
+[#585]: https://github.com/ELEOptics/eleo-ui/issues/585
+[#586]: https://github.com/ELEOptics/eleo-ui/issues/586
+[#587]: https://github.com/ELEOptics/eleo-ui/issues/587
+[#588]: https://github.com/ELEOptics/eleo-ui/issues/588
 [#63]: https://github.com/ELEOptics/eleo-ui/issues/63
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
 
 - 2026-11-04 measured at [#528]: U14 (`PERF=1 npx playwright test tests/perf.spec.js`, median of 20 redraws, budget 16 ms) for the M2 renderers:
   bars 1.20 ms, map2D 2.60 ms, spot 3.40 ms. `throughFocus()`'s output has not moved since [#570] (`split.test.js` green against the recorded
   baseline), so its entry is not re-recorded.
+
+- 2026-11-04 review M2 round 1: 1 blocking, 9 backlog. CR [#578] (orchestrator): accepted, item [#579]. Pulled in: [#580], [#581], [#582], [#583], [#584].
+  Plain issues: [#585], [#586], [#587], [#588].
