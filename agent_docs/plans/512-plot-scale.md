@@ -185,7 +185,7 @@ Demo: `npx playwright test tests/svelte.spec.js --headed`: each framed wrapper i
 | [#530] | The six framed wrappers (`CurvePlot`, `RayFan`, `BarPlot`, `Map2D`, `SpotDiagram`, `Layout2D`) bind their box's `clientWidth` and pass it as `width` when the caller gives none and it is > 0; README notes the server draws the default and the client redraws on hydration | `bind:clientWidth` because it is Svelte's own resize observer and keeps `{@html}` reactive and SSR-safe; considered `fit` as an action, ruled out because it writes `innerHTML` behind Svelte's back. One line per wrapper, one behaviour, six files | `packages/plots-svelte/src/lib/*.svelte` (the six), `packages/plots-svelte/README.md`, `tests/svelte.spec.js`, `tests/unit/plots-svelte.test.js` (unskip, CR [#593]) | `tests/svelte.spec.js::wrappers draw at their width`, `tests/unit/plots-svelte.test.js::wrappers pass width through on the server` | [#529] |
 | [#486] reuse | `Legend` takes `values` | forced ([#486]'s fix as written) | `packages/plots-svelte/src/lib/Legend.svelte`, `packages/plots-svelte/README.md` | `tests/unit/legend.test.js::Legend passes values (#486)` | [#529] |
 | [#531] | Changesets: `"@eleoptics/plots": minor` (the rule, `fit`, the table; visible text and stroke change), `"@eleoptics/plots-svelte": minor` (measuring wrappers, `Legend` values) | forced (roadmap row O, release). `npx changeset status` lists both as minor | `.changeset/plot-scale.md`, `.changeset/plots-svelte-scale.md` | `tests/unit/release.test.js::row O changesets` | [#529] |
-| [#532] | Unskip O3, O4 (O3's two cases unskipped at [#530], CR [#593]) | forced (`workflow.md`, TDD) | the test files | green | [#529], [#530], [#486], [#531] |
+| [#532] | Unskip O3, O4 (each item unskipped its own case: O3's two at [#530], CR [#593]; `Legend`'s at [#486]; changesets' at [#531]; nothing left but the full gate's evidence) | forced (`workflow.md`, TDD) | the test files | green | [#529], [#530], [#486], [#531] |
 
 ## Risks and spikes
 
@@ -427,3 +427,7 @@ One bullet per entry (bare lines render as one paragraph).
 
 - 2026-11-05 CR [#593] (orchestrator): accepted; [#530] changed sources without a test, which the commit hook refuses; it unskips
   its own two O3 cases (as [#524] did in M2), and [#532] unskips the `Legend` and changesets ones. No new item.
+
+- 2026-11-05 orchestrator: by the same rule [#486] wrote its `Legend` test running and [#531] unskipped `row O changesets` in its own
+  commit, so [#532] has no change left: it is labelled done on the full gate's evidence (every O3 and O4 test runs and passes), not closed.
+  [#531]'s plots changeset was reworded by the orchestrator: `layout2D` follows `W / 70`, not the framed `F / 18`.
