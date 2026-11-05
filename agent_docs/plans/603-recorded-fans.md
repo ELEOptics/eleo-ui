@@ -1,7 +1,7 @@
 # Plan [#603]: Recorded ray fans
 
 Status: approved 2026-11-05
-Branch: `plan/603-recorded-fans` PR: #<pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row P
+Branch: `plan/603-recorded-fans` PR: [#612] Depends on: none Roadmap: `agent_docs/roadmap.md`, row P
 
 ## Problem
 
@@ -152,4 +152,5 @@ One bullet per entry (bare lines render as one paragraph).
 [#609]: https://github.com/ELEOptics/eleo-ui/issues/609
 [#610]: https://github.com/ELEOptics/eleo-ui/issues/610
 [#611]: https://github.com/ELEOptics/eleo-ui/issues/611
+[#612]: https://github.com/ELEOptics/eleo-ui/issues/612
 [#85]: https://github.com/ELEOptics/eleo-ui/issues/85
