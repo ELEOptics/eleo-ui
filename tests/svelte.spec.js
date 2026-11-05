@@ -84,7 +84,7 @@ test('Layout2D in a narrow box draws its default', async ({ page }) => {
     const { mount, Layout2D } = window.WRAPPERS;
     const settle = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done))));
     const out = {};
-    for (const box of [3, 5]) {
+    for (const box of [3, 5, 8, 9]) {
       const host = document.createElement('div');
       host.style.width = `${box}px`;
       document.body.append(host);
@@ -97,5 +97,5 @@ test('Layout2D in a narrow box draws its default', async ({ page }) => {
     return out;
   });
   expect(errors).toEqual([]);
-  expect(widths).toEqual({ 3: 1000, 5: 1000 });
+  expect(widths).toEqual({ 3: 1000, 5: 1000, 8: 1000, 9: 9 });
 });

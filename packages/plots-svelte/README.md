@@ -95,7 +95,7 @@ npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 </PlotCard>
 ```
 
-`CurvePlot`, `RayFan`, `BarPlot`, `Map2D` (typed), `SpotDiagram` and `Layout2D` measure their box and draw at its width when you give no `width`; the server draws the default width and the client redraws on hydration.
+`CurvePlot`, `RayFan`, `BarPlot`, `Map2D` (typed), `SpotDiagram` and `Layout2D` measure their box and draw at its width when you give no `width`; the server draws the default width and the client redraws on hydration (`Layout2D` draws its default in a box of 8 px or less).
 
 `PlotCard` takes `state` (`loading`, `empty`, `error`, `stale`) and `message` for the states between results, `paper` for a light figure inside the dark theme, and `compact` and `selected` for dashboards.
 
