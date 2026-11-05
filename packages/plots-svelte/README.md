@@ -6,6 +6,8 @@ Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleo
 npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
 ```
 
+It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, which plots 0.7.0 ignores.
+
 ```svelte
 <script>
   import '@eleoptics/tokens/tokens.css';
