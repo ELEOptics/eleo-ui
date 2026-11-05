@@ -549,8 +549,11 @@ test('recorded fans facts', () => {
           fan.forEach(([pupil, err], k) => {
             const st = statuses[w][k];
             assert.ok(NAMES.includes(st), `${file} ${i}.${axis}[${w}][${k}]: status ${st}`);
-            assert.ok(Number.isFinite(pupil), `${file}: pupil finite`);
-            if (st === 'Alive') assert.ok(Number.isFinite(err), `${file} ${i}.${axis}[${w}][${k}]: alive error finite`);
+            // A coordinate is a finite number, or null (NaN is not JSON) and only on a sample that is not Alive.
+            for (const c of [pupil, err]) {
+              if (c === null) assert.notEqual(st, 'Alive', `${file} ${i}.${axis}[${w}][${k}]: an Alive sample has no null coordinate`);
+              else assert.ok(Number.isFinite(c), `${file} ${i}.${axis}[${w}][${k}]: coordinate is a finite number or null`);
+            }
             if (st === 'Dead') dead++;
           });
         });
