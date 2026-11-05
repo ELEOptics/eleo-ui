@@ -609,7 +609,9 @@ def fan_axis(phos, label, fan, stats):
         for k, p in enumerate(block):
             if names[w][k] == "Alive" and not finite(p[0], p[1]):
                 sys.exit(f"fans: {label} wavelength {w} sample {k} is alive with a non-finite point")
-    return {"points": [[[rnd(p[0]), rnd(p[1])] for p in block] for block in fan], "statuses": names}
+    # A non-Alive sample's non-finite coordinate is null (its position is still data, the adapter nulls it anyway): NaN is not JSON.
+    num = lambda x: rnd(x) if math.isfinite(x) else None
+    return {"points": [[[num(p[0]), num(p[1])] for p in block] for block in fan], "statuses": names}
 
 
 def fans(phos, lens, model, outdir, header, name=None):
@@ -651,6 +653,7 @@ def record_fans(phos, sample, outdir, header):
     path, doc = fans(phos, "cooke", phos.OpticalModel.cooke_triplet_kingslake(), outdir, header)
     paths.append(path)
     if any(st == "Dead" for src in doc["sources"] for a in ("x", "y") for blk in src[a]["statuses"] for st in blk):
+        (outdir / "cooke-clipped-fans.json").unlink(missing_ok=True)  # the clipped file exists exactly when the rule says
         return paths
     # The default Cooke has no Dead sample: record the clipped one, and only if it really has dead tails.
     path, doc = fans(phos, "cooke", clipped_cooke(phos), outdir, header, "cooke-clipped-fans.json")

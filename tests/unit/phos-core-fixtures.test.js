@@ -562,3 +562,82 @@ test('recorded fans facts', () => {
   const some = cooke.sources.some((s) => ['x', 'y'].some((a) => s[a].statuses.flat().some((st) => st === 'Dead')));
   assert.equal(existsSync(clipped), !some, 'the clipped Cooke is recorded exactly when the default one has no Dead sample');
 });
+
+// Plan #603 work item #614. The fans recorder on stand-ins for phos-core: a dead sample's NaN is recorded as null (an alive one is
+// refused), and a stale cooke-clipped-fans.json is removed when the default Cooke has a Dead sample.
+test('fan_axis keeps a non-Alive NaN as null and record_fans removes a stale clipped file', () => {
+  const py = String.raw`
+import importlib.util, json, tempfile
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("rec", "scripts/record-phos-core.py")
+rec = importlib.util.module_from_spec(spec); spec.loader.exec_module(rec)
+N = rec.FAN_SAMPLES
+nan = float("nan")
+class Alive: pass
+class Virtual: pass
+class Missed: pass
+class Dead: pass
+class RayStatus:
+    ALIVE, VIRTUAL, MISSED, DEAD_E = Alive, Virtual, Missed, Dead
+class Run:
+    def __init__(self, bad, status):
+        self.bad, self.status = bad, status
+    def wavelengths(self): return [0.55]
+    def _fan(self): return [[(k / N, nan if k == 3 else 0.5) for k in range(N)]]
+    def x_fan(self): return self._fan()
+    def y_fan(self): return self._fan()
+    def _st(self): return [[self.status() if k == 3 else Alive() for k in range(N)]]
+    def x_statuses(self): return self._st()
+    def y_statuses(self): return self._st()
+class Settings:
+    status = Dead
+    def set_system_index(self, i): pass
+    def set_pupil_slice_angle(self, a): pass
+    def set_num_samples(self, n): pass
+    def run(self, model): return [Run(True, Settings.status)]
+class Model:
+    def sources(self, i): return [object()]
+class OM:
+    @staticmethod
+    def cooke_triplet_kingslake(): return Model()
+class Phos:
+    RayStatus = RayStatus
+    TransverseRayErrorSettings = Settings
+    OpticalModel = OM
+rec.field_angle_deg = lambda src: 0.0
+rec.achromat = lambda phos, sample: Model()
+rec.clipped_cooke = lambda phos: Model()
+
+def axis(status):
+    block = [[(k / N, nan if k == 3 else 0.5) for k in range(N)]]
+    st = [[status() if k == 3 else Alive() for k in range(N)]]
+    try: return rec.fan_axis(Phos, "t", block, st)
+    except SystemExit as e: return str(e)
+
+res = {"dead": axis(Dead), "alive": axis(Alive)}
+with tempfile.TemporaryDirectory() as d:
+    d = Path(d)
+    stale = d / "cooke-clipped-fans.json"
+    stale.write_text("stale")
+    Settings.status = Dead
+    rec.record_fans(Phos, {}, d, {})
+    res["staleRemoved"] = not stale.exists()
+    res["cookeText"] = (d / "cooke-fans.json").read_text()
+    Settings.status = Missed
+    try: rec.record_fans(Phos, {}, d, {})
+    except SystemExit: pass
+    res["noDeadNoFile"] = not stale.exists()
+print(json.dumps(res))
+`;
+  const r = spawnSync('python3', ['-B', '-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.dead.points[0][3][1], null, 'a Dead NaN error is null');
+  assert.ok(Math.abs(out.dead.points[0][3][0] - 3 / 41) < 1e-6, 'its pupil coordinate stays');
+  assert.equal(out.dead.statuses[0][3], 'Dead');
+  assert.match(out.alive, /alive with a non-finite point/, 'an Alive NaN is refused');
+  assert.equal(out.staleRemoved, true, 'a Dead default Cooke removes a stale clipped file');
+  assert.ok(!out.cookeText.includes('NaN'), 'the fixture is valid JSON');
+  assert.doesNotThrow(() => JSON.parse(out.cookeText));
+  assert.equal(out.noDeadNoFile, true, 'no Dead anywhere leaves no clipped file');
+});
