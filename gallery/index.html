@@ -55,7 +55,7 @@
       <section class="eleo-plot" data-tile="seidel-terms" data-size="bars"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums by term, mm</span></div><div class="eleo-plot__body" data-svg="seidel-terms"></div></section>
     </div>
     <div class="row">
-      <section class="eleo-plot" data-tile="rayFan" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">TRA, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="ts"></div></section>
+      <section class="eleo-plot" data-tile="rayFan" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">Achromat, recorded, TRA, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="ts"></div></section>
       <section class="eleo-plot" data-tile="rayFan-opd" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">OPD, waves</span></div><div class="eleo-plot__body" data-svg="rayFan-opd"></div></section>
     </div>
     <div class="row">
@@ -124,7 +124,8 @@
       'seidel': recTile('seidel', function (d, w) { return ELEO.bars(atWidth(d, w, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', function (d, w) { return ELEO.bars(atWidth(d, w)); }),
       'throughFocus': { need: sampleBox, draw: function (_, w) { return ELEO.throughFocus({ width: w }); } },
-      'rayFan': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ width: w }); } },
+      // The recorded achromat's fans through curve, as tall as rayFan's panels are (PLOT_SIZES.rayFan.aspect) over its columns.
+      'rayFan': recTile('fans', function (d, w) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns })); }),
       'rayFan-opd': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ kind: 'opd', width: w }); } },
       'mtf': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
@@ -268,6 +269,7 @@
         ['fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }],
         ['distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); }],
         ['spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); }],
+        ['fans', 'fans', function (d) { REC.fans = globalThis.ELEOAdapters.fans(d); }],
         ['seidel', 'seidel', function (d) { REC.seidel = globalThis.ELEOAdapters.seidel(d); REC.seidelTerms = globalThis.ELEOAdapters.seidel(d, { by: 'term' }); }]
       ]],
       ['wandersleb', [

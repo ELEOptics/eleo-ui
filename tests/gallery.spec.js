@@ -242,7 +242,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   const mins = await page.$$eval('.row', (rs) => rs.map((r) => parseFloat(r.style.getPropertyValue('--row-min') || '240')));
   expect(mins.length).toBeGreaterThan(0);
   for (const m of mins) expect(m).toBeGreaterThanOrEqual(240);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
@@ -621,7 +621,7 @@ const settle = (page) => page.evaluate(() => new Promise((done) => requestAnimat
 
 // O1, issue #607. oracle: fixture tests/fixtures/phos-core/achromat-fans.json (phos-core TransverseRayError, scripts/record-phos-core.py --only fans): its sources' field angles title the panels
 // ("<angle>° · Py" then "<angle>° · Px"), and the tile draws as many paths as the adapter's series count (a series per wavelength, per panel; a dead gap is a break inside a path).
-test.skip('rayFan tile draws the recording', { skip: '#607' }, async ({ page }) => {
+test('rayFan tile draws the recording', async ({ page }) => {
   const rec = JSON.parse(readFileSync(new URL('./fixtures/phos-core/achromat-fans.json', import.meta.url), 'utf8'));
   const titles = ['Py', 'Px'].flatMap((k) => rec.sources.map((s) => `${s.fieldAngleDeg.toFixed(1)}° · ${k}`));
   const series = 2 * rec.sources.reduce((n, s) => n + s.wavelengths.length, 0);
