@@ -105,47 +105,8 @@ test('the footprint tile header key ends at the plot frame right edge', async ({
 // oracle: closed-form ADR-0003. At 1440, 1100 and 700 px in both themes, each tile's rendered text (computed font-size times getScreenCTM().a)
 // is within 1% of the formula for its rendered frame F (a plot frame's width in px; a layout tile's drawing width W) and at least 9 px.
 // A layout tile whose W / 70 is under 9 draws no text.
-const FRAMED_TILES = ['mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'chromaticFocus', 'rayFan', 'rayFan-opd',
-  'spot', 'throughFocus', 'footprint', 'seidel', 'seidel-terms', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'irradiance-gaussian'];
-const LAYOUT_TILES = ['layout2D', 'layout2D-fan', 'layout2D-shared', 'layout2D-glasses', 'layout2D-wandersleb', 'layout2D-cassegrain'];
 const frameText = (F) => (F < 162 ? 9 : F <= 234 ? F / 18 : 13 * Math.cbrt(F / 234));
 const layoutText = (W) => (W / 70 < 9 ? null : W <= 910 ? W / 70 : 13 * Math.sqrt(W / 910));
-test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    for (const width of [1440, 1100, 700]) {
-      await page.setViewportSize({ width, height: 900 });
-      // fit redraws after a ResizeObserver tick and a frame: settle before measuring.
-      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)))));
-      const tiles = await page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els, names) => els.filter((el) => names.includes(el.dataset.tile)).map((el) => {
-        const svg = el.querySelector('.eleo-plot__body svg');
-        const frame = svg && svg.querySelector('rect[stroke="var(--plot-grid)"]');
-        return {
-          tile: el.dataset.tile,
-          drawn: !!svg,
-          // spot, throughFocus and footprint inset their rx="3" panel rect 0.5 px each side (width = side - 1): F is the side.
-          F: frame ? frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0) : null,
-          W: svg ? svg.getBoundingClientRect().width : null,
-          sizes: svg ? [...svg.querySelectorAll('text')].map((x) => parseFloat(getComputedStyle(x).fontSize) * x.getScreenCTM().a) : [],
-        };
-      }), FRAMED_TILES.concat(LAYOUT_TILES));
-      expect(tiles.map((t) => t.tile).sort(), `${theme} ${width} tiles`).toEqual(FRAMED_TILES.concat(LAYOUT_TILES).sort());
-      for (const t of tiles) {
-        const at = `${theme} ${width} ${t.tile}`;
-        expect(t.drawn, `${at} drawn`).toBe(true);
-        const layout = LAYOUT_TILES.includes(t.tile), want = layout ? layoutText(t.W) : frameText(t.F);
-        if (want === null) { expect(t.sizes, `${at} (W ${t.W}) labels hidden`).toEqual([]); continue; }
-        expect(t.sizes.length, `${at} has text`).toBeGreaterThan(0);
-        for (const s of t.sizes) {
-          expect(Math.abs(s / want - 1), `${at} text ${s}px against ${want}px for ${layout ? 'W ' + t.W : 'F ' + t.F}`).toBeLessThanOrEqual(0.01);
-          expect(s, `${at} text ${s}px is at least 9 px (less 0.01 px: throughFocus floors its panel side to 2 decimals)`).toBeGreaterThanOrEqual(9 - 0.01);
-        }
-      }
-    }
-  }
-});
-
 // Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
 // oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
 test('the footprint tile has a field legend from the recording', async ({ page }) => {
@@ -635,9 +596,9 @@ test('rows give each frame the floor (#587)', async ({ page }) => {
   expect(mapTiles, 'map tiles checked').toBeGreaterThan(0);
 });
 
-// O2, issue #555 (reuse item). oracle: closed-form ADR-0003 (frameText, layoutText above). The tiles are enumerated by data-size, and the set equals every section holding a
-// [data-svg] or [data-map] (so it is not the hand list asserted against itself); layout tiles carry data-size="layout2D". Replaces FRAMED_TILES and LAYOUT_TILES.
-test.skip('text follows ADR-0003 on every tile by data-size (U18, #555)', { skip: '#555 reuse item' }, async ({ page }) => {
+// O2, issue #555 (reuse item); #512's U18 test, no hand lists. oracle: closed-form ADR-0003 (frameText, layoutText above). The tiles are enumerated by data-size, and the set equals every section holding a
+// [data-svg] or [data-map] (so it is not the hand list asserted against itself); layout tiles carry data-size="layout2D".
+test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
@@ -666,10 +627,14 @@ test.skip('text follows ADR-0003 on every tile by data-size (U18, #555)', { skip
       for (const t of r.tiles) {
         const at = `${theme} ${width} ${t.tile}`;
         expect(t.drawn, `${at} drawn`).toBe(true);
-        const want = t.layout ? layoutText(t.W) : t.F === null ? undefined : frameText(t.F);
-        if (want === undefined) continue; // a canvas-only tile has no frame rect to measure
-        if (want === null) { expect(t.sizes, `${at} labels hidden`).toEqual([]); continue; }
-        for (const s of t.sizes) expect(Math.abs(s / want - 1), `${at} text ${s}px against ${want}px`).toBeLessThanOrEqual(0.01);
+        if (!t.layout) expect(t.F, `${at} has a frame rect to measure`).not.toBeNull();
+        const want = t.layout ? layoutText(t.W) : frameText(t.F);
+        if (want === null) { expect(t.sizes, `${at} (W ${t.W}) labels hidden`).toEqual([]); continue; }
+        expect(t.sizes.length, `${at} has text`).toBeGreaterThan(0);
+        for (const s of t.sizes) {
+          expect(Math.abs(s / want - 1), `${at} text ${s}px against ${want}px`).toBeLessThanOrEqual(0.01);
+          expect(s, `${at} text ${s}px is at least 9 px (less 0.01 px: throughFocus floors its panel side to 2 decimals)`).toBeGreaterThanOrEqual(9 - 0.01);
+        }
       }
     }
   }
