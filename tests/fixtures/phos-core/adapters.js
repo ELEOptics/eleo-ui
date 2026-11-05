@@ -138,14 +138,14 @@
     /* fans(recording) -> { panels, columns, x, y } in the shape of fanPanels (packages/plots/src/fan.js): row T (the y fan, Py) then row S
        (the x fan, Px), a column per field titled `<angle>° · Py`, a series per wavelength (index = wavelength) of [pupil, error in µm]
        (the recording is in mm). Every sample whose status is not Alive is null: a virtual, missed or dead ray's error is not an image error.
-       The y range is symmetric at fanPanels' next nice step (copied: fanPanels is not on ELEO; the unit test pins it). */
+       The y range is symmetric at fanPanels' next nice step (copied: fanPanels is not on ELEO; the unit test pins it). The title's number is fanPanels' fmt(angle, 1), copied too: U+2212 for a negative. */
     fans: function (rec) {
       var mx = 0, panels = [];
       [['y', 'Py'], ['x', 'Px']].forEach(function (row) {
         rec.sources.forEach(function (s) {
           var fan = s[row[0]];
           panels.push({
-            title: s.fieldAngleDeg.toFixed(1) + '° · ' + row[1],
+            title: (s.fieldAngleDeg < 0 ? '\u2212' : '') + Math.abs(s.fieldAngleDeg).toFixed(1) + '° · ' + row[1],
             series: fan.points.map(function (pts, w) {
               return {
                 points: pts.map(function (q, i) {

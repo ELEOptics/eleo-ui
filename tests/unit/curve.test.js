@@ -693,11 +693,16 @@ test('recorded ray fans round trip (U6)', async () => {
   // A clone with one interior alive sample made Dead, as the sample fans test nulls one (the default recordings may have no dead sample).
   const clone = structuredClone(fixture('achromat-fans'));
   clone.sources[1].y.statuses[0][3] = 'Dead';
-  for (const [name, rec] of names.map((n) => [n, fixture(n)]).concat([['achromat-fans, one sample made dead', clone]])) {
+  // A clone with negative field angles: fanPanels titles with U+2212, not a hyphen.
+  const neg = structuredClone(fixture('achromat-fans'));
+  neg.sources.forEach((s) => { s.fieldAngleDeg = -Math.abs(s.fieldAngleDeg) - 1; });
+  for (const [name, rec] of names.map((n) => [n, fixture(n)]).concat([['achromat-fans, one sample made dead', clone], ['achromat-fans, negative field angles', neg]])) {
     const { panels, columns, x, y } = ELEOAdapters.fans(rec);
     assert.equal(columns, rec.sources.length, `${name}: a column per field`);
     assert.equal(panels.length, 2 * columns, `${name}: row Py then row Px`);
-    assert.equal(panels[0].title, `${rec.sources[0].fieldAngleDeg.toFixed(1)}° · Py`, `${name}: the first panel's title`);
+    // Titles are fanPanels' own for the same angles (pinned against the number rule copied in adapters.js).
+    const own = fanPanels({ fields: rec.sources.map((s) => s.fieldAngleDeg), fans: rec.sources.map(() => ({ T: [[0, 0]], S: [[0, 0]] })) }, { kind: 'tra' });
+    assert.deepEqual(panels.map((pn) => pn.title), own.panels.map((pn) => pn.title), `${name}: panel titles are fanPanels'`);
     // Every recorded sample is placed by its own pupil coordinate and error (mm to µm); every non-Alive one is null.
     [['y', 0], ['x', columns]].forEach(([axis, base]) => rec.sources.forEach((src, f) => {
       const want = src[axis].points.map((fan, w) => fan.map(([px, err], i) => (src[axis].statuses[w][i] === 'Alive' ? [px, err * 1000] : [px, null])));
