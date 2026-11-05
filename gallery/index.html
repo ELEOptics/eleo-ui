@@ -142,7 +142,7 @@
       ctx.putImageData(img, 0, 0);
     }
     // Canvas tiles read their colors once per draw, so a palette change redraws them; SVG recolors through CSS.
-    // The typed map bakes its colors from the tile it is given as `el`, so it redraws with the canvases; a failure blanks only that tile.
+    // The typed map bakes its colors from the tile it is given as `el`, so a palette change redraws it (drawMaps) beside the canvases, and load leaves it to fit's first draw; a failure blanks only that tile.
     var MAPS = {};
     // Closed form, not a recording: phos-core's irradiance needs a nonsequential trace. TEM00, I = exp(-2 r^2 / w^2), w = 1 mm, 128 x 128 cells over +-2 mm.
     MAPS['irradiance-gaussian'] = (function () {
@@ -168,7 +168,6 @@
       document.querySelectorAll('.theme [data-map]').forEach(drawMap);
     }
     function drawCanvases() {
-      drawMaps();
       document.querySelectorAll('.theme [data-canvas]').forEach(function (el) {
         var k = el.dataset.canvas;
         if (k === 'airy') airyTile(el);
@@ -225,6 +224,7 @@
       var v = e.target.value;
       if (v === 'standard') document.documentElement.removeAttribute('data-palette');
       else document.documentElement.dataset.palette = v;
+      drawMaps();
       drawCanvases();
     });
     var glasses = fetch('/tests/fixtures/layouts/analysis-glasses.json').then(function (r) {

@@ -568,3 +568,32 @@ test('spot caption stays inside the viewBox', async ({ page }) => {
   expect(lone.length, 'one-panel caption lines').toBeGreaterThanOrEqual(3);
   for (const l of lone) expect(l.ok, `one panel: "${l.text}" inside the viewBox`).toBe(true);
 });
+
+// Plan #512 M2 review r1 finding 6 (issue #581): fit's first draw is synchronous, so a typed map must not be drawn again by the load-time canvas pass. oracle: property, ELEO.map2D calls with a `values` prop per tile.
+test('each typed map draws once at load', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__mapCalls = {};
+    let real;
+    Object.defineProperty(window, 'ELEO', {
+      configurable: true,
+      get: () => real,
+      set: (v) => {
+        const orig = v.map2D;
+        v.map2D = function (props) {
+          if (props && props.values && props.el) {
+            const t = props.el.dataset.tile + '|' + props.el.closest('.theme').dataset.theme;
+            window.__mapCalls[t] = (window.__mapCalls[t] || 0) + 1;
+          }
+          return orig.apply(this, arguments);
+        };
+        real = v;
+      },
+    });
+  });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tiles = await page.locator('[data-map]').evaluateAll((els) => els.map((e) => e.parentNode.dataset.tile + '|' + e.closest('.theme').dataset.theme));
+  expect(tiles.length).toBeGreaterThan(0);
+  const calls = await page.evaluate(() => window.__mapCalls);
+  for (const t of tiles) expect(calls[t], t).toBe(1);
+});
