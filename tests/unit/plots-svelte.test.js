@@ -1,4 +1,4 @@
-// Plan #512 (agent_docs/plans/512-plot-scale.md), outcome O3 (issue #529; #532 unskips; #530 writes the wrappers; Files from CR #592).
+// Plan #512 (agent_docs/plans/512-plot-scale.md), outcome O3 (issue #529, Files from CR #592; #530 writes the wrappers and unskips, CR #593).
 // oracle: reference the renderers (a width the caller gives reaches the renderer; none given reaches it as undefined, so it draws its default).
 // The six framed wrappers are compiled for the server against a stub `@eleoptics/plots` whose renderers print the width they got, in a temp
 // dir as map2d-svelte.test.js does. The server has no layout, so `bind:clientWidth` measures nothing there: the wrapper must pass the
@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-test('wrappers pass width through on the server', { skip: 'awaiting #530 (acceptance test from #529; #532 unskips)' }, async () => {
+test('wrappers pass width through on the server', async () => {
   const { compile } = await import('svelte/compiler');
   const { render } = await import('svelte/server');
   const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-'));

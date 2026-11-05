@@ -1,4 +1,4 @@
-// plots-svelte wrappers (plan #512, agent_docs/plans/512-plot-scale.md), outcome O3 (issue #529; #532 unskips). Run after `npm run build`.
+// plots-svelte wrappers (plan #512, agent_docs/plans/512-plot-scale.md), outcome O3 (issue #529; #530 unskips, CR #593). Run after `npm run build`.
 // oracle: reference the renderers (a drawing's viewBox width is its width in px).
 // The six framed wrappers are compiled with svelte/compiler for the client and bundled by esbuild, with `@eleoptics/plots` resolved to the
 // gallery page's `window.ELEO`; the page mounts them in boxes. A compiled page because SSR has no layout, so `clientWidth` is never measured there.
@@ -28,8 +28,7 @@ const bundle = async () => {
   return out.outputFiles[0].text;
 };
 
-// Skipped until #530 lands; #532 unskips by changing `test.skip` to `test` (acceptance test from #529).
-test.skip('wrappers draw at their width', async ({ page }) => {
+test('wrappers draw at their width', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.addScriptTag({ content: await bundle() });

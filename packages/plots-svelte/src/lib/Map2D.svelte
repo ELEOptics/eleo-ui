@@ -10,7 +10,8 @@
    * @typedef {Omit<import('@eleoptics/plots').Map2DProps, 'map'> & Partial<Omit<import('@eleoptics/plots').Map2DGridProps, 'range' | 'el' | 'values'>> & { values?: undefined, label?: string, range?: { lo: number, hi: number } }} SampleProps
    */
   /** @type {TypedProps | SampleProps} */
-  let { label, range = $bindable(), ...props } = $props();
+  let { label, width, range = $bindable(), ...props } = $props();
+  let box = $state(0); // the box's clientWidth: 0 on the server, so the server draws the default and the client redraws on hydration
   /** @type {HTMLCanvasElement | undefined} */
   let canvas = $state();
   /** @type {HTMLDivElement | undefined} */
@@ -21,7 +22,7 @@
     themeTick();
     if (typed) {
       if (!host) return;
-      const grid = /** @type {import('@eleoptics/plots').Map2DGridProps} */ ({ ...props, range, el: host });
+      const grid = /** @type {import('@eleoptics/plots').Map2DGridProps} */ ({ ...props, width: width ?? (box > 0 ? box : undefined), range, el: host });
       svg = map2D(grid);
     } else if (canvas) {
       range = map2D(canvas, { ...props });
@@ -30,7 +31,7 @@
 </script>
 
 {#if typed}
-  <div class="eleo-svg" bind:this={host} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
+  <div class="eleo-svg" bind:this={host} bind:clientWidth={box} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
 {:else}
   <canvas bind:this={canvas} role={label ? 'img' : undefined} aria-label={label}></canvas>
 {/if}
