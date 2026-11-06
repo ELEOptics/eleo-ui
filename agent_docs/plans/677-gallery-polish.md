@@ -206,3 +206,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M2 round 2 (1 blocking, 1 backlog): CR #744 accepted (orchestrator: a simplification inside #739's Files), fixed by #745. Finding 2: #742's "byte-identical" holds for curve but not spot, whose corner box now rounds with key.js's `toFixed(2)` (76 of 22704 sweep calls differ by 0.01 px); accepted as is (orchestrator) because spot corner keys are new in this plan (#686) and unreleased, so no shipped output changes; considered changing spot's `r2` (moves every spot value, re-records its baselines).
 - 2026-11-06 M2 reviewed in 3 rounds (5, 2, 0 counting pulled-in items); round 3 says 0 blocking; ticked.
 - 2026-11-06 M2 demo (user): go; M2 accepted.
+- 2026-11-06 orchestrator: #695 and #696 share one commit because #695's only test is the O4 acceptance test #696 unskips, and `check-tests-touched.sh` refuses #695's source change alone.
