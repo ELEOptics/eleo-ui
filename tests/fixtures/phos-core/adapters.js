@@ -116,13 +116,13 @@
     layout: function (rec) {
       return { data: rec, rays: 'fan', width: 1000, labels: rec.fieldsDeg.map(function (a) { return a + '°'; }) };
     },
-    /* psf(recording, { log }) -> the typed map2D props (without `el`, which the caller sets): the recorded PointSpread grid and its extent in mm,
-       linear over its range, on the ember map; with `log` on the log scale, divided by its peak, and a colorbar for the relative intensity. */
+    /* psf(recording, { log }) -> the typed map2D props (without `el`, which the caller sets): the recorded PointSpread grid divided by its peak (so the brightest value is 1) and its extent in mm,
+       on the ember map, with a colorbar for the relative intensity; linear over its range, or with `log` on the log scale. */
     psf: function (rec, opts) {
-      var values = rec.values;
-      if (opts && opts.log) { var pk = 0; rec.values.forEach(function (r) { r.forEach(function (v) { if (v > pk) pk = v; }); }); if (pk > 0) values = rec.values.map(function (r) { return r.map(function (v) { return v / pk; }); }); }
-      var props = { values: values, extent: rec.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Point spread' };
-      if (opts && opts.log) { props.scale = 'log'; props.value = { label: 'Intensity', unit: 'relative' }; }
+      var pk = 0; rec.values.forEach(function (r) { r.forEach(function (v) { if (v > pk) pk = v; }); });
+      var values = pk > 0 ? rec.values.map(function (r) { return r.map(function (v) { return v / pk; }); }) : rec.values;
+      var props = { values: values, extent: rec.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Point spread', value: { label: 'Intensity', unit: 'relative' } };
+      if (opts && opts.log) props.scale = 'log';
       return props;
     },
     /* wavefront(recording) -> the typed map2D props (without `el`): the recorded WavefrontError as polar samples on the ember map

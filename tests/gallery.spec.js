@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // The gallery's tile count.
-const TILES = 28;
+const TILES = 26;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -245,18 +245,18 @@ test('standalone layout entry', async ({ page }) => {
 });
 
 // Plan #389, #395: the recorded Cooke PSF tile draws the typed map from tests/fixtures/phos-core/cooke-psf.json.
-// oracle: fixture, 192 x 192 grid, one <image> of that size in the tile.
+// oracle: fixture, 192 x 192 grid, an <image> of that size and the colorbar's in the tile (#694).
 test('recorded PSF tile draws', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
     const got = await page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-recorded"]`).evaluate(async (el) => {
       const svg = el.querySelector('svg'), imgs = svg ? svg.querySelectorAll('image') : [];
-      if (imgs.length !== 1) return { n: imgs.length };
+      if (imgs.length !== 2) return { n: imgs.length };
       const bitmap = await createImageBitmap(await (await fetch(imgs[0].getAttribute('href'))).blob());
-      return { n: 1, w: bitmap.width, h: bitmap.height };
+      return { n: 2, w: bitmap.width, h: bitmap.height };
     });
-    expect(got, `${theme} recorded PSF image`).toEqual({ n: 1, w: 192, h: 192 });
+    expect(got, `${theme} recorded PSF image`).toEqual({ n: 2, w: 192, h: 192 });
   }
 });
 
@@ -350,22 +350,19 @@ test('gaussian irradiance tile draws', async ({ page }) => {
   }
 });
 
-// Maps take their colors from the theme column: stop 0 of the ember map is the plot ground, near white in light, near black in dark.
+// The typed map takes its colors from the theme column: stop 0 of the ember map is the plot ground, near white in light, near black in dark.
 // oracle: spec tokens.css --plot-ground per theme, through ELEO.colormap; the recorded PSF's corner is 1e-5 of its peak, so step 0.
 test('maps follow their theme', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  const canvas = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-canvas="psf"]`).evaluate((c) => [...c.getContext('2d').getImageData(1, 1, 1, 1).data.slice(0, 3)]);
-  const typed = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-recorded"] image`).evaluate(async (img) => {
+  const typed = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-recorded"] image`).first().evaluate(async (img) => {
     const bitmap = await createImageBitmap(await (await fetch(img.getAttribute('href'))).blob());
     const c = new OffscreenCanvas(bitmap.width, bitmap.height), g = c.getContext('2d');
     g.drawImage(bitmap, 0, 0);
     return [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)];
   });
-  for (const read of [canvas, typed]) {
-    expect((await read('light')).every((v) => v > 230)).toBe(true);
-    expect((await read('dark')).every((v) => v < 40)).toBe(true);
-  }
+  expect((await typed('light')).every((v) => v > 230)).toBe(true);
+  expect((await typed('dark')).every((v) => v < 40)).toBe(true);
 });
 
 // O2 (plan #4): the selected segment is marked in glass, not amber. oracle: user ELEO design system, one amber accent per view.
@@ -691,7 +688,7 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const wide = await at(1440), narrow = await at(700, wide);
-  expect(wide.length).toBeGreaterThanOrEqual(8);
+  expect(wide.length, 'airy and layout3D, in two themes').toBe(4);
   wide.forEach((c, i) => {
     expect(c.backing, `${c.id} redrawn`).not.toBe(narrow[i].backing);
     if (!c.id.startsWith('layout3D')) expect(Math.abs(c.renderedH - c.rendered), `${c.id} square`).toBeLessThanOrEqual(1);
@@ -873,5 +870,25 @@ test.skip('layout3D rays over the image plane', async ({ page }) => {
     expect(r.bare, `${theme} the plane is drawn`).toBeGreaterThan(0);
     expect(r.outside, `${theme} --mech pixels with rays that the bare plane lacks`).toBe(0);
     expect(r.withRays, `${theme} rays cover part of the plane`).toBeLessThan(r.bare);
+  }
+});
+
+// Plan #677 M3, #694: the sample canvas psf and wavefront tiles are gone; the linear recorded PSF has a colorbar labelled "Intensity, relative"; one map tile shows the `grid` option.
+// oracle: spec (user, round 1: drop the two tiles; the log tile's colorbar is the model for the linear one); the explicit grid draws its minor lines in the map's minor token, which a default grid never draws.
+test('map tiles', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const col = page.locator(`.theme[data-theme="${theme}"]`);
+    await expect(col.locator('[data-tile="psf"], [data-tile="wavefront"], [data-canvas="psf"], [data-canvas="wavefront"]'), `${theme} sample canvas map tiles`).toHaveCount(0);
+    const tile = (name) => col.locator(`[data-tile="${name}"]`).evaluate((el) => {
+      const svg = el.querySelector('svg');
+      return { images: svg.querySelectorAll('image').length, text: svg.textContent, minors: svg.querySelectorAll('line[stroke$="-minor)"]').length };
+    });
+    const lin = await tile('psf-recorded');
+    expect(lin.images, `${theme} linear PSF image and colorbar`).toBe(2);
+    expect(lin.text, `${theme} linear PSF colorbar label`).toContain('Intensity, relative');
+    expect((await tile('psf-log')).minors, `${theme} a default grid has no minor lines`).toBe(0);
+    expect((await tile('irradiance-gaussian')).minors, `${theme} the grid demo draws minor lines`).toBeGreaterThan(0);
   }
 });
