@@ -95,7 +95,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 Each item unskips its own acceptance case (the commit hook refuses a source change with no test; plan [#512], CR [#593]),
 so no milestone ends with an empty unskip item.
 
-### M1: recorded status drawn, `show`, the Cassegrain tile GitHub: `P642 M1: Status per point`
+### M1: recorded status drawn, `show`, the Cassegrain tile (done 2026-11-06) GitHub: `P642 M1: Status per point`
 
 Demo: `npm run gallery`; the Wandersleb and Cassegrain tiles drawn from recorded `status` (unchanged to the eye), the new
 Cassegrain tile with `show: ["Alive", "Virtual"]` (no obscured rays), both themes and palettes; a review image of the
@@ -155,6 +155,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-06 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog [#662] (a test guard anchors on the first ray group), not pulled in: the code is correct and the demo waits on it; CR [#660] resolved; M1 ticked again. Awaiting the user's M1 demo.
 - 2026-11-06 M1 demo 2 (user): no-go. "The rays segments should be displayed in the style that corresponds to their status": rays vignetted by the secondary or missing the primary "shown alive up to that intersection, then shown in their Dead or Virtual status". CR [#663] accepted, item [#664]; O1 reworded (a segment takes its start point's status, with `status` only); M1 unticked.
 - 2026-11-06 review M1 round 4 (code-reviewer, claude-opus-5-5): 1 blocking, CR [#665] accepted (roadmap U17 states the end-point rule), item [#666]; CRs [#660] and [#663] resolved.
+- 2026-11-06 review M1 round 5 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; CR [#665] resolved; M1 ticked again. Awaiting the user's M1 demo 3.
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
