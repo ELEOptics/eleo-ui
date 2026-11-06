@@ -191,6 +191,9 @@ export function layout2D(o) {
     if (!Array.isArray(pts) || pts.length !== L.rays[k][i].length) throw new Error("layout2D: status[" + k + "][" + i + "] needs one status per point (" + L.rays[k][i].length + ")");
     pts.forEach(function (st, j) { if (st !== "Alive" && st !== "Virtual" && st !== "Dead") throw new Error("layout2D: status[" + k + "][" + i + "][" + j + "] is not Alive, Virtual or Dead"); });
   });
+  // `show`: the statuses drawn, default all three; bounds, the transform and mirror bodies read every point whatever it says.
+  var show = o.show == null ? ["Alive", "Virtual", "Dead"] : o.show;
+  if (!Array.isArray(show) || show.some(function (x) { return x !== "Alive" && x !== "Virtual" && x !== "Dead"; })) throw new Error("layout2D: show must be an array of Alive, Virtual or Dead");
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
@@ -250,11 +253,13 @@ export function layout2D(o) {
       var r = rays[i], st = statusOf(L, k, i), end = st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead"), runs = [];
       for (var j = 1; j <= end; j++) {
         var last = runs[runs.length - 1], virt = st[j] === "Virtual";
+        if (show.indexOf(st[j]) < 0) { runs.push(null); continue; } // a hidden segment is a gap: no run continues over it
         if (last && (L.status ? last.st === st[j] : last.virt === virt)) last.q.push(r[j]);
         else runs.push({ st: st[j], virt: virt, q: [r[j - 1], r[j]] });
       }
       // Without `status` the legacy head stays: a lone solid point before the dots, or a ray with no segment. With it a run needs a segment.
-      if (!L.status && st[0] !== "Virtual" && (!runs.length || runs[0].virt)) runs.unshift({ st: st[0], virt: false, q: [r[0]] });
+      runs = runs.filter(Boolean);
+      if (!L.status && st[0] !== "Virtual" && show.indexOf(st[0]) >= 0 && (!runs.length || runs[0].virt)) runs.unshift({ st: st[0], virt: false, q: [r[0]] });
       runs.forEach(function (u) {
         var dash = u.virt ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
         g += '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + " " + NS + "/>";

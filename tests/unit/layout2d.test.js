@@ -1179,7 +1179,7 @@ test('recorded ray status per point (U17)', () => {
   }
 });
 
-test('show hides a status (U17)', { skip: '#643' }, () => {
+test('show hides a status (U17)', () => {
   for (const L of RECORDINGS) for (const width of [1000, 600]) {
     const all = ELEO.layout2D({ data: L, rays: 'fan', width }), full = statusPolylines(all);
     assert.ok(full.length > 0, 'the drawing carries data-status polylines');
@@ -1209,4 +1209,16 @@ test('status is validated', () => {
   for (const v of ['ALIVE', 'Missed', 3, null]) {
     assert.throws(() => bad(at((r) => r.map((s, j) => j === p ? v : s))), { message: `layout2D: status[${f}][${i}][${p}] is not Alive, Virtual or Dead` });
   }
+});
+
+// Plan #642, issue #649: show is validated, and on a legacy dead ray Dead hidden draws r[0..a). oracle: spec: segment j takes point j's status; the ray stops at its first Dead point.
+test('show is validated and hides a legacy dead ray (U17)', () => {
+  const L = fixture('tolerance');
+  for (const show of ['Alive', ['alive'], [3], ['Missed']]) assert.throws(() => ELEO.layout2D({ data: L, show }), { message: 'layout2D: show must be an array of Alive, Virtual or Dead' });
+  const legacy = { ...L, rays: [[[[0, 0], [1, 0], [2, 1], [3, 1]]]], alive: [[2]], dead: [[true]], chief: [0] };
+  const at = (show) => drawn(ELEO.layout2D({ data: legacy, rays: 'fan', show })).polylines.map((a) => pairs(a.points));
+  assert.equal(at(['Alive', 'Virtual']).length, 1);
+  assert.deepEqual(at(['Alive', 'Virtual'])[0], [[0, 0], [1, 0]], 'r[0..a) is drawn');
+  assert.equal(at(['Alive', 'Virtual', 'Dead'])[0].length, 3, 'with Dead shown the ray runs through its blocking point');
+  assert.equal(at([]).length, 0);
 });
