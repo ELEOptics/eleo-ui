@@ -118,6 +118,43 @@ function drawn(svg) {
   const outside = svg.replace(body, '');
   return { M, body, polygons: tags('polygon', body), lines: tags('line', body), polylines: tags('polyline', body), dots: tags('circle', outside) };
 }
+// Plan #642, issue #368: the runs one ray draws, as {pts, dotted, status?}. With `status`, segment j (point j-1 to j)
+// takes point j-1's status (CR #663), the ray is drawn to its last point (CR #660), and adjacent segments of one status are one run.
+// Without it, the legacy rule: alive a splits a ray into a solid head [0, a) and a dotted tail [max(a - 1, 0), len);
+// a dead ray is one solid polyline through point a. `join` merges adjacent solid runs (Alive and Dead), as a drawing
+// with no data-status does.
+function expectedRuns(L, k, i, join) {
+  const ray = L.rays[k][i];
+  if (!L.status) {
+    const a = L.alive ? L.alive[k][i] : ray.length;
+    if (L.dead && L.dead[k][i]) return [{ pts: ray.slice(0, a + 1), dotted: false }];
+    return [...(a > 0 ? [{ pts: ray.slice(0, a), dotted: false }] : []), ...(a < ray.length ? [{ pts: ray.slice(Math.max(a - 1, 0)), dotted: true }] : [])];
+  }
+  const st = L.status[k][i], runs = [];
+  for (let j = 1; j < ray.length; j++) {
+    const last = runs[runs.length - 1], dotted = st[j - 1] === 'Virtual';
+    if (last && (join ? last.dotted === dotted : last.status === st[j - 1])) last.pts.push(ray[j]);
+    else runs.push({ status: st[j - 1], dotted, pts: [ray[j - 1], ray[j]] });
+  }
+  return runs;
+}
+// Every ray's runs recovered from `parts` ({pts, dotted, status?}, in mm): each expected run is one part, and every part
+// is some ray's run. Returns the number of parts claimed and the (field, ray) of each ray with a dotted run, and each run's match (k, i, run, part).
+function statusRoundTrip(L, parts, tag) {
+  const join = !parts.some((p) => p.status), tails = [], matches = [];
+  let claimed = 0;
+  L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
+    const runs = expectedRuns(L, k, i, join), where = `${tag} field ${k} ray ${i} (len=${ray.length})`;
+    for (const run of runs) {
+      const part = parts.find((p) => p.dotted === run.dotted && (!p.status || p.status === run.status) && samePathFrom1(p.pts, run.pts));
+      assert.ok(part, `${where}: a ${run.dotted ? 'dotted' : 'solid'}${run.status ? ' ' + run.status : ''} part recovers points ${ray.indexOf(run.pts[0])}..${ray.indexOf(run.pts.at(-1))}`);
+      matches.push({ k, i, run, part });
+      claimed++;
+      if (run.dotted) tails.push({ k, i });
+    }
+  }));
+  return { claimed, tails, matches };
+}
 const vertical = (a) => a.x1 === a.x2 && a.y1 !== a.y2;
 const image = (L) => L.surfaces.find((s) => s.image).z;
 // CR #48: dash arrays stay in px. Under non-scaling-stroke the browser applies them in screen space
@@ -559,6 +596,22 @@ test('marks off', () => {
   }
 });
 
+// Plan #642, #160: a box that crops y below the chief ends must not push a field label above the SVG.
+// oracle: property every label baseline is at least 1 em (10 px at u = 1) below the top, as `above()` keeps STO; the issue's evidence (merit-before, ylo/yhi / 4)
+test('labels stay inside a cropping box (#160)', () => {
+  const L = fixture('merit-before'), b = layoutBounds([L]);
+  const box = { ...b, ylo: b.ylo / 4, yhi: b.yhi / 4 };
+  const labels = ['0°', '12°', '24°'];
+  const svg = ELEO.layout2D({ data: L, labels, box });
+  const T = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+  const u = T_OF(1000) / 10;
+  labels.forEach((label) => {
+    const t = T.find((x) => x.text === label);
+    assert.ok(t, `label ${label} is drawn`);
+    assert.ok(+t.y >= 10 * u - 0.01, `label ${label} baseline ${t.y} is at least 1 em below the top`);
+  });
+});
+
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
 // Plan #30, #63: review M2 finding 3. The label room above the geometry is the box's alone, so a pinned box
 // gives one transform whatever the layouts' stops reach.
@@ -674,6 +727,21 @@ test('layoutBounds names a bad input: a non-finite point, a surface with no prof
   const noImageProfile = { ...L, surfaces: L.surfaces.map((s) => (s.image ? { ...s, profile: undefined } : s)) };
   assert.deepEqual(layoutBounds([noImageProfile]), layoutBounds([L]), 'an image surface needs no profile');
   assert.doesNotThrow(() => ELEO.layout2D({ data: noImageProfile }), 'layout2D draws an image surface with no profile');
+  // #138: a glass before an image with no profile makes the lens polygon read that profile, so layout2D names the image, boxed and unboxed.
+  const im = L.surfaces.findIndex((s) => s.image);
+  const glassToImage = { ...L, surfaces: L.surfaces.map((s, k) => (k === im - 1 ? { ...s, glass: 'crown' } : k === im ? { ...s, profile: undefined } : s)) };
+  for (const box of [undefined, layoutBounds([L])]) {
+    assert.throws(() => ELEO.layout2D({ data: glassToImage, box }),
+      { message: `layout2D: surface ${im} has no profile` }, `glass before image, box ${JSON.stringify(box)}`);
+  }
+  // Plan #642, #670 (review M2 round 1 finding 4): an empty or non-finite image profile is named too, not drawn as NaN or a front-only polygon.
+  for (const [profile, tail] of [[[], ' has no profile'], [[[NaN, 1], [0, 2]], ' has a profile with a non-finite point']]) {
+    const badImage = { ...L, surfaces: glassToImage.surfaces.map((s, k) => (k === im ? { ...s, profile } : s)) };
+    for (const box of [undefined, layoutBounds([L])]) {
+      assert.throws(() => ELEO.layout2D({ data: badImage, box }),
+        { message: `layout2D: surface ${im}${tail}` }, `image profile ${JSON.stringify(profile)}, box ${JSON.stringify(box)}`);
+    }
+  }
 });
 
 // Plan #90, O3, #60: a glass is null, "crown", "flint" or {name, nd, vd} (a string name, finite nd and vd). Anything
@@ -826,32 +894,13 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
     const svg = ELEO.layout2D({ data: L, rays: 'fan', width });
     const { M, polygons, polylines } = drawn(svg);
     inverse(M); // the geometry group's matrix is the pixel transform; its points are already mm
-    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3' }));
-    const solid = parts.filter((p) => !p.dotted), dotted = parts.filter((p) => p.dotted);
-    let tails = 0, tails28 = 0, claimed = 0;
+    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', status: a['data-status'] }));
     L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
-      const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
-      assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `${tag}: alive in 0..len`);
-      if (L.dead[k][i]) {
-        // CR #372: a dead ray is one solid polyline through its blocking point, no dotted part.
-        assert.ok(solid.some((p) => samePathFrom1(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
-        assert.ok(!dotted.some((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
-        claimed++;
-        return;
-      }
-      const head = a > 0 ? solid.find((p) => samePathFrom1(p.pts, ray.slice(0, a))) : undefined;
-      const tail = a < ray.length ? dotted.find((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
-      if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
-      else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
-      if (a > 0 && a < ray.length) {
-        assert.ok(head, `${tag}: a solid part recovers points 0..a`);
-        assert.ok(near(head.pts[head.pts.length - 1], tail.pts[0]), `${tag}: the parts share the last alive point`);
-        if (a > 1) assert.ok(near(tail.pts[0], ray[a - 1]), `${tag}: the shared point is point a - 1`);
-      }
-      if (a === 0) assert.ok(!solid.some((p) => samePathFrom1(p.pts, ray)), `${tag}: no solid polyline at a = 0`);
-      claimed += (head ? 1 : 0) + (tail ? 1 : 0);
-      if (tail) { tails++; if (k === L.rays.length - 1) tails28++; }
+      const a = L.alive[k][i];
+      assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `width ${width} field ${k} ray ${i}: alive in 0..len`);
     }));
+    const { claimed, tails: tailed } = statusRoundTrip(L, parts, `width ${width}`);
+    const tails = tailed.length, tails28 = tailed.filter((t) => t.k === L.rays.length - 1).length;
     assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray's solid or dotted part`);
     assert.ok(tails > 0, `width ${width}: some ray has a dotted part`);
     assert.ok(tails28 > 0, `width ${width}: a 28° ray has a dotted part`);
@@ -1021,30 +1070,12 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
     const { M, body, polygons, polylines } = drawn(svg);
     inverse(M);
     const under = (m) => m.index < body.indexOf('<g opacity') || m.index > body.indexOf('</g>', body.indexOf('<g opacity')); // not a ray; bodies follow the ray group (CR #381)
-    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke }));
-    const solid = parts.filter((p) => !p.dotted && p.pts.length > 0), dotted = parts.filter((p) => p.dotted);
-    let claimed = 0;
-    L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
-      const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
-      if (L.dead[k][i]) {
-        // CR #372: a dead ray is one solid polyline through its blocking point, no dotted part.
-        assert.ok(solid.some((p) => samePathFrom1(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
-        assert.ok(!dotted.some((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
-        claimed++;
-        return;
-      }
-      const head = a > 0 ? solid.find((p) => samePathFrom1(p.pts, ray.slice(0, a))) : undefined;
-      const tail = a < ray.length ? dotted.find((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
-      if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
-      else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
-      if (a > 0 && a < ray.length) {
-        assert.ok(head, `${tag}: a solid part recovers points 0..a`);
-        assert.ok(near(head.pts.at(-1), tail.pts[0]), `${tag}: the parts share the last alive point`);
-      }
-      claimed += (head ? 1 : 0) + (tail ? 1 : 0);
-    }));
+    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke, status: a['data-status'] }));
+    const { claimed } = statusRoundTrip(L, parts, `width ${width}`);
     const chief = L.rays[0][L.chief[0]], ca = L.alive[0][L.chief[0]];
-    assert.ok(polylines.some((a) => samePathFrom1(pairs(a.points), chief.slice(0, ca + 1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed polyline through point a`);
+    // CR #663: the chief's first segment (to the obscuration) is an Alive 6 4 polyline, the rest one Dead 6 4 run to its last point.
+    assert.ok(polylines.some((a) => a['data-status'] === 'Alive' && samePathFrom1(pairs(a.points), chief.slice(0, 2)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief's first segment is a 6 4 dashed Alive polyline (CR #663)`);
+    assert.ok(polylines.some((a) => a['data-status'] === 'Dead' && samePathFrom1(pairs(a.points), chief.slice(1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the rest of the dead chief is one 6 4 dashed Dead polyline to its last point (CR #660)`);
     assert.ok(chief.some((p, j) => j > 0 && p[0] > chief[j - 1][0]) && chief.some((p, j) => j > 0 && p[0] < chief[j - 1][0]),
       'the chief path reverses in z (folded)');
     assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray part`);
@@ -1075,12 +1106,19 @@ const fanDir = (fan) => {
   const ds = fan.map((r) => unit(r[0], r[1]));
   return ds.length && ds.every((e) => Math.abs(ds[0][0] * e[1] - ds[0][1] * e[0]) < 1e-3 && ds[0][0] * e[0] + ds[0][1] * e[1] > 0) ? ds[0] : null;
 };
-// Every ray's first drawn point, read in drawing order (a ray is one polyline, or two when it is split at its alive count and not dead).
+// Every ray's first drawn point, read in drawing order (a ray is the runs expectedRuns gives it).
 function drawnStarts(L, polylines) {
   let n = 0;
+  const join = !polylines.some((a) => a['data-status']);
+  // With status the Virtual and Dead runs are drawn first, in the faded group, then the Alive ones: two queues, each in ray order.
+  const queue = { faded: polylines.filter((a) => join || a['data-status'] !== 'Alive'), alive: polylines.filter((a) => !join && a['data-status'] === 'Alive') }, took = { faded: 0, alive: 0 };
   const out = L.rays.map((fan, k) => fan.map((ray, i) => {
-    const a = L.alive ? L.alive[k][i] : ray.length, first = pairs(polylines[n].points)[0];
-    n += L.dead && L.dead[k][i] ? 1 : (a > 0 ? 1 : 0) + (a < ray.length ? 1 : 0);
+    let first;
+    for (const run of expectedRuns(L, k, i, join)) {
+      const q = join || run.status !== 'Alive' ? 'faded' : 'alive', a = queue[q][took[q]++];
+      first ??= pairs(a.points)[0];
+      n++;
+    }
     return first;
   }));
   assert.equal(n, polylines.length, 'every polyline is a ray part');
@@ -1089,7 +1127,13 @@ function drawnStarts(L, polylines) {
 function arcProperties(L, svg, tag) {
   const { body, polygons, polylines } = drawn(svg);
   const starts = drawnStarts(L, polylines);
-  const dirs = L.rays.map(fanDir);
+  // Review #385: a collimated fan is two or more rays with a common direction; a one-ray fan keeps its start.
+  const dirs = L.rays.map((fan) => (fan.length >= 2 ? fanDir(fan) : null));
+  const flat = L.surfaces.filter((s) => !s.image);
+  if (!flat.length) { // nothing to clear: the starts stay and there is no arc
+    L.rays.forEach((fan, k) => fan.forEach((r, i) => assert.deepEqual(starts[k][i], r[0].map((v) => +v.toFixed(3)), `${tag}: fan ${k} ray ${i} keeps its start (no non-image surface)`)));
+    return { c: null, R: null };
+  }
   const chiefs = L.rays.map((fan, k) => fan[L.chief ? L.chief[k] : Math.floor(fan.length / 2)]);
   const cross = dirs.map((d, k) => { const e = d && unit(chiefs[k][0], chiefs[k][1]); return e && Math.abs(e[1]) > 1e-9 ? chiefs[k][0][0] - chiefs[k][0][1] * e[0] / e[1] : null; }).filter((z) => z !== null);
   const c = [cross.length ? cross.reduce((a, b) => a + b) / cross.length : L.surfaces[0].z, 0];
@@ -1148,4 +1192,107 @@ test('collimated rays start on a pupil-centred arc', () => {
   // Review r7 f3: collimation is decided over the layout; one-ray fans of a finite object keep their starts.
   const finite = { surfaces, rays: [[[[-20, 0], [0, 0], [9, 0]]], [[[-20, 2], [0, 0], [9, -1]]]] };
   assert.deepEqual(drawnStarts(finite, drawn(ELEO.layout2D({ data: finite, rays: 'fan' })).polylines), [[[-20, 0]], [[-20, 2]]]);
+});
+
+// Plan #642 (agent_docs/plans/642-ray-visibility.md), outcomes O1 and O2 (issue #643; #648 and #649 unskip).
+// oracle: fixture the Wandersleb and Cassegrain layouts re-recorded by scripts/record-phos-core.py at the fixtures' pinned phos-core sha, with each kept point's status (roadmap U17)
+const STATUSES = ['Alive', 'Virtual', 'Dead'];
+const RECORDINGS = ['wandersleb', 'cassegrain'].map((n) => JSON.parse(readFileSync(new URL(`../fixtures/phos-core/${n}-layout.json`, import.meta.url))));
+// Polylines carrying a status, as mm point lists with the drawing's dash.
+function statusPolylines(svg) {
+  const { polylines } = drawn(svg); // the geometry group's points are already mm
+  return polylines.filter((a) => a['data-status']).map((a) => ({ status: a['data-status'], dash: a['stroke-dasharray'], pts: pairs(a.points) }));
+}
+
+test('recorded ray status per point (U17)', () => {
+  for (const L of RECORDINGS) for (const width of [1000, 600]) {
+    assert.ok(Array.isArray(L.status), 'the recording carries status per point');
+    const got = statusPolylines(ELEO.layout2D({ data: L, rays: 'fan', width }));
+    const parts = got.map((p) => ({ ...p, dotted: p.dash === '1 3' }));
+    const { claimed, matches } = statusRoundTrip(L, parts, `width ${width}`);
+    for (const { k, i, run, part } of matches) {
+      if (run.status === 'Virtual') assert.equal(part.dash, '1 3', 'Virtual is dotted');
+      else if (i !== L.chief[k]) assert.ok(!part.dash, `${run.status} is solid`);
+    }
+    assert.equal(got.length, claimed, `width ${width}: every status polyline is some ray's run`);
+    // CR #663: a ray recorded Alive then Dead draws its first segment, up to the obstruction, as an Alive polyline.
+    L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
+      const st = L.status[k][i];
+      if (st[0] !== 'Alive' || st[1] === 'Alive' || !st.includes('Dead')) return;
+      const first = matches.find((m) => m.k === k && m.i === i);
+      assert.equal(first.part.status, 'Alive', `width ${width} field ${k} ray ${i}: the first segment is Alive`);
+    }));
+    // CR #660: Virtual and Dead runs sit in one faded group before the Alive group; Alive runs are in the .85 group.
+    const svg = ELEO.layout2D({ data: L, rays: 'fan', width }), faded = svg.match(/<g opacity="\.35">(.*?)<\/g>/s), live = svg.match(/<g opacity="\.85">(.*?)<\/g>/s);
+    assert.ok(faded && live && faded.index < live.index, 'the faded group comes before the .85 group');
+    const inG = (m) => [...m[0].matchAll(/<polyline\b[^>]*data-status="(\w+)"/g)].map((x) => x[1]);
+    assert.ok(inG(faded).length > 0 && inG(faded).every((s) => s === 'Virtual' || s === 'Dead') && inG(faded).includes('Dead'), 'only Virtual and Dead (and some Dead) are faded');
+    assert.ok(inG(live).length > 0 && inG(live).every((s) => s === 'Alive'), 'only Alive is in the .85 group');
+    assert.equal(inG(faded).length + inG(live).length, got.length, 'every status polyline is in one of the two groups');
+  }
+});
+
+test('show hides a status (U17)', () => {
+  for (const L of RECORDINGS) for (const width of [1000, 600]) {
+    const all = ELEO.layout2D({ data: L, rays: 'fan', width }), full = statusPolylines(all);
+    assert.ok(full.length > 0, 'the drawing carries data-status polylines');
+    for (const hidden of STATUSES) {
+      const show = STATUSES.filter((s) => s !== hidden), svg = ELEO.layout2D({ data: L, rays: 'fan', width, show });
+      const got = statusPolylines(svg);
+      assert.equal(got.filter((p) => p.status === hidden).length, 0, `width ${width}: ${hidden} draws no polyline`);
+      assert.deepEqual(got, full.filter((p) => p.status !== hidden), `width ${width}: the others are as with every status shown`);
+      assert.equal(drawn(svg).M.join(' '), drawn(all).M.join(' '), 'the transform does not reflow');
+      assert.equal(svg.match(/viewBox="[^"]*"/)[0], all.match(/viewBox="[^"]*"/)[0], 'the viewBox does not reflow');
+    }
+  }
+});
+
+// Plan #642, outcome O1, issue #647: layout2D names each status shape error. oracle: spec: one array per fan, per ray, per point, each Alive, Virtual or Dead.
+test('status is validated', () => {
+  const L = fixture('tolerance'), ok = L.rays.map((fan) => fan.map((r) => r.map(() => 'Alive')));
+  const bad = (status) => ELEO.layout2D({ data: { ...L, status } });
+  assert.doesNotThrow(() => bad(ok), 'a well-shaped status draws');
+  const f = L.rays.findIndex((fan) => fan.length > 1), i = 1, p = 0;
+  const at = (v) => ok.map((fan, k) => k !== f ? fan : fan.map((r, j) => j !== i ? r : v(r)));
+  assert.throws(() => bad('Alive'), { message: `layout2D: status needs one array per fan (${L.rays.length})` });
+  assert.throws(() => bad(ok.slice(1)), { message: `layout2D: status needs one array per fan (${L.rays.length})` });
+  assert.throws(() => bad(ok.map((fan, k) => k === f ? fan.slice(1) : fan)), { message: `layout2D: status[${f}] needs one array per ray of fan ${f} (${L.rays[f].length})` });
+  assert.throws(() => bad(at(() => 'Alive')), { message: `layout2D: status[${f}][${i}] needs one status per point (${L.rays[f][i].length})` });
+  assert.throws(() => bad(at((r) => r.slice(1))), { message: `layout2D: status[${f}][${i}] needs one status per point (${L.rays[f][i].length})` });
+  for (const v of ['ALIVE', 'Missed', 3, null]) {
+    assert.throws(() => bad(at((r) => r.map((s, j) => j === p ? v : s))), { message: `layout2D: status[${f}][${i}][${p}] is not Alive, Virtual or Dead` });
+  }
+});
+
+// Plan #642, issue #658: alive and dead are ignored when status is present. oracle: spec: README and index.d.ts, "ignored when `status` is present".
+test('alive and dead are ignored when status is present', () => {
+  const L = fixture('tolerance'), status = L.rays.map((fan) => fan.map((r) => r.map(() => 'Alive')));
+  const base = ELEO.layout2D({ data: { ...L, status } });
+  assert.equal(ELEO.layout2D({ data: { ...L, status, alive: [[99]] } }), base, 'a malformed alive beside status draws from status');
+  assert.equal(ELEO.layout2D({ data: { ...L, status, dead: 'x' } }), base, 'a malformed dead beside status draws from status');
+  assert.throws(() => ELEO.layout2D({ data: { ...L, alive: [[99]] } }), { message: /^layout2D: alive/ }, 'without status alive is still validated');
+});
+
+// Plan #642, issue #649: show is validated, and on a legacy dead ray Dead hidden draws r[0..a). oracle: spec: segment j takes point j's status; the ray stops at its first Dead point.
+test('show is validated and hides a legacy dead ray (U17)', () => {
+  const L = fixture('tolerance');
+  for (const show of ['Alive', ['alive'], [3], ['Missed']]) assert.throws(() => ELEO.layout2D({ data: L, show }), { message: 'layout2D: show must be an array of Alive, Virtual or Dead' });
+  const legacy = { ...L, rays: [[[[0, 0], [1, 0], [2, 1], [3, 1]]]], alive: [[2]], dead: [[true]], chief: [0] };
+  const at = (show) => drawn(ELEO.layout2D({ data: legacy, rays: 'fan', show })).polylines.map((a) => pairs(a.points));
+  assert.equal(at(['Alive', 'Virtual']).length, 1);
+  assert.deepEqual(at(['Alive', 'Virtual'])[0], [[0, 0], [1, 0]], 'r[0..a) is drawn');
+  assert.equal(at(['Alive', 'Virtual', 'Dead'])[0].length, 3, 'with Dead shown the ray runs through its blocking point');
+  assert.equal(at([]).length, 0);
+});
+
+// Plan #642, issue #657: O3/U17: a legacy one-point ray with alive 0 draws its dotted point, as before #648.
+test('a one-point ray with alive 0 draws its dotted point (O3)', () => {
+  const L = { ...fixture('tolerance'), rays: [[[[0, 0]]]], alive: [[0]], chief: [0] };
+  delete L.dead;
+  const got = drawn(ELEO.layout2D({ data: L, rays: 'fan' })).polylines;
+  assert.equal(got.length, 1);
+  assert.equal(got[0]['stroke-dasharray'], '1 3');
+  assert.equal(pairs(got[0].points).length, 1);
+  const hidden = drawn(ELEO.layout2D({ data: L, rays: 'fan', show: ['Alive', 'Dead'] })).polylines;
+  assert.equal(hidden.length, 0, 'Virtual hidden draws nothing');
 });

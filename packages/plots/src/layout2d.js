@@ -34,15 +34,25 @@ function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i
 // A lens stop reaches its profile edge, |profile[0][1]| (layoutBounds' rule), so its label clears the glass.
 function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : Math.abs(S[i].profile[0][1]); }
 
+// The status of each point of rays[k][i], "Alive", "Virtual" or "Dead": `status` when present, else Alive below `alive`, Virtual from it, and with `dead`
+// Dead at the blocking point; every point Alive with neither. null where the layout's shape does not reach this ray (layoutBounds runs unvalidated).
+function statusOf(L, k, i) {
+  var r = L.rays[k][i];
+  if (L.status != null) { var s = L.status[k] && L.status[k][i]; return Array.isArray(s) ? s : null; }
+  if (L.alive == null) return r.map(function () { return "Alive"; });
+  var a = L.alive[k] && L.alive[k][i], d = L.dead && L.dead[k] && L.dead[k][i];
+  return a == null ? null : r.map(function (_, j) { return d && j === a ? "Dead" : j < a ? "Alive" : "Virtual"; });
+}
 // A mirror's body: the profile plus a flat back D/8 (sd/4) behind its far z, on the side away from the light, with |y| < hole left open.
 // The light's way is the ray's step from its point at surface i to its point at surface i + 1 (rays carry one point per surface after their start;
 // a mirror with no next point takes its incoming step), from a ray alive past the mirror before any ray. A polygon per side of the hole, or one.
 function mirrorBodies(L, i) {
   var a = L.surfaces[i], t = a.sd / 4, dir = 0, h = a.hole > 0 ? a.hole : 0;
-  // A ray alive past the mirror first (alive plus its blocking point, if dead, >= i + 3; or no `alive`): a dead ray's dotted tail may run any way.
+  // A ray alive past the mirror first (its point i + 2 drawn and not Virtual): a virtual tail may run any way.
   [true, false].forEach(function (strict) { L.rays.forEach(function (fan, k) { fan.forEach(function (r, j) {
-    if (dir || (L.alive && !(L.alive[k] && L.alive[k][j] != null))) return;
-    if (strict && L.alive && !(L.alive[k][j] + (L.dead && L.dead[k] && L.dead[k][j] ? 1 : 0) >= i + 3)) return;
+    var st = dir ? null : statusOf(L, k, j);
+    if (dir || !st) return;
+    if (strict && (st[i + 2] === "Virtual" || (st.indexOf("Dead") >= 0 && st.indexOf("Dead") < i + 2))) return;
     if (r[i + 2]) dir = Math.sign(r[i + 2][0] - r[i + 1][0]);
     else if (!strict && r[i + 1] && !L.surfaces[i + 1]) dir = -Math.sign(r[i + 1][0] - r[i][0]);
   }); }); });
@@ -155,30 +165,41 @@ export function layout2D(o) {
     });
   });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
-  // `alive[k][i]`: the number of leading alive points of rays[k][i], an integer in 0..len; absent means all.
-  if (L.alive != null) {
-    if (!Array.isArray(L.alive) || L.alive.length !== L.rays.length) throw new Error("layout2D: alive needs one array per fan (" + L.rays.length + ")");
-    L.alive.forEach(function (row, k) {
-      if (!Array.isArray(row) || row.length !== L.rays[k].length) throw new Error("layout2D: alive[" + k + "] needs one count per ray of fan " + k + " (" + L.rays[k].length + ")");
-      row.forEach(function (a, i) { if (!Number.isInteger(a) || a < 0 || a > L.rays[k][i].length) throw new Error("layout2D: alive[" + k + "][" + i + "] is not an integer in 0.." + L.rays[k][i].length); });
+  // One shape walk for alive, dead and status: one array per fan, one `what` per ray of each; `check(value, k, i)` is the leaf check.
+  function perRay(name, what, check) {
+    var v = L[name];
+    if (!Array.isArray(v) || v.length !== L.rays.length) throw new Error("layout2D: " + name + " needs one array per fan (" + L.rays.length + ")");
+    v.forEach(function (row, k) {
+      if (!Array.isArray(row) || row.length !== L.rays[k].length) throw new Error("layout2D: " + name + "[" + k + "] needs one " + what + " per ray of fan " + k + " (" + L.rays[k].length + ")");
+      row.forEach(function (x, i) { check(x, k, i); });
     });
   }
+  // `alive[k][i]`: the number of leading alive points of rays[k][i], an integer in 0..len; absent means all; not validated when `status` is present.
+  if (L.status == null && L.alive != null) perRay("alive", "count", function (a, k, i) {
+    if (!Number.isInteger(a) || a < 0 || a > L.rays[k][i].length) throw new Error("layout2D: alive[" + k + "][" + i + "] is not an integer in 0.." + L.rays[k][i].length);
+  });
   // `dead[k][i]`: true where ray i of fan k was blocked at point a = alive[k][i] (< len); it is drawn solid through that point, no dotted part.
-  if (L.dead != null) {
+  if (L.status == null && L.dead != null) {
     if (L.alive == null) throw new Error("layout2D: dead comes only with alive");
-    if (!Array.isArray(L.dead) || L.dead.length !== L.rays.length) throw new Error("layout2D: dead needs one array per fan (" + L.rays.length + ")");
-    L.dead.forEach(function (row, k) {
-      if (!Array.isArray(row) || row.length !== L.rays[k].length) throw new Error("layout2D: dead[" + k + "] needs one flag per ray of fan " + k + " (" + L.rays[k].length + ")");
-      row.forEach(function (d, i) {
-        if (typeof d !== "boolean") throw new Error("layout2D: dead[" + k + "][" + i + "] is not a boolean");
-        if (d && !(L.alive[k][i] < L.rays[k][i].length)) throw new Error("layout2D: dead[" + k + "][" + i + "] is true but alive[" + k + "][" + i + "] is not below the ray's length");
-      });
+    perRay("dead", "flag", function (d, k, i) {
+      if (typeof d !== "boolean") throw new Error("layout2D: dead[" + k + "][" + i + "] is not a boolean");
+      if (d && !(L.alive[k][i] < L.rays[k][i].length)) throw new Error("layout2D: dead[" + k + "][" + i + "] is true but alive[" + k + "][" + i + "] is not below the ray's length");
     });
   }
+  // `status[k][i][j]`: the status of point j of rays[k][i], "Alive", "Virtual" or "Dead"; when present, `alive` and `dead` are ignored.
+  if (L.status != null) perRay("status", "array", function (pts, k, i) {
+    if (!Array.isArray(pts) || pts.length !== L.rays[k][i].length) throw new Error("layout2D: status[" + k + "][" + i + "] needs one status per point (" + L.rays[k][i].length + ")");
+    pts.forEach(function (st, j) { if (st !== "Alive" && st !== "Virtual" && st !== "Dead") throw new Error("layout2D: status[" + k + "][" + i + "][" + j + "] is not Alive, Virtual or Dead"); });
+  });
+  // `show`: the statuses drawn, default all three; bounds, the transform and mirror bodies read every point whatever it says.
+  var show = o.show == null ? ["Alive", "Virtual", "Dead"] : o.show;
+  if (!Array.isArray(show) || show.some(function (x) { return x !== "Alive" && x !== "Virtual" && x !== "Dead"; })) throw new Error("layout2D: show must be an array of Alive, Virtual or Dead");
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;
   S.forEach(function (x, i) { var e = badProfile(x); if (e) throw new Error("layout2D: surface " + i + e); });
+  // badProfile exempts the image, but a glass before it still draws its polygon from that profile.
+  S.forEach(function (x, i) { var e = x.glass && S[i + 1] && badProfile(Object.assign({}, S[i + 1], { image: false })); if (e) throw new Error("layout2D: surface " + (i + 1) + e); });
   S.forEach(function (x, i) { if (x.hole != null && !(typeof x.hole === "number" && x.hole >= 0 && x.hole < x.sd)) throw new Error("layout2D: surfaces[" + i + "].hole is not a number from 0 up to, but below, sd"); });
   var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
@@ -223,23 +244,36 @@ export function layout2D(o) {
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0];
-  // One group holds every ray, so its opacity does not darken where rays cross (a per-polyline stroke-opacity would).
-  g += '<g opacity=".85">';
+  // One group per opacity, so it does not darken where rays cross (a per-polyline stroke-opacity would). With `status`, Virtual and Dead runs go in a faded
+  // group placed first, so live light sits on top; a layout without `status` has none and draws as it always did.
+  var live = "", faded = "";
   RAYS.forEach(function (rays, k) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
-      // A ray with a < len alive points is two polylines sharing point a - 1: [0, a) as before, [max(a - 1, 0), len) dotted.
-      var r = rays[i], a = L.alive ? L.alive[k][i] : r.length;
-      function part(q, dash) { return '<polyline points="' + pts(q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + " " + NS + "/>"; }
-      // A dead ray is one polyline through its blocking point a, with no dotted part (a chief keeps its 6 4 dash).
-      if (L.dead && L.dead[k][i]) { g += part(r.slice(0, a + 1), i === c && set !== "chief" ? "6 4" : ""); return; }
-      if (a > 0) g += part(r.slice(0, a), i === c && set !== "chief" ? "6 4" : "");
-      if (a < r.length) g += part(r.slice(Math.max(a - 1, 0)), "1 3");
+      // With `status` the ray is drawn to its last point, else through its first Dead point and no further; segment j (point j - 1 to j) takes point j - 1's status with `status` (CR #663), else point j's. With `status`
+      // each run of one status is a polyline with data-status; without it adjacent solid runs (Alive and Dead) join and Virtual runs are dotted (a chief's solid runs keep their 6 4 dash).
+      var r = rays[i], st = statusOf(L, k, i), end = L.status || st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead"), runs = [];
+      for (var j = 1; j <= end; j++) {
+        var sj = L.status ? st[j - 1] : st[j], last = runs[runs.length - 1], virt = sj === "Virtual";
+        if (show.indexOf(sj) < 0) { runs.push(null); continue; } // a hidden segment is a gap: no run continues over it
+        if (last && (L.status ? last.st === sj : last.virt === virt)) last.q.push(r[j]);
+        else runs.push({ st: sj, virt: virt, q: [r[j - 1], r[j]] });
+      }
+      // Without `status` the legacy head stays: a lone solid point before the dots, or a ray with no segment. With it a run needs a segment.
+      runs = runs.filter(Boolean);
+      if (!L.status && st[0] !== "Virtual" && show.indexOf(st[0]) >= 0 && (!runs.length || runs[0].virt)) runs.unshift({ st: st[0], virt: false, q: [r[0]] });
+      // A one-point ray with alive 0 is Virtual throughout: its lone point stays a dotted run, as before the status.
+      if (!L.status && r.length === 1 && st[0] === "Virtual" && show.indexOf("Virtual") >= 0) runs.push({ st: "Virtual", virt: true, q: [r[0]] });
+      runs.forEach(function (u) {
+        var dash = u.virt ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
+        var poly = '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + " " + NS + "/>";
+        if (L.status && u.st !== "Alive") faded += poly; else live += poly;
+      });
     });
     ends[k] = rays[c][rays[c].length - 1];
   });
-  g += "</g>" + bodies;
+  g += (faded ? '<g opacity=".35">' + faded + "</g>" : "") + '<g opacity=".85">' + live + "</g>" + bodies;
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>";
   if (!tx0) return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
@@ -248,9 +282,9 @@ export function layout2D(o) {
   function above(y) { return n(Math.max(10 * u, Y(y) - 5 * u)); }
   function label(z, py, t, anchor) { return '<text ' + TICK + ' x="' + (anchor ? n(z) : X(z)) + '" y="' + n(py) + '" text-anchor="' + (anchor || (X(z) < 16 * u ? "start" : X(z) > W - 16 * u ? "end" : "middle")) + '"' + tsz + '>' + t + "</text>"; }
   // Each field's label starts 6 px past the image plane (its own chief end's z with no image surface), its baseline 4 px
-  // below its chief's end; the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
+  // below its chief's end, never above 1 em from the top (a cropping box, #160); the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: +Y(ends[k][1]) + 4 * u, t: esc(t) }); });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: Math.max(10 * u, +Y(ends[k][1]) + 4 * u), t: esc(t) }); });
   if (o.marks !== false) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
     if (img) {

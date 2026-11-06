@@ -178,6 +178,14 @@ test('recorded Wandersleb layout is phos-core\'s trace of phos\'s triplet', () =
   const l14 = lower(f.rays[1]);
   assert.ok(f.alive[1][l14] < f.rays[1][l14].length, 'the 14 degree lower ray is vignetted: it does not reach the image alive');
   assert.deepEqual(f.alive[0].filter((a, j) => j > 0 && j < 10 && a !== f.rays[0][j].length), [], 'the on-axis fan is alive but for its marginal rays');
+  // #355, ELEOptics/phos#310: the exclusion of on-axis rays 0 and 10 above comes from the recording, not from the oracle. phos-core marks
+  // the on-axis marginals Virtual at the stop's rim (point 5, the stop's surface), and kills the 14 degree lower ray there too, so that
+  // ray's death at the stop is the same rim artifact as well as the vignetting phos#310 states. Asserted as recorded.
+  assert.equal(f.surfaces[4].stop, true, 'point 5 is the stop');
+  assert.equal(f.status[0][0][5], 'Virtual', 'the on-axis lower marginal is Virtual at the stop (#355)');
+  assert.equal(f.status[0][10][5], 'Virtual', 'the on-axis upper marginal is Virtual at the stop (#355)');
+  assert.equal(l14, 10, 'the 14 degree lower ray is the fan\'s last');
+  assert.equal(f.status[1][l14][5], 'Dead', 'the 14 degree lower ray is Dead at the stop (#355, phos#310)');
   // CR #372: dead[field][ray] is true when the first non-ALIVE status is a Dead kind (not Virtual or Missed).
   assert.equal(f.dead.length, 3);
   f.dead.forEach((fan) => assert.equal(fan.length, 11));
@@ -706,4 +714,24 @@ print(json.dumps({"none": attempt(None), "unrecorded": attempt(0.65), "recorded"
   assert.match(out.unrecorded, /650/, 'an unrecorded reference is refused naming it');
   assert.match(out.unrecorded, /550/, 'and the recorded wavelengths');
   assert.equal(out.recorded, null, 'a recorded reference passes');
+});
+
+// Plan #642 work item #643 (#646 unskips). oracle: fixture phos-core 580090e: each kept point's status as the recorder writes it (status_name() names), and alive and dead as they follow from it (roadmap U17)
+test('recorded layouts carry each point\'s status (U17)', () => {
+  for (const name of ['wandersleb', 'cassegrain']) {
+    const f = read(`../fixtures/phos-core/${name}-layout.json`);
+    assert.ok(Array.isArray(f.status), `${name}: the recording carries status`);
+    assert.equal(f.status.length, f.rays.length, `${name}: one status array per field`);
+    f.rays.forEach((fan, k) => {
+      assert.equal(f.status[k].length, fan.length, `${name} field ${k}: one per ray`);
+      fan.forEach((ray, i) => {
+        const st = f.status[k][i], tag = `${name} field ${k} ray ${i}`;
+        assert.equal(st.length, ray.length, `${tag}: one status per kept point`);
+        assert.ok(st.every((s) => ['Alive', 'Virtual', 'Dead'].includes(s)), `${tag}: Alive, Virtual or Dead`);
+        const first = st.findIndex((s) => s !== 'Alive'), a = first < 0 ? st.length : first;
+        assert.equal(f.alive[k][i], a, `${tag}: alive is the first non-Alive index`);
+        assert.equal(f.dead[k][i], first >= 0 && st[first] === 'Dead', `${tag}: dead is whether the first non-Alive is Dead`);
+      });
+    });
+  }
 });

@@ -37,7 +37,9 @@ does not rewrite them:
     mm. Polar as recorded, never resampled onto a grid. It exits non-zero unless the live samples are 64 rings x 64 spokes.
   `layout`: the Wandersleb triplet (US 1,073,789, from phos's fixtures/triplet.toml, which it copies to
     tests/fixtures/phos-core/wandersleb.toml; --triplet gives another path, and a missing one falls back to that committed copy) drawn by visualize_system_2d with 11 rays per
-    field, as a RecordedLayout plus `alive` and `dead` (true when a ray's first non-ALIVE status is DEAD_E). Writes tests/fixtures/phos-core/wandersleb-layout.json.
+    field, as a RecordedLayout plus `alive`, `dead` (true when a ray's first non-ALIVE status is DEAD_E) and `status[field][ray][point]`
+    (status_name(): Alive, Virtual or Dead, one per kept point; a kept Missed is refused). It refuses to write a layout whose
+    `rays`, `alive`, `dead` or `surfaces` differ from the committed file. Writes tests/fixtures/phos-core/wandersleb-layout.json.
     It also records phos-core's tutorial Cassegrain (models/src/example/cassegrain.rs: parabolic primary with an annular
     aperture, hyperbolic secondary, obscuration; fields 0/0.35/0.5 deg), built through InterfaceBuilder, in the same shape
     without `glass` and with `mirror` on the two mirrors, `hole` (10 mm) on the primary and `obscuration` on the obscuration, as tests/fixtures/phos-core/cassegrain-layout.json. It exits non-zero unless the 0 degree chief is dead before the image.
@@ -315,7 +317,7 @@ def finite(*xs):
 
 def layout_rays(phos, res, n_fields, tag):
     # Per field, per ray: the points kept up to the first non-finite one, the index of the first kept point whose status is not
-    # ALIVE (else the count), every point's status name, and whether that first non-ALIVE status is a Dead kind (DEAD_E; CR #372).
+    # ALIVE (else the count), every kept point's status name (status_name(): Alive, Virtual or Dead), and whether that first non-ALIVE status is a Dead kind (DEAD_E; CR #372).
     rays, alive, status, dead = [], [], [], []
     sources = res.ray_data.sources
     if len(sources) != n_fields:
@@ -332,7 +334,10 @@ def layout_rays(phos, res, n_fields, tag):
                 sys.exit(f"{tag}: field {len(rays)} ray {len(fan)} has a non-finite first point, expected every kept ray non-empty")
             fan.append([[rnd(p.x), rnd(p.y)] for p in kept])
             fan_alive.append(next((k for k, p in enumerate(kept) if not isinstance(p.status, phos.RayStatus.ALIVE)), len(kept)))
-            fan_status.append([type(p.status).__name__.split(".")[-1] for p in ray.interfaces])
+            names = [status_name(phos, p.status) for p in kept]
+            if "Missed" in names:
+                sys.exit(f"{tag}: field {len(rays)} ray {len(fan)} keeps a Missed point (statuses {names}), expected none: no recording has one")
+            fan_status.append(names)
             first = next((p for p in kept if not isinstance(p.status, phos.RayStatus.ALIVE)), None)
             fan_dead.append(first is not None and isinstance(first.status, phos.RayStatus.DEAD_E))
         rays.append(fan)
@@ -340,6 +345,18 @@ def layout_rays(phos, res, n_fields, tag):
         status.append(fan_status)
         dead.append(fan_dead)
     return rays, alive, status, dead
+
+
+def write_layout(path, doc):
+    # The status re-recording must not move the geometry: the one-line JSON shows no readable diff, so compare the parts that
+    # were committed. A first recording (no file yet) has nothing to compare with.
+    new = json.loads(json.dumps(doc))
+    if path.exists():
+        old = json.loads(path.read_text())
+        moved = [k for k in ("rays", "alive", "dead", "surfaces") if old.get(k) != new.get(k)]
+        if moved:
+            sys.exit(f"{path.name}: {', '.join(moved)} differ from the committed file, expected only `status` to be new")
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
 
 
 def wandersleb(phos, triplet, outdir, header):
@@ -393,18 +410,21 @@ def wandersleb(phos, triplet, outdir, header):
     # phos#310's two facts, which the Python client must reproduce for the fixture to show anything.
     lower = lambda fan: min(range(len(fan)), key=lambda j: fan[j][0][1])
     l28, l14 = lower(rays[2]), lower(rays[1])
-    if status[2][l28][2] != "VIRTUAL":
-        sys.exit(f"wandersleb: the 28 degree lower ray is {status[2][l28][2]} at S2, expected VIRTUAL (statuses {status[2][l28]})")
-    if alive[1][l14] >= len(rays[1][l14]) or status[1][l14][-1] == "ALIVE":
+    if status[2][l28][2] != "Virtual":
+        sys.exit(f"wandersleb: the 28 degree lower ray is {status[2][l28][2]} at S2, expected Virtual (statuses {status[2][l28]})")
+    if alive[1][l14] >= len(rays[1][l14]) or status[1][l14][-1] == "Alive":
         sys.exit(f"wandersleb: the 14 degree lower ray reaches the image alive (statuses {status[1][l14]}), expected it vignetted")
+    # #355: phos-core kills that ray at the stop (point 5, surfaces[4]), so the check asserts where it dies as recorded, not only that it dies.
+    if status[1][l14][5] != "Dead" or "Dead" in status[1][l14][:5]:
+        sys.exit(f"wandersleb: the 14 degree lower ray is not first Dead at the stop, point 5 (statuses {status[1][l14]})")
 
     doc = {**header, "lens": "wandersleb", "analysis": "layout", "kind": "visualize_system_2d, 11 rays per field, [z, y] mm",
            "prescription": {"source": t["source"], "epd": t["epd"], "wavelengthNm": t["wavelength_nm"], "stop": t["stop"],
                             "surfaces": rows, "file": "wandersleb.toml"},
            "fieldsDeg": [rnd(f) for f in t["fields_deg"]], "rayCount": LAYOUT_RAYS, "lengthUnit": "mm",
-           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive, "dead": dead}
+           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive, "dead": dead, "status": status}
     path = outdir / "wandersleb-layout.json"
-    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    write_layout(path, doc)
     return path
 
 
@@ -488,7 +508,7 @@ def cassegrain(phos, outdir, header):
     surfaces[1]["hole"] = PRIMARY_HOLE  # CR #371: the inner radius of the annular aperture the primary was built with
     rays, alive, status, dead = layout_rays(phos, res, len(CASSEGRAIN_FIELDS), "cassegrain")
     chief = status[0][LAYOUT_RAYS // 2]
-    if alive[0][LAYOUT_RAYS // 2] >= len(chief) - 1 or chief[-1] == "ALIVE":
+    if alive[0][LAYOUT_RAYS // 2] >= len(chief) - 1 or chief[-1] == "Alive":
         sys.exit(f"cassegrain: the 0 degree chief ray stays alive before the image (statuses {chief}), expected the obscuration to stop it")
 
     doc = {**header, "lens": "cassegrain", "analysis": "layout", "kind": "visualize_system_2d, 11 rays per field, [z, y] mm",
@@ -497,9 +517,9 @@ def cassegrain(phos, outdir, header):
                             "secondary": {"radius": rnd(600.0 / 13.0), "conic": rnd(-361.0 / 169.0), "distanceFromPrimary": 75.0, "material": "MIRROR"},
                             "imageDistanceFromSecondary": 100.0, "obscuration": "circular, the secondary's semi-diameter, in front of the primary"},
            "fieldsDeg": CASSEGRAIN_FIELDS, "rayCount": LAYOUT_RAYS, "lengthUnit": "mm",
-           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive, "dead": dead}
+           "surfaces": surfaces, "rays": rays, "chief": [LAYOUT_RAYS // 2] * len(rays), "alive": alive, "dead": dead, "status": status}
     path = outdir / "cassegrain-layout.json"
-    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    write_layout(path, doc)
     return path
 
 

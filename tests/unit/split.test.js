@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import ELEO from '../../packages/plots/dist/index.js';
 import { draws } from '../../scripts/record-renderers.mjs';
 
 // Plan 162, O2: the renderers draw what main's build drew at the plan's base.
@@ -18,3 +19,14 @@ test('SVG renderers draw the base markup', () => {
 // Plan 232 M2 (#240): spot now draws through its typed panels and left the baseline; spot.test.js checks it against sample.json.
 // Plan 232 M1 (#235): rayFan now draws through curve's panels and left the baseline; fan.test.js checks it against sample.json.
 // Plan 162 M1: map2D, layout3D and the icon set moved verbatim to map2d.js, layout3d.js and icons.js; the guard covers them too.
+
+// Plan #642 O3 (CR #653): the four recorded-layout entries are the recordings with `status` deleted, so the base stays the legacy drawing.
+test('the recorded layout entries draw without status (O3, CR #653)', () => {
+  const real = ELEO.layout2D, seen = [];
+  ELEO.layout2D = (props) => { seen.push(props); return real(props); };
+  try {
+    for (const name of ['wandersleb', 'cassegrain']) for (const width of [1000, 600]) draws()[`layout2D-${name}-${width}`]();
+  } finally { ELEO.layout2D = real; }
+  assert.equal(seen.length, 4);
+  for (const props of seen) assert.equal('status' in props.data, false, 'no status key');
+});
