@@ -8,8 +8,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import ELEO from '../packages/plots/dist/index.js';
 import SAMPLE from '../packages/plots/dist/sample.js';
+import '../tests/fixtures/phos-core/adapters.js'; // a classic script: assigns globalThis.ELEOAdapters
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../tests/fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));
+
+const phosLayout = (name) => JSON.parse(readFileSync(new URL(`../tests/fixtures/phos-core/${name}-layout.json`, import.meta.url), 'utf8'));
 
 // The calls the gallery makes (gallery/index.html, SVG and legend tiles), keyed by tile.
 export function draws() {
@@ -23,6 +26,11 @@ export function draws() {
     'merit-before': () => merit(before),
     'merit-after': () => merit(after),
     'layout2D-glasses': () => ELEO.layout2D({ data: glasses, width: 1000, marks: false }),
+    // The recorded Wandersleb and Cassegrain through the adapter, as the gallery draws them (plan #642 O3: the base before `status`).
+    ...Object.fromEntries(['wandersleb', 'cassegrain'].flatMap((name) => [1000, 600].map((width) => [
+      `layout2D-${name}-${width}`,
+      () => ELEO.layout2D({ ...globalThis.ELEOAdapters.layout(phosLayout(name)), width }),
+    ]))),
     'throughFocus': () => ELEO.throughFocus(),
     'legend-field': () => ELEO.legend('field'),
     'legend-wavelength': () => ELEO.legend('wavelength'),
