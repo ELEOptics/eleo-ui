@@ -1,6 +1,6 @@
 # Plan [#603]: Recorded ray fans
 
-Status: approved 2026-11-05
+Status: done 2026-11-05
 Branch: `plan/603-recorded-fans` PR: [#612] Depends on: none Roadmap: `agent_docs/roadmap.md`, row P
 
 ## Problem
@@ -179,6 +179,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 review M3 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 4 backlog; CRs [#632], [#633], [#636] resolved. Findings 1, 2, 4 pulled into M3 as [#638]; finding 3 ([#639], the wavefront rim at high ratios, a renderer change) stays backlog.
 - 2026-11-05 review M3 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog, pulled into M3 as [#640] (rounds: 0+1, 0+1; a third round of 1 trips the breaker).
 - 2026-11-05 review M3 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; M3 ticked (rounds: 0+1, 0+1, 0). Awaiting the user's M3 demo.
+- 2026-11-05 M3 demo (user): "Go". M3 accepted; every milestone demoed (M1's no-go answered by M2 and M3).
+- 2026-11-05 plan end: `CLAUDE.md` commands re-verified: `npm ci`, `npm run build`, `npm run test:unit`, `npx playwright test`, `npx changeset status` (for `npx changeset`), `scripts/check.sh --fast`, `git config core.hooksPath .githooks` all exit 0; `npm run gallery` serves the gallery on :4173 (200); the full `scripts/check.sh` runs at the push. Roadmap: row P done, U6's text and ray-fan oracle name the recorded chief-ray fans.
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
