@@ -709,7 +709,7 @@ print(json.dumps({"none": attempt(None), "unrecorded": attempt(0.65), "recorded"
 });
 
 // Plan #642 work item #643 (#646 unskips). oracle: fixture phos-core 580090e: each kept point's status as the recorder writes it (status_name() names), and alive and dead as they follow from it (roadmap U17)
-test('recorded layouts carry each point\'s status (U17)', { skip: '#643' }, () => {
+test('recorded layouts carry each point\'s status (U17)', () => {
   for (const name of ['wandersleb', 'cassegrain']) {
     const f = read(`../fixtures/phos-core/${name}-layout.json`);
     assert.ok(Array.isArray(f.status), `${name}: the recording carries status`);
