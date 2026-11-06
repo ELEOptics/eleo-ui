@@ -174,12 +174,12 @@ export function layout2D(o) {
       row.forEach(function (x, i) { check(x, k, i); });
     });
   }
-  // `alive[k][i]`: the number of leading alive points of rays[k][i], an integer in 0..len; absent means all.
-  if (L.alive != null) perRay("alive", "count", function (a, k, i) {
+  // `alive[k][i]`: the number of leading alive points of rays[k][i], an integer in 0..len; absent means all; not validated when `status` is present.
+  if (L.status == null && L.alive != null) perRay("alive", "count", function (a, k, i) {
     if (!Number.isInteger(a) || a < 0 || a > L.rays[k][i].length) throw new Error("layout2D: alive[" + k + "][" + i + "] is not an integer in 0.." + L.rays[k][i].length);
   });
   // `dead[k][i]`: true where ray i of fan k was blocked at point a = alive[k][i] (< len); it is drawn solid through that point, no dotted part.
-  if (L.dead != null) {
+  if (L.status == null && L.dead != null) {
     if (L.alive == null) throw new Error("layout2D: dead comes only with alive");
     perRay("dead", "flag", function (d, k, i) {
       if (typeof d !== "boolean") throw new Error("layout2D: dead[" + k + "][" + i + "] is not a boolean");

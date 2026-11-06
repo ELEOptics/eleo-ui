@@ -1211,6 +1211,15 @@ test('status is validated', () => {
   }
 });
 
+// Plan #642, issue #658: alive and dead are ignored when status is present. oracle: spec: README and index.d.ts, "ignored when `status` is present".
+test('alive and dead are ignored when status is present', () => {
+  const L = fixture('tolerance'), status = L.rays.map((fan) => fan.map((r) => r.map(() => 'Alive')));
+  const base = ELEO.layout2D({ data: { ...L, status } });
+  assert.equal(ELEO.layout2D({ data: { ...L, status, alive: [[99]] } }), base, 'a malformed alive beside status draws from status');
+  assert.equal(ELEO.layout2D({ data: { ...L, status, dead: 'x' } }), base, 'a malformed dead beside status draws from status');
+  assert.throws(() => ELEO.layout2D({ data: { ...L, alive: [[99]] } }), { message: /^layout2D: alive/ }, 'without status alive is still validated');
+});
+
 // Plan #642, issue #649: show is validated, and on a legacy dead ray Dead hidden draws r[0..a). oracle: spec: segment j takes point j's status; the ray stops at its first Dead point.
 test('show is validated and hides a legacy dead ray (U17)', () => {
   const L = fixture('tolerance');
