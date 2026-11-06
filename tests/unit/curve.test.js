@@ -326,6 +326,13 @@ test('sagittal dash scales with the stroke', () => {
   for (const set of [lines, keys]) set.forEach(([a, b]) => { assert.ok(Math.abs(a - 4) < 0.1 && Math.abs(b - 2.5) < 0.1, `${a} ${b}`); });
 });
 
+// #737: a line swatch takes its role's cap, so the sagittal dashes look the same in the key as on the curve
+test('key swatch takes the role\'s cap', () => {
+  const draw = (role) => ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], role, label: 'S' }], x: { range: [0, 1] }, y: { range: [0, 1] } });
+  assert.match(draw('sagittal'), /<line [^>]*stroke-linecap="round"[^>]*stroke-dasharray=/);
+  assert.match(draw('limit'), /<line [^>]*stroke-linecap="butt"/);
+});
+
 // CR #212: the right margin grows to half the last x label's width (0.6 em a character, ADR-0003: half is 0.3 text units a character, at least 1.2)
 test('x tick labels stay inside the viewBox', () => {
   const W = 460, series = [{ points: [[-0.004, 0], [0, 1]], index: 0 }];

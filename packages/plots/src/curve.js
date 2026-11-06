@@ -121,12 +121,12 @@ function keyEntries(o) {
   return src.map(function (e) {
     if (e === null || typeof e !== "object" || e.label === undefined || e.label === null) throw new TypeError("curve: a key entry needs a label");
     var st = roleStyle(e, 1);
-    return { label: String(e.label), index: e.index === undefined ? 0 : e.index, col: st.col, kind: "line", dash: st.dash, src: e };
+    return { label: String(e.label), index: e.index === undefined ? 0 : e.index, col: st.col, kind: "line", dash: st.dash, cap: st.cap, src: e };
   });
 }
-/* The entries with each swatch's dash in units of the swatch's own stroke, 0.15 t (as keyMarkup draws it). */
+/* The entries (cap kept) with each swatch's dash in units of the swatch's own stroke, 0.15 t (as keyMarkup draws it). */
 function keyDrawn(ents, t) {
-  return ents.map(function (e) { return { label: e.label, index: e.index, col: e.col, kind: e.kind, dash: roleStyle(e.src, r2(0.15 * t)).dash }; });
+  return ents.map(function (e) { return { label: e.label, index: e.index, col: e.col, kind: e.kind, dash: roleStyle(e.src, r2(0.15 * t)).dash, cap: e.cap }; });
 }
 var KEY_AT = ["below", "top-left", "top-right", "bottom-left", "bottom-right"];
 /* A corner key: a box on --surface (no stroke: a grid-stroked rect reads as a frame) inside the plot area at the cell's origin; it never resizes the frame. */
