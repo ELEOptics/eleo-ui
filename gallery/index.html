@@ -221,7 +221,6 @@
           el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '')
             : SAMPLE_BOX ? ELEO.legend(k) : '';
         });
-        theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
           .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));
         theme.querySelector('[data-icons]').innerHTML = icons.join('');
