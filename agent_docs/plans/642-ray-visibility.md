@@ -1,6 +1,6 @@
 # Plan [#642]: Ray status per point and visibility in layout2D
 
-Status: approved 2026-11-05
+Status: done 2026-11-06
 Branch: `plan/642-ray-visibility` PR: [#652] Depends on: none Roadmap: `agent_docs/roadmap.md`, row Q
 
 ## Problem
@@ -167,6 +167,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-06 review M2 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog [#675] pulled in (the #674 comment and plan cell misdescribed rows O and P; plan cell fixed here).
 - 2026-11-06 review M2 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; its one nit (the [#674] cell cited `:444-446` for row P's gate, which is `:443-445`) is plan text, corrected in this commit; CRs [#667] and [#668] resolved; M2 ticked (rounds: 2+1, 0+1, 0+1, 0). Awaiting the user's M2 demo.
 - 2026-11-06 M2 demo (user): go. M2 accepted. The user's nine further gallery requests (legend text size, OPD legends, curve legend labels, MTF limit label, PSF colorbar ticks, Map2D axes and configurable grid over the image, Layout3D image plane behind the rays) go to a new plan, not this one (user, 2026-11-06).
+- 2026-11-06 plan end (orchestrator): caught up with main (`clean`, Version Packages 56b9639). Re-verified the `CLAUDE.md` commands: `npm ci && npm run build`, `scripts/check.sh` (unit and gallery), `npm run gallery` (serves), `npx changeset`. Roadmap row Q done, and the Deferred rows of [#138], [#160], [#355], [#368] and [#385] dropped. U17 is kept, not cut as the Constraints said: done requirements stay in the roadmap, as U16 did after row M. Status done.
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
