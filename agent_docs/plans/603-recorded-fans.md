@@ -133,6 +133,17 @@ Demo: `npm run gallery`: every tile is alone on its line across the page, all li
 | [#629] | Review M2 finding 4: the stand-in tests cover `fans()`'s two refusals (no reference wavelength; one not recorded) | the existing `-B -I` stand-in because it already runs `fans()`; considered a real phos-core run | `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::fans refuses a missing or unrecorded reference wavelength` | [#623] |
 | [#631] | Review M2 round 2 finding 1: the U6 test's chief-ray `TypeError` assertions check the whole `field <angle>°` prefix | the whole prefix because the message's fixed text contains digits; considered a regex on the angle | `tests/unit/curve.test.js` | `tests/unit/curve.test.js::recorded ray fans round trip (U6)` | [#628] |
 
+### M3: Canvas redraw, ADR-0003 wording GitHub: `P603 M3: Canvas redraw, ADR-0003 wording`
+
+From the user at the M2 demo (2026-11-05): CRs [#632] (the canvas tiles redraw on resize; promotes [#630]) and [#633] (ADR-0003's gallery wording), both accepted by the user.
+
+Demo: `npm run gallery`: resizing the window redraws the psf, wavefront, layout3D and airy tiles at the new width, sharp at the device pixel ratio, not stretched; ADR-0003 describes the gallery as it is. Proves: O2 (every tile follows the window), O4.
+
+| Issue | Work item | Approach | Files | Test | After |
+| -- | -- | -- | -- | -- | -- |
+| [#634] | Canvas tiles draw through `fit` at the body's width × devicePixelRatio (map2D `size`, layout3D `width`/`height` at 560:320, `airyTile`'s n), CSS width = the body's; a palette change redraws at the last width | through `fit` because one redraw path makes every tile follow the window; considered a resize listener on the canvases alone | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::canvas tiles redraw at their width (#632)` | [#631] |
+| [#635] | ADR-0003: the gallery sets each tile's minimum from `minWidth`; the "Until `PLOT_SIZES` lands" sentence goes; the 656 px note dated to before plan #603's layout | in place because the user asked for the wording fixed; considered a dated addendum | `agent_docs/adr/0003-plot-scale.md` (Core, the user's CR) | none: docs only | [#631] |
+
 End of plan (orchestrator, not a work item): the roadmap's U6 text and oracle name the recorded fans; row P done.
 
 ## Risks and spikes
@@ -159,6 +170,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 review M2 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 4 backlog; CRs [#621], [#622], [#626] resolved. Findings 3 and 4 pulled into M2 as [#628], [#629]; finding 1 ([#630], the canvas tiles scale a bitmap instead of redrawing) is for the M2 demo; finding 2 (ADR-0003's gallery wording) is reported to the user.
 - 2026-11-05 review M2 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog, pulled into M2 as [#631] (rounds: 0+2, 0+1).
 - 2026-11-05 review M2 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; M2 ticked (rounds: 0+2, 0+1, 0). Awaiting the user's M2 demo.
+- 2026-11-05 M2 demo (user): "Make the canvas plots redraw when you resize in M3. Fix ADR-0003's gallery wording." Read as a go on M2 (no objection to its work; M2 accepted). CRs [#632] (promotes [#630]) and [#633], accepted by the user; M3 with items [#634], [#635].
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
@@ -203,4 +215,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#629]: https://github.com/ELEOptics/eleo-ui/issues/629
 [#630]: https://github.com/ELEOptics/eleo-ui/issues/630
 [#631]: https://github.com/ELEOptics/eleo-ui/issues/631
+[#632]: https://github.com/ELEOptics/eleo-ui/issues/632
+[#633]: https://github.com/ELEOptics/eleo-ui/issues/633
+[#634]: https://github.com/ELEOptics/eleo-ui/issues/634
+[#635]: https://github.com/ELEOptics/eleo-ui/issues/635
 [#85]: https://github.com/ELEOptics/eleo-ui/issues/85
