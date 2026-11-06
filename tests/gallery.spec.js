@@ -759,3 +759,59 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
     expect(r.unwritten, `${k} airy has no unwritten pixel`).toBe(0);
   }
 });
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O1 (issue #678; #683 unskips). The curve tiles key each curve in the SVG.
+// Contract for the key items (#680, #681): every key entry's label is a <text data-key> in the figure's SVG.
+// oracle: closed-form ADR-0003 (frameText above) for the key text size, within 1%, at 1440, 1100, 700 px and at each tile's --tile-min (as 'every tile at its minimum has the floor frame');
+// fixture: the recorded achromat's three fields give the mtf tiles six keys (a tangential and a sagittal curve per field), field curvature two (tangential, sagittal), distortion one.
+// Each key text is distinct, overlaps no other key text and no other text of the figure (axis labels, ticks), and stays inside the SVG unless it is alone on its line (bars' rule: a lone over-long entry may overrun).
+// mtf-limits' vertical limit reads "50 cycles/mm".
+const CURVE_KEYS = { mtf: 6, 'mtf-limits': 6, fieldCurvature: 2, distortion: 1 };
+test.skip('curve keys', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
+    const tile = document.querySelector(`.theme[data-theme="${th}"] [data-tile="${name}"]`);
+    const svg = tile.querySelector('.eleo-plot__body svg');
+    const frame = svg.querySelector('rect[stroke="var(--plot-grid)"]');
+    const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    const keys = [...svg.querySelectorAll('text[data-key]')];
+    return {
+      tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg),
+      keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
+      others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x) })),
+    };
+  }), [theme, Object.keys(CURVE_KEYS)]);
+  const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
+  const check = (rows, at) => {
+    for (const r of rows) {
+      const w = `${at} ${r.tile}`;
+      expect(r.keys.length, `${w} keys`).toBe(CURVE_KEYS[r.tile]);
+      expect(new Set(r.keys.map((k) => k.text)).size, `${w} each label once`).toBe(r.keys.length);
+      for (const k of r.keys) expect(Math.abs(k.size / frameText(r.F) - 1), `${w} key "${k.text}" ${k.size}px against ${frameText(r.F)}px`).toBeLessThanOrEqual(0.01);
+      r.keys.forEach((k, i) => {
+        for (const o of [...r.keys.slice(i + 1), ...r.others]) expect(overlap(k, o), `${w} key "${k.text}" overlaps "${o.text}"`).toBe(false);
+        const alone = r.keys.filter((o) => o !== k && Math.abs(o.t - k.t) < 1).length === 0;
+        if (!alone) expect(k.r, `${w} key "${k.text}" inside the SVG`).toBeLessThanOrEqual(r.svg.r + 0.5);
+        expect(k.l, `${w} key "${k.text}" inside the SVG on the left`).toBeGreaterThanOrEqual(r.svg.l - 0.5);
+      });
+    }
+  };
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      await settle(page);
+      check(await measure(theme), `${theme} ${width}`);
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate((names) => document.querySelectorAll('.theme > [data-tile][data-size]').forEach((el) => {
+    if (names.includes(el.dataset.tile)) el.style.maxWidth = `${parseFloat(el.style.getPropertyValue('--tile-min')) || 240}px`;
+  }), Object.keys(CURVE_KEYS));
+  await settle(page);
+  for (const theme of ['light', 'dark']) check(await measure(theme), `${theme} at minWidth`);
+  for (const theme of ['light', 'dark']) {
+    const texts = await page.locator(`.theme[data-theme="${theme}"] [data-tile="mtf-limits"] .eleo-plot__body svg text`).allTextContents();
+    expect(texts, `${theme} mtf-limits x limit label`).toContain('50 cycles/mm');
+  }
+});
