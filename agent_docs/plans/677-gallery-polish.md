@@ -138,7 +138,7 @@ footers. Proves: O2
 | #742 | `key.js` exports `KEY_AT` and `cornerBox`; `curve` and `spot` use them (output unchanged); spot's foot comment names the key rows | in key.js because #680 put the key there to stop drift (#586); considered two copies | `packages/plots/src/key.js`, `packages/plots/src/curve.js`, `packages/plots/src/spot.js` | `tests/unit/key.test.js::corner box` | #741 |
 | #745 | CR #744: `rayFan` passes `keyAt: o.keyAt` in its spec literal, no guard | in the literal because curve reads a missing `keyAt` as "below"; considered keeping the guard | `packages/plots/src/fan.js` | `tests/unit/fan.test.js::rayFan key keyAt` | #739 |
 
-### M3: Maps and the 3D image plane GitHub: `P677 M3: Maps and the 3D image plane`
+### M3: Maps and the 3D image plane (done 2026-11-06) GitHub: `P677 M3: Maps and the 3D image plane`
 
 Demo: every Map2D tile with axes, a ticked colorbar and a grid over the image in its map's grid token; one tile with
 `grid: { x: { major: 5, minor: 4 }, y: { major: 5, minor: 4 } }`; the sample canvas PSF and wavefront tiles gone;
@@ -230,3 +230,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 CR #760 accepted (orchestrator): #758's middle-stop ordering (the orchestrator's addition, not the user's CR #756) is infeasible on wave and ember dark under the user's bounds; kept where feasible. #751 reopened for the re-demo.
 - 2026-11-06 review M3 round 6 (2 blocking, 1 backlog): CR #761 accepted (orchestrator: roadmap U21's oracle restated to CR #756's targets, fixed in this commit); CR #762 accepted (orchestrator: a pass-through inside #759's Files) with finding 3 (the kind call's `grid`) in #763.
 - 2026-11-06 review M3 round 7 (0 blocking, 1 backlog): #764 into M3.
+- 2026-11-06 M3 reviewed again after the demo (rounds 6 to 8: 3, 1, 0 findings; round 8 says 0 blocking, nothing pulled in); ticked.
