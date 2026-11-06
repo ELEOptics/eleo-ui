@@ -177,6 +177,8 @@ export interface RayFanProps {
   panelWidth?: number;
   /** `true` keys each sample wavelength ("486.1 nm") below the fans, through `curve`'s key. Default no key. */
   key?: boolean;
+  /** Where the `key` goes, as `curve`'s `keyAt`: "below" the fans (default) or a corner box in each panel. An unknown value throws curve's TypeError. */
+  keyAt?: PlotKeyAt;
 }
 export interface Map2DProps {
   data?: object;

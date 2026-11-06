@@ -25,12 +25,13 @@ export function fanPanels(sample, o) {
   };
 }
 
-/* `width` is the figure's width in px; each column gets width / columns, and curve's rule (ADR-0003) sets the frame inside it. Without it the figure is columns × (panelWidth + 58) wide (panelWidth default 170: the frame of a default panel, the 58 its margins at 10 px text), and its height is that figure's 314 for the same shape, scaled with the width and rounded to whole px; `height` overrides. `key: true` keys each sample wavelength ("486.1 nm") below the fans. */
+/* `width` is the figure's width in px; each column gets width / columns, and curve's rule (ADR-0003) sets the frame inside it. Without it the figure is columns × (panelWidth + 58) wide (panelWidth default 170: the frame of a default panel, the 58 its margins at 10 px text), and its height is that figure's 314 for the same shape, scaled with the width and rounded to whole px; `height` overrides. `key: true` keys each sample wavelength ("486.1 nm") below the fans, or in a corner box of each panel with `keyAt` (curve validates it). */
 export function rayFan(o) {
   o = o || {};
   var f = fanPanels(data(o), o), pw = o.panelWidth || 170, base = f.columns * (pw + 58), width = o.width || base;
   var spec = { panels: f.panels, columns: f.columns, x: f.x, y: f.y, width: width, height: o.height || Math.round(width * 314 / base) };
   /* `key: true`: one entry per sample wavelength, in its palette slot, below the fans. */
   if (o.key === true) spec.key = data(o).wl.map(function (w, i) { return { label: w.toFixed(1) + " nm", index: i }; });
+  if (o.keyAt !== undefined) spec.keyAt = o.keyAt;
   return curve(spec);
 }

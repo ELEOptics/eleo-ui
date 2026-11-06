@@ -65,3 +65,16 @@ test('rayFan key', async () => {
     assert.deepEqual(labels(rayFan({ data: sample, kind })), [], `${kind}: no key by default`);
   }
 });
+
+// Plan #677, issue #739 (CR #738). oracle: spec curve's keyAt: a corner key is a `rect.eleo-key` box in each panel; a bad keyAt throws curve's TypeError
+test('rayFan key keyAt', async () => {
+  const { rayFan } = await import('../../packages/plots/src/fan.js');
+  const boxes = (svg) => (svg.match(/<rect class="eleo-key"/g) || []).length;
+  for (const kind of ['tra', 'opd']) {
+    const below = rayFan({ data: sample, kind, key: true });
+    const corner = rayFan({ data: sample, kind, key: true, keyAt: 'top-right' });
+    assert.equal(boxes(below), 0, `${kind}: below has no corner box`);
+    assert.equal(boxes(corner), 2 * sample.fields.length, `${kind}: one corner box in each panel (2 rows x fields)`);
+    assert.throws(() => rayFan({ data: sample, kind, key: true, keyAt: 'middle' }), { name: 'TypeError', message: /keyAt/ });
+  }
+});
