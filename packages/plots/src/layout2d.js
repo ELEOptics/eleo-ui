@@ -249,14 +249,14 @@ export function layout2D(o) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
-      // With `status` the ray is drawn to its last point, else through its first Dead point and no further; segment j (point j - 1 to j) takes point j's status. With `status`
+      // With `status` the ray is drawn to its last point, else through its first Dead point and no further; segment j (point j - 1 to j) takes point j - 1's status with `status` (CR #663), else point j's. With `status`
       // each run of one status is a polyline with data-status; without it adjacent solid runs (Alive and Dead) join and Virtual runs are dotted (a chief's solid runs keep their 6 4 dash).
       var r = rays[i], st = statusOf(L, k, i), end = L.status || st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead"), runs = [];
       for (var j = 1; j <= end; j++) {
-        var last = runs[runs.length - 1], virt = st[j] === "Virtual";
-        if (show.indexOf(st[j]) < 0) { runs.push(null); continue; } // a hidden segment is a gap: no run continues over it
-        if (last && (L.status ? last.st === st[j] : last.virt === virt)) last.q.push(r[j]);
-        else runs.push({ st: st[j], virt: virt, q: [r[j - 1], r[j]] });
+        var sj = L.status ? st[j - 1] : st[j], last = runs[runs.length - 1], virt = sj === "Virtual";
+        if (show.indexOf(sj) < 0) { runs.push(null); continue; } // a hidden segment is a gap: no run continues over it
+        if (last && (L.status ? last.st === sj : last.virt === virt)) last.q.push(r[j]);
+        else runs.push({ st: sj, virt: virt, q: [r[j - 1], r[j]] });
       }
       // Without `status` the legacy head stays: a lone solid point before the dots, or a ray with no segment. With it a run needs a segment.
       runs = runs.filter(Boolean);

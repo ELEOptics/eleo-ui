@@ -119,7 +119,7 @@ function drawn(svg) {
   return { M, body, polygons: tags('polygon', body), lines: tags('line', body), polylines: tags('polyline', body), dots: tags('circle', outside) };
 }
 // Plan #642, issue #368: the runs one ray draws, as {pts, dotted, status?}. With `status`, segment j (point j-1 to j)
-// takes point j's status, the ray is drawn to its last point (CR #660), and adjacent segments of one status are one run.
+// takes point j-1's status (CR #663), the ray is drawn to its last point (CR #660), and adjacent segments of one status are one run.
 // Without it, the legacy rule: alive a splits a ray into a solid head [0, a) and a dotted tail [max(a - 1, 0), len);
 // a dead ray is one solid polyline through point a. `join` merges adjacent solid runs (Alive and Dead), as a drawing
 // with no data-status does.
@@ -132,9 +132,9 @@ function expectedRuns(L, k, i, join) {
   }
   const st = L.status[k][i], runs = [];
   for (let j = 1; j < ray.length; j++) {
-    const last = runs[runs.length - 1], dotted = st[j] === 'Virtual';
-    if (last && (join ? last.dotted === dotted : last.status === st[j])) last.pts.push(ray[j]);
-    else runs.push({ status: st[j], dotted, pts: [ray[j - 1], ray[j]] });
+    const last = runs[runs.length - 1], dotted = st[j - 1] === 'Virtual';
+    if (last && (join ? last.dotted === dotted : last.status === st[j - 1])) last.pts.push(ray[j]);
+    else runs.push({ status: st[j - 1], dotted, pts: [ray[j - 1], ray[j]] });
   }
   return runs;
 }
@@ -1042,7 +1042,9 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
     const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke, status: a['data-status'] }));
     const { claimed } = statusRoundTrip(L, parts, `width ${width}`);
     const chief = L.rays[0][L.chief[0]], ca = L.alive[0][L.chief[0]];
-    assert.ok(polylines.some((a) => a['data-status'] === 'Dead' && samePathFrom1(pairs(a.points), chief) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed Dead polyline to its last point (CR #660)`);
+    // CR #663: the chief's first segment (to the obscuration) is an Alive 6 4 polyline, the rest one Dead 6 4 run to its last point.
+    assert.ok(polylines.some((a) => a['data-status'] === 'Alive' && samePathFrom1(pairs(a.points), chief.slice(0, 2)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief's first segment is a 6 4 dashed Alive polyline (CR #663)`);
+    assert.ok(polylines.some((a) => a['data-status'] === 'Dead' && samePathFrom1(pairs(a.points), chief.slice(1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the rest of the dead chief is one 6 4 dashed Dead polyline to its last point (CR #660)`);
     assert.ok(chief.some((p, j) => j > 0 && p[0] > chief[j - 1][0]) && chief.some((p, j) => j > 0 && p[0] < chief[j - 1][0]),
       'the chief path reverses in z (folded)');
     assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray part`);
@@ -1182,6 +1184,13 @@ test('recorded ray status per point (U17)', () => {
       else if (i !== L.chief[k]) assert.ok(!part.dash, `${run.status} is solid`);
     }
     assert.equal(got.length, claimed, `width ${width}: every status polyline is some ray's run`);
+    // CR #663: a ray recorded Alive then Dead draws its first segment, up to the obstruction, as an Alive polyline.
+    L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
+      const st = L.status[k][i];
+      if (st[0] !== 'Alive' || st[1] === 'Alive' || !st.includes('Dead')) return;
+      const first = matches.find((m) => m.k === k && m.i === i);
+      assert.equal(first.part.status, 'Alive', `width ${width} field ${k} ray ${i}: the first segment is Alive`);
+    }));
     // CR #660: Virtual and Dead runs sit in one faded group before the Alive group; Alive runs are in the .85 group.
     const svg = ELEO.layout2D({ data: L, rays: 'fan', width }), faded = svg.match(/<g opacity="\.35">(.*?)<\/g>/s), live = svg.match(/<g opacity="\.85">(.*?)<\/g>/s);
     assert.ok(faded && live && faded.index < live.index, 'the faded group comes before the .85 group');
