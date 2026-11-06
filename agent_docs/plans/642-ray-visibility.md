@@ -116,7 +116,6 @@ Wandersleb with `show: ["Alive", "Dead"]` (the draft `review-assets` release, ne
 | [#656] | README: `show` on a legacy dead ray draws points 0 to `alive[k][i]` - 1 (CR [#655], review M1 round 1, finding 1) | the reviewer's wording because the `dead` paragraph reads "0 to `alive[k][i]`" inclusively; considered `r[0..a)` alone, notation the README does not use | `packages/plots/README.md` | none to write: `show is validated and hides a legacy dead ray (U17)` already green | [#650] |
 | [#657] | A legacy one-point ray with `alive` 0 draws its dotted single-point polyline again, as before [#648] (review M1 round 1, finding 2) | a lone dotted `[r[0]]` head without `status` when Virtual is shown, the one case a 6603-drawing fuzz found; considered documenting it away, which breaks U17's property | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::a one-point ray with alive 0 draws its dotted point (O3)` | [#656] |
 | [#658] | `alive` and `dead` are not validated when `status` is present (review M1 round 1, finding 3) | skip their `perRay` calls beside `status`, as the Constraints and the Core JSDoc say; considered rewording the docs, which edits Core `index.d.ts` | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::alive and dead are ignored when status is present` | [#657] |
-| [#659] | Runs drop `virt`, always `st === "Virtual"` (review M1 round 1, finding 4) | the reviewer's sketch; considered keeping it as a cache, which saves nothing | `packages/plots/src/layout2d.js` | none to write: the suite, `split.test.js` and the U16, U17 and `show` tests, green | [#658] |
 
 ### M2: absorbed fixes and the release GitHub: `P642 M2: Fixes and release`
 
@@ -147,6 +146,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 approved (user): as drafted, the oracles O1 to O6 in one batch, the Core `index.d.ts` change with it; published as [#642], items [#643] to [#651] and reused [#368], [#138], [#160], [#355], [#616].
 - 2026-11-05 CR [#653] (orchestrator, accepted): #648's first attempt showed the four recorded baseline entries (#644) would draw from `status` once #646 re-recorded them; O3 defines them as the recordings with `status` deleted, so +1 item [#654] in M1 before [#648], keeping every invariant.
 - 2026-11-05 review M1 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, CR [#655] accepted (README off by one, item [#656]); backlog [#657], [#658], [#659] pulled into M1 (small, named, in files M1 changed).
+- 2026-11-05 [#659] back to the backlog, out of M1 (orchestrator): a pure refactor, so it has no test to write first, and the commit hook refuses a source change without one; the next item that touches the run building carries it.
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
