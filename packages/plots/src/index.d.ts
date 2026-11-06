@@ -82,7 +82,7 @@ export interface SpotSeries {
   points: [number | null, number | null][];
   /** Palette slot: the series color follows idx(index). Default 0. */
   index?: number;
-  /** Keys the series in the SVG: a dot in its color and this text, once per distinct label, below the captions. */
+  /** Keys the series in the SVG: a dot in its color and this text, once per distinct label, below the captions, or in each panel's corner by `keyAt`. */
   label?: string;
 }
 /** One spot panel, usually one field. */
@@ -119,7 +119,7 @@ export interface SpotPanelsProps {
   /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
   /** Where series labels are keyed: "below" the captions (default), or a corner of each panel (a box on --surface with that panel's labels; no rows reserved). */
-  keyAt?: "below" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  keyAt?: PlotKeyAt;
   /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels` (less when `height` caps it), is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
   width?: number;
   /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
