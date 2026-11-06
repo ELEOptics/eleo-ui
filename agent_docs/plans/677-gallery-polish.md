@@ -86,7 +86,7 @@ No `exports` change in any `package.json`.
 
 ## Milestones
 
-### M1: Curve keys GitHub: `P677 M1: Curve keys`
+### M1: Curve keys (done 2026-11-06) GitHub: `P677 M1: Curve keys`
 
 Demo: `npm run gallery`: the MTF and field curvature tiles key each curve below the x label at the plot's
 text size; the distortion tile keys in the top-right corner (`keyAt: "top-right"`, CR #718); mtf-limits' vertical line reads "50 cycles/mm". Proves: O1
@@ -183,3 +183,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M1 round 2 (4 blocking): CRs #716 to #719 accepted (orchestrator: each keeps every invariant), fixed by #720, #721, #722 and this plan's M1 Demo (CR #718: the distortion tile keys top-right).
 - 2026-11-06 review M1 round 3 (1 blocking, 1 backlog): CR #723 accepted (orchestrator: a doc comment in `index.d.ts`, Core but listed for #681), fixed by #725; backlog #724 into M1.
 - 2026-11-06 orchestrator: #724 and #725 share one commit because `check-tests-touched.sh` refuses #725's comment-only `index.d.ts` change without a test touched, and a test written only to pass the hook was round 2's finding 4 (CR #719).
+- 2026-11-06 M1 reviewed in 4 rounds (9, 4, 2, 0 counting pulled-in items); round 4 says 0 blocking; ticked.
