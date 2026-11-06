@@ -40,10 +40,9 @@ export function limitMarks(norm, xr, yr, style) {
   });
   return { under: under, over: over };
 }
-/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line, end-anchored left of it when the line is past the plot's midpoint (a band whose left edge is past it, inside the band at its right edge, clamped to the range). `px` is { X, Y, right, top }, the cell's data to px functions and edges; `t` is the text's inline size (default 10, the class size) and the offsets are 0.4 t, 0.3 t and 1 t. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
+/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line, end-anchored left of it when the line is past the plot's midpoint (a band whose left edge is past it, inside the band at its right edge, clamped to the range). `px` is { X, Y, right, top }, the cell's data to px functions and edges; `t` is the text's inline size and the offsets are 0.4 t, 0.3 t and 1 t. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
 export function limitLabels(norm, xr, yr, px, t) {
   var g = "", r2 = function (v) { return +v.toFixed(2); };
-  t = t || 10;
   norm.forEach(function (l) {
     if (!l.label) return;
     if (l.axis === "y") {

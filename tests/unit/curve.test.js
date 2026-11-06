@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/index.js';
 import { niceRange } from '../../packages/plots/src/axis.js';
+import { limitLabels } from '../../packages/plots/src/limits.js';
 
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -480,6 +481,18 @@ test('limit label offsets scale', () => {
     assert.ok(Math.abs(num(text('xl'), 'x') - 0.4 * t - box.x - toPx(M, [50, 0])[0]) <= tol, `${width}px: x label 0.4 t right of its line`);
     assert.ok(Math.abs(num(text('xr'), 'x') + 0.4 * t - box.x - toPx(M, [350, 0])[0]) <= tol, `${width}px: late x label 0.4 t left of its line`);
   }
+});
+
+// Plan #677, issue #715. oracle: closed-form, the 0.4 t / 0.3 t / 1 t rule of #556 evaluated at t = 16 by hand.
+test('limitLabels uses the t it is given', () => {
+  const norm = [{ axis: 'y', lo: 0.5, hi: 0.5, label: 'yl' }, { axis: 'x', lo: 10, hi: 10, label: 'xl' }];
+  const px = { X: (v) => v, Y: (v) => v, right: 100, top: 0 };
+  const call = (...t) => limitLabels(norm, [0, 100], [0, 1], px, ...t);
+  const svg = call(16);
+  assert.ok(!svg.includes('NaN'), 'no NaN in the markup');
+  assert.ok(svg.includes(`x="${100 - 0.4 * 16}"`), 'y label x is 0.4 t left of the right edge');
+  assert.ok(svg.includes(`dy="${-0.3 * 16}"`), 'y label dy is -0.3 t');
+  assert.ok(svg.includes(`x="${10 + 0.4 * 16}" y="16"`), 'x label is 0.4 t right of its line and 1 t below the top');
 });
 
 // Plan #284, issue #291. oracle: property: synthetic limits recovered through the inverse transform within 0.5 px; an auto range contains every limit; a given range clips them.
