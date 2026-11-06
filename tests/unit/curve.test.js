@@ -466,6 +466,22 @@ test('helpers skip a path with no data', () => {
   assert.deepEqual(panelGroups(svg)[0].paths, [], 'and in a panel');
 });
 
+// Plan #677, issue #556. oracle: closed-form plotCell's t / 10 rule: the offsets 0.4 t, 0.3 t and 1 t, read against the label's own font-size at two widths.
+test('limit label offsets scale', () => {
+  const series = [{ points: [[0, 1], [400, 0]], index: 0 }];
+  const x = { label: 'f', range: [0, 400] }, y = { label: 'm', range: [0, 1] };
+  for (const width of [600, 1200]) {
+    const svg = ELEO.curve({ series, x, y, limits: [{ y: 0.3, label: 'yl' }, { x: 50, label: 'xl' }, { x: 350, label: 'xr' }], width });
+    const text = (label) => svg.match(new RegExp(`<text class="eleo-tick"([^>]*)>${label}</text>`))[1];
+    const t = +text('yl').match(/font-size:([\d.]+)px/)[1], box = panelGroups(svg)[0].box, M = seriesGroup(svg).M;
+    const num = (a, k) => +a.match(new RegExp(`${k}="([^"]*)"`))[1], tol = 0.1;
+    assert.ok(Math.abs(num(text('yl'), 'dy') + 0.3 * t) <= tol, `${width}px: y label dy is -0.3 t`);
+    assert.ok(Math.abs(num(text('xl'), 'y') - box.y - toPx(M, [0, 1])[1] - t) <= tol, `${width}px: x label sits 1 t below the top`);
+    assert.ok(Math.abs(num(text('xl'), 'x') - 0.4 * t - box.x - toPx(M, [50, 0])[0]) <= tol, `${width}px: x label 0.4 t right of its line`);
+    assert.ok(Math.abs(num(text('xr'), 'x') + 0.4 * t - box.x - toPx(M, [350, 0])[0]) <= tol, `${width}px: late x label 0.4 t left of its line`);
+  }
+});
+
 // Plan #284, issue #291. oracle: property: synthetic limits recovered through the inverse transform within 0.5 px; an auto range contains every limit; a given range clips them.
 test('limits draw single and paneled', () => {
   const series = [
@@ -477,6 +493,7 @@ test('limits draw single and paneled', () => {
   const limits = [{ y: 0.3, label: 'MTF ≥ 0.3' }, { x: 50 }, { y: [0.3, 0] }];
   const x = { label: 'f', range: [0, 400] }, y = { label: 'm', range: [0, 1] };
   const near = (M, v, w, msg) => assert.ok(Math.hypot(...toPx(M, v).map((c, i) => c - toPx(M, w)[i])) <= TOL_PX, msg);
+  const lt = (svg) => +svg.match(/<text class="eleo-tick"[^>]*font-size:([\d.]+)px[^>]*>[^<]*<\/text>/)[1];
   const check = (g, msg) => {
     const lines = marks(g, 'line').filter((l) => l.limit), rects = marks(g, 'rect').filter((r) => r.limit);
     assert.equal(lines.length, 2, `${msg}: a line per number`);
@@ -519,22 +536,22 @@ test('limits draw single and paneled', () => {
     const ty = svg.match(/<text class="eleo-tick" x="[^"]*" y="([^"]*)"[^>]*>part y<\/text>/), tx = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"[^>]*>part x<\/text>/);
     assert.ok(ty && tx, `${width}px: a partly drawn band keeps its label`);
     assert.ok(Math.abs(+ty[1] - bx.y - toPx(gp.M, [0, 1])[1]) <= TOL_PX, `${width}px: the y band's label sits at the range top`);
-    assert.ok(Math.abs(+tx[1] - 4 - bx.x - toPx(gp.M, [0, 0])[0]) <= TOL_PX, `${width}px: the x band's label sits at the range start`);
+    assert.ok(Math.abs(+tx[1] - 0.4 * lt(svg) - bx.x - toPx(gp.M, [0, 0])[0]) <= TOL_PX, `${width}px: the x band's label sits at the range start`);
     // An x limit past the plot's midpoint has its label end-anchored left of its line, inside the viewBox.
     svg = ELEO.curve({ series, x, y, limits: [{ x: 400, label: 'Nyquist 400' }, { x: 50, label: 'early' }], width, height });
     const ny = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>Nyquist 400<\/text>/), ea = svg.match(/<text class="eleo-tick"([^>]*)>early<\/text>/);
     assert.ok(ny, `${width}px: the Nyquist label is drawn`);
     assert.match(ny[2], /text-anchor="end"/, `${width}px: a label past the midpoint is end-anchored`);
     assert.ok(+ny[1] <= width, `${width}px: the label's anchor is inside the viewBox`);
-    assert.ok(Math.abs(+ny[1] + 4 - panelGroups(svg)[0].box.x - toPx(seriesGroup(svg).M, [400, 0])[0]) <= TOL_PX, `${width}px: the label sits 4 px left of its line`);
+    assert.ok(Math.abs(+ny[1] + 0.4 * lt(svg) - panelGroups(svg)[0].box.x - toPx(seriesGroup(svg).M, [400, 0])[0]) <= TOL_PX, `${width}px: the label sits 0.4 t left of its line`);
     assert.ok(!/text-anchor/.test(ea[1]), `${width}px: a label before the midpoint keeps the start anchor`);
     // A band whose left edge is past the midpoint is end-anchored inside the band, at its right edge.
     svg = ELEO.curve({ series, x, y, limits: [{ x: [280, 360], label: 'late band' }, { x: [300, 900], label: 'late clip' }], width, height });
     const lb = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>late band<\/text>/), lc = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>late clip<\/text>/);
     const lx = panelGroups(svg)[0].box.x, lm = seriesGroup(svg).M;
     assert.ok(lb && lc && /text-anchor="end"/.test(lb[2]), `${width}px: a late band's label is end-anchored`);
-    assert.ok(Math.abs(+lb[1] + 4 - lx - toPx(lm, [360, 0])[0]) <= TOL_PX, `${width}px: a late band's label ends 4 px inside its right edge`);
-    assert.ok(Math.abs(+lc[1] + 4 - lx - toPx(lm, [400, 0])[0]) <= TOL_PX, `${width}px: a clipped late band's label ends at the range end`);
+    assert.ok(Math.abs(+lb[1] + 0.4 * lt(svg) - lx - toPx(lm, [360, 0])[0]) <= TOL_PX, `${width}px: a late band's label ends 0.4 t inside its right edge`);
+    assert.ok(Math.abs(+lc[1] + 0.4 * lt(svg) - lx - toPx(lm, [400, 0])[0]) <= TOL_PX, `${width}px: a clipped late band's label ends at the range end`);
     // A band wholly outside the range has none.
     svg = ELEO.curve({ series, x, y, limits: [{ y: [2, 9], label: 'gone' }, { x: [500, 600], label: 'gone' }], width, height });
     assert.ok(!svg.includes('gone'), 'no label for a band outside the range');

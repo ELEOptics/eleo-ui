@@ -88,7 +88,7 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   g += '<svg ' + fr + '><g transform="matrix(' + M.join(" ") + ')">';
   if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
   g += "</g></svg>";
-  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }).replace(/<text [^>]*/g, function (m) { return m + ts; });
+  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }, mg.t).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
 }
 /* The `limit` role's style, as attributes for a line and for a band; the `limits` option's marks stay 1 px. */

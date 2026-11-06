@@ -40,19 +40,20 @@ export function limitMarks(norm, xr, yr, style) {
   });
   return { under: under, over: over };
 }
-/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line, end-anchored left of it when the line is past the plot's midpoint (a band whose left edge is past it, inside the band at its right edge, clamped to the range). `px` is { X, Y, right, top }, the cell's data to px functions and edges. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
-export function limitLabels(norm, xr, yr, px) {
+/* The labels as px-space text outside the data group: a y limit's at the plot's right end above its line (a band's at its upper edge), an x limit's at the top beside its line, end-anchored left of it when the line is past the plot's midpoint (a band whose left edge is past it, inside the band at its right edge, clamped to the range). `px` is { X, Y, right, top }, the cell's data to px functions and edges; `t` is the text's inline size (default 10, the class size) and the offsets are 0.4 t, 0.3 t and 1 t. A band keeps its label while it overlaps the range, at the edge clamped to it; a limit outside the range has none. */
+export function limitLabels(norm, xr, yr, px, t) {
   var g = "", r2 = function (v) { return +v.toFixed(2); };
+  t = t || 10;
   norm.forEach(function (l) {
     if (!l.label) return;
     if (l.axis === "y") {
       if (l.hi < yr[0] || l.lo > yr[1]) return;
-      g += '<text class="eleo-tick" x="' + r2(px.right - 4) + '" y="' + px.Y(Math.min(l.hi, yr[1])) + '" dy="-3" text-anchor="end">' + esc(l.label) + "</text>";
+      g += '<text class="eleo-tick" x="' + r2(px.right - 0.4 * t) + '" y="' + px.Y(Math.min(l.hi, yr[1])) + '" dy="' + r2(-0.3 * t) + '" text-anchor="end">' + esc(l.label) + "</text>";
     } else {
       if (l.hi < xr[0] || l.lo > xr[1]) return;
       var xp = +px.X(Math.max(l.lo, xr[0])), late = xp > (+px.X(xr[0]) + +px.X(xr[1])) / 2;
-      var ax = r2(late ? +px.X(Math.min(l.hi, xr[1])) - 4 : xp + 4);
-      g += '<text class="eleo-tick" x="' + ax + '" y="' + r2(px.top + 10) + '"' + (late ? ' text-anchor="end"' : "") + ">" + esc(l.label) + "</text>";
+      var ax = r2(late ? +px.X(Math.min(l.hi, xr[1])) - 0.4 * t : xp + 0.4 * t);
+      g += '<text class="eleo-tick" x="' + ax + '" y="' + r2(px.top + t) + '"' + (late ? ' text-anchor="end"' : "") + ">" + esc(l.label) + "</text>";
     }
   });
   return g;
