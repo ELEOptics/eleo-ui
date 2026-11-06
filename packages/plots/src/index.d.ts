@@ -316,6 +316,8 @@ export interface CurveKindProps {
   /** Drawing width in px, as for a typed call (ADR-0003). Default 460. */
   width?: number;
   height?: number;
+  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
+  grid?: boolean;
   series?: never;
   panels?: never;
   limits?: never;

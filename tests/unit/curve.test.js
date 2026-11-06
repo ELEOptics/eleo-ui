@@ -926,6 +926,13 @@ test('grid false', async () => {
     assert.deepEqual(texts(off), texts(on), name + ': tick text unchanged');
     assert.ok(off.includes('<rect') && off.length < on.length, name + ': frame stays');
   }
+  await import('../../packages/plots/src/sample.js');
+  for (const kind of ['mtf', 'fieldCurvature', 'distortion', 'chromaticFocus']) {
+    const on = curve({ kind }), off = curve({ kind, grid: false });
+    assert.equal(curve({ kind, grid: true }), on, kind + ': grid: true is the default');
+    assert.ok(count(on) > 0 && count(off) === 0, kind + ': no grid lines with grid: false');
+    assert.deepEqual(texts(off), texts(on), kind + ': tick text unchanged');
+  }
   const fan = rayFan({ grid: false }), fanOn = rayFan({});
   assert.ok(count(fanOn) > 0 && count(fan) === 0, 'rayFan: no grid lines with grid: false');
   assert.deepEqual(texts(fan), texts(fanOn), 'rayFan: tick text unchanged');
