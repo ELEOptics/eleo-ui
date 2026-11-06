@@ -182,3 +182,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M1 round 1 (4 blocking, 5 backlog): CRs #705, #706, #707, #708 accepted (orchestrator: each keeps every invariant), fixed by #713, #714, #711, #715; backlog #709, #710, #711, #712 into M1.
 - 2026-11-06 review M1 round 2 (4 blocking): CRs #716 to #719 accepted (orchestrator: each keeps every invariant), fixed by #720, #721, #722 and this plan's M1 Demo (CR #718: the distortion tile keys top-right).
 - 2026-11-06 review M1 round 3 (1 blocking, 1 backlog): CR #723 accepted (orchestrator: a doc comment in `index.d.ts`, Core but listed for #681), fixed by #725; backlog #724 into M1.
+- 2026-11-06 orchestrator: #724 and #725 share one commit because `check-tests-touched.sh` refuses #725's comment-only `index.d.ts` change without a test touched, and a test written only to pass the hook was round 2's finding 4 (CR #719).

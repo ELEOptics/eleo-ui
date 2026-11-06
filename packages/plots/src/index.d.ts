@@ -228,7 +228,7 @@ export interface CurveSeries {
   /** Named in the key: one entry per distinct label, from its first use's role and index. A series without one has no key entry. */
   label?: string;
 }
-/** A key entry: a line swatch in `index`'s palette slot and `role`'s dash, then the label (ADR-0001: never a color). */
+/** A key entry: a line swatch in the role's colour (`index`'s palette slot, or `--ink` for `reference` and `limit`) and `role`'s dash, then the label (ADR-0001: never a color). */
 export interface PlotKeyEntry { label: string; index?: number; role?: CurveSeries["role"] }
 /** Where a key goes: under the x label (the SVG grows by its rows, or with a `height` the frame gives them up) or in a plot corner, on a `--surface` box that never resizes the frame. */
 export type PlotKeyAt = "below" | "top-left" | "top-right" | "bottom-left" | "bottom-right";

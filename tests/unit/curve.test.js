@@ -845,8 +845,8 @@ test('key swatch follows the role', () => {
   assert.equal(sw[1], 'var(--ink)');
 });
 
-// Plan #677 M1 (#709): a corner key on a short plot wraps at the plot's width and stays inside the viewBox.
-// oracle: invariant (the key box lies within the SVG's viewBox)
+// Plan #677 M1 (#709): a corner key on a short plot wraps at the plot's width and stays inside the plot frame (a larger box starts inside it on both axes).
+// oracle: property a key box that fits lies within the plot frame; a larger one starts inside it on both axes (CR #716)
 test('corner key stays in the plot', async () => {
   const pts = [[0, 1], [400, 0]];
   const mk = (n, label) => Array.from({ length: n }, (_, i) => ({ points: pts, index: i, label: label || 'series number ' + i }));
