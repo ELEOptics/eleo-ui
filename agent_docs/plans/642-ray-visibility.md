@@ -135,7 +135,8 @@ plots minor. Proves: O6, and the absorbed issues
 | [#670] | A glass before an image whose profile is empty or non-finite throws badProfile's named error (review M2 round 1, finding 4) | `badProfile({ ...S[i + 1], image: false })` in the [#138] guard, because badProfile already names these faults; considered repeating its checks inline, a second copy | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::layoutBounds names a bad input` (two more cases) | [#160] |
 | [#672] | Fixtures README: the recorder refuses a 14° ray not first `Dead` at the stop (CR [#667]) | the reviewer's wording, because it names the check the recorder runs; considered rewriting the paragraph, more than the fault | `tests/fixtures/phos-core/README.md` | none to write: a doc fix | [#670] |
 | [#673] | A plots patch changeset for the label clamp and the named image error; README:55 names the clamp; the "as before" claims narrowed to the status drawing (CR [#668]) | a separate patch, because these are fixes, not the `status` feature; considered one more sentence in the minor, which mixes fixes into the feature note | `.changeset/layout-label-clamp.md`, `.changeset/layout-status.md`, `packages/plots/README.md`, `tests/unit/release.test.js` | `release.test.js::row Q changesets` (asserts the patch) | [#672] |
-| [#674] | The row Q patch changeset gets its own consumed gate and twin, `ROW_Q_PATCH_ENTRY` (review M2 round 2, finding 1) | row P's pattern (`release.test.js:474-478`), because it is the idiom for two changesets in one row; considered one gate for both, which is the gap | `tests/unit/release.test.js` | `release.test.js::row Q changesets` and its twins | [#673] |
+| [#674] | The row Q patch changeset gets its own consumed gate and twin, `ROW_Q_PATCH_ENTRY` (review M2 round 2, finding 1) | a gate and twin per changeset, departing from rows O and P (which share one, `release.test.js:415`, `:444-446`), so each entry is checked on its own; considered ANDing the patch into row Q's one gate as row P does, two fewer tests | `tests/unit/release.test.js` | `release.test.js::row Q changesets` and its twins | [#673] |
+| [#675] | `release.test.js:482`'s comment says row Q, unlike rows O and P, gives each changeset its own gate and twin (review M2 round 3, finding 1) | reword the comment, because the code is correct; considered folding row Q into one gate, which undoes [#674] | `tests/unit/release.test.js` | none to write: a comment fix | [#674] |
 
 ## Risks and spikes
 
@@ -163,6 +164,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-06 M1 demo 3 (user): go. M1 accepted (O5).
 - 2026-11-06 review M2 round 1 (code-reviewer, claude-opus-5-5): 2 blocking, CRs [#667] (fixtures README refusal list) and [#668] (no release note for the label clamp and named error) accepted, items [#672] and [#673]; backlog [#670] pulled into M2 (small, named, in `layout2d.js`); [#669] and [#671] stay in the backlog ([#669] needs a spacing design; [#671] is a recorder change no test can exercise).
 - 2026-11-06 review M2 round 2 (code-reviewer, claude-opus-5-5): 0 blocking; CRs [#667] and [#668] resolved; backlog [#674] pulled into M2 (small, named, in `release.test.js`).
+- 2026-11-06 review M2 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog [#675] pulled in (the #674 comment and plan cell misdescribed rows O and P; plan cell fixed here).
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
@@ -203,6 +205,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#672]: https://github.com/ELEOptics/eleo-ui/issues/672
 [#673]: https://github.com/ELEOptics/eleo-ui/issues/673
 [#674]: https://github.com/ELEOptics/eleo-ui/issues/674
+[#675]: https://github.com/ELEOptics/eleo-ui/issues/675
 [#655]: https://github.com/ELEOptics/eleo-ui/issues/655
 [#656]: https://github.com/ELEOptics/eleo-ui/issues/656
 [#657]: https://github.com/ELEOptics/eleo-ui/issues/657
