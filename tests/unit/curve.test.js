@@ -887,3 +887,19 @@ test('corner key stays in the plot', async () => {
     }
   }
 });
+
+// Plan #677, issue #691. oracle: property: grid: false removes exactly the tick grid lines; the tick text and everything else stay, and without it the output is byte-identical.
+test('plotCell without grid', async () => {
+  const { plotCell } = await import('../../packages/plots/src/curve.js');
+  const sc = { xr: [0, 10], yr: [0, 1], xt: { ticks: [0, 5, 10], decimals: 0 }, yt: { ticks: [0, 0.5, 1], decimals: 1 }, R: 10, Rt: 1 };
+  const mg = { L: 40, B: 30, R: 10, t: 10 };
+  const on = plotCell(sc, [], 300, 200, 10, false, '', undefined, mg);
+  const off = plotCell(sc, [], 300, 200, 10, false, '', undefined, { ...mg, grid: false });
+  assert.equal(plotCell(sc, [], 300, 200, 10, false, '', undefined, { ...mg, grid: true }), on, 'grid: true is the default');
+  const lines = (s) => (s.match(/<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g) || []).length;
+  const texts = (s) => s.match(/<text [^>]*>[^<]*<\/text>/g);
+  assert.equal(lines(on), 6, 'three x and three y grid lines by default');
+  assert.equal(lines(off), 0, 'no grid lines with grid: false');
+  assert.deepEqual(texts(off), texts(on), 'tick text unchanged');
+  assert.equal(on.replace(/<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g, ''), off, 'nothing else differs');
+});

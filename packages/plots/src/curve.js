@@ -69,19 +69,19 @@ var r2 = function (v) { return +v.toFixed(2); };
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
-/* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
+/* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. `grid: false` draws the tick text without the grid lines (the frame and the zero axes stay). With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
 export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   mg = mg || { L: PLOT_L, B: PLOT_B, R: sc.R };
   /* The frame is rounded to 2 decimals once, here: everything below derives from these, so the markup is small and doesn't depend on Math.cbrt's last bits. */
   T = r2(T);
   var L = r2(mg.L), Bm = mg.B, ph = r2(Math.max(1, h - T - Bm)), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
-  var u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
+  var grid = mg.grid !== false, u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
   var pw = r2(Math.max(1, w - L - mg.R)), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
   var fr = 'x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"', Bt = r2(T + ph), Rt = r2(L + pw);
   g += '<rect ' + fr + ' fill="none" stroke="var(--plot-grid)"/>';
-  xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + Bt + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + X(v) + '" y="' + r2(T + ph + o(13)) + '" text-anchor="middle"' + ts + '>' + fmt(v, xt.decimals) + "</text>"; });
-  yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + Rt + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + r2(L - o(6)) + '" y="' + Y(v) + '" dy="' + o(3) + '" text-anchor="end"' + ts + '>' + fmt(v, yt.decimals) + "</text>"; });
+  xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += (grid ? '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + Bt + '" stroke="var(--plot-grid)"/>' : "") + '<text class="eleo-tick" x="' + X(v) + '" y="' + r2(T + ph + o(13)) + '" text-anchor="middle"' + ts + '>' + fmt(v, xt.decimals) + "</text>"; });
+  yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += (grid ? '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + Rt + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/>' : "") + '<text class="eleo-tick" x="' + r2(L - o(6)) + '" y="' + Y(v) + '" dy="' + o(3) + '" text-anchor="end"' + ts + '>' + fmt(v, yt.decimals) + "</text>"; });
   if (xr[0] < 0 && xr[1] > 0) g += '<line x1="' + X(0) + '" y1="' + T + '" x2="' + X(0) + '" y2="' + Bt + '" stroke="var(--plot-axis)"/>';
   if (yr[0] < 0 && yr[1] > 0) g += '<line x1="' + L + '" y1="' + Y(0) + '" x2="' + Rt + '" y2="' + Y(0) + '" stroke="var(--plot-axis)"/>';
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
