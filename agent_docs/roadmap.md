@@ -43,7 +43,7 @@ workflow.md TDD > Oracles). Agents propose the oracles; the user approves the co
 | U14 | Plots redraw fast enough for live updates during optimization: at reference sizes (10 000 spot points, a 256 × 256 map, 20 curves of 200 points, a 50-surface layout with 3 fields of 21 rays, 50 surfaces × 7 Seidel terms of bars plus the total) each renderer redraws in under 16 ms. | `measurement: performance.now() in the Playwright gallery tests, median of 20 redraws in headless Chromium on the developer's machine, recorded in the plan's Change log by each row that changes a renderer's drawing (not a CI gate)` | D on |
 | U15 | Any plot saves as a standalone SVG (tokens resolved to the current theme through computed styles, as svg-crowbar does, so it renders with no ELEO CSS) and as PNG at a chosen scale (`canvas.toBlob`); canvas plots save as PNG. No new dependency. | `property: an exported SVG opened in a page with no ELEO CSS matches the on-screen plot within 1% of pixels; a PNG's size is the plot's size times the scale` | I |
 | U16 | `layout2D` draws the part of a ray past its last physical point lighter and dotted beside its solid real part, from optional per-ray input in `RecordedLayout`. | `fixture: phos-core visualize_system_2d of the Wandersleb triplet (US 1,073,789, public domain) recorded by scripts/record-phos-core.py: for each ray the solid and dotted polylines share exactly its last alive point and together recover the ray within 0.01 mm`; `property: a layout without the input gives the same SVG for every ray point after the start`; `user: the layout tiles in both themes and palettes` (approved 2026-10-12, plan [#337]) | M |
-| U17 | `layout2D` takes each kept ray point's phos-core status (`Alive`, `Virtual`, `Dead`: the Rust `RayStatus` variant names) as optional input in `RecordedLayout`, draws each segment in its own status's style (a segment takes the status of its end point), and a `show` option hides the segments of any status; callers choose what a layout shows, so a model where virtual rays are expected keeps them. `Missed` points are non-finite, so they end a ray and never draw. A layout with only `alive` and `dead` draws as today: its tail reads as `Virtual`, whose style stays today's dotted tail. (User, 2026-11-01.) | `fixture: the Wandersleb and Cassegrain layouts re-recorded by scripts/record-phos-core.py at the fixtures' pinned phos-core sha, with each kept point's status: for each ray, the polylines drawn for each status recover exactly that status's segments within 0.01 mm, and a hidden status draws none`; `property: a layout with only alive and dead, or none, gives the same SVG as before`; `user: a Cassegrain tile with show hiding Dead (the obscured rays), in both themes and palettes` | Q ([#642]) |
+| U17 | `layout2D` takes each kept ray point's phos-core status (`Alive`, `Virtual`, `Dead`: the Rust `RayStatus` variant names) as optional input in `RecordedLayout`, draws each segment in its own status's style (with `status` a segment takes the status of its start point, CR [#663]; without it, of its end point), and a `show` option hides the segments of any status; callers choose what a layout shows, so a model where virtual rays are expected keeps them. `Missed` points are non-finite, so they end a ray and never draw. A layout with only `alive` and `dead` draws as today: its tail reads as `Virtual`, whose style stays today's dotted tail. (User, 2026-11-01.) | `fixture: the Wandersleb and Cassegrain layouts re-recorded by scripts/record-phos-core.py at the fixtures' pinned phos-core sha, with each kept point's status: for each ray, the polylines drawn for each status recover exactly that status's segments within 0.01 mm, and a hidden status draws none`; `property: a layout with only alive and dead, or none, gives the same SVG as before`; `user: a Cassegrain tile with show hiding Dead (the obscured rays), in both themes and palettes` | Q ([#642]) |
 | U18 | Framed plots and `layout2D` size text and heavy strokes from their rendered width by ADR-0003's rule; `fit(el, draw)` and `PLOT_SIZES` carry it to callers. | `closed-form ADR-0003: a unit test on each framed renderer's SVG (map2D's in Playwright) finds every text size and growing stroke width equal to ADR-0003's formulas below, inside and above the band; Playwright, superseding N's footprint ratio test in tests/gallery.spec.js, finds every framed tile's rendered text equal to the formula for its rendered frame within 1% and at least 9 px, at 1440, 1100 and 700 px`; `user: the gallery in both themes and palettes, and the website's U3 layout fixtures, at the row's M1 demo` (oracle changed by the user at plan \[#512\]: the knee in place of the ceiling) | O |
 
 ## Plans
@@ -233,7 +233,6 @@ One bullet per entry (bare lines render as one paragraph).
 [#450]: https://github.com/ELEOptics/eleo-ui/issues/450
 [#464]: https://github.com/ELEOptics/eleo-ui/issues/464
 [#470]: https://github.com/ELEOptics/eleo-ui/issues/470
-[#483]: https://github.com/ELEOptics/eleo-ui/issues/483
 [#486]: https://github.com/ELEOptics/eleo-ui/issues/486
 [#487]: https://github.com/ELEOptics/eleo-ui/issues/487
 [#492]: https://github.com/ELEOptics/eleo-ui/issues/492
@@ -256,16 +255,17 @@ One bullet per entry (bare lines render as one paragraph).
 [#598]: https://github.com/ELEOptics/eleo-ui/issues/598
 [#602]: https://github.com/ELEOptics/eleo-ui/issues/602
 [#603]: https://github.com/ELEOptics/eleo-ui/issues/603
+[#612]: https://github.com/ELEOptics/eleo-ui/pull/612
+[#616]: https://github.com/ELEOptics/eleo-ui/issues/616
+[#617]: https://github.com/ELEOptics/eleo-ui/issues/617
+[#621]: https://github.com/ELEOptics/eleo-ui/issues/621
+[#622]: https://github.com/ELEOptics/eleo-ui/issues/622
+[#630]: https://github.com/ELEOptics/eleo-ui/issues/630
+[#632]: https://github.com/ELEOptics/eleo-ui/issues/632
+[#633]: https://github.com/ELEOptics/eleo-ui/issues/633
+[#639]: https://github.com/ELEOptics/eleo-ui/issues/639
+[#642]: https://github.com/ELEOptics/eleo-ui/issues/642
+[#663]: https://github.com/ELEOptics/eleo-ui/issues/663
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
 [#86]: https://github.com/ELEOptics/eleo-ui/issues/86
 [#90]: https://github.com/ELEOptics/eleo-ui/issues/90
-[#612]: https://github.com/ELEOptics/eleo-ui/pull/612
-[#621]: https://github.com/ELEOptics/eleo-ui/issues/621
-[#622]: https://github.com/ELEOptics/eleo-ui/issues/622
-[#632]: https://github.com/ELEOptics/eleo-ui/issues/632
-[#633]: https://github.com/ELEOptics/eleo-ui/issues/633
-[#616]: https://github.com/ELEOptics/eleo-ui/issues/616
-[#617]: https://github.com/ELEOptics/eleo-ui/issues/617
-[#639]: https://github.com/ELEOptics/eleo-ui/issues/639
-[#630]: https://github.com/ELEOptics/eleo-ui/issues/630
-[#642]: https://github.com/ELEOptics/eleo-ui/issues/642
