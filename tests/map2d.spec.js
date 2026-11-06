@@ -555,8 +555,11 @@ test('colorbar ticks', async ({ page }) => {
   const r = await page.locator('.theme[data-theme="light"]').evaluate(async (el) => {
     const ELEO = window.ELEO, out = [];
     const values = Array.from({ length: 16 }, (_, j) => Array.from({ length: 16 }, (_, i) => 1 + ((i + 16 * j) / 255) * 2.7));
+    // Spans whose first nice step rounds up past the range (a step of 0.5 over [0.01, 1.2]) or whose size sits under any absolute tolerance
+    // (1e-11 to 1.2e-5) are in the property too: a linear colorbar has at least 3 ticks inside its range.
+    const spans = [[0.01, 1.2], [1e-11, 1.2e-5], [0, 1], [0, 7], [0.3, 0.37], [100, 1200], [-1, 1.3], [0.9, 1.1], [1e-6, 3e-6]].map(([a, b]) => ({ range: [a, b], lo: a, top: b }));
     const cases = [{ range: [0, 4], lo: 0, top: 4 }, { range: [-2, 6], lo: -2, top: 6 }, { lo: 1, top: 3.7 },
-      { scale: 'log', decades: 3, top: 3.7, log: true }];
+      { scale: 'log', decades: 3, top: 3.7, log: true }, ...spans];
     for (const c of cases) {
       const { lo, top, log, ...props } = c;
       el.insertAdjacentHTML('beforeend', ELEO.map2D({ values, extent: [0, 1, 0, 1], map: 'ember', ...props, value: { label: 'irradiance', unit: 'W/mm²' }, el }));

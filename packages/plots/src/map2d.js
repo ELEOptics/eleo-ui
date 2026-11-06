@@ -46,7 +46,11 @@ function margins(o, W, H) {
     if (!(log ? hi > 0 : lo < hi)) vt = { ticks: [], decimals: 0 };
     else if (vb.ticks) vt = axisTicks(vb, [cl, hi]);
     else if (log) { vt = { ticks: [], decimals: 0 }; if (hi > 0) for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = null; }
-    else vt = niceTicks(cl, hi, 6);
+    else {
+      /* niceTicks rounds its step up, so a span like [0.01, 1.2] can leave two ticks inside: ask for more labels until three fall in the range (a step of a tenth of the span is within the limit). */
+      var inside = function (v) { return v >= cl - 1e-9 * (hi - cl) && v <= hi + 1e-9 * (hi - cl); };
+      for (var nt = 6; nt <= 60; nt++) { vt = niceTicks(cl, hi, nt); if (vt.ticks.filter(inside).length >= 3) break; }
+    }
     var cbpos = function (v) { return log ? (Math.log10(v / hi) + dec) / dec : hi > cl ? (v - cl) / (hi - cl) : 0; };
     cbt = vt.ticks.filter(function (v) { var t = cbpos(v); return t >= -1e-9 && t <= 1 + 1e-9; }).map(function (v) { return { t: cbpos(v), s: fmt(v, vt.decimals == null ? (v < 1 ? Math.max(0, -Math.floor(Math.log10(v) + 1e-9)) : 0) : vt.decimals) }; });
     CB = 3 + 0.6 * Math.max.apply(null, [0].concat(cbt.map(function (q) { return Array.from(q.s).length; })));
