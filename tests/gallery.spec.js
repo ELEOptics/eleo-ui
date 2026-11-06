@@ -670,3 +670,25 @@ test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
     }
   }
 });
+
+// CR #632 (issue #634): canvas tiles draw through fit at their body's width and the device pixel ratio (layout3D's clamped to 2-3), so a resize redraws them. oracle: property, backing width vs rendered width x dpr.
+test('canvas tiles redraw at their width (#632)', async ({ page }) => {
+  const widths = () => page.locator('[data-canvas]').evaluateAll((els) => els.map((c) => ({
+    id: c.dataset.canvas + '|' + c.closest('.theme').dataset.theme,
+    backing: c.width, backingH: c.height, rendered: c.getBoundingClientRect().width, renderedH: c.getBoundingClientRect().height, dpr: c.dataset.canvas === 'layout3D' ? Math.max(2, Math.min(3, window.devicePixelRatio)) : window.devicePixelRatio,
+  })));
+  const at = async (w, before) => {
+    await page.setViewportSize({ width: w, height: 900 });
+    await expect.poll(async () => (await widths()).every((c, i) => Math.abs(c.backing - c.rendered * c.dpr) <= 1 && (!before || c.backing !== before[i].backing)), { message: `backing follows width at ${w}` }).toBe(true);
+    return widths();
+  };
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const wide = await at(1440), narrow = await at(700, wide);
+  expect(wide.length).toBeGreaterThanOrEqual(8);
+  wide.forEach((c, i) => {
+    expect(c.backing, `${c.id} redrawn`).not.toBe(narrow[i].backing);
+    if (!c.id.startsWith('layout3D')) expect(Math.abs(c.renderedH - c.rendered), `${c.id} square`).toBeLessThanOrEqual(1);
+    else expect(Math.abs(c.renderedH / c.rendered - 320 / 560), 'layout3D aspect').toBeLessThan(0.01);
+  });
+});

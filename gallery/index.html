@@ -121,10 +121,14 @@
       'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       'chromaticFocus': { need: sampleBox, draw: function (_, w) { return ELEO.curve({ kind: 'chromaticFocus', width: w }); } }
     };
-    function airyTile(canvas) {
-      var n = canvas.width, ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
+    function airyTile(canvas, n) {
+      canvas.width = canvas.height = n;
+      var ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
+      // The pattern depends only on the radius: tabulate sqrt(I) once over 0 to the corner radius, then interpolate per pixel.
+      var T = 2048, rmax = Math.SQRT1_2 * span, tab = new Float64Array(T + 1);
+      for (var i = 0; i <= T; i++) tab[i] = Math.sqrt(ELEO.airy(i / T * rmax, 0.5876, 4));
       for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
-        var r = Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / n * span, c = lut[Math.round(Math.sqrt(ELEO.airy(r, 0.5876, 4)) * 255)], p = (y * n + x) * 4;
+        var t = Math.min(T, Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / n * span / rmax * T), j = Math.min(T - 1, Math.floor(t)), v = tab[j] + (tab[j + 1] - tab[j]) * (t - j), c = lut[Math.round(v * 255)], p = (y * n + x) * 4;
         img.data[p] = c[0]; img.data[p + 1] = c[1]; img.data[p + 2] = c[2]; img.data[p + 3] = 255;
       }
       ctx.putImageData(img, 0, 0);
@@ -155,13 +159,28 @@
     function drawMaps() {
       document.querySelectorAll('.theme [data-map]').forEach(drawMap);
     }
+    // A canvas tile draws at its body's content width (set by fit as el._w, less the colorbar beside a map): CSS size w, backing size w x devicePixelRatio, so a resize redraws it and never stretches it.
+    // layout3D is given the logical width w and applies its own clamped ratio (2 to 3), so it stays at least 2x; a palette change redraws at the last width.
+    function drawCanvas(el) {
+      var w = el._w, k = el.dataset.canvas;
+      if (!w || (k !== 'airy' && !SAMPLE_BOX)) return;
+      var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k === 'layout3D' ? w * 320 / 560 : w;
+      el.style.width = w + 'px'; el.style.height = h + 'px';
+      if (k === 'airy') airyTile(el, n);
+      else if (k === 'layout3D') ELEO.layout3D(el, { width: w, height: h });
+      else ELEO.map2D(el, { kind: k, size: n });
+    }
     function drawCanvases() {
-      document.querySelectorAll('.theme [data-canvas]').forEach(function (el) {
-        var k = el.dataset.canvas;
-        if (k === 'airy') airyTile(el);
-        else if (!SAMPLE_BOX) return;
-        else if (k === 'layout3D') ELEO.layout3D(el);
-        else ELEO.map2D(el, { kind: k });
+      document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
+    }
+    function fitCanvases(theme) {
+      theme.querySelectorAll('[data-canvas]').forEach(function (el) {
+        var body = el.parentNode;
+        ELEO.fit(body, function (w) {
+          var bar = body.querySelector('.eleo-colorbar');
+          el._w = bar ? Math.max(1, w - bar.offsetWidth - 10) : w;
+          drawCanvas(el);
+        });
       });
     }
     // Each tile's minimum width: its ELEO.minWidth for the call it draws, plus the tile's 26 px of border and padding around the body (ADR-0003).
@@ -190,6 +209,7 @@
           else ELEO.fit(el, function (w) { el.innerHTML = tile.draw(need, w); });
         });
         theme.querySelectorAll('[data-map]').forEach(function (el) { ELEO.fit(el, function (w) { el._w = w; drawMap(el); }); });
+        fitCanvases(theme);
         // The glass and footprint legends key their own recordings; empty, like the tile, if its fixture failed.
         // The field and wavelength legends key the sample; empty, like its tiles, without it.
         theme.querySelectorAll('[data-legend]').forEach(function (el) {
@@ -203,7 +223,6 @@
           .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));
         theme.querySelector('[data-icons]').innerHTML = icons.join('');
       });
-      drawCanvases();
     }
     document.querySelector('header .palette').addEventListener('change', function (e) {
       var v = e.target.value;
