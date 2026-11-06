@@ -60,6 +60,15 @@ test('layout alive type-checks under --strict', () => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
+// Plan #642, O1 and O2 (issue #645). tests/types/layout2d-status.ts: a layout with `status` and a call with `show` pass,
+// and @ts-expect-error on status: [[["ALIVE"]]] and show: "Dead".
+// oracle: the Rust RayStatus names (Alive, Virtual, Dead), row M's rule
+test('layout status and show type-check under --strict', () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/layout2d-status.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
 // Plan #389, O1 (issue #393). tests/types/map2d.ts: a typed grid call (PSF, wavefront with aperture and colorbar, log, polar samples),
 // the sample canvas call unchanged, and @ts-expect-error on a missing extent, non-numeric values, a color map and polar without angles.
 // oracle: spec roadmap Constraints (typed API alongside the old one)

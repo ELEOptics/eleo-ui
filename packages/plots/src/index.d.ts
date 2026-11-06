@@ -27,6 +27,8 @@ export interface RecordedSurface {
   /** The inner semi-diameter of an annular surface, e.g. a Cassegrain primary: layout2D leaves `|y| < hole` open. Needs 0 ≤ hole < sd. */
   hole?: number;
 }
+/** A ray point's status, by the Rust `RayStatus` names. A `Missed` point is non-finite and never kept in a layout. */
+export type RayStatus = "Alive" | "Virtual" | "Dead";
 /** A layout as eleoptics.com's scripts/layout.py records it, in mm. */
 export interface RecordedLayout {
   surfaces: RecordedSurface[];
@@ -34,10 +36,12 @@ export interface RecordedLayout {
   rays: [number, number][][][];
   /** One ray index per fan; without it, the chief is the middle ray, floor(n / 2). */
   chief?: number[];
-  /** alive[field][ray] is the number of leading alive points of rays[field][ray] (after the cut at the first non-finite point), an integer in 0..length; layout2D draws the rest dotted. Absent means every point alive. */
+  /** alive[field][ray] is the number of leading alive points of rays[field][ray] (after the cut at the first non-finite point), an integer in 0..length; layout2D draws the rest dotted. Absent means every point alive. Ignored when `status` is present. */
   alive?: number[][];
-  /** dead[field][ray] is true when that ray's first non-alive status is Dead (vignetted or obscured): layout2D draws it solid through point `alive[field][ray]` with no tail. Valid only with `alive`. */
+  /** dead[field][ray] is true when that ray's first non-alive status is Dead (vignetted or obscured): layout2D draws it solid through point `alive[field][ray]` with no tail. Valid only with `alive`. Ignored when `status` is present. */
   dead?: boolean[][];
+  /** status[field][ray][point] is the status of each kept point of rays[field][ray]; one entry per point. */
+  status?: RayStatus[][][];
 }
 /** A traced system carrying recorded layouts: `layout` by field, `layoutWl` by wavelength. */
 export interface LayoutSystem { layout?: RecordedLayout; layoutWl?: RecordedLayout; [key: string]: unknown }
@@ -57,6 +61,8 @@ export interface Layout2DProps {
   labels?: (string | null | undefined)[];
   /** Draw the STO and IMA labels (not drawn below a width of 630). Default true. */
   marks?: boolean;
+  /** The statuses drawn. Default all three. */
+  show?: RayStatus[];
 }
 export interface Layout3DProps {
   data?: object;
