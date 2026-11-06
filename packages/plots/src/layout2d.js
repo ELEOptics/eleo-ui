@@ -282,9 +282,9 @@ export function layout2D(o) {
   function above(y) { return n(Math.max(10 * u, Y(y) - 5 * u)); }
   function label(z, py, t, anchor) { return '<text ' + TICK + ' x="' + (anchor ? n(z) : X(z)) + '" y="' + n(py) + '" text-anchor="' + (anchor || (X(z) < 16 * u ? "start" : X(z) > W - 16 * u ? "end" : "middle")) + '"' + tsz + '>' + t + "</text>"; }
   // Each field's label starts 6 px past the image plane (its own chief end's z with no image surface), its baseline 4 px
-  // below its chief's end; the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
+  // below its chief's end, never above 1 em from the top (a cropping box, #160); the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: +Y(ends[k][1]) + 4 * u, t: esc(t) }); });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: Math.max(10 * u, +Y(ends[k][1]) + 4 * u), t: esc(t) }); });
   if (o.marks !== false) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
     if (img) {

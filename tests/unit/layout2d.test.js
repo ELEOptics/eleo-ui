@@ -596,6 +596,22 @@ test('marks off', () => {
   }
 });
 
+// Plan #642, #160: a box that crops y below the chief ends must not push a field label above the SVG.
+// oracle: property every label baseline is at least 1 em (10 px at u = 1) below the top, as `above()` keeps STO; the issue's evidence (merit-before, ylo/yhi / 4)
+test('labels stay inside a cropping box (#160)', () => {
+  const L = fixture('merit-before'), b = layoutBounds([L]);
+  const box = { ...b, ylo: b.ylo / 4, yhi: b.yhi / 4 };
+  const labels = ['0°', '12°', '24°'];
+  const svg = ELEO.layout2D({ data: L, labels, box });
+  const T = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+  const u = T_OF(1000) / 10;
+  labels.forEach((label) => {
+    const t = T.find((x) => x.text === label);
+    assert.ok(t, `label ${label} is drawn`);
+    assert.ok(+t.y >= 10 * u - 0.01, `label ${label} baseline ${t.y} is at least 1 em below the top`);
+  });
+});
+
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
 // Plan #30, #63: review M2 finding 3. The label room above the geometry is the box's alone, so a pinned box
 // gives one transform whatever the layouts' stops reach.
