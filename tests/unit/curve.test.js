@@ -846,3 +846,14 @@ test('key clears the x label', async () => {
     }
   }
 });
+
+// Plan #677 M1 (#714): a key swatch takes the role's colour, as its curve does.
+// oracle: ADR-0001, the reference role is drawn in --ink
+test('key swatch follows the role', () => {
+  const pts = [[0, 1], [400, 0]];
+  const x = { label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400], ticks: [0, 200, 400] }, y = { label: 'Modulus', range: [0, 1] };
+  const svg = ELEO.curve({ series: [{ points: pts, role: 'tangential' }], key: [{ label: 'Ref', role: 'reference' }], x, y });
+  const sw = svg.match(/<line [^>]*stroke="([^"]*)"[^>]*stroke-dasharray="1 3" fill="none"\/><text class="eleo-tick" data-key/);
+  assert.ok(sw, 'a reference swatch line is drawn');
+  assert.equal(sw[1], 'var(--ink)');
+});

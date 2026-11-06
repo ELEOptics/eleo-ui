@@ -121,7 +121,7 @@ function keyEntries(o) {
   return src.map(function (e) {
     if (e === null || typeof e !== "object" || e.label === undefined || e.label === null) throw new TypeError("curve: a key entry needs a label");
     var st = roleStyle(e, 1);
-    return { label: String(e.label), index: e.index === undefined ? 0 : e.index, kind: "line", dash: st.dash };
+    return { label: String(e.label), index: e.index === undefined ? 0 : e.index, col: st.col, kind: "line", dash: st.dash };
   });
 }
 var KEY_AT = ["below", "top-left", "top-right", "bottom-left", "bottom-right"];
