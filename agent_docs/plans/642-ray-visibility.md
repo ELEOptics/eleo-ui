@@ -132,6 +132,9 @@ plots minor. Proves: O6, and the absorbed issues
 | [#355] reuse | The Wandersleb fixture test names the stop-rim artifact from `status`: the on-axis marginals are `Virtual` at the stop (`status[0][0][5]`), and the 14° lower ray is `Dead` at the stop (`status[1][10][5]`), each citing [#355] and ELEOptics/phos#310; the recorder's 14° check asserts where the ray dies as recorded (the stop), not only that it dies | assert the recorded facts because phos-core `580090e` kills that ray at the stop (`surfaces[4]`), so a lens-rim check could never pass; considered filing the stop-rim numerics upstream, a comment on the issue at plan end, not an item | `tests/unit/phos-core-fixtures.test.js`, `scripts/record-phos-core.py` | `phos-core-fixtures.test.js::recorded Wandersleb layout is phos-core's trace of phos's triplet` | M1 |
 | [#616] reuse | The recorded fan tile: `data-size="curve"`, `REC.rayFan` and `REC.rayFanWavelengths` (kept from the recording's first source, as `REC.footprintAngles` is), footer `data-legend="rayFan"` keyed `ELEO.legend('wavelength', n, REC.rayFanWavelengths)`, empty when the recording failed; `tileMin` loses its `rayFan` case ([#617]) | one item for both issues because they rewrite the same lines of one tile; keyed from the recording, the gallery's rule (`gallery/index.html:211`), and `tileMin`'s generic branch takes `REC[tile]` (`:205`); considered dropping the footer, which leaves the colors unexplained | `gallery/index.html`, `tests/gallery.spec.js` | `gallery.spec.js::the recorded fan footer keys its wavelengths (#616)`; `every tile at its minimum has the floor frame (#587)` green with the case gone | M1 |
 | [#651] | Release planned: a plots minor changeset naming `status` and `show`, and its release test with a consumed twin | forced (`CLAUDE.md`: a changeset per user-facing change); the twin as rows O and P did (`release.test.js:441-460`) | `.changeset/layout-status.md`, `tests/unit/release.test.js` | `release.test.js::row Q changesets` | M1 |
+| [#670] | A glass before an image whose profile is empty or non-finite throws badProfile's named error (review M2 round 1, finding 4) | `badProfile({ ...S[i + 1], image: false })` in the [#138] guard, because badProfile already names these faults; considered repeating its checks inline, a second copy | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::layoutBounds names a bad input` (two more cases) | [#160] |
+| [#672] | Fixtures README: the recorder refuses a 14° ray not first `Dead` at the stop (CR [#667]) | the reviewer's wording, because it names the check the recorder runs; considered rewriting the paragraph, more than the fault | `tests/fixtures/phos-core/README.md` | none to write: a doc fix | [#670] |
+| [#673] | A plots patch changeset for the label clamp and the named image error; README:55 names the clamp; the "as before" claims narrowed to the status drawing (CR [#668]) | a separate patch, because these are fixes, not the `status` feature; considered one more sentence in the minor, which mixes fixes into the feature note | `.changeset/layout-label-clamp.md`, `.changeset/layout-status.md`, `packages/plots/README.md`, `tests/unit/release.test.js` | `release.test.js::row Q changesets` (asserts the patch) | [#672] |
 
 ## Risks and spikes
 
@@ -157,6 +160,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-06 review M1 round 4 (code-reviewer, claude-opus-5-5): 1 blocking, CR [#665] accepted (roadmap U17 states the end-point rule), item [#666]; CRs [#660] and [#663] resolved.
 - 2026-11-06 review M1 round 5 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; CR [#665] resolved; M1 ticked again. Awaiting the user's M1 demo 3.
 - 2026-11-06 M1 demo 3 (user): go. M1 accepted (O5).
+- 2026-11-06 review M2 round 1 (code-reviewer, claude-opus-5-5): 2 blocking, CRs [#667] (fixtures README refusal list) and [#668] (no release note for the label clamp and named error) accepted, items [#672] and [#673]; backlog [#670] pulled into M2 (small, named, in `layout2d.js`); [#669] and [#671] stay in the backlog ([#669] needs a spacing design; [#671] is a recorder change no test can exercise).
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
@@ -189,6 +193,13 @@ One bullet per entry (bare lines render as one paragraph).
 [#664]: https://github.com/ELEOptics/eleo-ui/issues/664
 [#665]: https://github.com/ELEOptics/eleo-ui/issues/665
 [#666]: https://github.com/ELEOptics/eleo-ui/issues/666
+[#667]: https://github.com/ELEOptics/eleo-ui/issues/667
+[#668]: https://github.com/ELEOptics/eleo-ui/issues/668
+[#669]: https://github.com/ELEOptics/eleo-ui/issues/669
+[#670]: https://github.com/ELEOptics/eleo-ui/issues/670
+[#671]: https://github.com/ELEOptics/eleo-ui/issues/671
+[#672]: https://github.com/ELEOptics/eleo-ui/issues/672
+[#673]: https://github.com/ELEOptics/eleo-ui/issues/673
 [#655]: https://github.com/ELEOptics/eleo-ui/issues/655
 [#656]: https://github.com/ELEOptics/eleo-ui/issues/656
 [#657]: https://github.com/ELEOptics/eleo-ui/issues/657
