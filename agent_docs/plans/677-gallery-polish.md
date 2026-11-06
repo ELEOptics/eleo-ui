@@ -172,6 +172,7 @@ layout3D's rays over the image plane; spot and footprint panels with a grid unde
 | #773 | CR #772: map2D's grid on/off at the draw site (`o.grid &&`), gridOf as before #769 | a guard where the lines are drawn; considered the lines flag | `packages/plots/src/map2d.js`, `tests/map2d.spec.js` | `tests/map2d.spec.js::default grid over the image` | #770 |
 | #774 | Spot grid strictly inside ±half; closed-form test oracle; the gallery checks the spot and footprint grids; Svelte README lists `grid` | a strict bound because the frame draws ±half; considered edge lines inside the corners | `packages/plots/src/spot.js`, `tests/unit/spot.test.js`, `tests/gallery.spec.js`, `packages/plots-svelte/README.md` | `tests/unit/spot.test.js::grid` | #773 |
 | #775 | spot rounds the panel origin in grid, frame and cross; grid docs say strictly inside ±half | r2 as the panel's svg x; considered a numeric test only | `packages/plots/src/spot.js`, `packages/plots/src/index.d.ts`, `packages/plots/README.md`, `.changeset/spot-grid.md`, `tests/unit/spot.test.js` | `tests/unit/spot.test.js::grid` | #774 |
+| #776 | spot rounds every origin-derived number (the ±half label among them); the test checks every element | forced (review finding) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `tests/unit/spot.test.js::grid` | #775 |
 
 ### M4: Layout keys GitHub: `P677 M4: Layout keys`
 
@@ -242,3 +243,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 M3 re-demo (user): no go yet. CR #767 (no grid by default on continuous-colour maps; O3 and roadmap U21 restated) by #769; CR #768 (spot and footprint get a grid under the dots; new scope, user) by #770. M3 un-ticked.
 - 2026-11-06 review M3 round 10 (2 blocking, 4 backlog): CR #771 accepted (orchestrator: plan text for CRs #767 and #768, fixed in this commit, O3 now covers the spot grid); CR #772 accepted (orchestrator: a simplification inside #769's Files) by #773; findings 3 to 6 into #774.
 - 2026-11-06 review M3 round 11 (0 blocking, 2 backlog): both into #775.
+- 2026-11-06 review M3 round 12 (0 blocking, 1 backlog): #776 into M3.
