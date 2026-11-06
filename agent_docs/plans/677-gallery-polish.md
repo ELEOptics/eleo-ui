@@ -138,7 +138,7 @@ footers. Proves: O2
 | #742 | `key.js` exports `KEY_AT` and `cornerBox`; `curve` and `spot` use them (output unchanged); spot's foot comment names the key rows | in key.js because #680 put the key there to stop drift (#586); considered two copies | `packages/plots/src/key.js`, `packages/plots/src/curve.js`, `packages/plots/src/spot.js` | `tests/unit/key.test.js::corner box` | #741 |
 | #745 | CR #744: `rayFan` passes `keyAt: o.keyAt` in its spec literal, no guard | in the literal because curve reads a missing `keyAt` as "below"; considered keeping the guard | `packages/plots/src/fan.js` | `tests/unit/fan.test.js::rayFan key keyAt` | #739 |
 
-### M3: Maps and the 3D image plane GitHub: `P677 M3: Maps and the 3D image plane`
+### M3: Maps and the 3D image plane (done 2026-11-06) GitHub: `P677 M3: Maps and the 3D image plane`
 
 Demo: every Map2D tile with axes, a ticked colorbar and a grid over the image in its map's grid token; one tile with
 `grid: { x: { major: 5, minor: 4 }, y: { major: 5, minor: 4 } }`; the sample canvas PSF and wavefront tiles gone;
@@ -190,7 +190,7 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 | -- | -- | -- |
 | A corner key covers data | a misleading plot | the caller's choice (`keyAt`); default `below` |
 | Keys wrap to many lines at a tile's minimum width | squat frames | acceptance tests at `minWidth`; with no `height`, the SVG grows |
-| A grid token clears its map's ends but not wave's near-white middle | lines fade mid-map on wave | known limit (user, approval); judged at M3's demo |
+| A neutral grid line matches some mid-map stop's luminance | lines fade where the map crosses the line's grey, on every map (since CR #765 not at the ground or ends) | known limit (user, approval; restated after #766) |
 | Dropping two tiles breaks unlisted tests | red gate | the gallery item lists them (critic finding 12) |
 
 ## Change log
@@ -233,3 +233,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M3 round 7 (0 blocking, 1 backlog): #764 into M3.
 - 2026-11-06 M3 reviewed again after the demo (rounds 6 to 8: 3, 1, 0 findings; round 8 says 0 blocking, nothing pulled in); ticked.
 - 2026-11-06 orchestrator, before the M3 re-demo: the screenshots show ember light's major grid line at 6.91:1 against the plot ground (was about 3.7:1), more apparent, not less. CR #765 accepted (orchestrator: #758's nearer-end reference was the orchestrator's wording) by #766; roadmap U21 restated; M3 un-ticked.
+- 2026-11-06 review M3 round 9 (0 blocking, 1 backlog): the Risks row's wave fade restated in this commit (the orchestrator's plan text, no work item); M3 ticked.
