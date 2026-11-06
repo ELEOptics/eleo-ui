@@ -70,10 +70,9 @@ tile that reflowed in its grid, which a window `resize` listener misses.
 
 **Size table.** `PLOT_SIZES` publishes, per renderer, the default width, the aspect and the minimum width per panel,
 which is one frame at the 9 px floor (F = 162) plus its margins. It is computed from the same functions as the
-renderers, so it cannot drift, and the gallery sets each row's minimum column from it. Figures from the
-plan: a layout needs 630 px for labels; a 3-panel `spot` at its floor needs about 530 px and `throughFocus` about
-894 px. Until `PLOT_SIZES` lands (plan [#512] M2), the gallery's rayFan row computes its minimum from `F_LO` and
-`TEXT_MIN`. `scale.js`'s functions and constants are on the module and on the classic build's `window.ELEO`.
+renderers, so it cannot drift, and the gallery sets each tile's minimum width from `minWidth(name, props)`
+(plan [#603]). Figures from the plan: a layout needs 630 px for labels; a 3-panel `spot` at its floor needs about 530 px and `throughFocus` about
+894 px. `scale.js`'s functions and constants are on the module and on the classic build's `window.ELEO`.
 
 Canvas renderers (`layout3D`, the sample PSF, wavefront, Airy) are exempt.
 
@@ -104,8 +103,9 @@ at widths below, inside and above each band, and O2 measures every curve, rayFan
 - Frame geometry is rounded once to 2 decimals, for smaller markup and strings that don't depend on `Math.cbrt`'s
   last bits (server render then hydrate).
 - The default `curve`'s figures were wrong in the proposal (its right margin was left out); the built ones are above.
-- A row minimum can't give a 3-panel `rayFan` its floor frame in a 656 px gallery column (two themes at 1440 px): its
-  frames are 157.8 px there, text at the floor (CR [#547]).
+- A row minimum couldn't give a 3-panel `rayFan` its floor frame in a 656 px gallery column (two themes at 1440 px): its
+  frames were 157.8 px there, text at the floor (CR [#547]). That held until plan [#603]'s one-tile-per-line gallery
+  (CR [#622]).
 
 [#538]: https://github.com/ELEOptics/eleo-ui/issues/538
 [#547]: https://github.com/ELEOptics/eleo-ui/issues/547
@@ -115,3 +115,5 @@ at widths below, inside and above each band, and O2 measures every curve, rayFan
 
 [#498]: https://github.com/ELEOptics/eleo-ui/issues/498
 [#512]: https://github.com/ELEOptics/eleo-ui/issues/512
+[#603]: https://github.com/ELEOptics/eleo-ui/issues/603
+[#622]: https://github.com/ELEOptics/eleo-ui/issues/622
