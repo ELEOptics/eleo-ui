@@ -35,3 +35,15 @@ export function keyMarkup(places, entries, t, y, o) {
   });
   return g;
 }
+
+export var KEY_AT = ["below", "top-left", "top-right", "bottom-left", "bottom-right"];
+
+/* A corner key: a box on --surface (no stroke: a grid-stroked rect reads as a frame) inside the plot area (x0, y0, pw by ph), wrapped at the plot's width whether or not its rows fit the height, the start clamped inside the plot on both axes (a box that fits lies wholly inside, a larger one overruns only the far edges). `at` is one of the four corners; entries are as keyMarkup draws them. */
+export function cornerBox(ents, at, t, x0, y0, pw, ph) {
+  var pad = 0.4 * t, kl = keyLayout(ents, t, { L: 0, R: Math.max(0, pw - 4 * pad), maxRow: 1000 });
+  var bw = r2(kl.right + 2 * pad), bh = r2(1.4 * t * kl.rows + 2 * pad - 0.4 * t);
+  var bx = at.slice(-4) === "left" ? x0 + pad : x0 + pw - pad - bw, by = at.slice(0, 3) === "top" ? y0 + pad : y0 + ph - pad - bh;
+  bx = Math.max(x0 + pad, bx); by = Math.max(y0 + pad, by);
+  var places = kl.places.map(function (p) { return [bx + pad + p[0], p[1]]; });
+  return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, ents, t, by + pad - 0.2 * t, { mark: true });
+}

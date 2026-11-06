@@ -2,7 +2,7 @@
 // oracle: property no wrapped line passes the right edge; swatch markup per kind
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { keyLayout, keyMarkup } from '../../packages/plots/src/key.js';
+import { keyLayout, keyMarkup, cornerBox, KEY_AT } from '../../packages/plots/src/key.js';
 
 const t = 10;
 const width = (label) => 1.2 * t + 0.6 * t * Array.from(label).length;
@@ -80,4 +80,26 @@ test('line swatch is two dash periods', () => {
     const k = keyLayout(many, t, { L: 20, R, maxRow: 100 });
     k.places.forEach(([x], i) => { if (x > 20) assert.ok(x + 2.4 * t + 0.6 * t * 7 <= R); });
   }
+});
+
+test('corner box', () => {
+  assert.deepEqual(KEY_AT, ['below', 'top-left', 'top-right', 'bottom-left', 'bottom-right']);
+  const ents = [{ label: 'ab', index: 0 }, { label: 'cd', index: 1 }];
+  const pad = 0.4 * t, box = (at, x0, y0, pw, ph, e = ents) => {
+    const m = cornerBox(e, at, t, x0, y0, pw, ph);
+    const [, x, y, w, h] = m.match(/<rect class="eleo-key" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="var\(--surface\)"\/>/).map(Number);
+    return { m, x, y, w, h };
+  };
+  const tl = box('top-left', 30, 20, 200, 100);
+  assert.equal(tl.x, 30 + pad);
+  assert.equal(tl.y, 20 + pad);
+  assert.ok(tl.m.includes('data-key'));
+  const br = box('bottom-right', 30, 20, 200, 100);
+  assert.equal(br.x, +(30 + 200 - pad - br.w).toFixed(2));
+  assert.equal(br.y, +(20 + 100 - pad - br.h).toFixed(2));
+  // a box wider than the plot starts inside its near edge and wraps at the plot's width
+  const many = Array.from({ length: 6 }, (_, i) => ({ label: 'label ' + i, index: i }));
+  const small = box('top-right', 30, 20, 50, 100, many);
+  assert.equal(small.x, 30 + pad);
+  assert.ok(small.h > box('top-right', 30, 20, 1000, 100, many).h, 'narrow plot wraps to more rows');
 });

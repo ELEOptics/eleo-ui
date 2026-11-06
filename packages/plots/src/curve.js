@@ -4,7 +4,7 @@ import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
 import { frameText, frameWeight, frameOf } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
-import { keyLayout, keyMarkup } from "./key.js";
+import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
 
 /* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). A sagittal dash is in units of `wt` (4 wt, 2.5 wt; CR #726). */
 function roleStyle(s, wt) {
@@ -128,18 +128,10 @@ function keyEntries(o) {
 function keyDrawn(ents, t) {
   return ents.map(function (e) { return { label: e.label, index: e.index, col: e.col, kind: e.kind, dash: roleStyle(e.src, r2(0.15 * t)).dash, cap: e.cap }; });
 }
-var KEY_AT = ["below", "top-left", "top-right", "bottom-left", "bottom-right"];
-/* A corner key: a box on --surface (no stroke: a grid-stroked rect reads as a frame) inside the plot area at the cell's origin; it never resizes the frame. */
+/* A corner key over the plot area of the cell, which it never resizes (cornerBox). */
 function cornerKey(ents, at, t, w, h, T, mg) {
-  var L = r2(mg.L), pw = r2(Math.max(1, w - L - mg.R)), ph = r2(Math.max(1, h - T - mg.B)), line = 1.4 * t, pad = 0.4 * t;
-  /* The key wraps at the plot's width whether or not its rows fit the height. */
-  var kl = keyLayout(ents, t, { L: 0, R: Math.max(0, pw - 4 * pad), maxRow: 1000 });
-  var bw = r2(kl.right + 2 * pad), bh = r2(line * kl.rows + 2 * pad - 0.4 * t);
-  var bx = at.slice(-4) === "left" ? L + pad : L + pw - pad - bw, by = at.slice(0, 3) === "top" ? T + pad : T + ph - pad - bh;
-  /* Clamp the start inside the plot on both axes: a box that fits lies wholly inside, a larger one overruns only the far edges. */
-  bx = Math.max(L + pad, bx); by = Math.max(T + pad, by);
-  var places = kl.places.map(function (p) { return [bx + pad + p[0], p[1]]; });
-  return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, keyDrawn(ents, t), t, by + pad - 0.2 * t, { mark: true });
+  var L = r2(mg.L);
+  return cornerBox(keyDrawn(ents, t), at, t, L, T, r2(Math.max(1, w - L - mg.R)), r2(Math.max(1, h - T - mg.B)));
 }
 function typedCurve(o) {
   var W = o.width || 460, H0 = o.height || Math.round(W * 260 / 460), x = o.x || {}, y = o.y || {};

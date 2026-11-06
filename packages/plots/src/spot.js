@@ -1,7 +1,7 @@
 import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
-import { keyLayout, keyMarkup } from "./key.js";
+import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
 import { frameText, frameWeight, frameOf } from "./scale.js";
 
 var r2 = function (v) { return Math.round(v * 100) / 100; };
@@ -22,16 +22,6 @@ function plain(v, p) {
 var sig3 = function (v) { return plain(v, 3); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
-/* A corner key inside a panel: a box on --surface (no stroke), the start clamped inside the frame, wrapped at the panel's width. */
-function cornerKey(ents, at, t, ox, top, side) {
-  if (!ents.length) return "";
-  var pad = 0.4 * t, kl = keyLayout(ents, t, { L: 0, R: Math.max(0, side - 4 * pad), maxRow: 1000 });
-  var bw = r2(kl.right + 2 * pad), bh = r2(1.4 * t * kl.rows + 2 * pad - 0.4 * t);
-  var bx = at.slice(-4) === "left" ? ox + pad : ox + side - pad - bw, by = at.slice(0, 3) === "top" ? top + pad : top + side - pad - bh;
-  bx = Math.max(ox + pad, bx); by = Math.max(top + pad, by);
-  var places = kl.places.map(function (q) { return [bx + pad + q[0], q[1]]; });
-  return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, ents, t, by + pad - 0.2 * t, { mark: true });
-}
 function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
   var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
@@ -57,11 +47,11 @@ function typedSpot(o) {
   var line = shared && cl ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
   if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
-  /* ADR-0003: a panel's side is the frame F; the text is frameText(F) times textScale, and the layout below the panel is in text units (1.8 under it, 1.5 a line, a foot of 2.8 + 1.5 a line). */
+  /* ADR-0003: a panel's side is the frame F; the text is frameText(F) times textScale, and the layout below the panel is in text units (1.8 under it, 1.5 a line, a foot of 2.8 + 1.5 a line, plus 0.7 + 1.4 a key row). */
   var tOf = function (F) { return frameText(F) * ts; };
   /* The key: one dot entry per distinct series label (the first use's index): below the captions (`keyAt` "below", default), or in a corner of each panel, for that panel's own labels. */
   var at = o.keyAt === undefined ? "below" : o.keyAt;
-  if (["below", "top-left", "top-right", "bottom-left", "bottom-right"].indexOf(at) < 0) throw new TypeError('spot: unknown keyAt "' + at + '"');
+  if (KEY_AT.indexOf(at) < 0) throw new TypeError('spot: unknown keyAt "' + at + '"');
   var entsOf = function (ps) {
     var out = [];
     ps.forEach(function (p) { (p.series || []).forEach(function (se) { if (se.label && !out.some(function (e) { return e.label === String(se.label); })) out.push({ label: String(se.label), index: se.index || 0, kind: "dot" }); }); });
@@ -98,7 +88,8 @@ function typedSpot(o) {
     if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
-    if (at !== "below") g += cornerKey(entsOf([p]), at, t, ox, top, side);
+    var pe = at === "below" ? [] : entsOf([p]);
+    if (pe.length) g += cornerBox(pe, at, t, ox, top, side, side);
     var ty = r2(top + side + 1.8 * t);
     g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + sty + ' x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
     (p.notes || []).forEach(function (nt, j) { g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(ty + 1.5 * t * (j + 1)) + '">' + esc(nt) + "</text>"; });
