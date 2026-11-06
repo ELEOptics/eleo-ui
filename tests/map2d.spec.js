@@ -341,6 +341,7 @@ test('recorded wavefront cells (U8)', async ({ page }) => {
     const r = await page.locator(sel).evaluate(async (el, p) => {
       const ELEO = window.ELEO, { grid, tile } = window.__o2;
       const t = tile(el);
+      t.style.maxWidth = '650px'; // a fixed draw width: this test checks cells, not the gallery's layout (CR #626)
       const [x0, x1, y0, y1] = p.extent;
       t.firstElementChild.innerHTML = ELEO.map2D({ values: p.values, polar: { radii: p.radii, angles: p.angles }, extent: p.extent, map: 'wave',
         aperture: { x: 0, y: 0, r: p.pupilRadius }, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, el: t });
