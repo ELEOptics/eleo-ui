@@ -1,5 +1,11 @@
 # @eleoptics/plots-svelte
 
+## 0.5.1
+
+### Patch Changes
+
+- 2201b7a: Peer `@eleoptics/plots` is now `>=0.8.0 <1`: the wrappers draw at a width, which plots 0.7.0 ignores.
+
 ## 0.5.0
 
 ### Minor Changes
