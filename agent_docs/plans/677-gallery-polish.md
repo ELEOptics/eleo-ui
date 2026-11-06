@@ -138,7 +138,7 @@ footers. Proves: O2
 | #742 | `key.js` exports `KEY_AT` and `cornerBox`; `curve` and `spot` use them (output unchanged); spot's foot comment names the key rows | in key.js because #680 put the key there to stop drift (#586); considered two copies | `packages/plots/src/key.js`, `packages/plots/src/curve.js`, `packages/plots/src/spot.js` | `tests/unit/key.test.js::corner box` | #741 |
 | #745 | CR #744: `rayFan` passes `keyAt: o.keyAt` in its spec literal, no guard | in the literal because curve reads a missing `keyAt` as "below"; considered keeping the guard | `packages/plots/src/fan.js` | `tests/unit/fan.test.js::rayFan key keyAt` | #739 |
 
-### M3: Maps and the 3D image plane (done 2026-11-06) GitHub: `P677 M3: Maps and the 3D image plane`
+### M3: Maps and the 3D image plane GitHub: `P677 M3: Maps and the 3D image plane`
 
 Demo: every Map2D tile with axes, a ticked colorbar and a grid over the image in its map's grid token; one tile with
 `grid: { x: { major: 5, minor: 4 }, y: { major: 5, minor: 4 } }`; the sample canvas PSF and wavefront tiles gone;
@@ -166,6 +166,7 @@ layout3D's rays over the image plane. Proves: O3, O4
 | #759 | CR #757: `grid: false` hides the grid lines on `curve`, `rayFan` and `bars` (labels, frame, zero axes kept), typed, through the Svelte components | through plotCell's `mg.grid` (#691); considered a CSS class (fails export) | `packages/plots/src/curve.js`, `packages/plots/src/bars.js`, `packages/plots/src/fan.js`, `packages/plots/src/index.d.ts`, `packages/plots/README.md`, `.changeset/plot-grid-off.md`, `tests/unit/curve.test.js`, `tests/types/keys.ts` | `tests/unit/curve.test.js::grid false` | #758 |
 | #763 | CR #762: `curve` and `bars` pass `grid: o.grid` through; the kind call takes `grid` too, typed | pass-through because plotCell tests it; considered documenting the kind call without it | `packages/plots/src/curve.js`, `packages/plots/src/bars.js`, `packages/plots/src/index.d.ts`, `packages/plots/README.md`, `tests/unit/curve.test.js`, `tests/types/keys.ts` | `tests/unit/curve.test.js::grid false` | #759 |
 | #764 | `.changeset/plot-grid-off.md` names the `kind` call | forced (review finding) | `.changeset/plot-grid-off.md` | none | #763 |
+| #766 | CR #765: grid token upper bounds against the map's ground stop (ember 0, wave 4; viridis and gray the nearer end); major ≥ minor at the ground where feasible | the ground stop fills most of the image; considered the nearer end (#758 inverted the intent on ember light) | `packages/tokens/src/tokens.json`, `packages/tokens/README.md`, `.changeset/map-grid-tokens.md`, `tests/unit/tokens.test.js`, `tests/map2d.spec.js` | `tests/unit/tokens.test.js::map grid contrast` | #764 |
 
 ### M4: Layout keys GitHub: `P677 M4: Layout keys`
 
@@ -231,3 +232,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M3 round 6 (2 blocking, 1 backlog): CR #761 accepted (orchestrator: roadmap U21's oracle restated to CR #756's targets, fixed in this commit); CR #762 accepted (orchestrator: a pass-through inside #759's Files) with finding 3 (the kind call's `grid`) in #763.
 - 2026-11-06 review M3 round 7 (0 blocking, 1 backlog): #764 into M3.
 - 2026-11-06 M3 reviewed again after the demo (rounds 6 to 8: 3, 1, 0 findings; round 8 says 0 blocking, nothing pulled in); ticked.
+- 2026-11-06 orchestrator, before the M3 re-demo: the screenshots show ember light's major grid line at 6.91:1 against the plot ground (was about 3.7:1), more apparent, not less. CR #765 accepted (orchestrator: #758's nearer-end reference was the orchestrator's wording) by #766; roadmap U21 restated; M3 un-ticked.
