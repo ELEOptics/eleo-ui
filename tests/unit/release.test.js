@@ -477,10 +477,13 @@ test('row P changesets became a plots minor and a plots-svelte patch',
   });
 
 // Plan #642 (agent_docs/plans/642-ray-visibility.md), outcome O6 (issue #651). Row Q: a layout's `status` and the `show` option are a
-// plots minor, in one file. oracle: spec semver (a visible change ships as a minor); @changesets/cli's plan of the named file.
-// Once `changeset version` deleted the file, the twin below reads the CHANGELOG entry it became, as rows O and P do.
+// plots minor, in one file; the label clamp and the named image error are a plots patch, in another. oracle: spec semver (a visible change
+// ships as a minor); @changesets/cli's plan of the named file. Once `changeset version` deleted a file, its twin below reads the
+// CHANGELOG entry it became, as rows O and P do: each changeset has its own gate and twin.
 const ROW_Q_ENTRY = /With `status`, a ray is drawn to its last point/;
+const ROW_Q_PATCH_ENTRY = /at least 1 em below the top of a cropping/;
 const rowQConsumed = barsConsumed('layout-status.md', 'plots', ROW_Q_ENTRY);
+const rowQPatchConsumed = barsConsumed('layout-label-clamp.md', 'plots', ROW_Q_PATCH_ENTRY);
 test('row Q changesets', { skip: rowQConsumed && 'consumed by changeset version' }, () => {
   const plots = parse('layout-status.md');
   assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
@@ -491,6 +494,9 @@ test('row Q changesets', { skip: rowQConsumed && 'consumed by changeset version'
     const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
     assert.equal(releases.find((r) => r.name === '@eleoptics/plots')?.type, 'minor');
   });
+});
+
+test('row Q patch changeset', { skip: rowQPatchConsumed && 'consumed by changeset version' }, () => {
   const clamp = parse('layout-label-clamp.md');
   assert.deepEqual(clamp.bumps, { '@eleoptics/plots': 'patch' });
   assert.match(clamp.body, /label/, 'the body names the label');
@@ -500,4 +506,9 @@ test('row Q changesets', { skip: rowQConsumed && 'consumed by changeset version'
 test('row Q changeset became a plots minor',
   { skip: !rowQConsumed && 'changesets not yet versioned' }, () => {
     assert.equal(entry('plots', ROW_Q_ENTRY).kind, 'Minor');
+  });
+
+test('row Q patch changeset became a plots patch',
+  { skip: !rowQPatchConsumed && 'changesets not yet versioned' }, () => {
+    assert.equal(entry('plots', ROW_Q_PATCH_ENTRY).kind, 'Patch');
   });
