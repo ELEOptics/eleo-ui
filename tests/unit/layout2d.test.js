@@ -119,7 +119,7 @@ function drawn(svg) {
   return { M, body, polygons: tags('polygon', body), lines: tags('line', body), polylines: tags('polyline', body), dots: tags('circle', outside) };
 }
 // Plan #642, issue #368: the runs one ray draws, as {pts, dotted, status?}. With `status`, segment j (point j-1 to j)
-// takes point j's status, the ray ends at its first Dead point, and adjacent segments of one status are one run.
+// takes point j's status, the ray is drawn to its last point (CR #660), and adjacent segments of one status are one run.
 // Without it, the legacy rule: alive a splits a ray into a solid head [0, a) and a dotted tail [max(a - 1, 0), len);
 // a dead ray is one solid polyline through point a. `join` merges adjacent solid runs (Alive and Dead), as a drawing
 // with no data-status does.
@@ -130,8 +130,8 @@ function expectedRuns(L, k, i, join) {
     if (L.dead && L.dead[k][i]) return [{ pts: ray.slice(0, a + 1), dotted: false }];
     return [...(a > 0 ? [{ pts: ray.slice(0, a), dotted: false }] : []), ...(a < ray.length ? [{ pts: ray.slice(Math.max(a - 1, 0)), dotted: true }] : [])];
   }
-  const st = L.status[k][i], end = st.indexOf('Dead') < 0 ? ray.length - 1 : st.indexOf('Dead'), runs = [];
-  for (let j = 1; j <= end; j++) {
+  const st = L.status[k][i], runs = [];
+  for (let j = 1; j < ray.length; j++) {
     const last = runs[runs.length - 1], dotted = st[j] === 'Virtual';
     if (last && (join ? last.dotted === dotted : last.status === st[j])) last.pts.push(ray[j]);
     else runs.push({ status: st[j], dotted, pts: [ray[j - 1], ray[j]] });
@@ -1042,7 +1042,7 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
     const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke, status: a['data-status'] }));
     const { claimed } = statusRoundTrip(L, parts, `width ${width}`);
     const chief = L.rays[0][L.chief[0]], ca = L.alive[0][L.chief[0]];
-    assert.ok(polylines.some((a) => samePathFrom1(pairs(a.points), chief.slice(0, ca + 1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed polyline through point a`);
+    assert.ok(polylines.some((a) => a['data-status'] === 'Dead' && samePathFrom1(pairs(a.points), chief) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed Dead polyline to its last point (CR #660)`);
     assert.ok(chief.some((p, j) => j > 0 && p[0] > chief[j - 1][0]) && chief.some((p, j) => j > 0 && p[0] < chief[j - 1][0]),
       'the chief path reverses in z (folded)');
     assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray part`);
@@ -1077,9 +1077,15 @@ const fanDir = (fan) => {
 function drawnStarts(L, polylines) {
   let n = 0;
   const join = !polylines.some((a) => a['data-status']);
+  // With status the Virtual and Dead runs are drawn first, in the faded group, then the Alive ones: two queues, each in ray order.
+  const queue = { faded: polylines.filter((a) => join || a['data-status'] !== 'Alive'), alive: polylines.filter((a) => !join && a['data-status'] === 'Alive') }, took = { faded: 0, alive: 0 };
   const out = L.rays.map((fan, k) => fan.map((ray, i) => {
-    const first = pairs(polylines[n].points)[0];
-    n += expectedRuns(L, k, i, join).length;
+    let first;
+    for (const run of expectedRuns(L, k, i, join)) {
+      const q = join || run.status !== 'Alive' ? 'faded' : 'alive', a = queue[q][took[q]++];
+      first ??= pairs(a.points)[0];
+      n++;
+    }
     return first;
   }));
   assert.equal(n, polylines.length, 'every polyline is a ray part');
@@ -1176,6 +1182,13 @@ test('recorded ray status per point (U17)', () => {
       else if (i !== L.chief[k]) assert.ok(!part.dash, `${run.status} is solid`);
     }
     assert.equal(got.length, claimed, `width ${width}: every status polyline is some ray's run`);
+    // CR #660: Virtual and Dead runs sit in one faded group before the Alive group; Alive runs are in the .85 group.
+    const svg = ELEO.layout2D({ data: L, rays: 'fan', width }), faded = svg.match(/<g opacity="\.35">(.*?)<\/g>/s), live = svg.match(/<g opacity="\.85">(.*?)<\/g>/s);
+    assert.ok(faded && live && faded.index < live.index, 'the faded group comes before the .85 group');
+    const inG = (m) => [...m[0].matchAll(/<polyline\b[^>]*data-status="(\w+)"/g)].map((x) => x[1]);
+    assert.ok(inG(faded).length > 0 && inG(faded).every((s) => s === 'Virtual' || s === 'Dead') && inG(faded).includes('Dead'), 'only Virtual and Dead (and some Dead) are faded');
+    assert.ok(inG(live).length > 0 && inG(live).every((s) => s === 'Alive'), 'only Alive is in the .85 group');
+    assert.equal(inG(faded).length + inG(live).length, got.length, 'every status polyline is in one of the two groups');
   }
 });
 

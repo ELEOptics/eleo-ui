@@ -242,15 +242,16 @@ export function layout2D(o) {
     if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0];
-  // One group holds every ray, so its opacity does not darken where rays cross (a per-polyline stroke-opacity would).
-  g += '<g opacity=".85">';
+  // One group per opacity, so it does not darken where rays cross (a per-polyline stroke-opacity would). With `status`, Virtual and Dead runs go in a faded
+  // group placed first, so live light sits on top; a layout without `status` has none and draws as it always did.
+  var live = "", faded = "";
   RAYS.forEach(function (rays, k) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
-      // The ray is drawn through its first Dead point and no further; segment j (point j - 1 to j) takes point j's status. With `status` each run of one status is a
-      // polyline with data-status; without it adjacent solid runs (Alive and Dead) join and Virtual runs are dotted (a chief's solid runs keep their 6 4 dash).
-      var r = rays[i], st = statusOf(L, k, i), end = st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead"), runs = [];
+      // With `status` the ray is drawn to its last point, else through its first Dead point and no further; segment j (point j - 1 to j) takes point j's status. With `status`
+      // each run of one status is a polyline with data-status; without it adjacent solid runs (Alive and Dead) join and Virtual runs are dotted (a chief's solid runs keep their 6 4 dash).
+      var r = rays[i], st = statusOf(L, k, i), end = L.status || st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead"), runs = [];
       for (var j = 1; j <= end; j++) {
         var last = runs[runs.length - 1], virt = st[j] === "Virtual";
         if (show.indexOf(st[j]) < 0) { runs.push(null); continue; } // a hidden segment is a gap: no run continues over it
@@ -264,12 +265,13 @@ export function layout2D(o) {
       if (!L.status && r.length === 1 && st[0] === "Virtual" && show.indexOf("Virtual") >= 0) runs.push({ st: "Virtual", virt: true, q: [r[0]] });
       runs.forEach(function (u) {
         var dash = u.virt ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
-        g += '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + " " + NS + "/>";
+        var poly = '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + " " + NS + "/>";
+        if (L.status && u.st !== "Alive") faded += poly; else live += poly;
       });
     });
     ends[k] = rays[c][rays[c].length - 1];
   });
-  g += "</g>" + bodies;
+  g += (faded ? '<g opacity=".35">' + faded + "</g>" : "") + '<g opacity=".85">' + live + "</g>" + bodies;
   if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
   g += "</g>";
   if (!tx0) return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
