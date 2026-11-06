@@ -12,7 +12,12 @@ import '../tests/fixtures/phos-core/adapters.js'; // a classic script: assigns g
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../tests/fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));
 
-const phosLayout = (name) => JSON.parse(readFileSync(new URL(`../tests/fixtures/phos-core/${name}-layout.json`, import.meta.url), 'utf8'));
+// The recording with `status` deleted (a copy; the fixture is untouched): plan #642 O3 defines these entries as the legacy drawing (CR #653).
+const phosLayout = (name) => {
+  const layout = JSON.parse(readFileSync(new URL(`../tests/fixtures/phos-core/${name}-layout.json`, import.meta.url), 'utf8'));
+  delete layout.status;
+  return layout;
+};
 
 // The calls the gallery makes (gallery/index.html, SVG and legend tiles), keyed by tile.
 export function draws() {
