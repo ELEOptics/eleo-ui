@@ -86,7 +86,7 @@ No `exports` change in any `package.json`.
 
 ## Milestones
 
-### M1: Curve keys (done 2026-11-06) GitHub: `P677 M1: Curve keys`
+### M1: Curve keys GitHub: `P677 M1: Curve keys`
 
 Demo: `npm run gallery`: the MTF and field curvature tiles key each curve below the x label at the plot's
 text size; the distortion tile keys in the top-right corner (`keyAt: "top-right"`, CR #718); mtf-limits' vertical line reads "50 cycles/mm". Proves: O1
@@ -101,6 +101,8 @@ text size; the distortion tile keys in the top-right corner (`keyAt: "top-right"
 | #556 reuse | Limit label offsets in text units (`right - 4`, `dy="-3"`, `top + 10` become 0.4 t, 0.3 t, 1 t) | forced (#556's named fix, `plotCell`'s t / 10 rule) | `packages/plots/src/limits.js`, `.changeset/limit-labels.md`, `packages/plots/src/curve.js`, `tests/fixtures/renderers-baseline.json` (`seidel` only, CR #703) | `tests/unit/curve.test.js::limit label offsets scale` |  |
 | #704 | A below key's first row clears the x-axis label: baselines 1.4 t apart, the extra 0.2 t from the SVG (no `height`) or the frame | in `curve.js` because `placeBelow` owns the key's top and the height rule; considered a gap inside key.js (bars' baseline must stay byte-identical) | `packages/plots/src/curve.js`, `packages/plots/README.md` | `tests/unit/curve.test.js::key clears the x label` | #681 |
 | #683 | Unskip O1 acceptance tests | forced (`workflow.md`, TDD: the last item unskips them) | `tests/gallery.spec.js` | `curve keys` | #678, #679, #680, #681, #682, #556, #704 |
+| #730 | Sagittal dash in units of the stroke weight (about `4w 2.5w`); the renderer baseline's sagittal curve entries re-recorded (CR #726, user) | in `roleStyle` because it owns each role's dash and gets `wt`; considered a fixed bolder pattern (user chose scaling) | `packages/plots/src/curve.js`, `tests/fixtures/renderers-baseline.json`, `packages/plots/README.md` | `tests/unit/curve.test.js::sagittal dash scales with the stroke` |  |
+| #731 | Key line swatch about 2 t, two dash periods; the width estimate counts it (CR #726) | in key.js because it owns swatch geometry and the estimate; considered curve.js only | `packages/plots/src/key.js` | `tests/unit/key.test.js::line swatch is two dash periods` | #730 |
 | #725 | `PlotKeyEntry`'s doc comment names the role's colour (CR #723) | forced (CR #723: the comment misstated the swatch since #714) | `packages/plots/src/index.d.ts` | none (doc comment; `tests/types/keys.ts` green) |  |
 | #724 | The corner key test's header and oracle line name the plot frame (round 3, finding 2) | forced (finding 2) | `tests/unit/curve.test.js` | `tests/unit/curve.test.js::corner key stays in the plot` |  |
 | #720 | A corner key's box starts inside the plot on both axes; one that fits lies wholly inside; a larger one overruns only the far edges (CR #716) | clamp the start, overrun the far edges, because O1 lets a lone over-long entry overrun and a corner key never resizes the frame; considered a below fallback (overrides the caller's `keyAt`) or rows bounded by the height (moves the overrun right) | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `tests/unit/curve.test.js::corner key stays in the plot` (four corners, fits and overruns) |  |
@@ -156,7 +158,9 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 | #699 | Gallery: the layout tiles pass `key` (fields or wavelengths from the sample, glasses for the Cooke tile); their footers removed | in the tile definitions because they own the data; considered keeping `data-legend` | `gallery/index.html` | `tests/gallery.spec.js::layout keys` | #698 |
 | #669 reuse | Clamped field labels 1 em apart: sort by y, push each down | forced (#669's named fix) | `packages/plots/src/layout2d.js`, `.changeset/layout2d-labels.md` | `tests/unit/layout2d.test.js::clamped labels do not stack` | #698 |
 | #700 | Release planned: `release.test.js` names row R's changesets (plots minor, tokens minor; plots-svelte unplanned, its wrappers spread props) | forced (`release.test.js`'s per-row changeset tests, as row Q's) | `tests/unit/release.test.js` | `release.test.js::row R changesets` | all above |
-| #701 | Unskip O5 acceptance tests | forced (`workflow.md`, TDD) | `tests/gallery.spec.js` | `layout keys` | #697, #698, #699, #669, #700 |
+| #732 | Drop the merit before/after tile and the tests only it uses (CR #727, user) | forced (CR #727) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js` (tile lists) |  |
+| #733 | A stop bar wherever STO is labelled; the renderer baseline's layout2D entries re-recorded (CR #729, user) | in `layout2d.js` because it draws the label and the bar; considered a per-tile `marks` option (the user asked for every plot) | `packages/plots/src/layout2d.js`, `tests/fixtures/renderers-baseline.json`, `.changeset/layout2d-stop-bar.md` | `tests/unit/layout2d.test.js::a labelled stop has its bar` |  |
+| #701 | Unskip O5 acceptance tests | forced (`workflow.md`, TDD) | `tests/gallery.spec.js` | `layout keys` | #697, #698, #699, #669, #700, #732, #733 |
 
 ## Risks and spikes
 
@@ -184,3 +188,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M1 round 3 (1 blocking, 1 backlog): CR #723 accepted (orchestrator: a doc comment in `index.d.ts`, Core but listed for #681), fixed by #725; backlog #724 into M1.
 - 2026-11-06 orchestrator: #724 and #725 share one commit because `check-tests-touched.sh` refuses #725's comment-only `index.d.ts` change without a test touched, and a test written only to pass the hook was round 2's finding 4 (CR #719).
 - 2026-11-06 M1 reviewed in 4 rounds (9, 4, 2, 0 counting pulled-in items); round 4 says 0 blocking; ticked.
+- 2026-11-06 M1 demo (user): no go yet. CR #726 (sagittal dashes scale with the stroke, a longer key line swatch; user chose scaling) reopens M1 with #730, #731. For M4: CR #727 drops the merit before/after tile (#732); CR #728 adds the glass key to the field key (#698 and #699 amended); CR #729 draws a stop bar wherever STO is labelled (#733). The user asked whether eleo-ui should adopt an existing plotting library instead (answered on the PR).
