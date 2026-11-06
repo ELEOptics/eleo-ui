@@ -734,6 +734,14 @@ test('layoutBounds names a bad input: a non-finite point, a surface with no prof
     assert.throws(() => ELEO.layout2D({ data: glassToImage, box }),
       { message: `layout2D: surface ${im} has no profile` }, `glass before image, box ${JSON.stringify(box)}`);
   }
+  // Plan #642, #670 (review M2 round 1 finding 4): an empty or non-finite image profile is named too, not drawn as NaN or a front-only polygon.
+  for (const [profile, tail] of [[[], ' has no profile'], [[[NaN, 1], [0, 2]], ' has a profile with a non-finite point']]) {
+    const badImage = { ...L, surfaces: glassToImage.surfaces.map((s, k) => (k === im ? { ...s, profile } : s)) };
+    for (const box of [undefined, layoutBounds([L])]) {
+      assert.throws(() => ELEO.layout2D({ data: badImage, box }),
+        { message: `layout2D: surface ${im}${tail}` }, `image profile ${JSON.stringify(profile)}, box ${JSON.stringify(box)}`);
+    }
+  }
 });
 
 // Plan #90, O3, #60: a glass is null, "crown", "flint" or {name, nd, vd} (a string name, finite nd and vd). Anything

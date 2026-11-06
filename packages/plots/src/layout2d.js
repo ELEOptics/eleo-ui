@@ -199,7 +199,7 @@ export function layout2D(o) {
   var S = L.surfaces;
   S.forEach(function (x, i) { var e = badProfile(x); if (e) throw new Error("layout2D: surface " + i + e); });
   // badProfile exempts the image, but a glass before it still draws its polygon from that profile.
-  S.forEach(function (x, i) { if (x.glass && S[i + 1] && !Array.isArray(S[i + 1].profile)) throw new Error("layout2D: surface " + (i + 1) + " has no profile"); });
+  S.forEach(function (x, i) { var e = x.glass && S[i + 1] && badProfile(Object.assign({}, S[i + 1], { image: false })); if (e) throw new Error("layout2D: surface " + (i + 1) + e); });
   S.forEach(function (x, i) { if (x.hole != null && !(typeof x.hole === "number" && x.hole >= 0 && x.hole < x.sd)) throw new Error("layout2D: surfaces[" + i + "].hole is not a number from 0 up to, but below, sd"); });
   var B = o.box != null ? o.box : layoutBounds([L]);
   // A drawable box: finite, with room in z and y (`!(a < b)` also catches NaN).
