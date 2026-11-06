@@ -88,8 +88,8 @@ No `exports` change in any `package.json`.
 
 ### M1: Curve keys GitHub: `P677 M1: Curve keys`
 
-Demo: `npm run gallery`: the MTF, field curvature and distortion tiles key each curve below the x label at the plot's
-text size; mtf-limits' vertical line reads "50 cycles/mm"; one tile with `keyAt: "top-right"`. Proves: O1
+Demo: `npm run gallery`: the MTF and field curvature tiles key each curve below the x label at the plot's
+text size; the distortion tile keys in the top-right corner (`keyAt: "top-right"`, CR #718); mtf-limits' vertical line reads "50 cycles/mm". Proves: O1
 
 | Issue | Work item | Approach | Files | Test | After |
 | -- | -- | -- | -- | -- | -- |
@@ -101,9 +101,12 @@ text size; mtf-limits' vertical line reads "50 cycles/mm"; one tile with `keyAt:
 | #556 reuse | Limit label offsets in text units (`right - 4`, `dy="-3"`, `top + 10` become 0.4 t, 0.3 t, 1 t) | forced (#556's named fix, `plotCell`'s t / 10 rule) | `packages/plots/src/limits.js`, `.changeset/limit-labels.md`, `packages/plots/src/curve.js`, `tests/fixtures/renderers-baseline.json` (`seidel` only, CR #703) | `tests/unit/curve.test.js::limit label offsets scale` |  |
 | #704 | A below key's first row clears the x-axis label: baselines 1.4 t apart, the extra 0.2 t from the SVG (no `height`) or the frame | in `curve.js` because `placeBelow` owns the key's top and the height rule; considered a gap inside key.js (bars' baseline must stay byte-identical) | `packages/plots/src/curve.js`, `packages/plots/README.md` | `tests/unit/curve.test.js::key clears the x label` | #681 |
 | #683 | Unskip O1 acceptance tests | forced (`workflow.md`, TDD: the last item unskips them) | `tests/gallery.spec.js` | `curve keys` | #678, #679, #680, #681, #682, #556, #704 |
+| #720 | A corner key's box starts inside the plot on both axes; one that fits lies wholly inside; a larger one overruns only the far edges (CR #716) | clamp the start, overrun the far edges, because O1 lets a lone over-long entry overrun and a corner key never resizes the frame; considered a below fallback (overrides the caller's `keyAt`) or rows bounded by the height (moves the overrun right) | `packages/plots/src/curve.js`, `tests/unit/curve.test.js` | `tests/unit/curve.test.js::corner key stays in the plot` (four corners, fits and overruns) |  |
+| #721 | README:99: the swatch in the role's colour; how a corner key wraps and overruns (CRs #716, #717) | forced (CRs #716, #717) | `packages/plots/README.md` | none (doc only) | #720 |
+| #722 | Drop the redundant `limitLabels uses the t it is given` test (CR #719) | forced (CR #719) | `tests/unit/curve.test.js` | none (removal) | #720 |
 | #713 | The distortion tile keys in the top-right corner (CR #705) | forced (CR #705: the M1 Demo names a `keyAt: "top-right"` tile) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::curve keys` (the corner key inside the frame) |  |
 | #714 | A `reference` or `limit` key swatch in `--ink`, as its curve: `col` from roleStyle (CR #706) | `col` from roleStyle because the role decides the curve's colour (ADR-0001); considered an `ink` flag in key.js (a second role table) | `packages/plots/src/key.js`, `packages/plots/src/curve.js` | `tests/unit/curve.test.js::key swatch follows the role` |  |
-| #715 | `limitLabels` without the dead `t` default (CR #708) | forced (CR #708: the only caller passes t) | `packages/plots/src/limits.js`, `tests/unit/curve.test.js` | `tests/unit/curve.test.js::limitLabels uses the t it is given` |  |
+| #715 | `limitLabels` without the dead `t` default (CR #708) | forced (CR #708: the only caller passes t) | `packages/plots/src/limits.js` | `tests/unit/curve.test.js::limit label offsets scale` (CR #719) |  |
 | #709 | A corner key on a short plot wraps and stays in the plot (review M1, finding 5) | in `cornerKey` because it owns the box; considered a throw on a short plot | `packages/plots/src/curve.js` | `tests/unit/curve.test.js::corner key stays in the plot` | #714 |
 | #710 | `keyLayout` returns `right`; `cornerKey` sizes from it (finding 6) | in key.js because it owns the width estimate (#586); considered an exported helper | `packages/plots/src/key.js`, `packages/plots/src/curve.js` | `tests/unit/key.test.js::layout reports its right edge` | #709 |
 | #711 | README height rule: line 91's default names the below key, line 99 "the SVG's height becomes" (CR #707, finding 7) | forced (CR #707, finding 7) | `packages/plots/README.md` | none (doc only) |  |
@@ -175,3 +178,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 orchestrator: #681 takes `tests/unit/types.test.js` into its Files, which lists each type file, so `check.sh` compiles `tests/types/keys.ts`; #680 adds `keyMarkup`'s `{ mark }` opt-in for `data-key` (the #678 test's selector), so bars' baseline holds.
 - 2026-11-06 orchestrator: #704 added to M1 (#682's worker ran `curve keys` unskipped: the below key's first row overlaps the x label, a #681 placement defect); #683 runs after it.
 - 2026-11-06 review M1 round 1 (4 blocking, 5 backlog): CRs #705, #706, #707, #708 accepted (orchestrator: each keeps every invariant), fixed by #713, #714, #711, #715; backlog #709, #710, #711, #712 into M1.
+- 2026-11-06 review M1 round 2 (4 blocking): CRs #716 to #719 accepted (orchestrator: each keeps every invariant), fixed by #720, #721, #722 and this plan's M1 Demo (CR #718: the distortion tile keys top-right).
