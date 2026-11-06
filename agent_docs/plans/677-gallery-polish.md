@@ -138,7 +138,7 @@ footers. Proves: O2
 | #742 | `key.js` exports `KEY_AT` and `cornerBox`; `curve` and `spot` use them (output unchanged); spot's foot comment names the key rows | in key.js because #680 put the key there to stop drift (#586); considered two copies | `packages/plots/src/key.js`, `packages/plots/src/curve.js`, `packages/plots/src/spot.js` | `tests/unit/key.test.js::corner box` | #741 |
 | #745 | CR #744: `rayFan` passes `keyAt: o.keyAt` in its spec literal, no guard | in the literal because curve reads a missing `keyAt` as "below"; considered keeping the guard | `packages/plots/src/fan.js` | `tests/unit/fan.test.js::rayFan key keyAt` | #739 |
 
-### M3: Maps and the 3D image plane GitHub: `P677 M3: Maps and the 3D image plane`
+### M3: Maps and the 3D image plane (done 2026-11-06) GitHub: `P677 M3: Maps and the 3D image plane`
 
 Demo: every Map2D tile with axes, a ticked colorbar and a grid over the image in its map's grid token; one tile with
 `grid: { x: { major: 5, minor: 4 }, y: { major: 5, minor: 4 } }`; the sample canvas PSF and wavefront tiles gone;
@@ -220,3 +220,5 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M3 round 2 (0 blocking, 2 backlog): #752 (grid's null type) and #753 (colorbar changeset) into M3.
 - 2026-11-06 review M3 round 3 (0 blocking, 2 backlog): finding 1 fixed here (the Core changes list gives the shipped `Map2DGridProps.grid` type); finding 2 into #754.
 - 2026-11-06 review M3 round 4 (0 blocking, 1 backlog): #755 into M3.
+- 2026-11-06 review M3 round 5 (0 blocking, 1 backlog): the `Map2DGridProps.grid` JSDoc's `minor: false` folded into M4's #698 (orchestrator: #698 already edits `index.d.ts` with a real test; alone it is a comment-only Core change that needs a hook-only test, CR #719), so nothing was pulled into M3.
+- 2026-11-06 M3 reviewed in 5 rounds (8, 2, 2, 1, 1 findings; nothing pulled into M3 in round 5); round 5 says 0 blocking; ticked. #751 (wave grid contrast at zero) goes to the user at the demo.
