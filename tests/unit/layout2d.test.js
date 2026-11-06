@@ -711,6 +711,13 @@ test('layoutBounds names a bad input: a non-finite point, a surface with no prof
   const noImageProfile = { ...L, surfaces: L.surfaces.map((s) => (s.image ? { ...s, profile: undefined } : s)) };
   assert.deepEqual(layoutBounds([noImageProfile]), layoutBounds([L]), 'an image surface needs no profile');
   assert.doesNotThrow(() => ELEO.layout2D({ data: noImageProfile }), 'layout2D draws an image surface with no profile');
+  // #138: a glass before an image with no profile makes the lens polygon read that profile, so layout2D names the image, boxed and unboxed.
+  const im = L.surfaces.findIndex((s) => s.image);
+  const glassToImage = { ...L, surfaces: L.surfaces.map((s, k) => (k === im - 1 ? { ...s, glass: 'crown' } : k === im ? { ...s, profile: undefined } : s)) };
+  for (const box of [undefined, layoutBounds([L])]) {
+    assert.throws(() => ELEO.layout2D({ data: glassToImage, box }),
+      { message: `layout2D: surface ${im} has no profile` }, `glass before image, box ${JSON.stringify(box)}`);
+  }
 });
 
 // Plan #90, O3, #60: a glass is null, "crown", "flint" or {name, nd, vd} (a string name, finite nd and vd). Anything
