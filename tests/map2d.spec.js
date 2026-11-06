@@ -747,7 +747,7 @@ test('map2D draws its frame at F_LO at PLOT_SIZES.map2D.minWidth', async ({ page
 
 // Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O3 (issue #690; #696 unskips). Every typed map tile has axes, a ticked colorbar and a grid drawn after the <image>,
 // per axis by grid: { x: { major, minor }, y: { ... } } (false: none), in its colormap's grid token (--map-grid-<map>, minors --map-grid-<map>-minor).
-// oracle: closed-form Heckbert's 1-2-5 rule (as axisTicks, curve.js:26) for the majors and an even split for the minors; spec WCAG 2.1 contrast ratio, each grid token against its map's end stops (3:1, minor 1.5:1), both themes.
+// oracle: closed-form Heckbert's 1-2-5 rule (as axisTicks, curve.js:26) for the majors and an even split for the minors; spec WCAG 2.1 contrast ratio, each grid token against its map's end stops (at least 2:1, minor 1.3:1, and under 2.6:1, minor 1.7:1, against the nearer end), both themes.
 // Fixture: values 4 x 8 over [0, 4] x [0, 2]: the plot area is less than 2:1, so y is padded and x spans [0, 4] exactly; major: 5 gives the ticks 0 to 4 and minor: 4 gives 0.2 steps.
 test('grid over the image', async ({ page }) => {
   await page.goto('/gallery/');
@@ -828,8 +828,10 @@ test('grid over the image', async ({ page }) => {
     for (const [map, q] of Object.entries(c)) {
       expect(q.major, `${theme} ${map} grid token drawn`).not.toBeNull();
       expect(q.minor, `${theme} ${map} minor grid token drawn`).not.toBeNull();
-      q.major.forEach((v, i) => expect(v, `${theme} ${map} major vs end stop ${i}`).toBeGreaterThanOrEqual(3));
-      q.minor.forEach((v, i) => expect(v, `${theme} ${map} minor vs end stop ${i}`).toBeGreaterThanOrEqual(1.5));
+      q.major.forEach((v, i) => expect(v, `${theme} ${map} major vs end stop ${i}`).toBeGreaterThanOrEqual(2));
+      expect(Math.min(...q.major), `${theme} ${map} major nearer end`).toBeLessThan(2.6);
+      q.minor.forEach((v, i) => expect(v, `${theme} ${map} minor vs end stop ${i}`).toBeGreaterThanOrEqual(1.3));
+      expect(Math.min(...q.minor), `${theme} ${map} minor nearer end`).toBeLessThan(1.7);
     }
   }
 });

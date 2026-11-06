@@ -56,14 +56,29 @@ test('map grid contrast', () => {
   const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
   const ends = (map, th) => map === 'viridis' ? ['#440154', '#fde725'] : map === 'gray' ? ['#000000', '#ffffff']
     : [val(`map-${map}-0`, th), val(`map-${map}-8`, th)];
+  const mid = (map, th) => map === 'viridis' ? '#21918c' : map === 'gray' ? '#808080' : val(`map-${map}-4`, th);
+  // CR #760: no value meets both bounds and the ordering on wave (either theme) or ember dark, so the ordering is checked elsewhere only.
+  const ordered = (map, th) => map !== 'wave' && !(map === 'ember' && th === 'dark');
   for (const map of ['ember', 'wave', 'viridis', 'gray']) for (const th of ['light', 'dark']) {
-    for (const [name, min] of [[`map-grid-${map}`, 3], [`map-grid-${map}-minor`, 1.5]]) {
+    for (const [name, min, max] of [[`map-grid-${map}`, 2, 2.6], [`map-grid-${map}-minor`, 1.3, 1.7]]) {
       assert.ok(tok(name).usage.includes(`the ${map} map's image`), `${name} usage names its map: ${tok(name).usage}`);
       const c = val(name, th);
-      for (const [i, end] of ends(map, th).entries()) {
+      const rs = ends(map, th).map((end, i) => {
         const r = ratio(c, end);
         assert.ok(r >= min, `${name} ${th} ${c} vs ${map} stop ${i ? 'highest' : 'lowest'} ${end}: ${r.toFixed(2)}:1 < ${min}:1`);
-      }
+        return r;
+      });
+      assert.ok(Math.min(...rs) < max, `${name} ${th} ${c}: the nearer end is ${Math.min(...rs).toFixed(2)}:1, not under ${max}:1`);
+    }
+    if (ordered(map, th)) {
+      const m = mid(map, th), a = ratio(val(`map-grid-${map}`, th), m), b = ratio(val(`map-grid-${map}-minor`, th), m);
+      assert.ok(a >= b, `map-grid-${map} ${th}: major ${a.toFixed(2)}:1 vs the middle stop ${m} is weaker than its minor ${b.toFixed(2)}:1`);
+    } else {
+      // Where the ordering is infeasible the minor is as quiet at the middle stop as its bounds allow (lowest feasible: a neutral-warm scan of
+      // 1.3 to 1.7:1 against the nearer end gives 5.58, 7.54 and 2.38; 0.1 of margin).
+      const cap = { 'wave light': 5.7, 'wave dark': 7.7, 'ember dark': 2.5 }[`${map} ${th}`];
+      const b = ratio(val(`map-grid-${map}-minor`, th), mid(map, th));
+      assert.ok(b <= cap, `map-grid-${map}-minor ${th} is ${b.toFixed(2)}:1 against the middle stop, over the lowest feasible ${cap}:1`);
     }
   }
 });
