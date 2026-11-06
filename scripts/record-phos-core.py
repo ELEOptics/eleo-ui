@@ -414,6 +414,9 @@ def wandersleb(phos, triplet, outdir, header):
         sys.exit(f"wandersleb: the 28 degree lower ray is {status[2][l28][2]} at S2, expected Virtual (statuses {status[2][l28]})")
     if alive[1][l14] >= len(rays[1][l14]) or status[1][l14][-1] == "Alive":
         sys.exit(f"wandersleb: the 14 degree lower ray reaches the image alive (statuses {status[1][l14]}), expected it vignetted")
+    # #355: phos-core kills that ray at the stop (point 5, surfaces[4]), so the check asserts where it dies as recorded, not only that it dies.
+    if status[1][l14][5] != "Dead" or "Dead" in status[1][l14][:5]:
+        sys.exit(f"wandersleb: the 14 degree lower ray is not first Dead at the stop, point 5 (statuses {status[1][l14]})")
 
     doc = {**header, "lens": "wandersleb", "analysis": "layout", "kind": "visualize_system_2d, 11 rays per field, [z, y] mm",
            "prescription": {"source": t["source"], "epd": t["epd"], "wavelengthNm": t["wavelength_nm"], "stop": t["stop"],

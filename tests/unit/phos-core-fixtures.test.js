@@ -178,6 +178,14 @@ test('recorded Wandersleb layout is phos-core\'s trace of phos\'s triplet', () =
   const l14 = lower(f.rays[1]);
   assert.ok(f.alive[1][l14] < f.rays[1][l14].length, 'the 14 degree lower ray is vignetted: it does not reach the image alive');
   assert.deepEqual(f.alive[0].filter((a, j) => j > 0 && j < 10 && a !== f.rays[0][j].length), [], 'the on-axis fan is alive but for its marginal rays');
+  // #355, ELEOptics/phos#310: the exclusion of on-axis rays 0 and 10 above comes from the recording, not from the oracle. phos-core marks
+  // the on-axis marginals Virtual at the stop's rim (point 5, the stop's surface), and kills the 14 degree lower ray there too, so that
+  // ray's death at the stop is the same rim artifact as well as the vignetting phos#310 states. Asserted as recorded.
+  assert.equal(f.surfaces[4].stop, true, 'point 5 is the stop');
+  assert.equal(f.status[0][0][5], 'Virtual', 'the on-axis lower marginal is Virtual at the stop (#355)');
+  assert.equal(f.status[0][10][5], 'Virtual', 'the on-axis upper marginal is Virtual at the stop (#355)');
+  assert.equal(l14, 10, 'the 14 degree lower ray is the fan\'s last');
+  assert.equal(f.status[1][l14][5], 'Dead', 'the 14 degree lower ray is Dead at the stop (#355, phos#310)');
   // CR #372: dead[field][ray] is true when the first non-ALIVE status is a Dead kind (not Virtual or Missed).
   assert.equal(f.dead.length, 3);
   f.dead.forEach((fan) => assert.equal(fan.length, 11));
