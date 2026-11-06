@@ -680,8 +680,9 @@ test('default heights are whole px', async () => {
 // Plan #603 (agent_docs/plans/603-recorded-fans.md), outcome O1 (issue #604; #605 records the fixtures, #606 adds ELEOAdapters.fans and unskips).
 // oracle: fixture phos-core TransverseRayError recorded by scripts/record-phos-core.py --only fans (roadmap U6, user at plan #464): per source
 // { fieldAngleDeg, wavelengths (nm), x: { points: [wavelength][sample] of [pupil, error mm], statuses }, y: same }; a non-Alive sample is a gap.
-// What #606 must provide: ELEOAdapters.fans(rec) -> { panels, columns, x, y } in fanPanels' shape (row Py then row Px, a column per field, µm,
-// every non-Alive sample null, a symmetric y range at fanPanels' next nice step).
+// Plan #603 M2, issue #624 (CR #621): oracle: fixture as above minus the chief ray, the pupil-0 sample (found by its pupil value) at rec.referenceWavelengthNm of the same fan.
+// What #606 provides, #624 changes: ELEOAdapters.fans(rec) -> { panels, columns, x, y } in fanPanels' shape (row Py then row Px, a column per field, µm,
+// every non-Alive sample null, each error minus its fan's chief-ray error, a symmetric y range at fanPanels' next nice step over the shifted errors).
 test('recorded ray fans round trip (U6)', async () => {
   const { existsSync } = await import('node:fs');
   const { fanPanels } = await import('../../packages/plots/src/fan.js');
@@ -693,6 +694,16 @@ test('recorded ray fans round trip (U6)', async () => {
   // A clone with one interior alive sample made Dead, as the sample fans test nulls one (the default recordings may have no dead sample).
   const clone = structuredClone(fixture('achromat-fans'));
   clone.sources[1].y.statuses[0][3] = 'Dead';
+  // A clone whose field-1 y chief ray at the reference wavelength is Dead: the adapter throws a TypeError naming the field.
+  const noChief = structuredClone(fixture('achromat-fans'));
+  const refW = (src) => src.wavelengths.indexOf(noChief.referenceWavelengthNm);
+  const pupil0 = (src, axis, w) => src[axis].points[w].findIndex(([px]) => px === 0);
+  noChief.sources[1].y.statuses[refW(noChief.sources[1])][pupil0(noChief.sources[1], 'y', refW(noChief.sources[1]))] = 'Dead';
+  assert.throws(() => ELEOAdapters.fans(noChief), (e) => e instanceof TypeError && e.message.includes(String(noChief.sources[1].fieldAngleDeg)), 'a dead chief ray throws a TypeError naming the field');
+  // A reference wavelength that is not recorded throws too.
+  const noRef = structuredClone(fixture('achromat-fans'));
+  noRef.referenceWavelengthNm = 123;
+  assert.throws(() => ELEOAdapters.fans(noRef), TypeError, 'an unrecorded reference throws a TypeError');
   // A clone with negative field angles: fanPanels titles with U+2212, not a hyphen.
   const neg = structuredClone(fixture('achromat-fans'));
   neg.sources.forEach((s) => { s.fieldAngleDeg = -Math.abs(s.fieldAngleDeg) - 1; });
@@ -705,12 +716,18 @@ test('recorded ray fans round trip (U6)', async () => {
     assert.deepEqual(panels.map((pn) => pn.title), own.panels.map((pn) => pn.title), `${name}: panel titles are fanPanels'`);
     // Every recorded sample is placed by its own pupil coordinate and error (mm to µm); every non-Alive one is null.
     [['y', 0], ['x', columns]].forEach(([axis, base]) => rec.sources.forEach((src, f) => {
-      const want = src[axis].points.map((fan, w) => fan.map(([px, err], i) => (src[axis].statuses[w][i] === 'Alive' ? [px, err * 1000] : [px, null])));
+      const rw = src.wavelengths.indexOf(rec.referenceWavelengthNm);
+      assert.ok(rw >= 0, `${name} ${axis} field ${f}: the reference wavelength is recorded`);
+      const ci = src[axis].points[rw].findIndex(([px]) => px === 0);
+      assert.ok(ci >= 0 && src[axis].statuses[rw][ci] === 'Alive', `${name} ${axis} field ${f}: an alive chief ray`);
+      const chief = src[axis].points[rw][ci][1];
+      const want = src[axis].points.map((fan, w) => fan.map(([px, err], i) => (src[axis].statuses[w][i] === 'Alive' ? [px, (err - chief) * 1000] : [px, null])));
+      assert.ok(Math.abs(want[rw][ci][1]) < 1e-9, `${name} ${axis} field ${f}: the reference fan is 0 at pupil 0`);
       assert.equal(panels[base + f].series.length, want.length, `${name} ${axis} field ${f}: a series per wavelength`);
       panels[base + f].series.forEach((s, w) => s.points.forEach((pt, i) => {
         assert.ok(Math.abs(pt[0] - want[w][i][0]) < 1e-9, `${name} ${axis} ${f}/${w}/${i}: pupil`);
         if (want[w][i][1] === null) { dead++; assert.equal(pt[1], null, `${name} ${axis} ${f}/${w}/${i}: a non-Alive sample is null`); }
-        else assert.ok(Math.abs(pt[1] - want[w][i][1]) < 1e-9, `${name} ${axis} ${f}/${w}/${i}: error in µm`);
+        else assert.ok(Math.abs(pt[1] - want[w][i][1]) < 1e-9, `${name} ${axis} ${f}/${w}/${i}: error in µm minus the chief ray`);
       }));
     }));
     // The y range is fanPanels' rule on the same maximum (pinned against the copy in adapters.js).

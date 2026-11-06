@@ -557,7 +557,7 @@ test('rayFan tile draws the recording', async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
     const tile = page.locator(`.theme[data-theme="${theme}"] [data-tile="rayFan"]`);
-    await expect(tile.locator('.eleo-plot__meta'), `${theme} rayFan meta`).toContainText('Achromat, recorded');
+    await expect(tile.locator('.eleo-plot__meta'), `${theme} rayFan meta`).toContainText('Achromat, recorded, TRA from the chief ray, µm');
     const got = await tile.locator('.eleo-plot__body svg text').allTextContents();
     for (const t of titles) expect(got, `${theme} rayFan panel title ${t}`).toContain(t);
     expect(await tile.locator('.eleo-plot__body svg path[stroke]:not(.eleo-limit)').count(), `${theme} rayFan series paths`).toBeGreaterThanOrEqual(series);

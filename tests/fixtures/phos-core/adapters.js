@@ -137,20 +137,27 @@
     },
     /* fans(recording) -> { panels, columns, x, y } in the shape of fanPanels (packages/plots/src/fan.js): row T (the y fan, Py) then row S
        (the x fan, Px), a column per field titled `<angle>° · Py`, a series per wavelength (index = wavelength) of [pupil, error in µm]
-       (the recording is in mm). Every sample whose status is not Alive is null: a virtual, missed or dead ray's error is not an image error.
+       (the recording is in mm) minus the fan's chief-ray error (the pupil-0 sample at rec.referenceWavelengthNm, so that wavelength's fan crosses 0 at pupil 0 and
+       the others keep their lateral-colour offset); a chief ray that is not Alive, or a reference not recorded, throws a TypeError naming the field.
+       Every sample whose status is not Alive is null: a virtual, missed or dead ray's error is not an image error.
        The y range is symmetric at fanPanels' next nice step (copied: fanPanels is not on ELEO; the unit test pins it). The title's number is fanPanels' fmt(angle, 1), copied too: U+2212 for a negative. */
     fans: function (rec) {
       var mx = 0, panels = [];
       [['y', 'Py'], ['x', 'Px']].forEach(function (row) {
         rec.sources.forEach(function (s) {
-          var fan = s[row[0]];
+          var fan = s[row[0]], where = 'ELEOAdapters.fans: field ' + s.fieldAngleDeg + '° ' + row[1];
+          var rw = s.wavelengths.indexOf(rec.referenceWavelengthNm);
+          if (rw < 0) throw new TypeError(where + ': reference wavelength ' + rec.referenceWavelengthNm + ' nm is not recorded');
+          var ci = fan.points[rw].findIndex(function (q) { return q[0] === 0; });
+          if (ci < 0 || fan.statuses[rw][ci] !== 'Alive') throw new TypeError(where + ': the chief ray (pupil 0 at ' + rec.referenceWavelengthNm + ' nm) is not Alive');
+          var chief = fan.points[rw][ci][1];
           panels.push({
             title: (s.fieldAngleDeg < 0 ? '\u2212' : '') + Math.abs(s.fieldAngleDeg).toFixed(1) + '° · ' + row[1],
             series: fan.points.map(function (pts, w) {
               return {
                 points: pts.map(function (q, i) {
                   if (fan.statuses[w][i] !== 'Alive') return [q[0], null];
-                  var v = q[1] * 1000;
+                  var v = (q[1] - chief) * 1000;
                   mx = Math.max(mx, Math.abs(v));
                   return [q[0], v];
                 }),
