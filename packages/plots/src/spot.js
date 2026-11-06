@@ -86,7 +86,7 @@ function typedSpot(o) {
       g += '<path d="M' + ox + "," + r2(top + u) + " H" + r2(ox + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
     });
     g += '<path d="M' + r2(ox + 6) + "," + r2(top + cx) + " H" + r2(ox + side - 6) + " M" + r2(ox + cx) + "," + (top + 6) + " V" + r2(top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
-    g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, cx, cx].join(" ") + ')">';
+    g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, r2(cx), r2(cx)].join(" ") + ')">';
     (p.series || []).forEach(function (se) {
       var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
       g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
@@ -97,7 +97,7 @@ function typedSpot(o) {
     var pe = at === "below" ? [] : entsOf([p]);
     if (pe.length) g += cornerBox(pe, at, t, ox, top, side, side);
     var ty = r2(top + side + 1.8 * t);
-    g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + sty + ' x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
+    g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + sty + ' x="' + r2(ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
     (p.notes || []).forEach(function (nt, j) { g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(ty + 1.5 * t * (j + 1)) + '">' + esc(nt) + "</text>"; });
   });
   cap.forEach(function (ct, j) { g += '<text class="eleo-tick"' + sty + ' x="0" y="' + r2(top + side + 1.8 * t + 1.5 * t * (notesMax + j + 1)) + '">' + esc(ct) + "</text>"; });
