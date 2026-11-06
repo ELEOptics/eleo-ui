@@ -8,9 +8,27 @@ import { colormap } from "./physics.js";
 
 var r2 = function (v) { return +v.toFixed(2); };
 
+/* An axis's grid option, as { major, minor } (counts, 0 for none). `grid: false` or an axis `false` is no lines; no `grid`, or an axis left out, is the default majors and no minors. */
+function gridOf(g, k) {
+  var a = g === false ? false : g && g[k];
+  if (a === false) return { major: 0, minor: 0 };
+  if (a === undefined) return { major: 6, minor: 0, dflt: true };
+  var ok = function (v, lo) { return typeof v === "number" && Number.isInteger(v) && v >= lo; };
+  if (a.major !== undefined && !ok(a.major, 2)) throw new TypeError("map2D: grid." + k + ".major must be an integer of at least 2");
+  if (a.minor !== undefined && a.minor !== false && !ok(a.minor, 0)) throw new TypeError("map2D: grid." + k + ".minor must be a whole number of lines per interval, or false");
+  return { major: a.major || 6, minor: a.minor || 0, dflt: a.major === undefined };
+}
+/* The axis with its ticks fixed to `major` nice ticks over `r`, unless it has its own `ticks` or no `major`: scales, plotCell's labels and the grid then use the same ticks. */
+function withMajor(a, g, r) {
+  if (!g || g.dflt || !g.major || a.ticks) return a;
+  var o = {}; for (var k in a) o[k] = a[k];
+  o.ticks = niceTicks(r[0], r[1], g.major).ticks;
+  return o;
+}
+
 /* The margins of a typed map, in text units: L the left one and R the right one, which the colorbar and the x ticks widen (the loop below). map2D draws with them and minWidth counts them, so the floor cannot drift from the drawing. `o` is the map's props, valid as typedMap checks. */
 function margins(o, W, H) {
-  var x = o.x || {}, e = o.extent, rows = o.values;
+  var x = o.x || {}, e = o.extent, rows = o.values, gx = gridOf(o.grid, "x");
   var live = function (v) { return typeof v === "number" && isFinite(v); };
   var lo = Infinity, hi = -Infinity;
   rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
@@ -33,13 +51,13 @@ function margins(o, W, H) {
     CB = 3 + 0.6 * Math.max.apply(null, [0].concat(cbt.map(function (q) { return Array.from(q.s).length; })));
   }
   /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin (text units) is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. The text size follows the margin, since it follows the frame. */
-  var Rt0 = scales({ x: { range: [e[0], e[1]], ticks: x.ticks }, y: { range: [e[2], e[3]] } }, [[]]).Rt + CB, Rt = Rt0, F, t, L, T, Bm, R, pw, ph, dx = e[1] - e[0], dy = e[3] - e[2], xr, yr;
+  var Rt0 = scales({ x: { range: [e[0], e[1]], ticks: withMajor(x, gx, [e[0], e[1]]).ticks }, y: { range: [e[2], e[3]] } }, [[]]).Rt + CB, Rt = Rt0, F, t, L, T, Bm, R, pw, ph, dx = e[1] - e[0], dy = e[3] - e[2], xr, yr;
   for (var it = 0; it < 8; it++) {
     F = frameOf(W, 4.6 + Rt); t = frameText(F); L = r2(4.6 * t); T = r2(2.6 * t); Bm = 3.6 * t; R = Rt * t;
     pw = r2(Math.max(1, W - L - R)); ph = r2(Math.max(1, H - T - Bm)); xr = [e[0], e[1]]; yr = [e[2], e[3]];
     if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [e[0] - (px - dx) / 2, e[1] + (px - dx) / 2]; }
     else { var py = dx * ph / pw; yr = [e[2] - (py - dy) / 2, e[3] + (py - dy) / 2]; }
-    var need = Math.max(Rt0, scales({ x: { range: xr, ticks: x.ticks }, y: { range: yr } }, [[]]).Rt + CB);
+    var need = Math.max(Rt0, scales({ x: { range: xr, ticks: withMajor(x, gx, xr).ticks }, y: { range: yr } }, [[]]).Rt + CB);
     if (need <= Rt + 1e-9) break;
     Rt = need;
   }
@@ -67,7 +85,8 @@ function typedMap(o) {
   }
   var M = margins(o, W, H), vb = o.value, lo = M.lo, hi = M.hi, log = M.log, dec = M.dec, cbt = M.cbt, CB = M.CB, Rt = M.Rt, F = M.F, t = M.t, T = M.T, Bm = M.Bm, pw = M.pw, ph = M.ph, xr = M.xr, yr = M.yr, L = r2(4.6 * t), R = Rt * t;
   var ts = ' style="font-size:' + +t.toFixed(3) + 'px"', wt = +frameWeight(F).toFixed(3);
-  var sc = { xr: xr, yr: yr, xt: axisTicks(x, xr), yt: axisTicks(y, yr), R: R, Rt: Rt };
+  var gx = gridOf(o.grid, "x"), gy = gridOf(o.grid, "y");
+  var sc = { xr: xr, yr: yr, xt: axisTicks(withMajor(x, gx, xr), xr), yt: axisTicks(withMajor(y, gy, yr), yr), R: R, Rt: Rt };
   var lut = colormap(o.map || "ember", o.el), cv = document.createElement("canvas"), span = hi - lo;
   var sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   /* The cell's color: the value's step on the scale, null for a masked value. */
@@ -104,8 +123,20 @@ function typedMap(o) {
   ctx.putImageData(im, 0, 0);
   var X = function (v) { return +(L + (v - xr[0]) * sx).toFixed(2); }, Y = function (v) { return +(T + ph - (v - yr[0]) * sy).toFixed(2); };
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
-  var g = plotCell(sc, [], W, H, T, false, "", undefined, { L: L, B: Bm, R: R, t: t });
+  var g = plotCell(sc, [], W, H, T, false, "", undefined, { L: L, B: Bm, R: R, t: t, grid: false });
   g += '<image x="' + X(e[0]) + '" y="' + Y(e[3]) + '" width="' + +((e[1] - e[0]) * sx).toFixed(2) + '" height="' + +((e[3] - e[2]) * sy).toFixed(2) + '" preserveAspectRatio="none" style="image-rendering: pixelated" href="' + cv.toDataURL("image/png") + '"/>';
+  /* The grid, over the image and under the aperture: a line at each major tick inside the image, `minor` evenly spaced lines in each interval between ticks, in the map's grid tokens. */
+  {
+    var gm = o.map || "ember", majS = ' stroke="var(--map-grid-' + gm + ')"/>', minS = ' stroke="var(--map-grid-' + gm + '-minor)"/>';
+    var gl = function (gr, ticks, lo, hi, P, mk) {
+      var maj = "", min = "", ts2 = ticks.slice().sort(function (p, q) { return p - q; }), eps = 1e-9 * (hi - lo);
+      ts2.forEach(function (v) { if (v >= lo - eps && v <= hi + eps) maj += mk(P(v)) + majS; });
+      if (gr.minor) ts2.slice(1).forEach(function (b, i) { var a = ts2[i]; for (var q = 1; q <= gr.minor; q++) { var v = a + q * (b - a) / (gr.minor + 1); if (v >= lo - eps && v <= hi + eps) min += mk(P(v)) + minS; } });
+      return maj + min;
+    };
+    if (gx.major) g += gl(gx, sc.xt.ticks, e[0], e[1], X, function (px) { return '<line x1="' + px + '" y1="' + Y(e[3]) + '" x2="' + px + '" y2="' + Y(e[2]) + '"'; });
+    if (gy.major) g += gl(gy, sc.yt.ticks, e[2], e[3], Y, function (py) { return '<line x1="' + X(e[0]) + '" y1="' + py + '" x2="' + X(e[1]) + '" y2="' + py + '"'; });
+  }
   /* Aperture: an even-odd --surface path (the image's rect and the circle) over the image outside the circle, so the null cells' stair edge is cut round and an unmasked grid is cut too; no clipPath id (ADR-0001). A --plot-axis ring on top, 1 px up to the band and frameWeight(F) above. */
   var ap = o.aperture;
   if (ap && live(ap.x) && live(ap.y) && live(ap.r) && ap.r > 0) {

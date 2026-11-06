@@ -830,3 +830,35 @@ test.skip('grid over the image', async ({ page }) => {
     }
   }
 });
+
+// #693: a map without `grid` has its majors over the image in its map's token, none in --plot-grid inside the frame (those the image hid).
+// oracle: closed-form, the lines at the labelled x ticks (the fixture's x spans [0, 4] exactly, ticks 0 to 4 at 1 mm).
+test('default grid over the image', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const values = Array.from({ length: 4 }, (_, j) => Array.from({ length: 8 }, (_, i) => (i + 8 * j) / 31));
+    const out = {};
+    for (const [name, grid] of [['default', undefined], ['off', false]]) {
+      el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map: 'wave', x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, grid, el }));
+      const svg = el.lastElementChild, image = svg.querySelector('image'), frame = svg.querySelector('rect');
+      const lines = [...svg.querySelectorAll('line')];
+      const tokens = lines.filter((l) => l.getAttribute('stroke') === 'var(--map-grid-wave)');
+      const inFrame = (l) => +l.getAttribute('x1') > +frame.getAttribute('x') && +l.getAttribute('x1') < +frame.getAttribute('x') + +frame.getAttribute('width');
+      out[name] = {
+        tokens: tokens.length, minors: lines.filter((l) => l.getAttribute('stroke') === 'var(--map-grid-wave-minor)').length,
+        plotGrid: lines.filter((l) => l.getAttribute('stroke') === 'var(--plot-grid)' && l.getAttribute('x1') === l.getAttribute('x2') && inFrame(l)).length,
+        after: tokens.every((l) => !!(image.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        ticks: [...svg.querySelectorAll('text.eleo-tick[text-anchor="middle"]')].length,
+      };
+      svg.remove();
+    }
+    return out;
+  });
+  expect(r.default.tokens, 'vertical and horizontal majors in the wave token').toBeGreaterThan(5);
+  expect(r.default.minors).toBe(0);
+  expect(r.default.plotGrid, 'no --plot-grid line inside the frame').toBe(0);
+  expect(r.default.after).toBe(true);
+  expect(r.off.tokens + r.off.minors + r.off.plotGrid, 'grid: false draws no lines').toBe(0);
+  expect(r.off.ticks, 'grid: false keeps the tick labels').toBeGreaterThan(0);
+});

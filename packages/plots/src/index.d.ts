@@ -216,6 +216,8 @@ export interface Map2DGridProps {
   aperture?: { x: number; y: number; r: number };
   /** The colorbar's axis: `label` and `unit` name the value; `ticks` apply. Default none drawn without it. */
   value?: CurveAxis;
+  /** Grid lines drawn over the image (the frame's own lines are not drawn), per axis, in the map's grid tokens (`--map-grid-<map>`, minors `--map-grid-<map>-minor`). `major` is the number of labelled nice ticks (at least 2; the axis's own `ticks` win); `minor` is the lines evenly spaced inside each interval. An axis left out has the default majors and no minors; `false` (an axis, or the whole option) draws no lines. Default: the default majors, no minors, over the image. */
+  grid?: false | { x?: false | { major?: number; minor?: number | false }; y?: false | { major?: number; minor?: number | false } };
   /** Element whose tokens color the map. Default the document root. */
   el?: Element;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
