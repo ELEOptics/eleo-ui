@@ -133,7 +133,7 @@ Demo: `npm run gallery`: every tile is alone on its line across the page, all li
 | [#629] | Review M2 finding 4: the stand-in tests cover `fans()`'s two refusals (no reference wavelength; one not recorded) | the existing `-B -I` stand-in because it already runs `fans()`; considered a real phos-core run | `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::fans refuses a missing or unrecorded reference wavelength` | [#623] |
 | [#631] | Review M2 round 2 finding 1: the U6 test's chief-ray `TypeError` assertions check the whole `field <angle>°` prefix | the whole prefix because the message's fixed text contains digits; considered a regex on the angle | `tests/unit/curve.test.js` | `tests/unit/curve.test.js::recorded ray fans round trip (U6)` | [#628] |
 
-### M3: Canvas redraw, ADR-0003 wording GitHub: `P603 M3: Canvas redraw, ADR-0003 wording`
+### M3: Canvas redraw, ADR-0003 wording (done 2026-11-05) GitHub: `P603 M3: Canvas redraw, ADR-0003 wording`
 
 From the user at the M2 demo (2026-11-05): CRs [#632] (the canvas tiles redraw on resize; promotes [#630]) and [#633] (ADR-0003's gallery wording), both accepted by the user.
 
@@ -178,6 +178,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 [#634]'s second attempt crawled (per-pixel Bessel calls in `airyTile` at full width); the user let the orchestrator stop that run; the redo tabulates the pattern.
 - 2026-11-05 review M3 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 4 backlog; CRs [#632], [#633], [#636] resolved. Findings 1, 2, 4 pulled into M3 as [#638]; finding 3 ([#639], the wavefront rim at high ratios, a renderer change) stays backlog.
 - 2026-11-05 review M3 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog, pulled into M3 as [#640] (rounds: 0+1, 0+1; a third round of 1 trips the breaker).
+- 2026-11-05 review M3 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; M3 ticked (rounds: 0+1, 0+1, 0). Awaiting the user's M3 demo.
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
