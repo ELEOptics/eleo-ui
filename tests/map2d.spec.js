@@ -870,15 +870,23 @@ test('grid option', async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
     const values = Array.from({ length: 4 }, (_, j) => Array.from({ length: 8 }, (_, i) => (i + 8 * j) / 31));
-    const draw = (grid) => {
+    const draw = (grid, map = 'ember') => {
       try {
-        const s = window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map: 'ember', x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, grid, el });
+        const s = window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, grid, el });
         return (s.match(/<line[^>]*var\(--map-grid-ember[^>]*>/g) || []).length;
       } catch (e) { return e instanceof TypeError ? e.message : 'not a TypeError: ' + e.name; }
     };
-    return { dflt: draw(undefined), gridNull: draw(null), xNull: draw({ x: null }), yNull: draw({ x: null, y: null }), cap: draw({ x: { minor: 20 } }), over: draw({ x: { minor: 21 } }), huge: draw({ y: { minor: 1e6 } }) };
+    const tokens = (map) => {
+      const s = window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, el });
+      return { names: [...new Set((s.match(/--map-grid-[^)]*/g) || []))].sort(), raw: s.includes(map) };
+    };
+    return { unknown: tokens('inferno'), inject: tokens('x)" onload="alert(1)'), dflt: draw(undefined), gridNull: draw(null), xNull: draw({ x: null }), yNull: draw({ x: null, y: null }), cap: draw({ x: { minor: 20 } }), over: draw({ x: { minor: 21 } }), huge: draw({ y: { minor: 1e6 } }) };
   });
   expect(r.dflt).toBeGreaterThan(0);
+  expect(r.unknown.names, 'an unknown map strokes the ember tokens colormap falls back to').toEqual(['--map-grid-ember']);
+  expect(r.unknown.raw, 'the unknown name does not reach the markup').toBe(false);
+  expect(r.inject.names, 'an injection string strokes the ember tokens').toEqual(['--map-grid-ember']);
+  expect(r.inject.raw, 'the injection string does not reach the markup').toBe(false);
   expect(r.gridNull, 'grid: null is the default').toBe(r.dflt);
   expect(r.xNull, 'an axis null is the default').toBe(r.dflt);
   expect(r.yNull).toBe(r.dflt);

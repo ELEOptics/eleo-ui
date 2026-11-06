@@ -126,9 +126,9 @@ function typedMap(o) {
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var g = plotCell(sc, [], W, H, T, false, "", undefined, { L: L, B: Bm, R: R, t: t, grid: false });
   g += '<image x="' + X(e[0]) + '" y="' + Y(e[3]) + '" width="' + +((e[1] - e[0]) * sx).toFixed(2) + '" height="' + +((e[3] - e[2]) * sy).toFixed(2) + '" preserveAspectRatio="none" style="image-rendering: pixelated" href="' + cv.toDataURL("image/png") + '"/>';
-  /* The grid, over the image and under the aperture: a line at each major tick inside the image, `minor` evenly spaced lines in each interval between ticks, in the map's grid tokens. */
+  /* The grid, over the image and under the aperture: a line at each major tick inside the image, `minor` evenly spaced lines in each interval between ticks, in the grid tokens of the map colormap draws (an unknown map falls back to ember, as colormap does). */
   {
-    var gm = o.map || "ember", majS = ' stroke="var(--map-grid-' + gm + ')"/>', minS = ' stroke="var(--map-grid-' + gm + '-minor)"/>';
+    var gm = ["ember", "wave", "viridis", "gray"].indexOf(o.map) < 0 ? "ember" : o.map, majS = ' stroke="var(--map-grid-' + gm + ')"/>', minS = ' stroke="var(--map-grid-' + gm + '-minor)"/>';
     var gl = function (gr, ticks, lo, hi, P, mk) {
       var maj = "", min = "", ts2 = ticks.slice().sort(function (p, q) { return p - q; }), eps = 1e-9 * (hi - lo);
       ts2.forEach(function (v) { if (v >= lo - eps && v <= hi + eps) maj += mk(P(v)) + majS; });
