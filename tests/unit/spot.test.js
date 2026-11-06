@@ -559,11 +559,12 @@ test('grid', () => {
   const drawn = [...three.matchAll(/<(?:rect|path)[^>]*var\(--plot-grid\)[^>]*>/g)].map((m) => m[0]);
   assert.ok(drawn.length > 9, 'frames, grid lines and crosses found');
   drawn.forEach((el) => assert.ok(!/\d\.\d{3,}/.test(el), `at most 2 decimals: ${el}`));
-  // #776: and in every other element outside the data-space group of the whole SVG: titles, captions, notes, the ± tick label, the key (below and in a corner)
+  // #776: and in every other element outside the data-space group of the whole SVG: titles, captions, notes, the ± tick label, the key (below and in a corner), for 1, 2 and 3 panels.
+  // Only origin-derived coordinates (x, y, width, height, d, transform): font-size is toFixed(3) by the repo's convention (key.js, plotCell)
   const lab = [{ title: 'T', notes: ['n'], airy: 1.2345, circle: { radius: 2.3456, label: 'c' }, series: [{ points: [[1, 2], [-3, 4]], index: 0, label: 'a' }, { points: [[0, 1]], index: 1, label: 'b' }] }];
-  for (const keyAt of [undefined, 'top-left', 'bottom-right']) {
-    const whole = ELEO.spot({ panels: [lab[0], lab[0], lab[0]], unit: 'µm', width: 200.74, half: 5, keyAt });
-    const bad = [...whole.matchAll(/<[a-z][^>]*>/g)].map((m) => m[0]).filter((el) => /\d\.\d{3,}/.test(el) && !/matrix\(|<path d="M[^"]* h0|<circle cx="0" cy="0"/.test(el));
-    assert.deepEqual(bad, [], `keyAt ${keyAt}: no element writes more than 2 decimals`);
+  for (const n of [1, 2, 3]) for (const keyAt of [undefined, 'top-left', 'bottom-right']) {
+    const whole = ELEO.spot({ panels: Array(n).fill(lab[0]), unit: 'µm', width: 200.74, half: 5, keyAt });
+    const bad = [...whole.matchAll(/<[a-z][^>]*>/g)].map((m) => m[0]).filter((el) => /\d\.\d{3,}/.test(el.replace(/font-size:[\d.]+px/g, '')) && !/matrix\(|<path d="M[^"]* h0|<circle cx="0" cy="0"/.test(el));
+    assert.deepEqual(bad, [], `${n} panels, keyAt ${keyAt}: no origin-derived coordinate has more than 2 decimals`);
   }
 });
