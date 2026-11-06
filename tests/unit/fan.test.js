@@ -55,3 +55,13 @@ test('rayFan draws each panel to the rule', async () => {
     frames.forEach((f) => assert.ok(Math.abs(f - frameOf(width / cols, 4.6 + 1.2)) <= 0.01, `${width}: frame ${f}`));
   }
 });
+
+// Plan #677, issue #685. oracle: reference sample.json `wl` (486.1327, 587.5618, 656.2725 nm), keyed to one decimal
+test('rayFan key', async () => {
+  const { rayFan } = await import('../../packages/plots/src/fan.js');
+  const labels = (svg) => [...svg.matchAll(/<text [^>]*data-key[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  for (const kind of ['tra', 'opd']) {
+    assert.deepEqual(labels(rayFan({ data: sample, kind, key: true })), ['486.1 nm', '587.6 nm', '656.3 nm'], `${kind}: one key per wavelength`);
+    assert.deepEqual(labels(rayFan({ data: sample, kind })), [], `${kind}: no key by default`);
+  }
+});

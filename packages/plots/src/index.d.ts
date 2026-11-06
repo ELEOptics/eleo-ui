@@ -171,6 +171,8 @@ export interface RayFanProps {
   /** The figure's height in px. Default 314 for the default shape, scaled with the width. */
   height?: number;
   panelWidth?: number;
+  /** `true` keys each sample wavelength ("486.1 nm") below the fans, through `curve`'s key. Default no key. */
+  key?: boolean;
 }
 export interface Map2DProps {
   data?: object;
