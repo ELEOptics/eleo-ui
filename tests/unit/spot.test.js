@@ -4,7 +4,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELEO from '../../packages/plots/src/index.js';
 import { idx } from '../../packages/plots/src/common.js';
-import { niceTicks } from '../../packages/plots/src/axis.js';
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -537,14 +536,18 @@ test('key', () => {
   }
 });
 
-// #770 (CR #768): a grid at the nice ticks of [-half, half], under the series; grid: false draws none.
+// #770 (CR #768), #774: a grid at the 1-2-5 ticks strictly inside (-half, half), under the series; the frame draws the edges; grid: false draws none.
+// oracle: closed-form the 1-2-5 rule by hand: half 5 steps by 2 (-4 -2 0 2 4), half 10 steps by 5 (-5 0 5); a line sits at side / 2 + t * side / (2 * half)
 test('grid', () => {
   const panels = [{ series: [{ points: [[1, 2], [-3, 4]], index: 0 }, { points: [[0, 1]], index: 1 }] }];
+  const xs = (svg) => [...svg.matchAll(/<path d="M([\d.]+),([\d.]+) V([\d.]+)" [^>]*data-grid="x"[^>]*\/>/g)];
   const svg = ELEO.spot({ panels, unit: 'µm', width: 300, half: 5 });
-  const lines = [...svg.matchAll(/<path d="M([\d.]+),([\d.]+) V([\d.]+)" [^>]*data-grid="x"[^>]*\/>/g)];
+  const lines = xs(svg);
   const side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(svg)[1];
-  const want = niceTicks(-5, 5, 5).ticks.filter((t) => Math.abs(t) <= 5).map((t) => +(side / 2 + (t * side) / 10).toFixed(2));
-  assert.deepEqual(lines.map((m) => +(+m[1]).toFixed(2)), want, 'x positions are the nice ticks of [-half, half]');
+  const at = (ticks, half) => ticks.map((t) => +(side / 2 + (t * side) / (2 * half)).toFixed(2));
+  assert.deepEqual(lines.map((m) => +(+m[1]).toFixed(2)), at([-4, -2, 0, 2, 4], 5), 'half 5: x positions are -4 -2 0 2 4');
+  const big = ELEO.spot({ panels, unit: 'µm', width: 300, half: 10 });
+  assert.deepEqual(xs(big).map((m) => +(+m[1]).toFixed(2)), at([-5, 0, 5], 10), 'half 10: -5 0 5, none on the frame edge');
   assert.ok(/stroke="var\(--plot-grid\)"/.test(lines[0][0]), 'in --plot-grid');
   const first = svg.indexOf('stroke-linecap="round"'), last = svg.lastIndexOf('data-grid=');
   assert.ok(last > -1 && first > last, 'every grid line before the first series path');

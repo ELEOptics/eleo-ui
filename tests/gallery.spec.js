@@ -845,6 +845,26 @@ test('fan and footprint keys', async ({ page }) => {
   }), Object.keys(FAN_FOOT_KEYS));
   await settle(page);
   for (const theme of ['light', 'dark']) check(await measure(theme), `${theme} at minWidth`);
+  // #774 (CR #768): every spot and footprint panel draws [data-grid] paths before its first series path.
+  for (const theme of ['light', 'dark']) {
+    const rows = await page.evaluate(([th, names]) => names.map((name) => {
+      const svg = document.querySelector(`.theme[data-theme="${th}"] [data-tile="${name}"] .eleo-plot__body svg`);
+      const panels = [...svg.querySelectorAll('svg')].filter((p) => p.querySelector('path[stroke^="var(--series-"]'));
+      return {
+        tile: name, panels: panels.length,
+        // a panel's horizontal grid lines start at its x and sit before it in the parent
+        gridFirst: panels.map((p) => {
+          const before = [];
+          for (let e = p.previousElementSibling; e; e = e.previousElementSibling) before.push(e);
+          return before.some((e) => e.hasAttribute('data-grid') && e.getAttribute('d').startsWith(`M${+p.getAttribute('x')},`) && / H/.test(e.getAttribute('d')));
+        }),
+      };
+    }), [theme, ['spot', 'footprint']]);
+    for (const r of rows) {
+      expect(r.panels, `${theme} ${r.tile} has panels`).toBeGreaterThan(0);
+      expect(r.gridFirst, `${theme} ${r.tile} grid before the series, per panel`).toEqual(r.gridFirst.map(() => true));
+    }
+  }
 });
 
 // Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips). layout3D paints the rays over the image plane they end on.
