@@ -491,6 +491,10 @@ test('row Q changesets', { skip: rowQConsumed && 'consumed by changeset version'
     const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
     assert.equal(releases.find((r) => r.name === '@eleoptics/plots')?.type, 'minor');
   });
+  const clamp = parse('layout-label-clamp.md');
+  assert.deepEqual(clamp.bumps, { '@eleoptics/plots': 'patch' });
+  assert.match(clamp.body, /label/, 'the body names the label');
+  assert.match(clamp.body, /layout2D: surface i/, 'the body names the error');
 });
 
 test('row Q changeset became a plots minor',
