@@ -196,3 +196,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 #734 (user): ADR-0004 accepted, Observable Plot not adopted; the plan resumes with M1's #730 and #731.
 - 2026-11-06 review M1 round 5 (0 blocking, 3 backlog): #735, #736, #737 into M1; the milestone ticks after a round with nothing pulled in.
 - 2026-11-06 M1 reviewed again after the demo (rounds 5 and 6; round 6: 0 blocking, nothing pulled in); ticked.
+- 2026-11-06 M1 demo (user): go; M1 accepted.
