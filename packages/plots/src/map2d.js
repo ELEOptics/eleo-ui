@@ -8,17 +8,16 @@ import { colormap } from "./physics.js";
 
 var r2 = function (v) { return +v.toFixed(2); };
 
-/* An axis's grid option, as { major, minor } (counts, 0 for none) and `lines`, whether the grid is drawn at all. No `grid` (`null`, `false`) is no lines, the tick labels stay at the default majors; `grid: true`, or an axis left out (`null` too) of a `grid` object, is the default majors and no minors; an axis `false` is no lines on that axis. */
+/* An axis's grid option, as { major, minor } (counts, 0 for none). `grid: false` or an axis `false` is no lines; no `grid`, `true`, or an axis left out (`null` too), is the default majors and no minors. Whether lines are drawn at all is the draw site's: `o.grid &&`. */
 function gridOf(g, k) {
-  if (g === false) return { major: 0, minor: 0 };
-  var a = g === true ? undefined : g && g[k], on = !!g;
+  var a = g === false ? false : g && g[k];
   if (a === null) a = undefined;
   if (a === false) return { major: 0, minor: 0 };
-  if (a === undefined) return { major: 6, minor: 0, dflt: true, lines: on };
+  if (a === undefined) return { major: 6, minor: 0, dflt: true };
   var ok = function (v, lo, hi) { return typeof v === "number" && Number.isInteger(v) && v >= lo && !(v > hi); };
   if (a.major !== undefined && !ok(a.major, 2)) throw new TypeError("map2D: grid." + k + ".major must be an integer of at least 2");
   if (a.minor !== undefined && a.minor !== false && !ok(a.minor, 0, 20)) throw new TypeError("map2D: grid." + k + ".minor must be a whole number of lines per interval, at most 20, or false");
-  return { major: a.major || 6, minor: a.minor || 0, dflt: a.major === undefined, lines: true };
+  return { major: a.major || 6, minor: a.minor || 0, dflt: a.major === undefined };
 }
 /* The axis with its ticks fixed to `major` nice ticks over `r`, unless it has its own `ticks` or no `major`: scales, plotCell's labels and the grid then use the same ticks. */
 function withMajor(a, g, r) {
@@ -140,8 +139,8 @@ function typedMap(o) {
       if (gr.minor) ts2.slice(1).forEach(function (b, i) { var a = ts2[i]; for (var q = 1; q <= gr.minor; q++) { var v = a + q * (b - a) / (gr.minor + 1); if (v >= lo - eps && v <= hi + eps) min += mk(P(v)) + minS; } });
       return maj + min;
     };
-    if (gx.major && gx.lines) g += gl(gx, sc.xt.ticks, e[0], e[1], X, function (px) { return '<line x1="' + px + '" y1="' + Y(e[3]) + '" x2="' + px + '" y2="' + Y(e[2]) + '"'; });
-    if (gy.major && gy.lines) g += gl(gy, sc.yt.ticks, e[2], e[3], Y, function (py) { return '<line x1="' + X(e[0]) + '" y1="' + py + '" x2="' + X(e[1]) + '" y2="' + py + '"'; });
+    if (o.grid && gx.major) g += gl(gx, sc.xt.ticks, e[0], e[1], X, function (px) { return '<line x1="' + px + '" y1="' + Y(e[3]) + '" x2="' + px + '" y2="' + Y(e[2]) + '"'; });
+    if (o.grid && gy.major) g += gl(gy, sc.yt.ticks, e[2], e[3], Y, function (py) { return '<line x1="' + X(e[0]) + '" y1="' + py + '" x2="' + X(e[1]) + '" y2="' + py + '"'; });
   }
   /* Aperture: an even-odd --surface path (the image's rect and the circle) over the image outside the circle, so the null cells' stair edge is cut round and an unmasked grid is cut too; no clipPath id (ADR-0001). A --plot-axis ring on top, 1 px up to the band and frameWeight(F) above. */
   var ap = o.aperture;

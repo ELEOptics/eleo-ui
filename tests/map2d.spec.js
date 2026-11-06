@@ -847,7 +847,7 @@ test('default grid over the image', async ({ page }) => {
   const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
     const values = Array.from({ length: 4 }, (_, j) => Array.from({ length: 8 }, (_, i) => (i + 8 * j) / 31));
     const out = {};
-    for (const [name, grid] of [['default', undefined], ['null', null], ['off', false], ['on', true]]) {
+    for (const [name, grid] of [['default', undefined], ['null', null], ['off', false], ['on', true], ['empty', {}]]) {
       el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map: 'wave', x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, grid, el }));
       const svg = el.lastElementChild, image = svg.querySelector('image'), frame = svg.querySelector('rect');
       const lines = [...svg.querySelectorAll('line')];
@@ -872,6 +872,9 @@ test('default grid over the image', async ({ page }) => {
   expect(r.on.minors).toBe(0);
   expect(r.on.plotGrid, 'no --plot-grid line inside the frame').toBe(0);
   expect(r.on.after).toBe(true);
+  expect(r.empty.tokens, 'grid: {} (an empty object) draws the same default majors as true').toBe(r.on.tokens);
+  expect(r.empty.minors).toBe(0);
+  expect(r.empty.ticks).toBe(r.on.ticks);
 });
 
 // #746 (review M3 round 1, findings 1, 3, 8): `grid: null` and an axis `null` act as left out (the Svelte wrapper spreads props), `minor` above 20 throws the `map2D: grid` TypeError.
