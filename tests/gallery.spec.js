@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // The gallery's tile count.
-const TILES = 27;
+const TILES = 28;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -53,7 +53,7 @@ test('a missing merit fixture blanks only its tile', async ({ page }) => {
 
 // Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
 // tile doesn't blank the others. The 404 and the gallery's own report of it are the expected console errors.
-for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain']], ['psf', 'cooke', ['psf-recorded', 'psf-log']], ['wavefront', 'cooke', ['wavefront-recorded']], ['footprint', 'cooke', ['footprint']], ['fans', 'achromat', ['rayFan']]]) {
+for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden']], ['psf', 'cooke', ['psf-recorded', 'psf-log']], ['wavefront', 'cooke', ['wavefront-recorded']], ['footprint', 'cooke', ['footprint']], ['fans', 'achromat', ['rayFan']]]) {
   test(`a missing phos-core fixture blanks only its tiles: ${lens === 'achromat' ? '' : lens + ' '}${fixture}`, async ({ page }) => {
     const thrown = [];
     page.on('pageerror', (e) => thrown.push(e.message));
@@ -98,6 +98,20 @@ test('the footprint tile header key ends at the plot frame right edge', async ({
       const r = await at(width);
       expect(r.keyGap, `${theme} key to frame at ${width}`).toBeLessThanOrEqual(4);
     }
+  }
+});
+
+// Plan #642, O5, issue #650: the recorded Cassegrain with show: ["Alive", "Virtual"] draws no Dead run, while the
+// tile without show draws one. oracle: the data-status of the drawn polylines.
+test('the Cassegrain Dead-hidden tile draws no Dead run (U17)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const col = page.locator(`.theme[data-theme="${theme}"]`);
+    const dead = (tile) => col.locator(`[data-tile="${tile}"] svg [data-status="Dead"]`);
+    expect(await dead('layout2D-cassegrain').count(), `${theme} full tile has a Dead run`).toBeGreaterThan(0);
+    await expect(col.locator('[data-tile="layout2D-cassegrain-dead-hidden"] svg [data-status="Alive"]').first(), `${theme} alive drawn`).toBeAttached();
+    await expect(dead('layout2D-cassegrain-dead-hidden'), `${theme} hidden tile`).toHaveCount(0);
   }
 });
 
@@ -170,7 +184,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   const mins = await page.$$eval('[data-tile][data-size]', (ts) => ts.map((t) => ({ tile: t.dataset.tile, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 })));
   expect(mins.length).toBeGreaterThan(0);
   for (const m of mins) expect(m.min, `${m.tile} --tile-min`).toBeGreaterThanOrEqual(m.floor - 0.5);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
+  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
