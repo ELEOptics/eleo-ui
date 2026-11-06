@@ -180,7 +180,7 @@ test('series round trip', () => {
       });
     });
     // Roles map to styles: sagittal dashes 4 and 2.5 stroke weights (CR #726), reference is ink with 1 3 dashes, tangential is solid.
-    assert.match(svg, /stroke-dasharray="[\d.]+ [\d.]+"/);
+    assert.match(svg, /<polyline\b[^>]*stroke="var\(--series-1[^"]*"[^>]*stroke-dasharray="[\d.]+ [\d.]+"/, 'the sagittal polyline carries its own dash (the reference line\'s 1 3 does not count)');
     assert.match(svg, /stroke="var\(--ink\)"[^>]*stroke-dasharray="1 3"|stroke-dasharray="1 3"[^>]*stroke="var\(--ink\)"/);
     assert.match(svg, /<svg\b[^>]*>[\s\S]*<svg\b/, 'the series sit in a nested <svg>');
     assert.match(svg, /vector-effect="non-scaling-stroke"/);
