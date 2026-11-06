@@ -166,10 +166,10 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   expect(thrown).toEqual([]);
-  // oracle: property: every row keeps at least its 240 px default, sample or not
-  const mins = await page.$$eval('.row', (rs) => rs.map((r) => parseFloat(r.style.getPropertyValue('--row-min') || '240')));
+  // oracle: property: ELEO.minWidth(name, props) is never below ELEO.PLOT_SIZES[name].minWidth, so every sized tile's --tile-min is at least that plus 26 px of chrome, sample or not
+  const mins = await page.$$eval('[data-tile][data-size]', (ts) => ts.map((t) => ({ tile: t.dataset.tile, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 })));
   expect(mins.length).toBeGreaterThan(0);
-  for (const m of mins) expect(m).toBeGreaterThanOrEqual(240);
+  for (const m of mins) expect(m.min, `${m.tile} --tile-min`).toBeGreaterThanOrEqual(m.floor - 0.5);
   const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
@@ -531,7 +531,7 @@ test('each typed map draws once at load', async ({ page }) => {
   for (const t of tiles) expect(calls[t], t).toBe(1);
 });
 
-// #591: rowMins skips a data-size that isn't a PLOT_SIZES key, so a typo would silently drop that tile's row floor.
+// #591: tileMins skips a data-size that isn't a PLOT_SIZES key, so a typo would silently drop that tile's floor.
 // oracle: property, every data-size in the page names a PLOT_SIZES row.
 test('every data-size names a PLOT_SIZES row', async ({ page }) => {
   await page.goto('/gallery/');
@@ -564,32 +564,63 @@ test('rayFan tile draws the recording', async ({ page }) => {
   }
 });
 
-// O2, issue #611. oracle: closed-form ADR-0003 (the floor frame F = 162). A row's --row-min is ELEO.minWidth for its tiles' calls plus the tile chrome (26 px), capped at the row.
-// The two-theme grid (CR #547) leaves 656 px at 1440 and 700, and wider tiles than --row-min elsewhere, so the viewport widths only assert no sideways scroll. The floor is asserted by
-// pinning each row to one column exactly --row-min wide: every frame is then at least 162 px (a map's first grid rect only: its colorbar has the same stroke, #587).
-// Replaces 'the rayFan row gives each panel a floor frame (#544)'.
-test('rows give each frame the floor (#587)', async ({ page }) => {
+// CR #622 (the user at the M1 demo): every plot has its own full width, the light theme then the dark, so resizing shows each plot at each width.
+// oracle: property: at each width every tile's width is its theme section's content width, every light tile is above every dark one, and the page never scrolls sideways;
+// a tile narrower than its minimum (--tile-min, ELEO.minWidth plus 26 px of chrome, #611) keeps its body at that minimum inside the tile, which scrolls.
+test('every tile is the page width, the light theme before the dark (#622)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const width of [1440, 1100, 700]) {
     await page.setViewportSize({ width, height: 900 });
     await settle(page);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), `${width} scrolls sideways`).toBe(false);
+    const r = await page.evaluate(() => {
+      const box = (el) => el.getBoundingClientRect();
+      const themes = [...document.querySelectorAll('.theme')].map((th) => {
+        const c = getComputedStyle(th), b = box(th);
+        return { theme: th.dataset.theme, left: b.left + parseFloat(c.paddingLeft), width: b.width - parseFloat(c.paddingLeft) - parseFloat(c.paddingRight), top: b.top, bottom: b.bottom,
+          tiles: [...th.querySelectorAll('[data-tile]')].map((t) => ({ tile: t.dataset.tile, left: box(t).left, width: box(t).width, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: t.dataset.size ? window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 : NaN, body: box(t.querySelector('.eleo-plot__body')).width })) };
+      });
+      return { themes, rows: document.querySelectorAll('.row').length, sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+    });
+    expect(r.sideways, `${width} scrolls sideways`).toBe(false);
+    expect(r.rows, `${width} .row grids`).toBe(0);
+    expect(r.themes.map((t) => t.theme), `${width} theme order`).toEqual(['light', 'dark']);
+    expect(r.themes[0].bottom, `${width} light above dark`).toBeLessThanOrEqual(r.themes[1].top + 0.5);
+    for (const th of r.themes) {
+      expect(th.tiles.length, `${width} ${th.theme} tiles`).toBe(TILES);
+      for (const t of th.tiles) {
+        expect(Math.abs(t.width - th.width), `${width} ${th.theme} ${t.tile} width ${t.width} against ${th.width}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(t.left - th.left), `${width} ${th.theme} ${t.tile} left`).toBeLessThanOrEqual(1);
+        if (Number.isNaN(t.min)) continue; // a tile with no data-size has no minimum
+        // oracle: property: ELEO.minWidth(name, props) is never below ELEO.PLOT_SIZES[name].minWidth, so --tile-min is at least that plus 26 px of chrome
+        expect(t.min, `${width} ${th.theme} ${t.tile} --tile-min`).toBeGreaterThanOrEqual(t.floor - 0.5);
+        expect(t.body, `${width} ${th.theme} ${t.tile} body at least its minimum`).toBeGreaterThanOrEqual(t.min - 2 - 0.5);
+      }
+    }
   }
+});
+
+// O2, issue #611, reshaped by #625 (CR #622). oracle: closed-form ADR-0003 (the floor frame F = 162). A tile's --tile-min is ELEO.minWidth for its call plus the tile chrome (26 px).
+// The viewport-width property (no sideways scroll) is asserted by 'every tile is the page width'. The floor is asserted by pinning each tile to exactly --tile-min wide:
+// every frame is then at least 162 px (a map's first grid rect only: its colorbar has the same stroke, #587).
+// Replaces 'rows give each frame the floor (#587)'.
+test('every tile at its minimum has the floor frame (#587)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.evaluate(() => document.querySelectorAll('.row').forEach((row) => {
-    row.style.gridTemplateColumns = `${parseFloat(row.style.getPropertyValue('--row-min')) || 240}px`;
+  await page.evaluate(() => document.querySelectorAll('.theme > [data-tile][data-size]').forEach((el) => {
+    el.style.maxWidth = `${parseFloat(el.style.getPropertyValue('--tile-min')) || 240}px`;
   }));
   await settle(page);
   let checked = 0, mapTiles = 0;
   for (const theme of ['light', 'dark']) {
-    const tiles = await page.evaluate((t) => [...document.querySelectorAll(`.theme[data-theme="${t}"] .row [data-tile][data-size]`)].map((el) => ({
-      tile: el.dataset.tile, size: el.dataset.size, min: parseFloat(el.closest('.row').style.getPropertyValue('--row-min')),
+    const tiles = await page.evaluate((t) => [...document.querySelectorAll(`.theme[data-theme="${t}"] [data-tile][data-size]`)].map((el) => ({
+      tile: el.dataset.tile, size: el.dataset.size, min: parseFloat(el.style.getPropertyValue('--tile-min')),
       frames: [...el.querySelectorAll('svg rect[stroke="var(--plot-grid)"]')].slice(0, el.dataset.size === 'map2D' ? 1 : undefined).map((x) => x.getBoundingClientRect().width + (x.getAttribute('rx') === '3' ? 1 : 0)), // rx 3 frames are drawn inset by the stroke, as in the #555 test
     })), theme);
     for (const t of tiles) {
       if (t.size === 'map2D') mapTiles++;
-      for (const F of t.frames) { checked++; expect(F, `${theme} ${t.tile} frame ${F}px at row-min ${t.min}`).toBeGreaterThanOrEqual(162 - 0.5); }
+      for (const F of t.frames) { checked++; expect(F, `${theme} ${t.tile} frame ${F}px at tile-min ${t.min}`).toBeGreaterThanOrEqual(162 - 0.5); }
     }
   }
   expect(checked, 'frames checked').toBeGreaterThan(0);
