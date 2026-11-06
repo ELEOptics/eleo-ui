@@ -158,6 +158,8 @@ layout3D's rays over the image plane. Proves: O3, O4
 | #748 | A linear colorbar has at least 3 ticks in range | retry niceTicks with a larger target, tolerance relative to the step; considered a power-of-ten label scale | `packages/plots/src/map2d.js`, `tests/map2d.spec.js` | `tests/map2d.spec.js::colorbar ticks` | #747 |
 | #749 | Each grid token's usage names its own map | a test on the 16 copied strings; considered a one-off edit | `packages/tokens/src/tokens.json`, `tests/unit/tokens.test.js` | `tests/unit/tokens.test.js::map grid contrast` | #696 |
 | #750 | Gallery: drop the dead `[data-bar]` loop | forced (review finding) | `gallery/index.html` | the full gallery suite | #696 |
+| #752 | `Map2DGridProps.grid` and each axis accept `null`, as documented | allow null because the Svelte wrapper types its props from it; considered dropping null from the docs | `packages/plots/src/index.d.ts`, `tests/types/map2d.ts` | `tests/unit/types.test.js` | #750 |
+| #753 | A patch changeset for #748's colorbar fix | forced (CLAUDE.md: a changeset per user-facing change) | `.changeset/map2d-colorbar-ticks.md` | none | #750 |
 
 ### M4: Layout keys GitHub: `P677 M4: Layout keys`
 
@@ -213,3 +215,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 M2 demo (user): go; M2 accepted.
 - 2026-11-06 orchestrator: #695 and #696 share one commit because #695's only test is the O4 acceptance test #696 unskips, and `check-tests-touched.sh` refuses #695's source change alone.
 - 2026-11-06 review M3 round 1 (0 blocking, 8 backlog): findings 1, 3, 8 into #746; 2 into #747; 4 (pre-existing colorbar ticks) into #748; 6 into #749; 7 into #750. Finding 5 (wave's major grid token fainter than its minor at zero) is #751, left to the user at M3's demo, as the Risks row says.
+- 2026-11-06 review M3 round 2 (0 blocking, 2 backlog): #752 (grid's null type) and #753 (colorbar changeset) into M3.
