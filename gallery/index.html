@@ -97,7 +97,7 @@
     // draw(data, w) gets the body's content width; every framed tile passes it on as `width` (ADR-0003).
     function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d, w) { return render(d, w); } }; }
     function atWidth(d, w, more) { return Object.assign({}, d, more, { width: w }); }
-    var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }];
+    var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50, label: '50 cycles/mm' }, { y: [0, 0.3] }];
     var SVG = {
       'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box }); } },
       'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan' }); } },

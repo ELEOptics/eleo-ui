@@ -15,14 +15,14 @@
     return { label: 'Field', unit: '°', range: [0, Math.max.apply(null, angles)] };
   }
   globalThis.ELEOAdapters = {
-    /* mtf(recording, { diffraction }) -> { series, x, y }: one tangential and one sagittal series per field. The recorded
+    /* mtf(recording, { diffraction }) -> { series, x, y }: one tangential and one sagittal series per field, labelled `<angle>° tangential` or `<angle>° sagittal`. The recorded
        grid runs past cutoff, so x.range stops at 400 cycles/mm and the viewport clips the rest. With diffraction, a last
        series with role 'reference' is the diffraction limit at the reference wavelength and working f-number. */
     mtf: function (rec, opts) {
       var series = [];
       rec.sources.forEach(function (s, i) {
-        series.push({ points: s.tangential, index: i, role: 'tangential' });
-        series.push({ points: s.sagittal, index: i, role: 'sagittal' });
+        series.push({ points: s.tangential, index: i, role: 'tangential', label: s.fieldAngleDeg + '° tangential' });
+        series.push({ points: s.sagittal, index: i, role: 'sagittal', label: s.fieldAngleDeg + '° sagittal' });
       });
       if (opts && opts.diffraction) {
         var lambda = rec.referenceWavelengthNm * 1e-6, fo = rec.firstOrder, N = fo.workingFNumber != null ? fo.workingFNumber : fo.fNumber;
@@ -41,7 +41,7 @@
       var rs = rec.sources.map(function (s) { return atRef(rec, s); });
       function line(key, role) {
         var pts = rs.map(function (r, i) { return [r[key], rec.sources[i].fieldAngleDeg]; });
-        return { points: pts, index: 0, role: role };
+        return { points: pts, index: 0, role: role, label: role === 'tangential' ? 'Tangential' : 'Sagittal' };
       }
       return { series: [line('tangential', 'tangential'), line('sagittal', 'sagittal')], x: { label: 'Focus shift', unit: 'mm' }, y: yAxis(rec) };
     },
@@ -177,7 +177,7 @@
     /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
     distortion: function (rec) {
       var pts = rec.sources.map(function (s) { return [atRef(rec, s).percent, s.fieldAngleDeg]; });
-      return { series: [{ points: pts, index: 0 }], x: { label: 'Distortion', unit: '%' }, y: yAxis(rec) };
+      return { series: [{ points: pts, index: 0, label: 'Distortion' }], x: { label: 'Distortion', unit: '%' }, y: yAxis(rec) };
     }
   };
 })();

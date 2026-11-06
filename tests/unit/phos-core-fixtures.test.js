@@ -735,3 +735,20 @@ test('recorded layouts carry each point\'s status (U17)', () => {
     });
   }
 });
+
+// Plan #677 M1, work item #682. The curve adapters label their series from the recorded field and orientation (the key reads `label`).
+test('labels', async () => {
+  await import('../fixtures/phos-core/adapters.js');
+  globalThis.ELEO = globalThis.ELEO || { mtfDiffraction: () => 1 };
+  const A = globalThis.ELEOAdapters;
+  const mtf = read('../fixtures/phos-core/achromat-mtf.json');
+  const m = A.mtf(mtf, { diffraction: true });
+  const want = [];
+  mtf.sources.forEach((s) => ['tangential', 'sagittal'].forEach((o) => want.push(`${s.fieldAngleDeg}° ${o}`)));
+  assert.deepEqual(m.series.filter((s) => s.role !== 'reference').map((s) => s.label), want);
+  assert.equal(m.series.find((s) => s.role === 'reference').label, undefined, 'the diffraction limit has no key entry');
+  assert.deepEqual(A.fieldCurvature(read('../fixtures/phos-core/achromat-field-curvature.json')).series.map((s) => s.label), ['Tangential', 'Sagittal']);
+  assert.deepEqual(A.distortion(read('../fixtures/phos-core/achromat-distortion.json')).series.map((s) => s.label), ['Distortion']);
+  const html = readFileSync(new URL('../../gallery/index.html', import.meta.url), 'utf8');
+  assert.match(html, /MTF_LIMITS = \[[^\]]*\{ x: 50, label: '50 cycles\/mm' \}/);
+});
