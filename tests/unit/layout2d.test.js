@@ -118,6 +118,43 @@ function drawn(svg) {
   const outside = svg.replace(body, '');
   return { M, body, polygons: tags('polygon', body), lines: tags('line', body), polylines: tags('polyline', body), dots: tags('circle', outside) };
 }
+// Plan #642, issue #368: the runs one ray draws, as {pts, dotted, status?}. With `status`, segment j (point j-1 to j)
+// takes point j's status, the ray ends at its first Dead point, and adjacent segments of one status are one run.
+// Without it, the legacy rule: alive a splits a ray into a solid head [0, a) and a dotted tail [max(a - 1, 0), len);
+// a dead ray is one solid polyline through point a. `join` merges adjacent solid runs (Alive and Dead), as a drawing
+// with no data-status does.
+function expectedRuns(L, k, i, join) {
+  const ray = L.rays[k][i];
+  if (!L.status) {
+    const a = L.alive ? L.alive[k][i] : ray.length;
+    if (L.dead && L.dead[k][i]) return [{ pts: ray.slice(0, a + 1), dotted: false }];
+    return [...(a > 0 ? [{ pts: ray.slice(0, a), dotted: false }] : []), ...(a < ray.length ? [{ pts: ray.slice(Math.max(a - 1, 0)), dotted: true }] : [])];
+  }
+  const st = L.status[k][i], end = st.indexOf('Dead') < 0 ? ray.length - 1 : st.indexOf('Dead'), runs = [];
+  for (let j = 1; j <= end; j++) {
+    const last = runs[runs.length - 1], dotted = st[j] === 'Virtual';
+    if (last && (join ? last.dotted === dotted : last.status === st[j])) last.pts.push(ray[j]);
+    else runs.push({ status: st[j], dotted, pts: [ray[j - 1], ray[j]] });
+  }
+  return runs;
+}
+// Every ray's runs recovered from `parts` ({pts, dotted, status?}, in mm): each expected run is one part, and every part
+// is some ray's run. Returns the number of parts claimed and the (field, ray) of each ray with a dotted run, and each run's match (k, i, run, part).
+function statusRoundTrip(L, parts, tag) {
+  const join = !parts.some((p) => p.status), tails = [], matches = [];
+  let claimed = 0;
+  L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
+    const runs = expectedRuns(L, k, i, join), where = `${tag} field ${k} ray ${i} (len=${ray.length})`;
+    for (const run of runs) {
+      const part = parts.find((p) => p.dotted === run.dotted && (!p.status || p.status === run.status) && samePathFrom1(p.pts, run.pts));
+      assert.ok(part, `${where}: a ${run.dotted ? 'dotted' : 'solid'}${run.status ? ' ' + run.status : ''} part recovers points ${ray.indexOf(run.pts[0])}..${ray.indexOf(run.pts.at(-1))}`);
+      matches.push({ k, i, run, part });
+      claimed++;
+      if (run.dotted) tails.push({ k, i });
+    }
+  }));
+  return { claimed, tails, matches };
+}
 const vertical = (a) => a.x1 === a.x2 && a.y1 !== a.y2;
 const image = (L) => L.surfaces.find((s) => s.image).z;
 // CR #48: dash arrays stay in px. Under non-scaling-stroke the browser applies them in screen space
@@ -827,31 +864,12 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
     const { M, polygons, polylines } = drawn(svg);
     inverse(M); // the geometry group's matrix is the pixel transform; its points are already mm
     const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3' }));
-    const solid = parts.filter((p) => !p.dotted), dotted = parts.filter((p) => p.dotted);
-    let tails = 0, tails28 = 0, claimed = 0;
     L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
-      const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
-      assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `${tag}: alive in 0..len`);
-      if (L.dead[k][i]) {
-        // CR #372: a dead ray is one solid polyline through its blocking point, no dotted part.
-        assert.ok(solid.some((p) => samePathFrom1(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
-        assert.ok(!dotted.some((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
-        claimed++;
-        return;
-      }
-      const head = a > 0 ? solid.find((p) => samePathFrom1(p.pts, ray.slice(0, a))) : undefined;
-      const tail = a < ray.length ? dotted.find((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
-      if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
-      else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
-      if (a > 0 && a < ray.length) {
-        assert.ok(head, `${tag}: a solid part recovers points 0..a`);
-        assert.ok(near(head.pts[head.pts.length - 1], tail.pts[0]), `${tag}: the parts share the last alive point`);
-        if (a > 1) assert.ok(near(tail.pts[0], ray[a - 1]), `${tag}: the shared point is point a - 1`);
-      }
-      if (a === 0) assert.ok(!solid.some((p) => samePathFrom1(p.pts, ray)), `${tag}: no solid polyline at a = 0`);
-      claimed += (head ? 1 : 0) + (tail ? 1 : 0);
-      if (tail) { tails++; if (k === L.rays.length - 1) tails28++; }
+      const a = L.alive[k][i];
+      assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `width ${width} field ${k} ray ${i}: alive in 0..len`);
     }));
+    const { claimed, tails: tailed } = statusRoundTrip(L, parts, `width ${width}`);
+    const tails = tailed.length, tails28 = tailed.filter((t) => t.k === L.rays.length - 1).length;
     assert.equal(polylines.length, claimed, `width ${width}: every polyline is a ray's solid or dotted part`);
     assert.ok(tails > 0, `width ${width}: some ray has a dotted part`);
     assert.ok(tails28 > 0, `width ${width}: a 28° ray has a dotted part`);
@@ -1022,27 +1040,7 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
     inverse(M);
     const under = (m) => m.index < body.indexOf('<g opacity') || m.index > body.indexOf('</g>', body.indexOf('<g opacity')); // not a ray; bodies follow the ray group (CR #381)
     const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke }));
-    const solid = parts.filter((p) => !p.dotted && p.pts.length > 0), dotted = parts.filter((p) => p.dotted);
-    let claimed = 0;
-    L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
-      const a = L.alive[k][i], tag = `width ${width} field ${k} ray ${i} (a=${a}, len=${ray.length})`;
-      if (L.dead[k][i]) {
-        // CR #372: a dead ray is one solid polyline through its blocking point, no dotted part.
-        assert.ok(solid.some((p) => samePathFrom1(p.pts, ray.slice(0, a + 1))), `${tag}: dead, one solid polyline through point a`);
-        assert.ok(!dotted.some((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))), `${tag}: dead, no dotted part`);
-        claimed++;
-        return;
-      }
-      const head = a > 0 ? solid.find((p) => samePathFrom1(p.pts, ray.slice(0, a))) : undefined;
-      const tail = a < ray.length ? dotted.find((p) => samePathFrom1(p.pts, ray.slice(Math.max(a - 1, 0)))) : undefined;
-      if (a === ray.length) assert.ok(head, `${tag}: one solid polyline recovers the ray`);
-      else assert.ok(tail, `${tag}: a dotted polyline recovers points ${Math.max(a - 1, 0)}..len`);
-      if (a > 0 && a < ray.length) {
-        assert.ok(head, `${tag}: a solid part recovers points 0..a`);
-        assert.ok(near(head.pts.at(-1), tail.pts[0]), `${tag}: the parts share the last alive point`);
-      }
-      claimed += (head ? 1 : 0) + (tail ? 1 : 0);
-    }));
+    const { claimed } = statusRoundTrip(L, parts, `width ${width}`);
     const chief = L.rays[0][L.chief[0]], ca = L.alive[0][L.chief[0]];
     assert.ok(polylines.some((a) => samePathFrom1(pairs(a.points), chief.slice(0, ca + 1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed polyline through point a`);
     assert.ok(chief.some((p, j) => j > 0 && p[0] > chief[j - 1][0]) && chief.some((p, j) => j > 0 && p[0] < chief[j - 1][0]),
@@ -1075,12 +1073,13 @@ const fanDir = (fan) => {
   const ds = fan.map((r) => unit(r[0], r[1]));
   return ds.length && ds.every((e) => Math.abs(ds[0][0] * e[1] - ds[0][1] * e[0]) < 1e-3 && ds[0][0] * e[0] + ds[0][1] * e[1] > 0) ? ds[0] : null;
 };
-// Every ray's first drawn point, read in drawing order (a ray is one polyline, or two when it is split at its alive count and not dead).
+// Every ray's first drawn point, read in drawing order (a ray is the runs expectedRuns gives it).
 function drawnStarts(L, polylines) {
   let n = 0;
+  const join = !polylines.some((a) => a['data-status']);
   const out = L.rays.map((fan, k) => fan.map((ray, i) => {
-    const a = L.alive ? L.alive[k][i] : ray.length, first = pairs(polylines[n].points)[0];
-    n += L.dead && L.dead[k][i] ? 1 : (a > 0 ? 1 : 0) + (a < ray.length ? 1 : 0);
+    const first = pairs(polylines[n].points)[0];
+    n += expectedRuns(L, k, i, join).length;
     return first;
   }));
   assert.equal(n, polylines.length, 'every polyline is a ray part');
@@ -1089,7 +1088,13 @@ function drawnStarts(L, polylines) {
 function arcProperties(L, svg, tag) {
   const { body, polygons, polylines } = drawn(svg);
   const starts = drawnStarts(L, polylines);
-  const dirs = L.rays.map(fanDir);
+  // Review #385: a collimated fan is two or more rays with a common direction; a one-ray fan keeps its start.
+  const dirs = L.rays.map((fan) => (fan.length >= 2 ? fanDir(fan) : null));
+  const flat = L.surfaces.filter((s) => !s.image);
+  if (!flat.length) { // nothing to clear: the starts stay and there is no arc
+    L.rays.forEach((fan, k) => fan.forEach((r, i) => assert.deepEqual(starts[k][i], r[0].map((v) => +v.toFixed(3)), `${tag}: fan ${k} ray ${i} keeps its start (no non-image surface)`)));
+    return { c: null, R: null };
+  }
   const chiefs = L.rays.map((fan, k) => fan[L.chief ? L.chief[k] : Math.floor(fan.length / 2)]);
   const cross = dirs.map((d, k) => { const e = d && unit(chiefs[k][0], chiefs[k][1]); return e && Math.abs(e[1]) > 1e-9 ? chiefs[k][0][0] - chiefs[k][0][1] * e[0] / e[1] : null; }).filter((z) => z !== null);
   const c = [cross.length ? cross.reduce((a, b) => a + b) / cross.length : L.surfaces[0].z, 0];
@@ -1152,16 +1157,6 @@ test('collimated rays start on a pupil-centred arc', () => {
 
 // Plan #642 (agent_docs/plans/642-ray-visibility.md), outcomes O1 and O2 (issue #643; #648 and #649 unskip).
 // oracle: fixture the Wandersleb and Cassegrain layouts re-recorded by scripts/record-phos-core.py at the fixtures' pinned phos-core sha, with each kept point's status (roadmap U17)
-// Expected runs for one ray: segment j (point j-1 to j) takes point j's status; the ray ends at its first Dead point;
-// adjacent segments of one status are one run, a polyline from the run's first point to its last.
-function statusRuns(ray, st) {
-  const end = st.indexOf('Dead') < 0 ? ray.length - 1 : st.indexOf('Dead'), runs = [];
-  for (let j = 1; j <= end; j++) {
-    if (runs.length && runs[runs.length - 1].status === st[j]) runs[runs.length - 1].pts.push(ray[j]);
-    else runs.push({ status: st[j], pts: [ray[j - 1], ray[j]] });
-  }
-  return runs;
-}
 const STATUSES = ['Alive', 'Virtual', 'Dead'];
 const RECORDINGS = ['wandersleb', 'cassegrain'].map((n) => JSON.parse(readFileSync(new URL(`../fixtures/phos-core/${n}-layout.json`, import.meta.url))));
 // Polylines carrying a status, as mm point lists with the drawing's dash.
@@ -1174,17 +1169,13 @@ test('recorded ray status per point (U17)', { skip: '#643' }, () => {
   for (const L of RECORDINGS) for (const width of [1000, 600]) {
     assert.ok(Array.isArray(L.status), 'the recording carries status per point');
     const got = statusPolylines(ELEO.layout2D({ data: L, rays: 'fan', width }));
-    let want = 0;
-    L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
-      for (const run of statusRuns(ray, L.status[k][i])) {
-        want++;
-        assert.ok(got.some((p) => p.status === run.status && samePathFrom1(p.pts, run.pts)), `width ${width} field ${k} ray ${i}: a ${run.status} polyline recovers its run`);
-        const p = got.find((q) => q.status === run.status && samePathFrom1(q.pts, run.pts));
-        if (run.status === 'Virtual') assert.equal(p.dash, '1 3', 'Virtual is dotted');
-        else if (i !== L.chief[k]) assert.ok(!p.dash, `${run.status} is solid`);
-      }
-    }));
-    assert.equal(got.length, want, `width ${width}: every status polyline is some ray's run`);
+    const parts = got.map((p) => ({ ...p, dotted: p.dash === '1 3' }));
+    const { claimed, matches } = statusRoundTrip(L, parts, `width ${width}`);
+    for (const { k, i, run, part } of matches) {
+      if (run.status === 'Virtual') assert.equal(part.dash, '1 3', 'Virtual is dotted');
+      else if (i !== L.chief[k]) assert.ok(!part.dash, `${run.status} is solid`);
+    }
+    assert.equal(got.length, claimed, `width ${width}: every status polyline is some ray's run`);
   }
 });
 
