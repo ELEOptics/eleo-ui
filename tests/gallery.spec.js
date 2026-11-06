@@ -777,7 +777,7 @@ test('curve keys', async ({ page }) => {
     const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
     const keys = [...svg.querySelectorAll('text[data-key]')];
     return {
-      tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg),
+      tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg), frame: box(frame),
       keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
       others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x) })),
     };
@@ -789,6 +789,12 @@ test('curve keys', async ({ page }) => {
       expect(r.keys.length, `${w} keys`).toBe(CURVE_KEYS[r.tile]);
       expect(new Set(r.keys.map((k) => k.text)).size, `${w} each label once`).toBe(r.keys.length);
       for (const k of r.keys) expect(Math.abs(k.size / frameText(r.F) - 1), `${w} key "${k.text}" ${k.size}px against ${frameText(r.F)}px`).toBeLessThanOrEqual(0.01);
+      if (r.tile === 'distortion') for (const k of r.keys) {
+        expect(k.l, `${w} corner key "${k.text}" inside the plot frame on the left`).toBeGreaterThanOrEqual(r.frame.l - 0.5);
+        expect(k.r, `${w} corner key "${k.text}" inside the plot frame on the right`).toBeLessThanOrEqual(r.frame.r + 0.5);
+        expect(k.t, `${w} corner key "${k.text}" inside the plot frame at the top`).toBeGreaterThanOrEqual(r.frame.t - 0.5);
+        expect(k.b, `${w} corner key "${k.text}" inside the plot frame at the bottom`).toBeLessThanOrEqual(r.frame.b + 0.5);
+      }
       r.keys.forEach((k, i) => {
         for (const o of [...r.keys.slice(i + 1), ...r.others]) expect(overlap(k, o), `${w} key "${k.text}" overlaps "${o.text}"`).toBe(false);
         const alone = r.keys.filter((o) => o !== k && Math.abs(o.t - k.t) < 1).length === 0;

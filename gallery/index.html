@@ -120,7 +120,7 @@
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
       'mtf-limits': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w, { limits: MTF_LIMITS })); }),
       'fieldCurvature': recTile('fieldCurvature', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
-      'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
+      'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w, { keyAt: 'top-right' })); }),
       'chromaticFocus': { need: sampleBox, draw: function (_, w) { return ELEO.curve({ kind: 'chromaticFocus', width: w }); } }
     };
     function airyTile(canvas, n) {
