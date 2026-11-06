@@ -4,6 +4,7 @@ import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
 import { frameText, frameWeight, frameOf } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
+import { keyLayout, keyMarkup } from "./key.js";
 
 /* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). */
 function roleStyle(s, wt) {
@@ -106,28 +107,73 @@ function curveMargins(sc, w) {
   var F = frameOf(w, 4.6 + sc.Rt), t = frameText(F);
   return { L: 4.6 * t, B: 3.6 * t, R: sc.Rt * t, t: t, wt: +frameWeight(F).toFixed(3) };
 }
+/* The key's entries: `key` when given ({ label, role?, index? }), else one per distinct series `label` (the first use's role and index). A line swatch in the role's dash. Without either: none. */
+function keyEntries(o) {
+  var src = o.key;
+  if (src !== undefined && !Array.isArray(src)) throw new TypeError("curve: key must be an array of entries");
+  if (!src) {
+    var seen = {};
+    src = [];
+    (o.panels ? [].concat.apply([], o.panels.map(function (p) { return p.series || []; })) : o.series).forEach(function (s) {
+      if (s.label && !Object.prototype.hasOwnProperty.call(seen, s.label)) { seen[s.label] = 1; src.push(s); }
+    });
+  }
+  return src.map(function (e) {
+    if (e === null || typeof e !== "object" || e.label === undefined || e.label === null) throw new TypeError("curve: a key entry needs a label");
+    var st = roleStyle(e, 1);
+    return { label: String(e.label), index: e.index === undefined ? 0 : e.index, kind: "line", dash: st.dash };
+  });
+}
+var KEY_AT = ["below", "top-left", "top-right", "bottom-left", "bottom-right"];
+/* A corner key: a box on --surface (no stroke: a grid-stroked rect reads as a frame) inside the plot area at the cell's origin; it never resizes the frame. */
+function cornerKey(ents, at, t, w, h, T, mg) {
+  var L = r2(mg.L), pw = r2(Math.max(1, w - L - mg.R)), ph = r2(Math.max(1, h - T - mg.B)), line = 1.4 * t, pad = 0.4 * t;
+  var maxRow = Math.max(0, Math.floor((ph - 2 * pad) / line) - 1);
+  var kl = keyLayout(ents, t, { L: 0, R: Math.max(0, pw - 4 * pad), maxRow: maxRow }), wide = 0;
+  /* The same width estimate as key.js (a swatch, then 0.6 em a character). */
+  ents.forEach(function (e, k) { wide = Math.max(wide, kl.places[k][0] + 1.2 * t + 0.6 * t * Array.from(e.label).length); });
+  var bw = r2(wide + 2 * pad), bh = r2(line * kl.rows + 2 * pad - 0.4 * t);
+  var bx = at.slice(-4) === "left" ? L + pad : L + pw - pad - bw, by = at.slice(0, 3) === "top" ? T + pad : T + ph - pad - bh;
+  var places = kl.places.map(function (p) { return [bx + pad + p[0], p[1]]; });
+  return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, ents, t, by + pad - 0.2 * t, { mark: true });
+}
 function typedCurve(o) {
-  var W = o.width || 460, H = o.height || Math.round(W * 260 / 460), x = o.x || {}, y = o.y || {};
+  var W = o.width || 460, H0 = o.height || Math.round(W * 260 / 460), x = o.x || {}, y = o.y || {};
+  var ents = keyEntries(o), at = o.keyAt === undefined ? "below" : o.keyAt;
+  if (KEY_AT.indexOf(at) < 0) throw new TypeError('curve: unknown keyAt "' + at + '"');
+  var corner = ents.length > 0 && at !== "below";
+  var Hf = H0, Hs = H0, below = "";
+  /* The key under the x label, from the margins' text size t: rows of 1.4 t. With a `height` the frame gives up the rows; without, the SVG grows by them, rounded to a whole px. `fixed` is what the frame and margins take above the key. */
+  function placeBelow(t, L, R, fixed) {
+    var line = 1.4 * t, maxRow = o.height ? Math.max(0, Math.floor((H0 - fixed - 1) / line) - 1) : 1000;
+    var kl = keyLayout(ents, t, { L: L, R: R, maxRow: maxRow });
+    Hf = o.height ? r2(H0 - line * kl.rows) : H0;
+    Hs = o.height ? H0 : Math.round(H0 + line * kl.rows);
+    below = keyMarkup(kl.places, ents, t, Hf, { mark: true });
+  }
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
-  var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(H - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
+  var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(Hf - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
   var sc, g = "", lim = checkLimits(o.limits, "curve");
-  var cell = function (series, w, h, T, panel, mg) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel, mg.wt); }).join("")), lim, mg); };
+  var cell = function (series, w, h, T, panel, mg) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel, mg.wt); }).join("")), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
     var cw = W / cols;
     sc = scales({ x: x, y: y, limits: lim }, panels.map(function (p) { return p.series || []; }), true);
-    var mg = curveMargins(sc, cw), top = 1.4 * mg.t, ch = (H - top) / rows, T = 2.2 * mg.t;
+    var mg = curveMargins(sc, cw), top = 1.4 * mg.t, T = 2.2 * mg.t;
+    if (ents.length && !corner) placeBelow(mg.t, mg.L, W - mg.R, top + T + mg.B);
+    var ch = (Hf - top) / rows;
     panels.forEach(function (p, i) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
       g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="' + r2(mg.L) + '" y="' + r2(T - 0.6 * mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true, mg) + "</g>";
     });
-    return svg(W, H, g + labels(mg), lab(y) + " against " + lab(x) + " plot");
+    return svg(W, Hs, g + labels(mg) + below, lab(y) + " against " + lab(x) + " plot");
   }
   sc = scales({ x: x, y: y, limits: lim }, [o.series]);
   var m1 = curveMargins(sc, W);
-  g = cell(o.series, W, H, 2.6 * m1.t, false, m1) + labels(m1);
-  return svg(W, H, g, lab(y) + " against " + lab(x) + " plot");
+  if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, 2.6 * m1.t + m1.B);
+  g = cell(o.series, W, Hf, 2.6 * m1.t, false, m1) + labels(m1) + below;
+  return svg(W, Hs, g, lab(y) + " against " + lab(x) + " plot");
 }
 
 /* Each analysis kind is an adapter: the sample in, { series, x, y } out, drawn by the typed path. */

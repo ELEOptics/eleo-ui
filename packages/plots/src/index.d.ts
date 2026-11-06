@@ -225,7 +225,13 @@ export interface CurveSeries {
   index?: number;
   /** "tangential" is solid, "sagittal" dashed, "reference" a dotted ink line, "limit" a dash-dot ink line. The last two ignore `index`. Default solid, like tangential. */
   role?: "tangential" | "sagittal" | "reference" | "limit";
+  /** Named in the key: one entry per distinct label, from its first use's role and index. A series without one has no key entry. */
+  label?: string;
 }
+/** A key entry: a line swatch in `index`'s palette slot and `role`'s dash, then the label (ADR-0001: never a color). */
+export interface PlotKeyEntry { label: string; index?: number; role?: CurveSeries["role"] }
+/** Where a key goes: under the x label (the SVG grows by its rows, or with a `height` the frame gives them up) or in a plot corner, on a `--surface` box that never resizes the frame. */
+export type PlotKeyAt = "below" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export interface CurveAxis {
   /** Drawn as "label, unit". */
   label?: string;
@@ -258,6 +264,10 @@ export interface CurveSeriesProps {
   y?: CurveAxis;
   /** Limit lines and bands; an auto range contains them. */
   limits?: PlotLimit[];
+  /** The key's entries, replacing those the series labels give; `[]` draws none. */
+  key?: PlotKeyEntry[];
+  /** Default "below". */
+  keyAt?: PlotKeyAt;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
@@ -273,6 +283,10 @@ export interface CurvePanelsProps {
   y?: CurveAxis;
   /** Limit lines and bands, drawn in every panel. */
   limits?: PlotLimit[];
+  /** The key's entries, replacing those the series labels give: one key for the figure below, or one per panel in a corner. */
+  key?: PlotKeyEntry[];
+  /** Default "below". */
+  keyAt?: PlotKeyAt;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;

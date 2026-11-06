@@ -779,3 +779,38 @@ test('recorded ray fans round trip (U6)', async () => {
   }
   assert.ok(dead > 0, 'some dead sample was drawn as a gap (the clone guarantees one)');
 });
+
+// Plan #677 M1 (#681): curve draws a key from series labels or `key`.
+// oracle: closed-form ADR-0003 (t(F), rows of 1.4 t); the unkeyed SVG is the renderer baseline
+test('key', async () => {
+  const { frameText, frameOf } = await import('../../packages/plots/src/scale.js');
+  const dims = (svg) => svg.match(/viewBox="0 0 (\S+) (\S+)"/).slice(1).map(Number);
+  const texts = (svg) => [...svg.matchAll(/<text class="eleo-tick"( data-key)? [^>]*>([^<]*)<\/text>/g)].map((m) => ({ key: !!m[1], text: m[2] }));
+  const x = { label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400], ticks: [0, 200, 400] }, y = { label: 'Modulus', range: [0, 1] };
+  const pts = [[0, 1], [400, 0]];
+  const plain = ELEO.curve({ series: [{ points: pts, role: 'tangential' }], x, y });
+  const keyed = ELEO.curve({ series: [{ points: pts, index: 0, role: 'tangential', label: '0.0° T' }, { points: pts, index: 0, role: 'sagittal', label: '0.0° S' }, { points: pts, index: 1, role: 'tangential', label: '0.0° T' }], x, y });
+  // One entry per distinct label, a line swatch each, the label under the x label.
+  assert.deepEqual(texts(keyed).filter((t) => t.key).map((t) => t.text), ['0.0° T', '0.0° S']);
+  assert.equal((keyed.match(/stroke-dasharray="5 3" fill="none"\/>/g) || []).length, 1, 'the sagittal entry is dashed');
+  assert.ok(texts(keyed).some((t) => t.text === 'Spatial frequency, cycles/mm'));
+  // Default height grows by the key's rows: round(H + 1.4 t rows).
+  const t = frameText(frameOf(460, 4.6 + 0.3 * 3));
+  assert.equal(dims(plain)[1], 300 - 300 + Math.round(460 * 260 / 460));
+  assert.equal(dims(keyed)[1], Math.round(260 + 1.4 * t), 'one row');
+  // With a height the SVG keeps it and the frame gives up the rows.
+  assert.equal(dims(ELEO.curve({ series: [{ points: pts, label: 'a' }], x, y, height: 300 }))[1], 300);
+  // `key` replaces the labels; an empty one draws none; no label, no key: unchanged.
+  const own = ELEO.curve({ series: [{ points: pts, label: 'ignored' }], key: [{ label: 'T', role: 'tangential' }, { label: 'S', role: 'sagittal', index: 2 }], x, y });
+  assert.deepEqual(texts(own).filter((t) => t.key).map((t) => t.text), ['T', 'S']);
+  assert.equal(texts(ELEO.curve({ series: [{ points: pts, label: 'a' }], key: [], x, y })).filter((t) => t.key).length, 0);
+  // A corner key sits on --surface inside the plot and leaves the size alone.
+  const corner = ELEO.curve({ series: [{ points: pts, label: 'a' }], keyAt: 'top-right', x, y });
+  assert.deepEqual(dims(corner), dims(plain));
+  assert.match(corner, /<rect class="eleo-key"[^>]*fill="var\(--surface\)"\/>/);
+  assert.doesNotMatch(corner.match(/<rect class="eleo-key"[^>]*>/)[0], /stroke/);
+  // Panels key once below.
+  const pan = ELEO.curve({ panels: [{ series: [{ points: pts, label: 'a' }] }, { series: [{ points: pts, label: 'a' }] }], x, y });
+  assert.equal(texts(pan).filter((t) => t.key).length, 1);
+  assert.throws(() => ELEO.curve({ series: [{ points: pts, label: 'a' }], keyAt: 'middle' }), /keyAt/);
+});
