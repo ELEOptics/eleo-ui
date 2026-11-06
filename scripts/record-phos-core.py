@@ -47,7 +47,8 @@ does not rewrite them:
     of its aperture()). It exits non-zero unless there is a stop, the semi-diameter is finite and positive, and every alive
     point is within semiDiameter x (1 + 1e-4). Writes tests/fixtures/phos-core/cooke-footprint.json.
   `fans`: TransverseRayError of the achromat and the Cooke triplet, 41 samples, pupil slice angle 0, the lens's own sources, per
-    source `{fieldAngleDeg, wavelengths (nm), x: {points, statuses}, y: {points, statuses}}`, points `[pupil, error mm]`[wavelength][41]
+    source `{fieldAngleDeg, wavelengths (nm), x: {points, statuses}, y: {points, statuses}}`, header `referenceWavelengthNm` (the lens's reference
+    wavelength as wavefront and footprint read it; refused unless every source recorded it), points `[pupil, error mm]`[wavelength][41]
     as recorded, except that a non-Alive sample's non-finite coordinate is written null (NaN is not JSON), statuses the Rust names
     Alive/Virtual/Missed/Dead (status_name(); dead samples are kept). It exits non-zero on unequal
     shapes or a non-finite alive sample. If the Cooke has no Dead sample it also records phos-core's clipped Cooke (stop aperture
@@ -623,6 +624,10 @@ def fans(phos, lens, model, outdir, header, name=None):
     s.set_pupil_slice_angle(0.0)
     s.set_num_samples(FAN_SAMPLES)
     sources = model.sources(0)
+    ref = model.system(0).reference_wavelength()  # as wavefront() and footprint() read it, so every fixture of a lens agrees
+    if ref is None:
+        sys.exit(f"fans: the {lens} model has no reference wavelength")
+    ref_nm = rnd(ref * 1000)
     runs = s.run(model)
     if len(runs) != len(sources):
         sys.exit(f"fans: {len(runs)} results for {len(sources)} sources, expected one each")
@@ -633,8 +638,10 @@ def fans(phos, lens, model, outdir, header, name=None):
         for a, v in axes.items():
             if len(v["points"]) != len(wl):
                 sys.exit(f"fans: source {i} {a} has {len(v['points'])} fans for {len(wl)} wavelengths")
+        if ref_nm not in [rnd(w * 1000) for w in wl]:
+            sys.exit(f"fans: reference wavelength {ref_nm} nm is not among source {i}'s recorded {[rnd(w * 1000) for w in wl]}")
         out.append({"fieldAngleDeg": rnd(field_angle_deg(src)), "wavelengths": [rnd(w * 1000) for w in wl], **axes})
-    doc = {**header, "lens": lens, "analysis": "fans", "kind": "TransverseRayError, pupil slice angle 0; points [pupil, error mm], statuses Alive/Virtual/Missed/Dead",
+    doc = {**header, "lens": lens, "analysis": "fans", "referenceWavelengthNm": ref_nm, "kind": "TransverseRayError, pupil slice angle 0; points [pupil, error mm], statuses Alive/Virtual/Missed/Dead",
            "numSamples": FAN_SAMPLES, "sources": out}
     path = outdir / (name or f"{lens}-fans.json")
     path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")

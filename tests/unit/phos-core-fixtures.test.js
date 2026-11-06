@@ -535,6 +535,11 @@ test('recorded fans facts', () => {
     assert.equal(f.analysis, 'fans', file);
     assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/, `${file}: phos-core sha`);
     assert.ok(f.sources.length >= 1, `${file}: sources`);
+    // The lens's reference wavelength, as its wavefront fixture carries it (plan #603 CR #621): one of every source's wavelengths.
+    const lens = file.startsWith('achromat') ? 'achromat' : 'cooke';
+    const ref = read(`../fixtures/phos-core/${lens}-wavefront.json`).referenceWavelengthNm;
+    assert.equal(f.referenceWavelengthNm, ref, `${file}: referenceWavelengthNm is the ${lens} wavefront's`);
+    f.sources.forEach((s, i) => assert.ok(s.wavelengths.includes(f.referenceWavelengthNm), `${file} source ${i}: the reference wavelength is a recorded one`));
     let dead = 0;
     f.sources.forEach((s, i) => {
       assert.ok(Number.isFinite(s.fieldAngleDeg), `${file} source ${i}: field angle`);
@@ -598,8 +603,11 @@ class Settings:
     def set_pupil_slice_angle(self, a): pass
     def set_num_samples(self, n): pass
     def run(self, model): return [Run(True, Settings.status)]
+class Sys:
+    def reference_wavelength(self): return 0.55
 class Model:
     def sources(self, i): return [object()]
+    def system(self, i): return Sys()
 class OM:
     @staticmethod
     def cooke_triplet_kingslake(): return Model()
