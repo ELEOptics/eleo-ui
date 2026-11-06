@@ -127,7 +127,8 @@ Demo: `npm run gallery`: every tile is alone on its line across the page, all li
 | -- | -- | -- | -- | -- | -- |
 | [#623] | The fan fixtures name `referenceWavelengthNm` (587.562 nm achromat, 550 nm Cooke), re-recorded at `e0f14aa` with points and statuses unchanged; the recorder refuses one not among every source's wavelengths; the README row names it | read where the wavefront and footprint recorders read it, so every fixture of a lens agrees; considered the adapter picking the middle wavelength, right for the Cooke by accident | `scripts/record-phos-core.py`, `tests/fixtures/phos-core/{achromat,cooke,cooke-clipped}-fans.json`, `tests/fixtures/phos-core/README.md`, `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::recorded fans facts` | [#620] |
 | [#624] | `ELEOAdapters.fans` subtracts each field's chief-ray error (the pupil-0 sample at `referenceWavelengthNm`, per axis) from every sample; a non-`Alive` chief ray throws; the tile meta names the chief ray | the reference wavelength's chief ray because that is the ray-fan convention and keeps lateral color; considered each wavelength's own chief ray, which hides it | `tests/fixtures/phos-core/adapters.js`, `tests/unit/curve.test.js`, `gallery/index.html` (meta), `tests/gallery.spec.js` (meta) | `tests/unit/curve.test.js::recorded ray fans round trip (U6)` (oracle: the recording minus the chief ray) | [#623] |
-| [#625] | The gallery: every tile alone on its line at the page width, the light section then the dark; below its `ELEO.minWidth` a tile draws at that minimum and scrolls inside itself, never the page | one tile per line because resizing then shows every plot at every width (the user's ask); considered rows with a one-column option, two layouts to test | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::every tile is the page width, the light theme before the dark (#622)`, `tests/gallery.spec.js::every tile at its minimum has the floor frame (#587)` | [#624] |
+| [#627] | CR [#626] (from [#625]): `tests/map2d.spec.js::recorded wavefront cells (U8)` draws its injected tile at a fixed 650 px, so the full-width gallery doesn't push its ticks past the 2 px margin; the pixel oracle is unchanged | a fixed width because the test checks cells, not layout; considered widening the excluded margin, which loosens the oracle | `tests/map2d.spec.js` | `tests/map2d.spec.js::recorded wavefront cells (U8)` in both layouts | [#624] |
+| [#625] | The gallery: every tile alone on its line at the page width, the light section then the dark; below its `ELEO.minWidth` a tile draws at that minimum and scrolls inside itself, never the page | one tile per line because resizing then shows every plot at every width (the user's ask); considered rows with a one-column option, two layouts to test | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::every tile is the page width, the light theme before the dark (#622)`, `tests/gallery.spec.js::every tile at its minimum has the floor frame (#587)` | [#624], [#627] |
 
 End of plan (orchestrator, not a work item): the roadmap's U6 text and oracle name the recorded fans; row P done.
 
@@ -151,6 +152,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, 2 backlog; CR [#618] resolved. Both findings small and named, pulled into M1 as [#620].
 - 2026-11-05 review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; M1 ticked (rounds: 0+3, 1, 0+1, 0). Awaiting the user's M1 demo (O4).
 - 2026-11-05 M1 demo (user): no-go. "No go. use the chief ray. Additionally, in the gallery, make every plot have its own full space across the width of the page. That way, resizing the page allows me to see them all at different sizes / scales. The color schemes can be shown one after the other (i.e. first all the light theme, then all the dark theme)". CRs [#621] and [#622], accepted by the user; M2 with items [#623], [#624], [#625]. The orchestrator chose the reference wavelength's chief ray (the ray-fan convention) over each wavelength's own.
+- 2026-11-05 [#625] returned a CR: the full-width layout breaks `map2d.spec.js`'s U8 wavefront test (its ticks pass its 2 px margin). CR [#626] accepted by the orchestrator (test only, the oracle unchanged); item [#627] runs before [#625], whose first attempt is discarded.
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
@@ -189,4 +191,6 @@ One bullet per entry (bare lines render as one paragraph).
 [#623]: https://github.com/ELEOptics/eleo-ui/issues/623
 [#624]: https://github.com/ELEOptics/eleo-ui/issues/624
 [#625]: https://github.com/ELEOptics/eleo-ui/issues/625
+[#626]: https://github.com/ELEOptics/eleo-ui/issues/626
+[#627]: https://github.com/ELEOptics/eleo-ui/issues/627
 [#85]: https://github.com/ELEOptics/eleo-ui/issues/85
