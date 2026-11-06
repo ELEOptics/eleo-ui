@@ -95,7 +95,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 Each item unskips its own acceptance case (the commit hook refuses a source change with no test; plan [#512], CR [#593]),
 so no milestone ends with an empty unskip item.
 
-### M1: recorded status drawn, `show`, the Cassegrain tile GitHub: `P642 M1: Status per point`
+### M1: recorded status drawn, `show`, the Cassegrain tile (done 2026-11-06) GitHub: `P642 M1: Status per point`
 
 Demo: `npm run gallery`; the Wandersleb and Cassegrain tiles drawn from recorded `status` (unchanged to the eye), the new
 Cassegrain tile with `show: ["Alive", "Virtual"]` (no obscured rays), both themes and palettes; a review image of the
@@ -150,6 +150,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 [#659] back to the backlog, out of M1 (orchestrator): a pure refactor, so it has no test to write first, and the commit hook refuses a source change without one; the next item that touches the run building carries it.
 - 2026-11-05 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; CRs [#653] and [#655] resolved; M1 ticked (rounds: 1+3, 0). Awaiting the user's M1 demo (O5).
 - 2026-11-06 M1 demo (user): no-go. "Show the rays in a lower opacity after they are Dead or Vignetted" and "show Virtual as light, but dotted instead of solid"; Dead and vignetted not told apart (phos-core has no Vignetted status: an aperture gives `Dead("Vignetted by opaque aperture")`). CR [#660] accepted, item [#661]; O1 reworded (replaces round 1's "no further" for layouts with `status`); M1 unticked.
+- 2026-11-06 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog [#662] (a test guard anchors on the first ray group), not pulled in: the code is correct and the demo waits on it; CR [#660] resolved; M1 ticked again. Awaiting the user's M1 demo.
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
@@ -177,6 +178,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#654]: https://github.com/ELEOptics/eleo-ui/issues/654
 [#660]: https://github.com/ELEOptics/eleo-ui/issues/660
 [#661]: https://github.com/ELEOptics/eleo-ui/issues/661
+[#662]: https://github.com/ELEOptics/eleo-ui/issues/662
 [#655]: https://github.com/ELEOptics/eleo-ui/issues/655
 [#656]: https://github.com/ELEOptics/eleo-ui/issues/656
 [#657]: https://github.com/ELEOptics/eleo-ui/issues/657
