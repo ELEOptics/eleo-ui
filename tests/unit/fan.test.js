@@ -74,6 +74,8 @@ test('rayFan key keyAt', async () => {
     const below = rayFan({ data: sample, kind, key: true });
     const corner = rayFan({ data: sample, kind, key: true, keyAt: 'top-right' });
     assert.equal(boxes(below), 0, `${kind}: below has no corner box`);
+    assert.equal(rayFan({ data: sample, kind, key: true, keyAt: undefined }), below, `${kind}: keyAt undefined is the same as absent`);
+    assert.equal(rayFan({ data: sample, kind, key: true, keyAt: 'below' }), below, `${kind}: keyAt 'below' is the same as absent`);
     assert.equal(boxes(corner), 2 * sample.fields.length, `${kind}: one corner box in each panel (2 rows x fields)`);
     assert.throws(() => rayFan({ data: sample, kind, key: true, keyAt: 'middle' }), { name: 'TypeError', message: /keyAt/ });
   }

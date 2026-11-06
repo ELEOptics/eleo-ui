@@ -29,9 +29,8 @@ export function fanPanels(sample, o) {
 export function rayFan(o) {
   o = o || {};
   var f = fanPanels(data(o), o), pw = o.panelWidth || 170, base = f.columns * (pw + 58), width = o.width || base;
-  var spec = { panels: f.panels, columns: f.columns, x: f.x, y: f.y, width: width, height: o.height || Math.round(width * 314 / base) };
+  var spec = { panels: f.panels, columns: f.columns, x: f.x, y: f.y, width: width, height: o.height || Math.round(width * 314 / base), keyAt: o.keyAt };
   /* `key: true`: one entry per sample wavelength, in its palette slot, below the fans. */
   if (o.key === true) spec.key = data(o).wl.map(function (w, i) { return { label: w.toFixed(1) + " nm", index: i }; });
-  if (o.keyAt !== undefined) spec.keyAt = o.keyAt;
   return curve(spec);
 }
