@@ -1,5 +1,15 @@
 # @eleoptics/plots
 
+## 0.10.0
+
+### Minor Changes
+
+- 146bbf4: New: a layout's per-point `status` (`Alive`, `Virtual`, `Dead`) is drawn, and `layout2D` takes `show`, an array of the statuses to draw (default all three). With `status`, a ray is drawn to its last point. Virtual (dotted) and Dead (solid) runs are drawn faded, at opacity .35, under the Alive runs, and each segment takes its start point's status. Layouts without `status` draw their rays as before.
+
+### Patch Changes
+
+- 400d7f4: Fix: a field label stays at least 1 em below the top of a cropping `box`. A glass before an image whose profile is missing, empty or non-finite now throws a named `layout2D: surface i` error.
+
 ## 0.9.0
 
 ### Minor Changes
