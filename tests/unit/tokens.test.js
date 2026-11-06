@@ -46,8 +46,11 @@ test('glass band ends in range', async () => {
   }
 });
 
-// oracle: WCAG 2.1 contrast ratio of each map's grid tokens against the map's lowest and highest stops,
-// the same ends tests/map2d.spec.js::grid over the image reads from ELEO.colormap(map, el)[0] and [255].
+// oracle: WCAG 2.1 contrast ratio of each map's grid tokens. Floors (major 2:1, minor 1.3:1) against the map's lowest and highest stops, the
+// same ends tests/map2d.spec.js::grid over the image reads from ELEO.colormap(map, el)[0] and [255]. Upper bounds (major under 2.6:1, minor under 1.7:1)
+// against the ground stop (ember stop 0, wave stop 4: they fill most of an image, CR #765), or the nearer end stop for viridis and gray, which have none.
+// A sweep over neutral-warm greys found the ordering (major at least the minor against the ground, or the middle stop) feasible in all eight cases, so no case is exempt.
+// The value also sits near the targets (2:1 and 1.3:1 against that reference): major under 2.2:1, minor under 1.45:1, or 1.6:1 on viridis and gray (they cannot go lower: a quieter minor would out-contrast the major against the middle stop)).
 test('map grid contrast', () => {
   const tok = (n) => json.color.tokens.find((t) => t.name === n);
   const val = (n, th) => { assert.ok(tok(n), `${n} is defined`); return tok(n).value[th]; };
@@ -57,28 +60,23 @@ test('map grid contrast', () => {
   const ends = (map, th) => map === 'viridis' ? ['#440154', '#fde725'] : map === 'gray' ? ['#000000', '#ffffff']
     : [val(`map-${map}-0`, th), val(`map-${map}-8`, th)];
   const mid = (map, th) => map === 'viridis' ? '#21918c' : map === 'gray' ? '#808080' : val(`map-${map}-4`, th);
-  // CR #760: no value meets both bounds and the ordering on wave (either theme) or ember dark, so the ordering is checked elsewhere only.
-  const ordered = (map, th) => map !== 'wave' && !(map === 'ember' && th === 'dark');
+  const ground = (map, th) => map === 'ember' ? val('map-ember-0', th) : map === 'wave' ? val('map-wave-4', th) : null;
   for (const map of ['ember', 'wave', 'viridis', 'gray']) for (const th of ['light', 'dark']) {
-    for (const [name, min, max] of [[`map-grid-${map}`, 2, 2.6], [`map-grid-${map}-minor`, 1.3, 1.7]]) {
+    const g = ground(map, th), e = ends(map, th);
+    const upper = (c) => g ? ratio(c, g) : Math.min(...e.map((x) => ratio(c, x)));
+    const what = g ? `the ground stop ${g}` : `the nearer end stop`;
+    for (const [name, min, max, near] of [[`map-grid-${map}`, 2, 2.6, 2.2], [`map-grid-${map}-minor`, 1.3, 1.7, g ? 1.45 : 1.6]]) {
       assert.ok(tok(name).usage.includes(`the ${map} map's image`), `${name} usage names its map: ${tok(name).usage}`);
       const c = val(name, th);
-      const rs = ends(map, th).map((end, i) => {
+      e.forEach((end, i) => {
         const r = ratio(c, end);
         assert.ok(r >= min, `${name} ${th} ${c} vs ${map} stop ${i ? 'highest' : 'lowest'} ${end}: ${r.toFixed(2)}:1 < ${min}:1`);
-        return r;
       });
-      assert.ok(Math.min(...rs) < max, `${name} ${th} ${c}: the nearer end is ${Math.min(...rs).toFixed(2)}:1, not under ${max}:1`);
+      const u = upper(c);
+      assert.ok(u < max, `${name} ${th} ${c}: ${u.toFixed(2)}:1 against ${what}, not under ${max}:1`);
+      assert.ok(u < near, `${name} ${th} ${c}: ${u.toFixed(2)}:1 against ${what}, not near the ${min}:1 target (under ${near}:1)`);
     }
-    if (ordered(map, th)) {
-      const m = mid(map, th), a = ratio(val(`map-grid-${map}`, th), m), b = ratio(val(`map-grid-${map}-minor`, th), m);
-      assert.ok(a >= b, `map-grid-${map} ${th}: major ${a.toFixed(2)}:1 vs the middle stop ${m} is weaker than its minor ${b.toFixed(2)}:1`);
-    } else {
-      // Where the ordering is infeasible the minor is as quiet at the middle stop as its bounds allow (lowest feasible: a neutral-warm scan of
-      // 1.3 to 1.7:1 against the nearer end gives 5.58, 7.54 and 2.38; 0.1 of margin).
-      const cap = { 'wave light': 5.7, 'wave dark': 7.7, 'ember dark': 2.5 }[`${map} ${th}`];
-      const b = ratio(val(`map-grid-${map}-minor`, th), mid(map, th));
-      assert.ok(b <= cap, `map-grid-${map}-minor ${th} is ${b.toFixed(2)}:1 against the middle stop, over the lowest feasible ${cap}:1`);
-    }
+    const ref = g || mid(map, th), a = ratio(val(`map-grid-${map}`, th), ref), b = ratio(val(`map-grid-${map}-minor`, th), ref);
+    assert.ok(a >= b, `map-grid-${map} ${th}: major ${a.toFixed(2)}:1 vs ${g ? 'the ground' : 'the middle'} stop ${ref} is weaker than its minor ${b.toFixed(2)}:1`);
   }
 });

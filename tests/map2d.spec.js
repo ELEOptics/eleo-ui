@@ -747,7 +747,7 @@ test('map2D draws its frame at F_LO at PLOT_SIZES.map2D.minWidth', async ({ page
 
 // Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O3 (issue #690; #696 unskips). Every typed map tile has axes, a ticked colorbar and a grid drawn after the <image>,
 // per axis by grid: { x: { major, minor }, y: { ... } } (false: none), in its colormap's grid token (--map-grid-<map>, minors --map-grid-<map>-minor).
-// oracle: closed-form Heckbert's 1-2-5 rule (as axisTicks, curve.js:26) for the majors and an even split for the minors; spec WCAG 2.1 contrast ratio, each grid token against its map's end stops (at least 2:1, minor 1.3:1, and under 2.6:1, minor 1.7:1, against the nearer end), both themes.
+// oracle: closed-form Heckbert's 1-2-5 rule (as axisTicks, curve.js:26) for the majors and an even split for the minors; spec WCAG 2.1 contrast ratio, each grid token against its map's end stops (at least 2:1, minor 1.3:1) and under 2.6:1, minor 1.7:1, against the ground stop (ember stop 0, wave stop 4) or, for viridis and gray, the nearer end (CR #765), both themes.
 // Fixture: values 4 x 8 over [0, 4] x [0, 2]: the plot area is less than 2:1, so y is padded and x spans [0, 4] exactly; major: 5 gives the ticks 0 to 4 and minor: 4 gives 0.2 steps.
 test('grid over the image', async ({ page }) => {
   await page.goto('/gallery/');
@@ -810,7 +810,7 @@ test('grid over the image', async ({ page }) => {
     expect(r.horizontal, `${theme} y: false draws no horizontal grid line`).toBe(0);
     expect(r.afterImage, `${theme} explicit grid after the <image>`).toBe(true);
 
-    // Contrast of each map's grid token against its own map's lowest and highest stops (WCAG 2.1 relative luminance).
+    // Contrast of each map's grid token against its own map's lowest, highest and ground stops (WCAG 2.1 relative luminance); the upper bounds are against the ground.
     const c = await col.evaluate((el) => {
       const lum = (rgb) => { const [R, G, B] = rgb.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * R + 0.7152 * G + 0.0722 * B; };
       const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((p, q) => q - p); return (hi + 0.05) / (lo + 0.05); };
@@ -820,7 +820,9 @@ test('grid over the image', async ({ page }) => {
         const svg = el.lastElementChild, lut = window.ELEO.colormap(map, el);
         const px = (s) => { const l = [...svg.querySelectorAll('line')].find((q) => q.getAttribute('stroke') === s); return l ? getComputedStyle(l).stroke.match(/[\d.]+/g).slice(0, 3).map(Number) : null; };
         const major = px(`var(--map-grid-${map})`), minor = px(`var(--map-grid-${map}-minor)`);
-        out[map] = { major: major && [ratio(major, lut[0]), ratio(major, lut[255])], minor: minor && [ratio(minor, lut[0]), ratio(minor, lut[255])] };
+        const ref = map === 'ember' ? lut[0] : map === 'wave' ? lut[128] : null;
+        const at = (c) => c && { ends: [ratio(c, lut[0]), ratio(c, lut[255])], upper: ref ? ratio(c, ref) : Math.min(ratio(c, lut[0]), ratio(c, lut[255])) };
+        out[map] = { major: at(major), minor: at(minor) };
         svg.remove();
       }
       return out;
@@ -828,10 +830,10 @@ test('grid over the image', async ({ page }) => {
     for (const [map, q] of Object.entries(c)) {
       expect(q.major, `${theme} ${map} grid token drawn`).not.toBeNull();
       expect(q.minor, `${theme} ${map} minor grid token drawn`).not.toBeNull();
-      q.major.forEach((v, i) => expect(v, `${theme} ${map} major vs end stop ${i}`).toBeGreaterThanOrEqual(2));
-      expect(Math.min(...q.major), `${theme} ${map} major nearer end`).toBeLessThan(2.6);
-      q.minor.forEach((v, i) => expect(v, `${theme} ${map} minor vs end stop ${i}`).toBeGreaterThanOrEqual(1.3));
-      expect(Math.min(...q.minor), `${theme} ${map} minor nearer end`).toBeLessThan(1.7);
+      q.major.ends.forEach((v, i) => expect(v, `${theme} ${map} major vs end stop ${i}`).toBeGreaterThanOrEqual(2));
+      expect(q.major.upper, `${theme} ${map} major vs the ground (ember, wave) or nearer end`).toBeLessThan(2.6);
+      q.minor.ends.forEach((v, i) => expect(v, `${theme} ${map} minor vs end stop ${i}`).toBeGreaterThanOrEqual(1.3));
+      expect(q.minor.upper, `${theme} ${map} minor vs the ground (ember, wave) or nearer end`).toBeLessThan(1.7);
     }
   }
 });
