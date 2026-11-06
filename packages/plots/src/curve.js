@@ -6,14 +6,14 @@ import { frameText, frameWeight, frameOf } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
 import { keyLayout, keyMarkup } from "./key.js";
 
-/* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). */
+/* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). A sagittal dash is in units of `wt` (4 wt, 2.5 wt; CR #726). */
 function roleStyle(s, wt) {
   var r = s.role, i = s.index === undefined ? 0 : s.index;
   if (r !== undefined && r !== "tangential" && r !== "sagittal" && r !== "reference" && r !== "limit") throw new TypeError('curve: unknown role "' + r + '"');
   if (typeof i !== "number" || !isFinite(i) || Math.floor(i) !== i || i < 0) throw new TypeError("curve: index must be a non-negative integer");
   if (r === "reference") return { col: "var(--ink)", dash: "1 3", w: wt, cap: "round" };
   if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: wt, cap: "butt", fill: "var(--ink)", fillOpacity: 0.06 };
-  return { col: idx(i), dash: r === "sagittal" ? "5 3" : "", w: wt, cap: "round" };
+  return { col: idx(i), dash: r === "sagittal" ? +(4 * wt).toFixed(3) + " " + +(2.5 * wt).toFixed(3) : "", w: wt, cap: "round" };
 }
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */
@@ -121,8 +121,12 @@ function keyEntries(o) {
   return src.map(function (e) {
     if (e === null || typeof e !== "object" || e.label === undefined || e.label === null) throw new TypeError("curve: a key entry needs a label");
     var st = roleStyle(e, 1);
-    return { label: String(e.label), index: e.index === undefined ? 0 : e.index, col: st.col, kind: "line", dash: st.dash };
+    return { label: String(e.label), index: e.index === undefined ? 0 : e.index, col: st.col, kind: "line", dash: st.dash, src: e };
   });
+}
+/* The entries with each swatch's dash in units of the swatch's own stroke, 0.15 t (as keyMarkup draws it). */
+function keyDrawn(ents, t) {
+  return ents.map(function (e) { return { label: e.label, index: e.index, col: e.col, kind: e.kind, dash: roleStyle(e.src, r2(0.15 * t)).dash }; });
 }
 var KEY_AT = ["below", "top-left", "top-right", "bottom-left", "bottom-right"];
 /* A corner key: a box on --surface (no stroke: a grid-stroked rect reads as a frame) inside the plot area at the cell's origin; it never resizes the frame. */
@@ -135,7 +139,7 @@ function cornerKey(ents, at, t, w, h, T, mg) {
   /* Clamp the start inside the plot on both axes: a box that fits lies wholly inside, a larger one overruns only the far edges. */
   bx = Math.max(L + pad, bx); by = Math.max(T + pad, by);
   var places = kl.places.map(function (p) { return [bx + pad + p[0], p[1]]; });
-  return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, ents, t, by + pad - 0.2 * t, { mark: true });
+  return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, keyDrawn(ents, t), t, by + pad - 0.2 * t, { mark: true });
 }
 function typedCurve(o) {
   var W = o.width || 460, H0 = o.height || Math.round(W * 260 / 460), x = o.x || {}, y = o.y || {};
@@ -150,7 +154,7 @@ function typedCurve(o) {
     Hf = o.height ? r2(H0 - line * kl.rows - gap) : H0;
     Hs = o.height ? H0 : Math.round(H0 + line * kl.rows + gap);
     /* The key's top is 0.2 t under the frame, so its first baseline (0.8 t down) is 1.4 t under the x label's (0.4 t above the frame). */
-    below = keyMarkup(kl.places, ents, t, Hf + gap, { mark: true });
+    below = keyMarkup(kl.places, keyDrawn(ents, t), t, Hf + gap, { mark: true });
   }
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(Hf - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };

@@ -179,8 +179,8 @@ test('series round trip', () => {
         assert.ok(Math.hypot(back[0] - pt[0], back[1] - pt[1]) < 1e-6, 'the transform inverts');
       });
     });
-    // Roles map to styles: sagittal dashes 5 3, reference is ink with 1 3 dashes, tangential is solid.
-    assert.match(svg, /stroke-dasharray="5 3"/);
+    // Roles map to styles: sagittal dashes 4 and 2.5 stroke weights (CR #726), reference is ink with 1 3 dashes, tangential is solid.
+    assert.match(svg, /stroke-dasharray="[\d.]+ [\d.]+"/);
     assert.match(svg, /stroke="var\(--ink\)"[^>]*stroke-dasharray="1 3"|stroke-dasharray="1 3"[^>]*stroke="var\(--ink\)"/);
     assert.match(svg, /<svg\b[^>]*>[\s\S]*<svg\b/, 'the series sit in a nested <svg>');
     assert.match(svg, /vector-effect="non-scaling-stroke"/);
@@ -310,6 +310,20 @@ test('every role draws a stroke of ADR-0003 weight', () => {
     assert.equal(widths.length, 1, String(role));
     assert.ok(Math.abs(widths[0] - w) <= 0.01, `${role} at ${width}: ${widths[0]} against ${w}`);
   }
+});
+
+// CR #726 (#730): the sagittal dash is in units of the stroke weight, so it reads as a dash at every width; the key's swatch too
+test('sagittal dash scales with the stroke', () => {
+  const pts = [[0, 0], [1, 1]], ratios = (svg, re) => [...svg.matchAll(re)].map((m) => [+m[2] / +m[1], +m[3] / +m[1]]);
+  const draw = (width) => ELEO.curve({ series: [{ points: pts, role: 'sagittal', label: 'S' }], x: { range: [0, 1] }, y: { range: [0, 1] }, width });
+  const lines = [], keys = [];
+  for (const width of [200, 1200]) {
+    const svg = draw(width);
+    lines.push(...ratios(svg, /<polyline[^>]*\sstroke-width="([^"]*)"[^>]*stroke-dasharray="(\S+) (\S+)"/g));
+    keys.push(...ratios(svg, /<line [^>]*stroke-width="([^"]*)"[^>]*stroke-dasharray="(\S+) (\S+)"/g));
+  }
+  assert.equal(lines.length, 2); assert.equal(keys.length, 2);
+  for (const set of [lines, keys]) set.forEach(([a, b]) => { assert.ok(Math.abs(a - 4) < 0.1 && Math.abs(b - 2.5) < 0.1, `${a} ${b}`); });
 });
 
 // CR #212: the right margin grows to half the last x label's width (0.6 em a character, ADR-0003: half is 0.3 text units a character, at least 1.2)
@@ -792,7 +806,7 @@ test('key', async () => {
   const keyed = ELEO.curve({ series: [{ points: pts, index: 0, role: 'tangential', label: '0.0° T' }, { points: pts, index: 0, role: 'sagittal', label: '0.0° S' }, { points: pts, index: 1, role: 'tangential', label: '0.0° T' }], x, y });
   // One entry per distinct label, a line swatch each, the label under the x label.
   assert.deepEqual(texts(keyed).filter((t) => t.key).map((t) => t.text), ['0.0° T', '0.0° S']);
-  assert.equal((keyed.match(/stroke-dasharray="5 3" fill="none"\/>/g) || []).length, 1, 'the sagittal entry is dashed');
+  assert.equal((keyed.match(/stroke-dasharray="[\d.]+ [\d.]+" fill="none"\/>/g) || []).length, 1, 'the sagittal entry is dashed');
   assert.ok(texts(keyed).some((t) => t.text === 'Spatial frequency, cycles/mm'));
   // Default height grows by the key's rows: round(H + 1.4 t rows + 0.2 t).
   const t = frameText(frameOf(460, 4.6 + 0.3 * 3));
