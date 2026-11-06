@@ -5,16 +5,17 @@ var r2 = function (v) { return +v.toFixed(2); };
 /* The key row shared by the renderers (ADR-0001: swatches take an index and a dash, never a color; ADR-0003: sizes and gaps in text units of t). Two phases, because a renderer sets its frame height from the number of rows before it knows where the key goes.
    An entry is { label, index?, col?, kind?, dash? } (`col`: the role's colour, which wins over `index`; bars passes none): kind "square" (default), "line" (stroked in `dash`) or "dot". */
 
-/* Phase one: rows and places. An entry starts a new line when it would pass x = R (the key's right edge); each line is one row, at most maxRow + 1 of them, and the last one runs on. Returns { rows, places } with places[k] = [x, row]. */
+/* Phase one: rows and places. An entry starts a new line when it would pass x = R (the key's right edge); each line is one row, at most maxRow + 1 of them, and the last one runs on. Returns { rows, places, right } with places[k] = [x, row] and right the widest extent (L when empty). */
 export function keyLayout(entries, t, o) {
-  var L = o.L, R = o.R, maxRow = o.maxRow, kx = L, row = 0, places = [];
+  var L = o.L, R = o.R, maxRow = o.maxRow, kx = L, row = 0, places = [], right = L;
   entries.forEach(function (e) {
     var wd = 1.2 * t + 0.6 * t * Array.from(String(e.label)).length;
     if (row < maxRow && kx > L && kx + wd > R) { row++; kx = L; }
     places.push([kx, row]);
+    right = Math.max(right, kx + wd);
     kx += wd + t;
   });
-  return { rows: entries.length ? row + 1 : 0, places: places };
+  return { rows: entries.length ? row + 1 : 0, places: places, right: right };
 }
 
 /* Phase two: the markup, the first row's top at y, a row every 1.4 t below. `o.mark` puts data-key on each label's <text>. */

@@ -129,10 +129,8 @@ var KEY_AT = ["below", "top-left", "top-right", "bottom-left", "bottom-right"];
 function cornerKey(ents, at, t, w, h, T, mg) {
   var L = r2(mg.L), pw = r2(Math.max(1, w - L - mg.R)), ph = r2(Math.max(1, h - T - mg.B)), line = 1.4 * t, pad = 0.4 * t;
   /* The key wraps at the plot's width whether or not its rows fit the height. */
-  var kl = keyLayout(ents, t, { L: 0, R: Math.max(0, pw - 4 * pad), maxRow: 1000 }), wide = 0;
-  /* The same width estimate as key.js (a swatch, then 0.6 em a character). */
-  ents.forEach(function (e, k) { wide = Math.max(wide, kl.places[k][0] + 1.2 * t + 0.6 * t * Array.from(e.label).length); });
-  var bw = r2(wide + 2 * pad), bh = r2(line * kl.rows + 2 * pad - 0.4 * t);
+  var kl = keyLayout(ents, t, { L: 0, R: Math.max(0, pw - 4 * pad), maxRow: 1000 });
+  var bw = r2(kl.right + 2 * pad), bh = r2(line * kl.rows + 2 * pad - 0.4 * t);
   var bx = at.slice(-4) === "left" ? L + pad : L + pw - pad - bw, by = at.slice(0, 3) === "top" ? T + pad : T + ph - pad - bh;
   bx = Math.max(L + pad, bx);
   var places = kl.places.map(function (p) { return [bx + pad + p[0], p[1]]; });

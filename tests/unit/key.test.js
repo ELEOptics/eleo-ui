@@ -20,6 +20,16 @@ test('wrapped lines never pass the right edge', () => {
   }
 });
 
+test('layout reports its right edge', () => {
+  const entries = [{ label: 'a long first label' }, { label: 'b' }, { label: 'a long second one' }];
+  const one = keyLayout(entries.slice(0, 1), t, { L: 5, R: 1000, maxRow: 0 });
+  assert.equal(one.right, 5 + width('a long first label'));
+  const wrapped = keyLayout(entries, t, { L: 5, R: 300, maxRow: 100 });
+  const far = Math.max(...wrapped.places.map(([x], i) => x + width(entries[i].label)));
+  assert.equal(wrapped.right, far);
+  assert.equal(keyLayout([], t, { L: 5, R: 300, maxRow: 100 }).right, 5);
+});
+
 test('maxRow stops the wrapping', () => {
   const entries = Array.from({ length: 6 }, (_, i) => ({ label: 'label ' + i, index: i }));
   const { rows, places } = keyLayout(entries, t, { L: 0, R: 100, maxRow: 1 });
