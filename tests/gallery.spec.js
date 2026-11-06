@@ -144,6 +144,28 @@ test('a missing footprint fixture leaves its legend empty', async ({ page }) => 
   }
 });
 
+// Plan #642 M2, #616: the recorded fan tile's footer keys the recording's wavelengths, empty if the fixture failed.
+// oracle: fixture tests/fixtures/phos-core/achromat-fans.json's sources[0].wavelengths (486.133, 587.562, 656.272 nm).
+test('the recorded fan footer keys its wavelengths (#616)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const keys = page.locator(`.theme[data-theme="${theme}"] [data-tile="rayFan"] .eleo-legend .eleo-key`);
+    await expect(keys, `${theme} rayFan legend`).toHaveText(['\u03bb1 486.1 nm', '\u03bb2 587.6 nm', '\u03bb3 656.3 nm']);
+  }
+});
+
+test('a missing fans fixture leaves the fan footer empty (#616)', async ({ page }) => {
+  await page.route('**/achromat-fans.json', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="rayFan"] .eleo-legend`);
+    await expect(el, `${theme} rayFan legend element`).toHaveCount(1);
+    await expect(el).toBeEmpty();
+  }
+});
+
 // Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
 // labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
 // or the merit tile's other drawing. The gallery's own report of it is the expected console error.

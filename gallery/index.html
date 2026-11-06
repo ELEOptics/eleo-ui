@@ -51,7 +51,7 @@
       <section class="eleo-plot" data-tile="footprint" data-size="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__meta">Beam footprint, Cooke, at the stop</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="footprint"></div><div class="eleo-plot__ft eleo-legend" data-legend="footprint"></div></section>
       <section class="eleo-plot" data-tile="seidel" data-size="bars"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums, mm</span></div><div class="eleo-plot__body" data-svg="seidel"></div></section>
       <section class="eleo-plot" data-tile="seidel-terms" data-size="bars"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums by term, mm</span></div><div class="eleo-plot__body" data-svg="seidel-terms"></div></section>
-      <section class="eleo-plot" data-tile="rayFan" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">Achromat, recorded, TRA from the chief ray, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="ts"></div></section>
+      <section class="eleo-plot" data-tile="rayFan" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">Achromat, recorded, TRA from the chief ray, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="rayFan"></div></section>
       <section class="eleo-plot" data-tile="rayFan-opd" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">OPD, waves</span></div><div class="eleo-plot__body" data-svg="rayFan-opd"></div></section>
       <section class="eleo-plot" data-tile="psf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">PSF, linear</span></div><div class="eleo-plot__body map"><canvas data-canvas="psf"></canvas><div class="eleo-colorbar"><i data-bar="ember"></i><span><b>1</b><b>0</b></span></div></div></section>
       <section class="eleo-plot" data-tile="wavefront"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">wavefront, waves</span></div><div class="eleo-plot__body map"><canvas data-canvas="wavefront"></canvas><div class="eleo-colorbar"><i data-bar="wave"></i><span><b>+</b><b>0</b><b>−</b></span></div></div></section>
@@ -114,7 +114,7 @@
       'seidel-terms': recTile('seidelTerms', function (d, w) { return ELEO.bars(atWidth(d, w)); }),
       'throughFocus': { need: sampleBox, draw: function (_, w) { return ELEO.throughFocus({ width: w }); } },
       // The recorded achromat's fans through curve, as tall as rayFan's panels are (PLOT_SIZES.rayFan.aspect) over its columns.
-      'rayFan': recTile('fans', function (d, w) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns })); }),
+      'rayFan': recTile('rayFan', function (d, w) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns })); }),
       'rayFan-opd': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ kind: 'opd', width: w }); } },
       'mtf': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
@@ -202,7 +202,6 @@
     function tileMin(t) {
       var k = t.dataset.size, tile = t.dataset.tile, m = t.querySelector('[data-map]');
       try {
-        if (tile === 'rayFan') return REC.fans ? ELEO.minWidth('curve', REC.fans) : ELEO.minWidth('curve');
         if (tile === 'mtf-limits') return REC.mtf ? ELEO.minWidth('curve', atWidth(REC.mtf, 0, { limits: MTF_LIMITS })) : ELEO.minWidth('curve');
         if (k === 'curve') return ELEO.minWidth('curve', REC[tile]);
         if (k === 'spot') return ELEO.minWidth('spot', REC[tile === 'footprint' ? 'footprint' : 'spot']);
@@ -224,13 +223,14 @@
         });
         theme.querySelectorAll('[data-map]').forEach(function (el) { ELEO.fit(el, function (w) { el._w = w; drawMap(el); }); });
         fitCanvases(theme);
-        // The glass and footprint legends key their own recordings; empty, like the tile, if its fixture failed.
+        // The glass, footprint and fan legends key their own recordings; empty, like the tile, if its fixture failed.
         // The field and wavelength legends key the sample; empty, like its tiles, without it.
         theme.querySelectorAll('[data-legend]').forEach(function (el) {
           var k = el.dataset.legend;
           el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '')
             : k === 'footprint' ? (REC.footprintAngles ? ELEO.legend('field', undefined, REC.footprintAngles) : '')
-            : k === 'ts' || SAMPLE_BOX ? ELEO.legend(k) : '';
+            : k === 'rayFan' ? (REC.rayFanWavelengths ? ELEO.legend('wavelength', undefined, REC.rayFanWavelengths) : '')
+            : SAMPLE_BOX ? ELEO.legend(k) : '';
         });
         theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
@@ -285,7 +285,7 @@
         ['fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }],
         ['distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); }],
         ['spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); }],
-        ['fans', 'fans', function (d) { REC.fans = globalThis.ELEOAdapters.fans(d); }],
+        ['fans', 'fans', function (d) { REC.rayFan = globalThis.ELEOAdapters.fans(d); REC.rayFanWavelengths = d.sources[0].wavelengths; }],
         ['seidel', 'seidel', function (d) { REC.seidel = globalThis.ELEOAdapters.seidel(d); REC.seidelTerms = globalThis.ELEOAdapters.seidel(d, { by: 'term' }); }]
       ]],
       ['wandersleb', [
