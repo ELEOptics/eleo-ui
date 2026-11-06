@@ -86,7 +86,7 @@ No `exports` change in any `package.json`.
 
 ## Milestones
 
-### M1: Curve keys GitHub: `P677 M1: Curve keys`
+### M1: Curve keys (done 2026-11-06) GitHub: `P677 M1: Curve keys`
 
 Demo: `npm run gallery`: the MTF and field curvature tiles key each curve below the x label at the plot's
 text size; the distortion tile keys in the top-right corner (`keyAt: "top-right"`, CR #718); mtf-limits' vertical line reads "50 cycles/mm". Proves: O1
@@ -195,3 +195,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 paused after M1 (user): a library spike, #734, runs first; M1's CR #726 items (#730, #731) and M2 to M4 wait on its ADR.
 - 2026-11-06 #734 (user): ADR-0004 accepted, Observable Plot not adopted; the plan resumes with M1's #730 and #731.
 - 2026-11-06 review M1 round 5 (0 blocking, 3 backlog): #735, #736, #737 into M1; the milestone ticks after a round with nothing pulled in.
+- 2026-11-06 M1 reviewed again after the demo (rounds 5 and 6; round 6: 0 blocking, nothing pulled in); ticked.
