@@ -143,13 +143,14 @@ function typedCurve(o) {
   if (KEY_AT.indexOf(at) < 0) throw new TypeError('curve: unknown keyAt "' + at + '"');
   var corner = ents.length > 0 && at !== "below";
   var Hf = H0, Hs = H0, below = "";
-  /* The key under the x label, from the margins' text size t: rows of 1.4 t. With a `height` the frame gives up the rows; without, the SVG grows by them, rounded to a whole px. `fixed` is what the frame and margins take above the key. */
+  /* The key under the x label, from the margins' text size t: rows of 1.4 t after a 0.2 t gap. With a `height` the frame gives up the rows and the gap; without, the SVG grows by them, rounded to a whole px. `fixed` is what the frame and margins take above the key. */
   function placeBelow(t, L, R, fixed) {
-    var line = 1.4 * t, maxRow = o.height ? Math.max(0, Math.floor((H0 - fixed - 1) / line) - 1) : 1000;
+    var line = 1.4 * t, gap = 0.2 * t, maxRow = o.height ? Math.max(0, Math.floor((H0 - fixed - gap - 1) / line) - 1) : 1000;
     var kl = keyLayout(ents, t, { L: L, R: R, maxRow: maxRow });
-    Hf = o.height ? r2(H0 - line * kl.rows) : H0;
-    Hs = o.height ? H0 : Math.round(H0 + line * kl.rows);
-    below = keyMarkup(kl.places, ents, t, Hf, { mark: true });
+    Hf = o.height ? r2(H0 - line * kl.rows - gap) : H0;
+    Hs = o.height ? H0 : Math.round(H0 + line * kl.rows + gap);
+    /* The key's top is 0.2 t under the frame, so its first baseline (0.8 t down) is 1.4 t under the x label's (0.4 t above the frame). */
+    below = keyMarkup(kl.places, ents, t, Hf + gap, { mark: true });
   }
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(Hf - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };

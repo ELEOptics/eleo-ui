@@ -794,10 +794,10 @@ test('key', async () => {
   assert.deepEqual(texts(keyed).filter((t) => t.key).map((t) => t.text), ['0.0° T', '0.0° S']);
   assert.equal((keyed.match(/stroke-dasharray="5 3" fill="none"\/>/g) || []).length, 1, 'the sagittal entry is dashed');
   assert.ok(texts(keyed).some((t) => t.text === 'Spatial frequency, cycles/mm'));
-  // Default height grows by the key's rows: round(H + 1.4 t rows).
+  // Default height grows by the key's rows: round(H + 1.4 t rows + 0.2 t).
   const t = frameText(frameOf(460, 4.6 + 0.3 * 3));
   assert.equal(dims(plain)[1], 300 - 300 + Math.round(460 * 260 / 460));
-  assert.equal(dims(keyed)[1], Math.round(260 + 1.4 * t), 'one row');
+  assert.equal(dims(keyed)[1], Math.round(260 + 1.4 * t + 0.2 * t), 'one row and the gap');
   // With a height the SVG keeps it and the frame gives up the rows.
   assert.equal(dims(ELEO.curve({ series: [{ points: pts, label: 'a' }], x, y, height: 300 }))[1], 300);
   // `key` replaces the labels; an empty one draws none; no label, no key: unchanged.
@@ -813,4 +813,23 @@ test('key', async () => {
   const pan = ELEO.curve({ panels: [{ series: [{ points: pts, label: 'a' }] }, { series: [{ points: pts, label: 'a' }] }], x, y });
   assert.equal(texts(pan).filter((t) => t.key).length, 1);
   assert.throws(() => ELEO.curve({ series: [{ points: pts, label: 'a' }], keyAt: 'middle' }), /keyAt/);
+});
+
+// Plan #677 M1 (#704): a below key's first baseline is one key line (1.4 t) under the x label's baseline.
+// oracle: closed-form ADR-0003 (t(F) from the cell width, rows of 1.4 t)
+test('key clears the x label', async () => {
+  const x = { label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400], ticks: [0, 200, 400] }, y = { label: 'Modulus', range: [0, 1] };
+  const pts = [[0, 1], [400, 0]];
+  const base = (svg, pred) => [...svg.matchAll(/<text class="eleo-tick"( data-key)? x="[^"]*" y="([^"]*)"[^>]*font-size:([\d.]+)px">([^<]*)<\/text>/g)].filter(pred).map((m) => [+m[2], +m[3]])[0];
+  const series = [{ points: pts, label: 'a' }];
+  for (const width of [460, 900]) {
+    for (const height of [undefined, 300]) {
+      for (const panels of [false, true]) {
+        const o = panels ? { panels: [{ series }, { series }], x, y, width, height } : { series, x, y, width, height };
+        const svg = ELEO.curve(o);
+        const xl = base(svg, (m) => !m[1] && m[4] === 'Spatial frequency, cycles/mm'), k = base(svg, (m) => m[1]);
+        assert.ok(Math.abs(k[0] - xl[0] - 1.4 * xl[1]) < 0.02, `width ${width} height ${height} panels ${panels}: ${k[0] - xl[0]} against ${1.4 * xl[1]}`);
+      }
+    }
+  }
 });
