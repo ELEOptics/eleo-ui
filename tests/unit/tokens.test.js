@@ -45,3 +45,24 @@ test('glass band ends in range', async () => {
     assert.ok(ends.lo.l <= lo + 0.02, `glass-band-lo ${th}: L ${ends.lo.l} not at the dark end ${lo}`);
   }
 });
+
+// oracle: WCAG 2.1 contrast ratio of each map's grid tokens against the map's lowest and highest stops,
+// the same ends tests/map2d.spec.js::grid over the image reads from ELEO.colormap(map, el)[0] and [255].
+test('map grid contrast', () => {
+  const tok = (n) => json.color.tokens.find((t) => t.name === n);
+  const val = (n, th) => { assert.ok(tok(n), `${n} is defined`); return tok(n).value[th]; };
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.2126 * lin(n >> 16 & 255) + 0.7152 * lin(n >> 8 & 255) + 0.0722 * lin(n & 255); };
+  const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+  const ends = (map, th) => map === 'viridis' ? ['#440154', '#fde725'] : map === 'gray' ? ['#000000', '#ffffff']
+    : [val(`map-${map}-0`, th), val(`map-${map}-8`, th)];
+  for (const map of ['ember', 'wave', 'viridis', 'gray']) for (const th of ['light', 'dark']) {
+    for (const [name, min] of [[`map-grid-${map}`, 3], [`map-grid-${map}-minor`, 1.5]]) {
+      const c = val(name, th);
+      for (const [i, end] of ends(map, th).entries()) {
+        const r = ratio(c, end);
+        assert.ok(r >= min, `${name} ${th} ${c} vs ${map} stop ${i ? 'highest' : 'lowest'} ${end}: ${r.toFixed(2)}:1 < ${min}:1`);
+      }
+    }
+  }
+});

@@ -30,6 +30,7 @@ For code that can't read CSS: exports, native views, canvas drawing outside a pa
 
 - Text tokens hold 4.5:1 or more on `surface` in both themes; data marks hold 3:1.
 - Stop 0 of `ember` and stop 4 (zero) of `wave` equal the plot ground in each theme, so zero disappears into the plot.
+- `map-grid-<map>` (and `-minor`) are the grid lines over a colormap image, one pair per map (`ember`, `wave`, `viridis`, `gray`): 3:1 (minor 1.5:1) or more against that map's lowest and highest stops in both themes. They can fade mid-map on `wave`.
 - `accent` is the one warm light, for the primary action. It never colors data.
 
 MIT licensed. Part of [eleo-ui](https://github.com/ELEOptics/eleo-ui).
