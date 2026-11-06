@@ -161,6 +161,7 @@ layout3D's rays over the image plane. Proves: O3, O4
 | #752 | `Map2DGridProps.grid` and each axis accept `null`, as documented | allow null because the Svelte wrapper types its props from it; considered dropping null from the docs | `packages/plots/src/index.d.ts`, `tests/types/map2d.ts` | `tests/unit/types.test.js` | #750 |
 | #753 | A patch changeset for #748's colorbar fix | forced (CLAUDE.md: a changeset per user-facing change) | `.changeset/map2d-colorbar-ticks.md` | none | #750 |
 | #754 | `.changeset/map2d-grid.md` names `null` (whole or per axis) as left out | forced (review finding) | `.changeset/map2d-grid.md` | none | #753 |
+| #755 | The grid changeset and README say `minor: false` draws no minors | forced (review finding) | `.changeset/map2d-grid.md`, `packages/plots/README.md` | none | #754 |
 
 ### M4: Layout keys GitHub: `P677 M4: Layout keys`
 
@@ -218,3 +219,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M3 round 1 (0 blocking, 8 backlog): findings 1, 3, 8 into #746; 2 into #747; 4 (pre-existing colorbar ticks) into #748; 6 into #749; 7 into #750. Finding 5 (wave's major grid token fainter than its minor at zero) is #751, left to the user at M3's demo, as the Risks row says.
 - 2026-11-06 review M3 round 2 (0 blocking, 2 backlog): #752 (grid's null type) and #753 (colorbar changeset) into M3.
 - 2026-11-06 review M3 round 3 (0 blocking, 2 backlog): finding 1 fixed here (the Core changes list gives the shipped `Map2DGridProps.grid` type); finding 2 into #754.
+- 2026-11-06 review M3 round 4 (0 blocking, 1 backlog): #755 into M3.
