@@ -95,7 +95,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 Each item unskips its own acceptance case (the commit hook refuses a source change with no test; plan [#512], CR [#593]),
 so no milestone ends with an empty unskip item.
 
-### M1: recorded status drawn, `show`, the Cassegrain tile GitHub: `P642 M1: Status per point`
+### M1: recorded status drawn, `show`, the Cassegrain tile (done 2026-11-05) GitHub: `P642 M1: Status per point`
 
 Demo: `npm run gallery`; the Wandersleb and Cassegrain tiles drawn from recorded `status` (unchanged to the eye), the new
 Cassegrain tile with `show: ["Alive", "Virtual"]` (no obscured rays), both themes and palettes; a review image of the
@@ -147,6 +147,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 CR [#653] (orchestrator, accepted): #648's first attempt showed the four recorded baseline entries (#644) would draw from `status` once #646 re-recorded them; O3 defines them as the recordings with `status` deleted, so +1 item [#654] in M1 before [#648], keeping every invariant.
 - 2026-11-05 review M1 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, CR [#655] accepted (README off by one, item [#656]); backlog [#657], [#658], [#659] pulled into M1 (small, named, in files M1 changed).
 - 2026-11-05 [#659] back to the backlog, out of M1 (orchestrator): a pure refactor, so it has no test to write first, and the commit hook refuses a source change without one; the next item that touches the run building carries it.
+- 2026-11-05 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; CRs [#653] and [#655] resolved; M1 ticked (rounds: 1+3, 0). Awaiting the user's M1 demo (O5).
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
