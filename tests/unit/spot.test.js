@@ -554,4 +554,9 @@ test('grid', () => {
   assert.ok(/data-grid="y"/.test(svg), 'and horizontal lines');
   const off = ELEO.spot({ panels, unit: 'µm', width: 300, half: 5, grid: false });
   assert.ok(!/data-grid/.test(off), 'grid: false draws none');
+  // the markup writes the panel origin to 2 decimals everywhere, as the panel's <svg x> does (width 200.74, 3 panels: origin 74.24000000000001 unrounded)
+  const three = ELEO.spot({ panels: [panels[0], panels[0], panels[0]], unit: 'µm', width: 200.74, half: 5 });
+  const drawn = [...three.matchAll(/<(?:rect|path)[^>]*var\(--plot-grid\)[^>]*>/g)].map((m) => m[0]);
+  assert.ok(drawn.length > 9, 'frames, grid lines and crosses found');
+  drawn.forEach((el) => assert.ok(!/\d\.\d{3,}/.test(el), `at most 2 decimals: ${el}`));
 });

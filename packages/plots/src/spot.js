@@ -78,14 +78,14 @@ function typedSpot(o) {
   panels.forEach(function (p, i) {
     var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common;
     if (!isFinite(side / 2 / half)) half = 1;
-    var s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
-    g += '<rect x="' + (ox + .5) + '" y="' + (top + .5) + '" width="' + (side - 1) + '" height="' + (side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
+    var s = (side / 2) / half, ox = r2(i * (side + gap)), cx = side / 2;
+    g += '<rect x="' + r2(ox + .5) + '" y="' + (top + .5) + '" width="' + r2(side - 1) + '" height="' + r2(side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
     if (o.grid !== false) niceTicks(-half, half, 5).ticks.filter(function (tk) { return Math.abs(tk) < half; }).forEach(function (tk) {
       var u = r2(cx + tk * s);
-      g += '<path d="M' + r2(ox + u) + "," + top + " V" + (top + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="x"/>';
-      g += '<path d="M' + ox + "," + r2(top + u) + " H" + (ox + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
+      g += '<path d="M' + r2(ox + u) + "," + top + " V" + r2(top + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="x"/>';
+      g += '<path d="M' + ox + "," + r2(top + u) + " H" + r2(ox + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
     });
-    g += '<path d="M' + (ox + 6) + "," + (top + cx) + " H" + (ox + side - 6) + " M" + (ox + cx) + "," + (top + 6) + " V" + (top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
+    g += '<path d="M' + r2(ox + 6) + "," + r2(top + cx) + " H" + r2(ox + side - 6) + " M" + r2(ox + cx) + "," + (top + 6) + " V" + r2(top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
     g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, cx, cx].join(" ") + ')">';
     (p.series || []).forEach(function (se) {
       var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
