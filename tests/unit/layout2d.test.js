@@ -1222,3 +1222,15 @@ test('show is validated and hides a legacy dead ray (U17)', () => {
   assert.equal(at(['Alive', 'Virtual', 'Dead'])[0].length, 3, 'with Dead shown the ray runs through its blocking point');
   assert.equal(at([]).length, 0);
 });
+
+// Plan #642, issue #657: O3/U17: a legacy one-point ray with alive 0 draws its dotted point, as before #648.
+test('a one-point ray with alive 0 draws its dotted point (O3)', () => {
+  const L = { ...fixture('tolerance'), rays: [[[[0, 0]]]], alive: [[0]], chief: [0] };
+  delete L.dead;
+  const got = drawn(ELEO.layout2D({ data: L, rays: 'fan' })).polylines;
+  assert.equal(got.length, 1);
+  assert.equal(got[0]['stroke-dasharray'], '1 3');
+  assert.equal(pairs(got[0].points).length, 1);
+  const hidden = drawn(ELEO.layout2D({ data: L, rays: 'fan', show: ['Alive', 'Dead'] })).polylines;
+  assert.equal(hidden.length, 0, 'Virtual hidden draws nothing');
+});
