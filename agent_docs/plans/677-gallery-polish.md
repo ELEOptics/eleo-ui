@@ -1,7 +1,7 @@
 # Plan #677: Gallery polish from the #642 M2 demo
 
 Status: approved 2026-11-06
-Branch: `plan/677-gallery-polish` PR: #<pr> Depends on: none (plan #642 merged 2026-11-06, PR #652) Roadmap: `agent_docs/roadmap.md`, row R
+Branch: `plan/677-gallery-polish` PR: #702 Depends on: none (plan #642 merged 2026-11-06, PR #652) Roadmap: `agent_docs/roadmap.md`, row R
 
 ## Problem
 
