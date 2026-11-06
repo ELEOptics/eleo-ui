@@ -652,3 +652,58 @@ print(json.dumps(res))
   assert.doesNotThrow(() => JSON.parse(out.cookeText));
   assert.equal(out.noDeadNoFile, true, 'no Dead anywhere leaves no clipped file');
 });
+
+// Plan #603 work item #629. fans() refuses a model whose reference wavelength is missing, or is not among a source's recorded wavelengths.
+test('fans refuses a missing or unrecorded reference wavelength', () => {
+  const py = String.raw`
+import importlib.util, json, tempfile
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("rec", "scripts/record-phos-core.py")
+rec = importlib.util.module_from_spec(spec); spec.loader.exec_module(rec)
+N = rec.FAN_SAMPLES
+class Alive: pass
+class Virtual: pass
+class Missed: pass
+class Dead: pass
+class RayStatus:
+    ALIVE, VIRTUAL, MISSED, DEAD_E = Alive, Virtual, Missed, Dead
+class Run:
+    def wavelengths(self): return [0.55]
+    def _fan(self): return [[(k / N, 0.5) for k in range(N)]]
+    def x_fan(self): return self._fan()
+    def y_fan(self): return self._fan()
+    def _st(self): return [[Alive() for k in range(N)]]
+    def x_statuses(self): return self._st()
+    def y_statuses(self): return self._st()
+class Settings:
+    def set_system_index(self, i): pass
+    def set_pupil_slice_angle(self, a): pass
+    def set_num_samples(self, n): pass
+    def run(self, model): return [Run()]
+class Sys:
+    def __init__(self, ref): self.ref = ref
+    def reference_wavelength(self): return self.ref
+class Model:
+    def __init__(self, ref): self.ref = ref
+    def sources(self, i): return [object()]
+    def system(self, i): return Sys(self.ref)
+class Phos:
+    RayStatus = RayStatus
+    TransverseRayErrorSettings = Settings
+rec.field_angle_deg = lambda src: 0.0
+
+def attempt(ref):
+    with tempfile.TemporaryDirectory() as d:
+        try: rec.fans(Phos, "t", Model(ref), Path(d), {}); return None
+        except SystemExit as e: return str(e)
+
+print(json.dumps({"none": attempt(None), "unrecorded": attempt(0.65), "recorded": attempt(0.55)}))
+`;
+  const r = spawnSync('python3', ['-B', '-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.match(out.none, /has no reference wavelength/, 'a missing reference is refused');
+  assert.match(out.unrecorded, /650/, 'an unrecorded reference is refused naming it');
+  assert.match(out.unrecorded, /550/, 'and the recorded wavelengths');
+  assert.equal(out.recorded, null, 'a recorded reference passes');
+});
