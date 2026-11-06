@@ -9,5 +9,6 @@ nav = [
   { "Decisions" = [
     { "ADR-0001: Plot boundary and styling rule" = "adr/0001-plot-boundary.md" },
     { "ADR-0003: Plot scale" = "adr/0003-plot-scale.md" },
+    { "ADR-0004: Observable Plot weighed again, not adopted" = "adr/0004-observable-plot-not-adopted.md" },
   ] },
 ]

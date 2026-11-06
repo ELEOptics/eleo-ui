@@ -190,3 +190,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 M1 reviewed in 4 rounds (9, 4, 2, 0 counting pulled-in items); round 4 says 0 blocking; ticked.
 - 2026-11-06 M1 demo (user): no go yet. CR #726 (sagittal dashes scale with the stroke, a longer key line swatch; user chose scaling) reopens M1 with #730, #731. For M4: CR #727 drops the merit before/after tile (#732); CR #728 adds the glass key to the field key (#698 and #699 amended); CR #729 draws a stop bar wherever STO is labelled (#733). The user asked whether eleo-ui should adopt an existing plotting library instead (answered on the PR).
 - 2026-11-06 paused after M1 (user): a library spike, #734, runs first; M1's CR #726 items (#730, #731) and M2 to M4 wait on its ADR.
+- 2026-11-06 #734 (user): ADR-0004 accepted, Observable Plot not adopted; the plan resumes with M1's #730 and #731.
