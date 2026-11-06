@@ -131,6 +131,7 @@ Demo: `npm run gallery`: every tile is alone on its line across the page, all li
 | [#625] | The gallery: every tile alone on its line at the page width, the light section then the dark; below its `ELEO.minWidth` a tile draws at that minimum and scrolls inside itself, never the page | one tile per line because resizing then shows every plot at every width (the user's ask); considered rows with a one-column option, two layouts to test | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::every tile is the page width, the light theme before the dark (#622)`, `tests/gallery.spec.js::every tile at its minimum has the floor frame (#587)` | [#624], [#627] |
 | [#628] | Review M2 finding 3: `ELEOAdapters.fans` takes the reference-wavelength sample with the smallest |pupil| under 1e-9 as the chief ray, not an exact `=== 0` | a tolerance because a computed pupil coordinate need not be exactly 0; considered the recorder asserting exact 0, which refuses a valid recording | `tests/fixtures/phos-core/adapters.js`, `tests/unit/curve.test.js` | `tests/unit/curve.test.js::recorded ray fans round trip (U6)` with 1e-17 and 0.05 clones | [#624] |
 | [#629] | Review M2 finding 4: the stand-in tests cover `fans()`'s two refusals (no reference wavelength; one not recorded) | the existing `-B -I` stand-in because it already runs `fans()`; considered a real phos-core run | `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::fans refuses a missing or unrecorded reference wavelength` | [#623] |
+| [#631] | Review M2 round 2 finding 1: the U6 test's chief-ray `TypeError` assertions check the whole `field <angle>°` prefix | the whole prefix because the message's fixed text contains digits; considered a regex on the angle | `tests/unit/curve.test.js` | `tests/unit/curve.test.js::recorded ray fans round trip (U6)` | [#628] |
 
 End of plan (orchestrator, not a work item): the roadmap's U6 text and oracle name the recorded fans; row P done.
 
@@ -156,6 +157,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 M1 demo (user): no-go. "No go. use the chief ray. Additionally, in the gallery, make every plot have its own full space across the width of the page. That way, resizing the page allows me to see them all at different sizes / scales. The color schemes can be shown one after the other (i.e. first all the light theme, then all the dark theme)". CRs [#621] and [#622], accepted by the user; M2 with items [#623], [#624], [#625]. The orchestrator chose the reference wavelength's chief ray (the ray-fan convention) over each wavelength's own.
 - 2026-11-05 [#625] returned a CR: the full-width layout breaks `map2d.spec.js`'s U8 wavefront test (its ticks pass its 2 px margin). CR [#626] accepted by the orchestrator (test only, the oracle unchanged); item [#627] runs before [#625], whose first attempt is discarded.
 - 2026-11-05 review M2 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 4 backlog; CRs [#621], [#622], [#626] resolved. Findings 3 and 4 pulled into M2 as [#628], [#629]; finding 1 ([#630], the canvas tiles scale a bitmap instead of redrawing) is for the M2 demo; finding 2 (ADR-0003's gallery wording) is reported to the user.
+- 2026-11-05 review M2 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog, pulled into M2 as [#631] (rounds: 0+2, 0+1).
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
@@ -199,4 +201,5 @@ One bullet per entry (bare lines render as one paragraph).
 [#628]: https://github.com/ELEOptics/eleo-ui/issues/628
 [#629]: https://github.com/ELEOptics/eleo-ui/issues/629
 [#630]: https://github.com/ELEOptics/eleo-ui/issues/630
+[#631]: https://github.com/ELEOptics/eleo-ui/issues/631
 [#85]: https://github.com/ELEOptics/eleo-ui/issues/85
