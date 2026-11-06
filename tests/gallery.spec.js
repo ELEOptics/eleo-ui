@@ -696,16 +696,30 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   // The height differs by 1 px: Chromium reports a pixel-ratio change to media queries only with a viewport change, and the width, which redraws the tiles by itself, stays.
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 700, height: 901, deviceScaleFactor: 2, mobile: false });
   await expect.poll(async () => (await widths()).every((c) => c.dpr === 2 && Math.abs(c.backing - c.rendered * c.dpr) <= 1), { message: 'backing follows the pixel ratio' }).toBe(true);
-  // The airy image is radially symmetric: left/right and top/bottom halves match pixel for pixel.
-  const sym = await page.locator('[data-canvas="airy"]').first().evaluate((c) => {
-    const n = c.width, d = c.getContext('2d').getImageData(0, 0, n, n).data;
-    let bad = 0;
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) for (let k = 0; k < 4; k++) {
-      const a = d[(y * n + x) * 4 + k];
-      if (a !== d[(y * n + (n - 1 - x)) * 4 + k] || a !== d[((n - 1 - y) * n + x) * 4 + k]) bad++;
-    }
-    return { n, bad };
+  // The airy image is radially symmetric: left/right and top/bottom halves match pixel for pixel, and every pixel is written (alpha 255).
+  // Checked on the gallery's own (even) n and on a detached canvas with an odd n, where the middle row and column mirror onto themselves.
+  const sym = await page.evaluate(() => {
+    const check = (c) => {
+      const n = c.width, d = c.getContext('2d').getImageData(0, 0, n, n).data;
+      let bad = 0, unwritten = 0;
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+        if (d[(y * n + x) * 4 + 3] !== 255) unwritten++;
+        for (let k = 0; k < 4; k++) {
+          const a = d[(y * n + x) * 4 + k];
+          if (a !== d[(y * n + (n - 1 - x)) * 4 + k] || a !== d[((n - 1 - y) * n + x) * 4 + k]) bad++;
+        }
+      }
+      return { n, bad, unwritten };
+    };
+    const odd = document.createElement('canvas');
+    airyTile(odd, 5);
+    return { gallery: check(document.querySelector('[data-canvas="airy"]')), odd: check(odd) };
   });
-  expect(sym.n, 'airy drawn').toBeGreaterThan(100);
-  expect(sym.bad, 'airy mirror-symmetric').toBe(0);
+  expect(sym.gallery.n, 'airy drawn').toBeGreaterThan(100);
+  expect(sym.gallery.n % 2, 'gallery airy n is even').toBe(0);
+  expect(sym.odd.n, 'odd airy n').toBe(5);
+  for (const [k, r] of Object.entries(sym)) {
+    expect(r.bad, `${k} airy mirror-symmetric`).toBe(0);
+    expect(r.unwritten, `${k} airy has no unwritten pixel`).toBe(0);
+  }
 });
