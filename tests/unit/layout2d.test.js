@@ -863,7 +863,7 @@ test('recorded Wandersleb ray status round trip (U16)', () => {
     const svg = ELEO.layout2D({ data: L, rays: 'fan', width });
     const { M, polygons, polylines } = drawn(svg);
     inverse(M); // the geometry group's matrix is the pixel transform; its points are already mm
-    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3' }));
+    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', status: a['data-status'] }));
     L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
       const a = L.alive[k][i];
       assert.ok(Number.isInteger(a) && a >= 0 && a <= ray.length, `width ${width} field ${k} ray ${i}: alive in 0..len`);
@@ -1039,7 +1039,7 @@ test('recorded Cassegrain stops its obscured chief at the obscuration', () => {
     const { M, body, polygons, polylines } = drawn(svg);
     inverse(M);
     const under = (m) => m.index < body.indexOf('<g opacity') || m.index > body.indexOf('</g>', body.indexOf('<g opacity')); // not a ray; bodies follow the ray group (CR #381)
-    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke }));
+    const parts = polylines.map((a) => ({ pts: pairs(a.points), dotted: a['stroke-dasharray'] === '1 3', stroke: a.stroke, status: a['data-status'] }));
     const { claimed } = statusRoundTrip(L, parts, `width ${width}`);
     const chief = L.rays[0][L.chief[0]], ca = L.alive[0][L.chief[0]];
     assert.ok(polylines.some((a) => samePathFrom1(pairs(a.points), chief.slice(0, ca + 1)) && a['stroke-dasharray'] === '6 4'), `width ${width}: the dead chief is one 6 4 dashed polyline through point a`);
@@ -1161,11 +1161,11 @@ const STATUSES = ['Alive', 'Virtual', 'Dead'];
 const RECORDINGS = ['wandersleb', 'cassegrain'].map((n) => JSON.parse(readFileSync(new URL(`../fixtures/phos-core/${n}-layout.json`, import.meta.url))));
 // Polylines carrying a status, as mm point lists with the drawing's dash.
 function statusPolylines(svg) {
-  const { M, polylines } = drawn(svg), back = inverse(M);
-  return polylines.filter((a) => a['data-status']).map((a) => ({ status: a['data-status'], dash: a['stroke-dasharray'], pts: pairs(a.points).map(back) }));
+  const { polylines } = drawn(svg); // the geometry group's points are already mm
+  return polylines.filter((a) => a['data-status']).map((a) => ({ status: a['data-status'], dash: a['stroke-dasharray'], pts: pairs(a.points) }));
 }
 
-test('recorded ray status per point (U17)', { skip: '#643' }, () => {
+test('recorded ray status per point (U17)', () => {
   for (const L of RECORDINGS) for (const width of [1000, 600]) {
     assert.ok(Array.isArray(L.status), 'the recording carries status per point');
     const got = statusPolylines(ELEO.layout2D({ data: L, rays: 'fan', width }));

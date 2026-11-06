@@ -34,15 +34,25 @@ function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i
 // A lens stop reaches its profile edge, |profile[0][1]| (layoutBounds' rule), so its label clears the glass.
 function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : Math.abs(S[i].profile[0][1]); }
 
+// The status of each point of rays[k][i], "Alive", "Virtual" or "Dead": `status` when present, else Alive below `alive`, Virtual from it, and with `dead`
+// Dead at the blocking point; every point Alive with neither. null where the layout's shape does not reach this ray (layoutBounds runs unvalidated).
+function statusOf(L, k, i) {
+  var r = L.rays[k][i];
+  if (L.status != null) { var s = L.status[k] && L.status[k][i]; return Array.isArray(s) ? s : null; }
+  if (L.alive == null) return r.map(function () { return "Alive"; });
+  var a = L.alive[k] && L.alive[k][i], d = L.dead && L.dead[k] && L.dead[k][i];
+  return a == null ? null : r.map(function (_, j) { return d && j === a ? "Dead" : j < a ? "Alive" : "Virtual"; });
+}
 // A mirror's body: the profile plus a flat back D/8 (sd/4) behind its far z, on the side away from the light, with |y| < hole left open.
 // The light's way is the ray's step from its point at surface i to its point at surface i + 1 (rays carry one point per surface after their start;
 // a mirror with no next point takes its incoming step), from a ray alive past the mirror before any ray. A polygon per side of the hole, or one.
 function mirrorBodies(L, i) {
   var a = L.surfaces[i], t = a.sd / 4, dir = 0, h = a.hole > 0 ? a.hole : 0;
-  // A ray alive past the mirror first (alive plus its blocking point, if dead, >= i + 3; or no `alive`): a dead ray's dotted tail may run any way.
+  // A ray alive past the mirror first (its point i + 2 drawn and not Virtual): a virtual tail may run any way.
   [true, false].forEach(function (strict) { L.rays.forEach(function (fan, k) { fan.forEach(function (r, j) {
-    if (dir || (L.alive && !(L.alive[k] && L.alive[k][j] != null))) return;
-    if (strict && L.alive && !(L.alive[k][j] + (L.dead && L.dead[k] && L.dead[k][j] ? 1 : 0) >= i + 3)) return;
+    var st = dir ? null : statusOf(L, k, j);
+    if (dir || !st) return;
+    if (strict && (st[i + 2] === "Virtual" || (st.indexOf("Dead") >= 0 && st.indexOf("Dead") < i + 2))) return;
     if (r[i + 2]) dir = Math.sign(r[i + 2][0] - r[i + 1][0]);
     else if (!strict && r[i + 1] && !L.surfaces[i + 1]) dir = -Math.sign(r[i + 1][0] - r[i][0]);
   }); }); });
@@ -235,13 +245,20 @@ export function layout2D(o) {
     if (!rays.length) return; // every ray of this fan was dead: layout.py dropped them all
     var c = chiefOf(L, k), pick = set === "fan" ? rays.map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, rays.length - 1];
     pick.filter(function (i, j) { return pick.indexOf(i) === j; }).forEach(function (i) {
-      // A ray with a < len alive points is two polylines sharing point a - 1: [0, a) as before, [max(a - 1, 0), len) dotted.
-      var r = rays[i], a = L.alive ? L.alive[k][i] : r.length;
-      function part(q, dash) { return '<polyline points="' + pts(q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + " " + NS + "/>"; }
-      // A dead ray is one polyline through its blocking point a, with no dotted part (a chief keeps its 6 4 dash).
-      if (L.dead && L.dead[k][i]) { g += part(r.slice(0, a + 1), i === c && set !== "chief" ? "6 4" : ""); return; }
-      if (a > 0) g += part(r.slice(0, a), i === c && set !== "chief" ? "6 4" : "");
-      if (a < r.length) g += part(r.slice(Math.max(a - 1, 0)), "1 3");
+      // The ray is drawn through its first Dead point and no further; segment j (point j - 1 to j) takes point j's status. With `status` each run of one status is a
+      // polyline with data-status; without it adjacent solid runs (Alive and Dead) join and Virtual runs are dotted (a chief's solid runs keep their 6 4 dash).
+      var r = rays[i], st = statusOf(L, k, i), end = st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead"), runs = [];
+      for (var j = 1; j <= end; j++) {
+        var last = runs[runs.length - 1], virt = st[j] === "Virtual";
+        if (last && (L.status ? last.st === st[j] : last.virt === virt)) last.q.push(r[j]);
+        else runs.push({ st: st[j], virt: virt, q: [r[j - 1], r[j]] });
+      }
+      // Without `status` the legacy head stays: a lone solid point before the dots, or a ray with no segment. With it a run needs a segment.
+      if (!L.status && st[0] !== "Virtual" && (!runs.length || runs[0].virt)) runs.unshift({ st: st[0], virt: false, q: [r[0]] });
+      runs.forEach(function (u) {
+        var dash = u.virt ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
+        g += '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + " " + NS + "/>";
+      });
     });
     ends[k] = rays[c][rays[c].length - 1];
   });
