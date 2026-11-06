@@ -857,3 +857,18 @@ test('key swatch follows the role', () => {
   assert.ok(sw, 'a reference swatch line is drawn');
   assert.equal(sw[1], 'var(--ink)');
 });
+
+// Plan #677 M1 (#709): a corner key on a short plot wraps at the plot's width and stays inside the viewBox.
+// oracle: invariant (the key box lies within the SVG's viewBox)
+test('corner key stays in the plot', async () => {
+  const pts = [[0, 1], [400, 0]];
+  const series = Array.from({ length: 8 }, (_, i) => ({ points: pts, index: i, label: 'series number ' + i }));
+  for (const keyAt of ['top-right', 'top-left']) {
+    const s = ELEO.curve({ series, keyAt, width: 300, height: 120, x: { range: [0, 400] }, y: { range: [0, 1] } });
+    const r = s.match(/<rect class="eleo-key" x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+    assert.ok(r, keyAt + ': key box present');
+    const [x, , w] = r.slice(1).map(Number);
+    assert.ok(x >= 0, keyAt + ': box starts inside, x=' + x);
+    assert.ok(x + w <= 300 + 1e-6, keyAt + ': box ends inside, right=' + (x + w));
+  }
+});

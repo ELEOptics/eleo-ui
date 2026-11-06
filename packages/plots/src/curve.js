@@ -128,12 +128,13 @@ var KEY_AT = ["below", "top-left", "top-right", "bottom-left", "bottom-right"];
 /* A corner key: a box on --surface (no stroke: a grid-stroked rect reads as a frame) inside the plot area at the cell's origin; it never resizes the frame. */
 function cornerKey(ents, at, t, w, h, T, mg) {
   var L = r2(mg.L), pw = r2(Math.max(1, w - L - mg.R)), ph = r2(Math.max(1, h - T - mg.B)), line = 1.4 * t, pad = 0.4 * t;
-  var maxRow = Math.max(0, Math.floor((ph - 2 * pad) / line) - 1);
-  var kl = keyLayout(ents, t, { L: 0, R: Math.max(0, pw - 4 * pad), maxRow: maxRow }), wide = 0;
+  /* The key wraps at the plot's width whether or not its rows fit the height. */
+  var kl = keyLayout(ents, t, { L: 0, R: Math.max(0, pw - 4 * pad), maxRow: 1000 }), wide = 0;
   /* The same width estimate as key.js (a swatch, then 0.6 em a character). */
   ents.forEach(function (e, k) { wide = Math.max(wide, kl.places[k][0] + 1.2 * t + 0.6 * t * Array.from(e.label).length); });
   var bw = r2(wide + 2 * pad), bh = r2(line * kl.rows + 2 * pad - 0.4 * t);
   var bx = at.slice(-4) === "left" ? L + pad : L + pw - pad - bw, by = at.slice(0, 3) === "top" ? T + pad : T + ph - pad - bh;
+  bx = Math.max(L + pad, bx);
   var places = kl.places.map(function (p) { return [bx + pad + p[0], p[1]]; });
   return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, ents, t, by + pad - 0.2 * t, { mark: true });
 }
