@@ -50,7 +50,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 
 | ID | Outcome | Acceptance test (given / when / then) | Oracle | Test |
 | -- | -- | -- | -- | -- |
-| O1 | `layout2D` draws each kept point's recorded status: each segment in its end point's status's style; with `status` a ray drawn to its last point, `Virtual` and `Dead` faded (CR [#660]); without it, through its first `Dead` point and no further | Given the Wandersleb and Cassegrain layouts re-recorded with `status`, when drawn with `rays: 'fan'` at 1000 and 600 px, then inverting the transform, the polylines carrying each `data-status` recover exactly that status's segments within 0.01 mm | `fixture: the Wandersleb and Cassegrain layouts re-recorded by scripts/record-phos-core.py at the fixtures' pinned phos-core sha, with each kept point's status` (roadmap U17) | `tests/unit/layout2d.test.js::recorded ray status per point (U17)` |
+| O1 | `layout2D` draws each kept point's recorded status: with `status`, each segment in its start point's status's style (CR [#663]) and a ray drawn to its last point, `Virtual` and `Dead` faded (CR [#660]); without it, each segment in its end point's status's style, through its first `Dead` point and no further | Given the Wandersleb and Cassegrain layouts re-recorded with `status`, when drawn with `rays: 'fan'` at 1000 and 600 px, then inverting the transform, the polylines carrying each `data-status` recover exactly that status's segments within 0.01 mm | `fixture: the Wandersleb and Cassegrain layouts re-recorded by scripts/record-phos-core.py at the fixtures' pinned phos-core sha, with each kept point's status` (roadmap U17) | `tests/unit/layout2d.test.js::recorded ray status per point (U17)` |
 | O2 | `show` hides the segments of any status, and the drawing does not reflow | Given each recorded layout, when drawn with `show` leaving out one status at a time, then that status draws no polyline, the others are as in O1, and the transform and viewBox equal the drawing with every status shown | same fixture (U17) | `tests/unit/layout2d.test.js::show hides a status (U17)` |
 | O3 | A layout with no `status` draws as before | Given the sample, the website's layouts and the Wandersleb and Cassegrain recordings with `status` deleted (fan rays, the adapter's labels, 1000 and 600 px), when drawn, then the SVG is byte-identical to the base build's. The tiles that now draw from `status` (a dead ray past its first point becomes two runs) are checked by eye at O5 | `property: a layout with only alive and dead, or none, gives the same SVG as before` (U17), the baseline recorded by `scripts/record-renderers.mjs` from a build of the plan's base | `tests/unit/split.test.js::SVG renderers draw the base markup` (gains the two recordings) |
 | O4 | The recorder writes `status`, and the re-recorded rays, `alive` and `dead` are unchanged | Given the re-recorded fixtures, when the fixture test reads them, then `status` has one Rust name per kept point, `alive` and `dead` follow from `status` (first non-Alive index; first non-Alive is Dead), and U16's recorded facts hold | `fixture: phos-core 580090e` (U16, U17) | `tests/unit/phos-core-fixtures.test.js::recorded layouts carry each point's status (U17)` |
@@ -95,7 +95,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 Each item unskips its own acceptance case (the commit hook refuses a source change with no test; plan [#512], CR [#593]),
 so no milestone ends with an empty unskip item.
 
-### M1: recorded status drawn, `show`, the Cassegrain tile (done 2026-11-06) GitHub: `P642 M1: Status per point`
+### M1: recorded status drawn, `show`, the Cassegrain tile GitHub: `P642 M1: Status per point`
 
 Demo: `npm run gallery`; the Wandersleb and Cassegrain tiles drawn from recorded `status` (unchanged to the eye), the new
 Cassegrain tile with `show: ["Alive", "Virtual"]` (no obscured rays), both themes and palettes; a review image of the
@@ -117,6 +117,7 @@ Wandersleb with `show: ["Alive", "Dead"]` (the draft `review-assets` release, ne
 | [#657] | A legacy one-point ray with `alive` 0 draws its dotted single-point polyline again, as before [#648] (review M1 round 1, finding 2) | a lone dotted `[r[0]]` head without `status` when Virtual is shown, the one case a 6603-drawing fuzz found; considered documenting it away, which breaks U17's property | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::a one-point ray with alive 0 draws its dotted point (O3)` | [#656] |
 | [#658] | `alive` and `dead` are not validated when `status` is present (review M1 round 1, finding 3) | skip their `perRay` calls beside `status`, as the Constraints and the Core JSDoc say; considered rewording the docs, which edits Core `index.d.ts` | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::alive and dead are ignored when status is present` | [#657] |
 | [#661] | With `status`, a ray drawn to its last point; every `Virtual` and `Dead` run in one `<g opacity=".35">` before the `.85` group of `Alive` runs, dashes as today; without `status` unchanged (CR [#660], M1 demo) | `end` the last point only with `status`, the faded polylines in a second group emitted only when non-empty, so a legacy drawing gains no bytes (O3); considered a per-polyline `stroke-opacity`, which darkens where faded rays cross | `packages/plots/src/layout2d.js`, `packages/plots/README.md`, `tests/unit/layout2d.test.js` | `layout2d.test.js::recorded ray status per point (U17)` (Dead runs past the first Dead point; the faded group) | [#658] |
+| [#664] | With `status`, segment j takes point j - 1's status: a Cassegrain ray blocked at the secondary is Alive up to it, faded Dead after (CR [#663], M1 demo 2); without `status` unchanged | the segment status `L.status ? st[j - 1] : st[j]` in the run loop, because runs, `show` and the faded split already key on it; considered remapping `status` before drawing, which also moves `mirrorBodies`' reading | `packages/plots/src/layout2d.js`, `packages/plots/README.md`, `tests/unit/layout2d.test.js` | `layout2d.test.js::recorded ray status per point (U17)` (start-point rule; each Cassegrain dead ray's first segment Alive) | [#661] |
 
 ### M2: absorbed fixes and the release GitHub: `P642 M2: Fixes and release`
 
@@ -151,6 +152,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; CRs [#653] and [#655] resolved; M1 ticked (rounds: 1+3, 0). Awaiting the user's M1 demo (O5).
 - 2026-11-06 M1 demo (user): no-go. "Show the rays in a lower opacity after they are Dead or Vignetted" and "show Virtual as light, but dotted instead of solid"; Dead and vignetted not told apart (phos-core has no Vignetted status: an aperture gives `Dead("Vignetted by opaque aperture")`). CR [#660] accepted, item [#661]; O1 reworded (replaces round 1's "no further" for layouts with `status`); M1 unticked.
 - 2026-11-06 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog [#662] (a test guard anchors on the first ray group), not pulled in: the code is correct and the demo waits on it; CR [#660] resolved; M1 ticked again. Awaiting the user's M1 demo.
+- 2026-11-06 M1 demo 2 (user): no-go. "The rays segments should be displayed in the style that corresponds to their status": rays vignetted by the secondary or missing the primary "shown alive up to that intersection, then shown in their Dead or Virtual status". CR [#663] accepted, item [#664]; O1 reworded (a segment takes its start point's status, with `status` only); M1 unticked.
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
@@ -179,6 +181,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#660]: https://github.com/ELEOptics/eleo-ui/issues/660
 [#661]: https://github.com/ELEOptics/eleo-ui/issues/661
 [#662]: https://github.com/ELEOptics/eleo-ui/issues/662
+[#663]: https://github.com/ELEOptics/eleo-ui/issues/663
+[#664]: https://github.com/ELEOptics/eleo-ui/issues/664
 [#655]: https://github.com/ELEOptics/eleo-ui/issues/655
 [#656]: https://github.com/ELEOptics/eleo-ui/issues/656
 [#657]: https://github.com/ELEOptics/eleo-ui/issues/657
