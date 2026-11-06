@@ -117,7 +117,7 @@ Each item unskips its own acceptance case (the commit hook refuses a source chan
 | [#619] | CR [#618] (review M1 round 2, finding 1): the fixtures README's fans row names the `null` a non-finite non-`Alive` coordinate becomes, and the stale clipped file's deletion | the README row because it is the fixture format's one owner; considered the recorder's docstring alone | `tests/fixtures/phos-core/README.md`, `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::recorded fans facts` (every coordinate finite or `null`, `null` only off `Alive`) | [#614] |
 | [#620] | Review M1 round 3 findings 1 and 2: the recorder's `fans` docstring names [#614]'s `null` and the clipped file's deletion; the README fans row's paraxial parenthetical follows `x_fan()`/`y_fan()` | both in one item because both restate [#614]'s facts where the fans are described; considered the README alone, which leaves the script's header stale | `scripts/record-phos-core.py` (docstring), `tests/fixtures/phos-core/README.md` | none: docs only (not source under `SRC_RE`) | [#619] |
 
-### M2: Chief-ray fans, full-width gallery GitHub: `P603 M2: Chief-ray fans, full-width gallery`
+### M2: Chief-ray fans, full-width gallery (done 2026-11-05) GitHub: `P603 M2: Chief-ray fans, full-width gallery`
 
 From the user's no-go at the M1 demo (2026-11-05): CRs [#621] (the fans relative to the chief ray) and [#622] (every gallery tile full width, the light theme then the dark), both accepted by the user.
 
@@ -158,6 +158,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 [#625] returned a CR: the full-width layout breaks `map2d.spec.js`'s U8 wavefront test (its ticks pass its 2 px margin). CR [#626] accepted by the orchestrator (test only, the oracle unchanged); item [#627] runs before [#625], whose first attempt is discarded.
 - 2026-11-05 review M2 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 4 backlog; CRs [#621], [#622], [#626] resolved. Findings 3 and 4 pulled into M2 as [#628], [#629]; finding 1 ([#630], the canvas tiles scale a bitmap instead of redrawing) is for the M2 demo; finding 2 (ADR-0003's gallery wording) is reported to the user.
 - 2026-11-05 review M2 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog, pulled into M2 as [#631] (rounds: 0+2, 0+1).
+- 2026-11-05 review M2 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; M2 ticked (rounds: 0+2, 0+1, 0). Awaiting the user's M2 demo.
 
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
 [#356]: https://github.com/ELEOptics/eleo-ui/issues/356
