@@ -121,50 +121,20 @@ test('the Cassegrain Dead-hidden tile draws no Dead run (U17)', async ({ page })
 // A layout tile whose W / 70 is under 9 draws no text.
 const frameText = (F) => (F < 162 ? 9 : F <= 234 ? F / 18 : 13 * Math.cbrt(F / 234));
 const layoutText = (W) => (W / 70 < 9 ? null : W <= 910 ? W / 70 : 13 * Math.sqrt(W / 910));
-// Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
-// oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
-test('the footprint tile has a field legend from the recording', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const keys = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"] .eleo-legend .eleo-key`);
-    await expect(keys, `${theme} footprint legend`).toHaveText(['F1 0.0\u00b0', 'F2 17.0\u00b0', 'F3 24.0\u00b0']);
-  }
-});
-
-// Missing fixture: the legend is empty, like the tile. The 404 is the expected console error.
-test('a missing footprint fixture leaves its legend empty', async ({ page }) => {
-  await page.route('**/cooke-footprint.json', (route) => route.fulfill({ status: 404, body: '' }));
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"] .eleo-legend`);
-    await expect(el, `${theme} footprint legend element`).toHaveCount(1);
-    await expect(el).toBeEmpty();
-  }
-});
-
-// Plan #642 M2, #616: the recorded fan tile's footer keys the recording's wavelengths, empty if the fixture failed.
-// oracle: fixture tests/fixtures/phos-core/achromat-fans.json's sources[0].wavelengths (486.133, 587.562, 656.272 nm).
-test('the recorded fan footer keys its wavelengths (#616)', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const keys = page.locator(`.theme[data-theme="${theme}"] [data-tile="rayFan"] .eleo-legend .eleo-key`);
-    await expect(keys, `${theme} rayFan legend`).toHaveText(['\u03bb1 486.1 nm', '\u03bb2 587.6 nm', '\u03bb3 656.3 nm']);
-  }
-});
-
-test('a missing fans fixture leaves the fan footer empty (#616)', async ({ page }) => {
-  await page.route('**/achromat-fans.json', (route) => route.fulfill({ status: 404, body: '' }));
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="rayFan"] .eleo-legend`);
-    await expect(el, `${theme} rayFan legend element`).toHaveCount(1);
-    await expect(el).toBeEmpty();
-  }
-});
+// Plan #677 M2, #688: a missing recording leaves its tile blank, with no key. The 404 is the expected console error.
+// The keys of the present recordings are checked by 'fan and footprint keys'.
+for (const [tile, fixture] of [['footprint', 'cooke-footprint.json'], ['rayFan', 'achromat-fans.json']]) {
+  test(`a missing ${tile} fixture leaves its tile without keys`, async ({ page }) => {
+    await page.route(`**/${fixture}`, (route) => route.fulfill({ status: 404, body: '' }));
+    await page.goto('/gallery/');
+    await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+    for (const theme of ['light', 'dark']) {
+      const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="${tile}"]`);
+      await expect(el.locator('.eleo-plot__ft'), `${theme} ${tile} footer`).toHaveCount(0);
+      await expect(el.locator('text[data-key]'), `${theme} ${tile} keys`).toHaveCount(0);
+    }
+  });
+}
 
 // Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
 // labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
