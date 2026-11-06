@@ -60,3 +60,24 @@ test('mark puts data-key on each label text', () => {
   assert.ok(on.every((x) => x.includes(' data-key')));
   assert.ok(texts(keyMarkup(places, entries, t, 50)).every((x) => !x.includes('data-key')));
 });
+
+test('line swatch is two dash periods', () => {
+  // a key line's dash is scaled to 0.15 t, one period 6.5 * 0.15 t, about 1 t
+  const entries = [{ label: 'ln', index: 1, kind: 'line', dash: '0.6 0.375' }, { label: 'sq', index: 0 }];
+  const { places } = keyLayout(entries, t, { L: 0, R: 1000, maxRow: 0 });
+  const m = keyMarkup(places, entries, t, 50);
+  const [, x1, x2] = m.match(/<line [^>]*x1="([\d.]+)"[^>]*x2="([\d.]+)"/);
+  assert.equal(x2 - x1, 2 * t);
+  const text = +m.match(/x="([\d.]+)" y="[\d.]+" style="font-size:10px">ln</)[1];
+  assert.ok(text >= +x2, 'the label clears the swatch');
+  // the width estimate counts the longer swatch: the next entry starts past it
+  const lw = 2.4 * t + 0.6 * t * 2;
+  assert.equal(places[1][0], lw + t);
+  assert.equal(keyLayout(entries.slice(0, 1), t, { L: 0, R: 1000, maxRow: 0 }).right, lw);
+  // wrap property for line entries
+  const many = Array.from({ length: 6 }, (_, i) => ({ label: 'label ' + i, index: i, kind: 'line' }));
+  for (const R of [150, 260, 400]) {
+    const k = keyLayout(many, t, { L: 20, R, maxRow: 100 });
+    k.places.forEach(([x], i) => { if (x > 20) assert.ok(x + 2.4 * t + 0.6 * t * 7 <= R); });
+  }
+});

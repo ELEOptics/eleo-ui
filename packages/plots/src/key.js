@@ -5,11 +5,16 @@ var r2 = function (v) { return +v.toFixed(2); };
 /* The key row shared by the renderers (ADR-0001: swatches take an index and a dash, never a color; ADR-0003: sizes and gaps in text units of t). Two phases, because a renderer sets its frame height from the number of rows before it knows where the key goes.
    An entry is { label, index?, col?, kind?, dash? } (`col`: the role's colour, which wins over `index`; bars passes none): kind "square" (default), "line" (stroked in `dash`) or "dot". */
 
+/* A swatch's width: 0.8 t, and 2 t for a line, so two periods of its dash show (the dash is 6.5 times the stroke, 0.15 t). The label follows 0.4 t after. */
+function sw(e, t) { return (e.kind === "line" ? 2 : 0.8) * t; }
+/* Where the label starts, from the swatch's left edge (one multiplication, so a square's 1.2 t is exact). */
+function off(e, t) { return (e.kind === "line" ? 2.4 : 1.2) * t; }
+
 /* Phase one: rows and places. An entry starts a new line when it would pass x = R (the key's right edge); each line is one row, at most maxRow + 1 of them, and the last one runs on. Returns { rows, places, right } with places[k] = [x, row] and right the widest extent (L when empty). */
 export function keyLayout(entries, t, o) {
   var L = o.L, R = o.R, maxRow = o.maxRow, kx = L, row = 0, places = [], right = L;
   entries.forEach(function (e) {
-    var wd = 1.2 * t + 0.6 * t * Array.from(String(e.label)).length;
+    var wd = off(e, t) + 0.6 * t * Array.from(String(e.label)).length;
     if (row < maxRow && kx > L && kx + wd > R) { row++; kx = L; }
     places.push([kx, row]);
     right = Math.max(right, kx + wd);
@@ -22,11 +27,11 @@ export function keyLayout(entries, t, o) {
 export function keyMarkup(places, entries, t, y, o) {
   var mk = o && o.mark ? " data-key" : "", ts = ' style="font-size:' + +t.toFixed(3) + 'px"', g = "";
   entries.forEach(function (e, k) {
-    var x = r2(places[k][0]), ky = r2(y + 1.4 * t * places[k][1]), col = e.col || idx(e.index || 0), s = r2(0.8 * t), kind = e.kind || "square";
+    var x = r2(places[k][0]), ky = r2(y + 1.4 * t * places[k][1]), col = e.col || idx(e.index || 0), s = r2(sw(e, t)), kind = e.kind || "square";
     if (kind === "line") g += '<line x1="' + x + '" y1="' + r2(ky + 0.4 * t) + '" x2="' + r2(x + s) + '" y2="' + r2(ky + 0.4 * t) + '" stroke="' + col + '" stroke-width="' + r2(0.15 * t) + '"' + (e.dash ? ' stroke-dasharray="' + e.dash + '"' : "") + ' fill="none"/>';
     else if (kind === "dot") g += '<circle cx="' + r2(x + 0.4 * t) + '" cy="' + r2(ky + 0.4 * t) + '" r="' + r2(0.3 * t) + '" fill="' + col + '"/>';
     else g += '<rect x="' + x + '" y="' + ky + '" width="' + s + '" height="' + s + '" fill="' + col + '"/>';
-    g += '<text class="eleo-tick"' + mk + ' x="' + r2(places[k][0] + 1.2 * t) + '" y="' + r2(ky + 0.8 * t) + '"' + ts + '>' + esc(e.label) + "</text>";
+    g += '<text class="eleo-tick"' + mk + ' x="' + r2(places[k][0] + off(e, t)) + '" y="' + r2(ky + 0.8 * t) + '"' + ts + '>' + esc(e.label) + "</text>";
   });
   return g;
 }
