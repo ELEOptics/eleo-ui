@@ -132,6 +132,10 @@ footers. Proves: O2
 | #687 | Adapters: the footprint labels each field "F<k> <angle>°", the fans carry their wavelengths as `key` | in the adapters because they read the recordings; considered parsing `legend()` HTML | `tests/fixtures/phos-core/adapters.js` | `tests/unit/phos-core-fixtures.test.js::keys` | #686 |
 | #688 | Gallery: the footprint, recorded fan and OPD tiles key in the SVG; their footers removed; the footer tests (`the footprint tile has a field legend from the recording`, `a missing footprint fixture leaves its legend empty`, `the recorded fan footer keys its wavelengths (#616)`) replaced by in-SVG key checks on the same fixtures | in the tile definitions because they own the draw calls; considered keeping footers beside the keys (two legends) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::fan and footprint keys` | #685, #687 |
 | #689 | Unskip O2 acceptance tests | forced (`workflow.md`, TDD) | `tests/gallery.spec.js` | `fan and footprint keys` | #684, #685, #686, #687, #688 |
+| #739 | CR #738: `rayFan({ key: true, keyAt })` draws its key in a corner box of each panel through `curve`'s `keyAt`; a bad `keyAt` throws | forward `o.keyAt` to curve because curve validates and draws it; considered validating in fan.js | `packages/plots/src/fan.js`, `packages/plots/src/index.d.ts`, `packages/plots/README.md`, `.changeset/rayfan-key.md` | `tests/unit/fan.test.js::rayFan key` | #689 |
+| #740 | Types: `SpotPanelsProps.keyAt` is `PlotKeyAt`; `tests/types/keys.ts` checks spot's `label`/`keyAt` and rayFan's `key`/`keyAt`; `SpotSeries.label`'s doc names the corner | reuse `PlotKeyAt` because the plan names it for both; considered the inline union | `packages/plots/src/index.d.ts`, `tests/types/keys.ts` | `tests/unit/types.test.js` | #739 |
+| #741 | `spot` keys a series only when its `label` is truthy, as `curve` does | curve's rule because one key module serves both; considered keying `0` | `packages/plots/src/spot.js` | `tests/unit/spot.test.js::key` | #689 |
+| #742 | `key.js` exports `KEY_AT` and `cornerBox`; `curve` and `spot` use them (output unchanged); spot's foot comment names the key rows | in key.js because #680 put the key there to stop drift (#586); considered two copies | `packages/plots/src/key.js`, `packages/plots/src/curve.js`, `packages/plots/src/spot.js` | `tests/unit/key.test.js::corner box` | #741 |
 
 ### M3: Maps and the 3D image plane GitHub: `P677 M3: Maps and the 3D image plane`
 
@@ -197,3 +201,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M1 round 5 (0 blocking, 3 backlog): #735, #736, #737 into M1; the milestone ticks after a round with nothing pulled in.
 - 2026-11-06 M1 reviewed again after the demo (rounds 5 and 6; round 6: 0 blocking, nothing pulled in); ticked.
 - 2026-11-06 M1 demo (user): go; M1 accepted.
+- 2026-11-06 review M2 round 1 (1 blocking, 4 backlog): CR #738 accepted (orchestrator: restores the plan's approved `RayFanProps.keyAt`), fixed by #739; backlog #740 to #742 into M2 (#743, finding 5's comments, folded into #740 and #742, since a comment-only item needs a hook-only test).
