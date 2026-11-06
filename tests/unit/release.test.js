@@ -475,3 +475,25 @@ test('row P changesets became a plots minor and a plots-svelte patch',
     assert.equal(entry('plots', ROW_P_PLOTS_ENTRY).kind, 'Minor');
     assert.equal(entry('plots-svelte', ROW_P_SVELTE_ENTRY).kind, 'Patch');
   });
+
+// Plan #642 (agent_docs/plans/642-ray-visibility.md), outcome O6 (issue #651). Row Q: a layout's `status` and the `show` option are a
+// plots minor, in one file. oracle: spec semver (a visible change ships as a minor); @changesets/cli's plan of the named file.
+// Once `changeset version` deleted the file, the twin below reads the CHANGELOG entry it became, as rows O and P do.
+const ROW_Q_ENTRY = /With `status`, a ray is drawn to its last point/;
+const rowQConsumed = barsConsumed('layout-status.md', 'plots', ROW_Q_ENTRY);
+test('row Q changesets', { skip: rowQConsumed && 'consumed by changeset version' }, () => {
+  const plots = parse('layout-status.md');
+  assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
+  assert.match(plots.body, /`status`/, 'the body names status');
+  assert.match(plots.body, /`show`/, 'the body names show');
+  withWorkspace(plots.bumps, (ws) => {
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    assert.equal(releases.find((r) => r.name === '@eleoptics/plots')?.type, 'minor');
+  });
+});
+
+test('row Q changeset became a plots minor',
+  { skip: !rowQConsumed && 'changesets not yet versioned' }, () => {
+    assert.equal(entry('plots', ROW_Q_ENTRY).kind, 'Minor');
+  });
