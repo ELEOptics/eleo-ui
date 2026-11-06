@@ -10,17 +10,19 @@
   <link rel="stylesheet" href="/packages/tokens/dist/tokens.css">
   <link rel="stylesheet" href="/packages/plots/dist/plots.css">
   <style>
-    /* Every renderer, side by side in both themes: the review surface for any change to a plot or token. */
+    /* Every renderer, one per line, the light theme then the dark: the review surface for any change to a plot or token. */
     body { margin: 0; font: 400 15px/22px var(--font-sans); background: var(--ground); color: var(--ink); }
     header { padding: 24px 32px 8px; }
     header h1 { margin: 0 0 4px; font-size: 28px; line-height: 34px; }
     header p { margin: 0; color: var(--ink-muted); max-width: 72ch; }
     header .palette { margin-top: 12px; }
-    .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); }
-    .theme { background: var(--ground); color: var(--ink); padding: 24px 32px 48px; display: grid; gap: 12px; align-content: start; }
+    .themes { display: grid; grid-template-columns: minmax(0, 1fr); }
+    .theme { min-width: 0; background: var(--ground); color: var(--ink); padding: 24px 32px 48px; display: grid; gap: 12px; align-content: start; }
     .theme > h2 { margin: 0; font-size: 16px; }
-    .row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(var(--row-min, 240px), 100%), 1fr)); }
-    /* --row-min is set per row from PLOT_SIZES by rowMins() below. */
+    /* One tile per line, the page wide, the light theme then the dark. --tile-min is set per tile from ELEO.minWidth for its call plus 26 px of chrome, by tileMins() below;
+       narrower than that the body keeps that width and the tile scrolls sideways, so the page never does. */
+    .theme > .eleo-plot { overflow-x: auto; }
+    .theme > .eleo-plot > .eleo-plot__body { box-sizing: border-box; min-width: calc(var(--tile-min, 240px) - 2px); }
     .map { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
     .map .eleo-colorbar i { height: 100%; }
     .icons { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-muted); }
@@ -37,48 +39,32 @@
     <section class="theme" data-theme="dark"><h2>Dark</h2></section>
   </main>
   <template id="tiles">
-    <section class="eleo-plot" data-tile="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div><div class="eleo-plot__ft eleo-legend" data-legend="field"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-fan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-shared"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-wandersleb"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Wandersleb triplet, recorded, fan with ray status</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-wandersleb"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-cassegrain"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cassegrain, recorded, on-axis chief obscured</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-cassegrain"></div></section>
-    <div class="row">
+    <section class="eleo-plot" data-tile="layout2D" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div><div class="eleo-plot__ft eleo-legend" data-legend="field"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-fan" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-shared" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-glasses" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-wandersleb" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Wandersleb triplet, recorded, fan with ray status</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-wandersleb"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-cassegrain" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cassegrain, recorded, on-axis chief obscured</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-cassegrain"></div></section>
       <section class="eleo-plot" data-tile="spot" data-size="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
       <section class="eleo-plot" data-tile="throughFocus" data-size="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
-    </div>
-    <div class="row">
       <section class="eleo-plot" data-tile="footprint" data-size="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__meta">Beam footprint, Cooke, at the stop</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="footprint"></div><div class="eleo-plot__ft eleo-legend" data-legend="footprint"></div></section>
-    </div>
-    <div class="row">
       <section class="eleo-plot" data-tile="seidel" data-size="bars"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums, mm</span></div><div class="eleo-plot__body" data-svg="seidel"></div></section>
       <section class="eleo-plot" data-tile="seidel-terms" data-size="bars"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums by term, mm</span></div><div class="eleo-plot__body" data-svg="seidel-terms"></div></section>
-    </div>
-    <div class="row">
-      <section class="eleo-plot" data-tile="rayFan" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">TRA, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="ts"></div></section>
+      <section class="eleo-plot" data-tile="rayFan" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">Achromat, recorded, TRA from the chief ray, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="ts"></div></section>
       <section class="eleo-plot" data-tile="rayFan-opd" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">OPD, waves</span></div><div class="eleo-plot__body" data-svg="rayFan-opd"></div></section>
-    </div>
-    <div class="row">
       <section class="eleo-plot" data-tile="psf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">PSF, linear</span></div><div class="eleo-plot__body map"><canvas data-canvas="psf"></canvas><div class="eleo-colorbar"><i data-bar="ember"></i><span><b>1</b><b>0</b></span></div></div></section>
       <section class="eleo-plot" data-tile="wavefront"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">wavefront, waves</span></div><div class="eleo-plot__body map"><canvas data-canvas="wavefront"></canvas><div class="eleo-colorbar"><i data-bar="wave"></i><span><b>+</b><b>0</b><b>−</b></span></div></div></section>
-    </div>
-    <section class="eleo-plot" data-tile="psf-recorded"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, mm</span></div><div class="eleo-plot__body" data-map="psf-recorded"></div></section>
-    <div class="row">
+    <section class="eleo-plot" data-tile="psf-recorded" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, mm</span></div><div class="eleo-plot__body" data-map="psf-recorded"></div></section>
       <section class="eleo-plot" data-tile="psf-log" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, log</span></div><div class="eleo-plot__body" data-map="psf-log"></div></section>
       <section class="eleo-plot" data-tile="wavefront-recorded" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet wavefront, recorded, waves</span></div><div class="eleo-plot__body" data-map="wavefront-recorded"></div></section>
-    </div>
-    <section class="eleo-plot" data-tile="irradiance-gaussian"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">TEM00 Gaussian irradiance, synthetic, w = 1 mm</span></div><div class="eleo-plot__body" data-map="irradiance-gaussian"></div></section>
-    <div class="row">
+    <section class="eleo-plot" data-tile="irradiance-gaussian" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">TEM00 Gaussian irradiance, synthetic, w = 1 mm</span></div><div class="eleo-plot__body" data-map="irradiance-gaussian"></div></section>
       <section class="eleo-plot" data-tile="mtf" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF</span></div><div class="eleo-plot__body" data-svg="mtf"></div></section>
       <section class="eleo-plot" data-tile="mtf-limits" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF, requirement limits</span></div><div class="eleo-plot__body" data-svg="mtf-limits"></div></section>
       <section class="eleo-plot" data-tile="fieldCurvature" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">field curvature</span></div><div class="eleo-plot__body" data-svg="fieldCurvature"></div></section>
       <section class="eleo-plot" data-tile="distortion" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">distortion</span></div><div class="eleo-plot__body" data-svg="distortion"></div></section>
       <section class="eleo-plot" data-tile="chromaticFocus" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">chromatic focus</span></div><div class="eleo-plot__body" data-svg="chromaticFocus"></div></section>
-    </div>
-    <div class="row">
-      <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D" width="480" height="300"></canvas></div></section>
-      <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy" width="240" height="240"></canvas></div></section>
-    </div>
+      <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D"></canvas></div></section>
+      <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy"></canvas></div></section>
     <!-- Segmented control specimen, not a tile. Each column's <form> scopes its own radio group. -->
     <form><div class="eleo-seg" role="radiogroup" aria-label="Units"><label><input type="radio" name="units" value="um" checked><span>µm</span></label><label><input type="radio" name="units" value="waves"><span>waves</span></label><label><input type="radio" name="units" value="mm"><span>mm</span></label></div></form>
     <section class="eleo-plot" data-tile="icons"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Icons</h3><span class="eleo-plot__meta">glass, then line</span></div><div class="eleo-plot__body icons" data-icons></div></section>
@@ -110,6 +96,7 @@
     // draw(data, w) gets the body's content width; every framed tile passes it on as `width` (ADR-0003).
     function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d, w) { return render(d, w); } }; }
     function atWidth(d, w, more) { return Object.assign({}, d, more, { width: w }); }
+    var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }];
     var SVG = {
       'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box }); } },
       'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
@@ -124,20 +111,31 @@
       'seidel': recTile('seidel', function (d, w) { return ELEO.bars(atWidth(d, w, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', function (d, w) { return ELEO.bars(atWidth(d, w)); }),
       'throughFocus': { need: sampleBox, draw: function (_, w) { return ELEO.throughFocus({ width: w }); } },
-      'rayFan': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ width: w }); } },
+      // The recorded achromat's fans through curve, as tall as rayFan's panels are (PLOT_SIZES.rayFan.aspect) over its columns.
+      'rayFan': recTile('fans', function (d, w) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns })); }),
       'rayFan-opd': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ kind: 'opd', width: w }); } },
       'mtf': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
-      'mtf-limits': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w, { limits: [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }] })); }),
+      'mtf-limits': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w, { limits: MTF_LIMITS })); }),
       'fieldCurvature': recTile('fieldCurvature', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       'chromaticFocus': { need: sampleBox, draw: function (_, w) { return ELEO.curve({ kind: 'chromaticFocus', width: w }); } }
     };
-    function airyTile(canvas) {
-      var n = canvas.width, ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
-      for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
-        var r = Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / n * span, c = lut[Math.round(Math.sqrt(ELEO.airy(r, 0.5876, 4)) * 255)], p = (y * n + x) * 4;
-        img.data[p] = c[0]; img.data[p + 1] = c[1]; img.data[p + 2] = c[2]; img.data[p + 3] = 255;
+    function airyTile(canvas, n) {
+      canvas.width = canvas.height = n;
+      var ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n), lut = ELEO.colormap('ember', canvas), span = 24;
+      // The pattern depends only on the radius: tabulate sqrt(I) once over 0 to the corner radius, then interpolate per pixel.
+      var T = 2048, rmax = Math.SQRT1_2 * span, tab = new Float64Array(T + 1);
+      for (var i = 0; i <= T; i++) tab[i] = Math.sqrt(ELEO.airy(i / T * rmax, 0.5876, 4));
+      // The image is symmetric about both axes (x + 0.5 - n/2 flips sign under x -> n-1-x): compute the top-left quadrant, copy it into the other three.
+      var half = (n + 1) >> 1, d = img.data;
+      for (var y = 0; y < half; y++) for (var x = 0; x < half; x++) {
+        var t = Math.min(T, Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / n * span / rmax * T), j = Math.min(T - 1, Math.floor(t)), v = tab[j] + (tab[j + 1] - tab[j]) * (t - j), c = lut[Math.round(v * 255)];
+        var xs = [x, n - 1 - x], ys = [y, n - 1 - y];
+        for (var a = 0; a < 2; a++) for (var b = 0; b < 2; b++) {
+          var p = (ys[b] * n + xs[a]) * 4;
+          d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2]; d[p + 3] = 255;
+        }
       }
       ctx.putImageData(img, 0, 0);
     }
@@ -167,45 +165,63 @@
     function drawMaps() {
       document.querySelectorAll('.theme [data-map]').forEach(drawMap);
     }
+    // A canvas tile draws at its body's content width (set by fit as el._w, less the colorbar beside a map): CSS size w, backing size w x devicePixelRatio, so a resize redraws it and never stretches it.
+    // layout3D is given the logical width w and applies its own clamped ratio (2 to 3), so it stays at least 2x; a palette change redraws at the last width.
+    function drawCanvas(el) {
+      var w = el._w, k = el.dataset.canvas;
+      if (!w || (k !== 'airy' && !SAMPLE_BOX)) return;
+      var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k === 'layout3D' ? w * 320 / 560 : w;
+      el.style.width = w + 'px'; el.style.height = h + 'px';
+      if (k === 'airy') airyTile(el, n);
+      else if (k === 'layout3D') ELEO.layout3D(el, { width: w, height: h });
+      else ELEO.map2D(el, { kind: k, size: n });
+    }
     function drawCanvases() {
-      document.querySelectorAll('.theme [data-canvas]').forEach(function (el) {
-        var k = el.dataset.canvas;
-        if (k === 'airy') airyTile(el);
-        else if (!SAMPLE_BOX) return;
-        else if (k === 'layout3D') ELEO.layout3D(el);
-        else ELEO.map2D(el, { kind: k });
-      });
+      document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
     }
-    // Each row's minimum column, from PLOT_SIZES (ADR-0003): the widest tile's minWidth + (panels - 1) * panelStep, plus the tile's 26 px of border and padding around the body.
-    // Panels: a rayFan's fans, a spot's panels, a throughFocus's defocus columns, else 1. A tile whose data is missing counts 1; a tile with no table row is skipped; the row keeps at least its 240 px default.
-    function panelsOf(k, tile) {
-      var S = ELEO.sample;
-      if (k === 'rayFan') return S ? Math.max(S.fans.length, S.opdFans.length) : 1;
-      if (k === 'throughFocus') return S && S.throughFocus ? S.throughFocus.defocus.length : 1;
-      if (k === 'spot') { var d = REC[tile === 'footprint' ? 'footprint' : 'spot']; return d && d.panels ? d.panels.length : 1; }
-      return 1;
+    // A pixel-ratio change (zoom, a move to another screen) redraws the canvases at their last width; the query names the current ratio, so re-arm it after each change.
+    function watchRatio() {
+      var mq = window.matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)');
+      mq.addEventListener('change', function () { drawCanvases(); watchRatio(); }, { once: true });
     }
-    function rowMins(theme) {
-      theme.querySelectorAll('.row').forEach(function (row) {
-        var min = 240;
-        row.querySelectorAll('[data-size]').forEach(function (t) {
-          var k = t.dataset.size, z = ELEO.PLOT_SIZES[k];
-          if (!z) return;
-          min = Math.max(min, z.minWidth + (panelsOf(k, t.dataset.tile) - 1) * z.panelStep + 26);
+    watchRatio();
+    function fitCanvases(theme) {
+      theme.querySelectorAll('[data-canvas]').forEach(function (el) {
+        var body = el.parentNode;
+        ELEO.fit(body, function (w) {
+          var bar = body.querySelector('.eleo-colorbar');
+          el._w = bar ? Math.max(1, w - bar.offsetWidth - 10) : w;
+          drawCanvas(el);
         });
-        row.style.setProperty('--row-min', min + 'px');
       });
+    }
+    // Each tile's minimum width: its ELEO.minWidth for the call it draws, plus the tile's 26 px of border and padding around the body (ADR-0003).
+    // The renderer counts its own panels and margins; a tile whose data is missing counts as the bare renderer; a tile with no data-size is skipped.
+    function tileMin(t) {
+      var k = t.dataset.size, tile = t.dataset.tile, m = t.querySelector('[data-map]');
+      try {
+        if (tile === 'rayFan') return REC.fans ? ELEO.minWidth('curve', REC.fans) : ELEO.minWidth('curve');
+        if (tile === 'mtf-limits') return REC.mtf ? ELEO.minWidth('curve', atWidth(REC.mtf, 0, { limits: MTF_LIMITS })) : ELEO.minWidth('curve');
+        if (k === 'curve') return ELEO.minWidth('curve', REC[tile]);
+        if (k === 'spot') return ELEO.minWidth('spot', REC[tile === 'footprint' ? 'footprint' : 'spot']);
+        if (k === 'map2D') return ELEO.minWidth('map2D', m && MAPS[m.dataset.map]);
+        return ELEO.minWidth(k);
+      } catch (e) { console.error('gallery: ' + tile + ' minimum skipped:', e); return 0; }
+    }
+    function tileMins(theme) {
+      theme.querySelectorAll('[data-size]').forEach(function (t) { t.style.setProperty('--tile-min', (tileMin(t) + 26) + 'px'); });
     }
     function draw() {
       document.querySelectorAll('.theme').forEach(function (theme) {
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
-        rowMins(theme);
+        tileMins(theme);
         theme.querySelectorAll('[data-svg]').forEach(function (el) {
           var tile = SVG[el.dataset.svg], need = tile.need();
           if (!need) el.innerHTML = '';
           else ELEO.fit(el, function (w) { el.innerHTML = tile.draw(need, w); });
         });
         theme.querySelectorAll('[data-map]').forEach(function (el) { ELEO.fit(el, function (w) { el._w = w; drawMap(el); }); });
+        fitCanvases(theme);
         // The glass and footprint legends key their own recordings; empty, like the tile, if its fixture failed.
         // The field and wavelength legends key the sample; empty, like its tiles, without it.
         theme.querySelectorAll('[data-legend]').forEach(function (el) {
@@ -219,7 +235,6 @@
           .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));
         theme.querySelector('[data-icons]').innerHTML = icons.join('');
       });
-      drawCanvases();
     }
     document.querySelector('header .palette').addEventListener('change', function (e) {
       var v = e.target.value;
@@ -268,6 +283,7 @@
         ['fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }],
         ['distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); }],
         ['spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); }],
+        ['fans', 'fans', function (d) { REC.fans = globalThis.ELEOAdapters.fans(d); }],
         ['seidel', 'seidel', function (d) { REC.seidel = globalThis.ELEOAdapters.seidel(d); REC.seidelTerms = globalThis.ELEOAdapters.seidel(d, { by: 'term' }); }]
       ]],
       ['wandersleb', [

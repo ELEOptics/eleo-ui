@@ -521,3 +521,189 @@ print(json.dumps({
   assert.equal(out.ok.referenceWavelengthNm, 550);
   assert.equal(typeof out.edge, 'object', 'within the 1e-4 ray-aiming tolerance passes');
 });
+
+// Plan #603 work item #605. oracle: phos-core TransverseRayError (x_fan/y_fan and x_statuses/y_statuses, ELEOptics/phos-core#2167),
+// slice angle 0, 41 samples; points [pupil, error mm] as recorded, statuses by the Rust names.
+test('recorded fans facts', () => {
+  const NAMES = ['Alive', 'Virtual', 'Missed', 'Dead'];
+  const files = ['achromat-fans.json', 'cooke-fans.json'];
+  const clipped = new URL('cooke-clipped-fans.json', dir);
+  if (existsSync(clipped)) files.push('cooke-clipped-fans.json');
+  for (const file of files) {
+    assert.ok(existsSync(new URL(file, dir)), `${file} is recorded`);
+    const f = read(`../fixtures/phos-core/${file}`);
+    assert.equal(f.analysis, 'fans', file);
+    assert.match(f.phosCore.sha, /^[0-9a-f]{40}$/, `${file}: phos-core sha`);
+    assert.ok(f.sources.length >= 1, `${file}: sources`);
+    // The lens's reference wavelength, as its wavefront fixture carries it (plan #603 CR #621): one of every source's wavelengths.
+    const lens = file.startsWith('achromat') ? 'achromat' : 'cooke';
+    const ref = read(`../fixtures/phos-core/${lens}-wavefront.json`).referenceWavelengthNm;
+    assert.equal(f.referenceWavelengthNm, ref, `${file}: referenceWavelengthNm is the ${lens} wavefront's`);
+    f.sources.forEach((s, i) => assert.ok(s.wavelengths.includes(f.referenceWavelengthNm), `${file} source ${i}: the reference wavelength is a recorded one`));
+    let dead = 0;
+    f.sources.forEach((s, i) => {
+      assert.ok(Number.isFinite(s.fieldAngleDeg), `${file} source ${i}: field angle`);
+      assert.ok(s.wavelengths.length >= 1 && s.wavelengths.every((w) => w > 100), `${file} source ${i}: wavelengths in nm`);
+      for (const axis of ['x', 'y']) {
+        const { points, statuses } = s[axis];
+        assert.equal(points.length, s.wavelengths.length, `${file} ${i}.${axis}: a fan per wavelength`);
+        assert.equal(statuses.length, points.length, `${file} ${i}.${axis}: statuses per wavelength`);
+        points.forEach((fan, w) => {
+          assert.equal(fan.length, 41, `${file} ${i}.${axis}[${w}]: 41 samples`);
+          assert.equal(statuses[w].length, 41, `${file} ${i}.${axis}[${w}]: 41 statuses`);
+          fan.forEach(([pupil, err], k) => {
+            const st = statuses[w][k];
+            assert.ok(NAMES.includes(st), `${file} ${i}.${axis}[${w}][${k}]: status ${st}`);
+            // A coordinate is a finite number, or null (NaN is not JSON) and only on a sample that is not Alive.
+            for (const c of [pupil, err]) {
+              if (c === null) assert.notEqual(st, 'Alive', `${file} ${i}.${axis}[${w}][${k}]: an Alive sample has no null coordinate`);
+              else assert.ok(Number.isFinite(c), `${file} ${i}.${axis}[${w}][${k}]: coordinate is a finite number or null`);
+            }
+            if (st === 'Dead') dead++;
+          });
+        });
+      }
+    });
+    if (file === 'cooke-clipped-fans.json') assert.ok(dead > 0, 'the clipped Cooke has dead tails');
+  }
+  const cooke = read('../fixtures/phos-core/cooke-fans.json');
+  const some = cooke.sources.some((s) => ['x', 'y'].some((a) => s[a].statuses.flat().some((st) => st === 'Dead')));
+  assert.equal(existsSync(clipped), !some, 'the clipped Cooke is recorded exactly when the default one has no Dead sample');
+});
+
+// Plan #603 work item #614. The fans recorder on stand-ins for phos-core: a dead sample's NaN is recorded as null (an alive one is
+// refused), and a stale cooke-clipped-fans.json is removed when the default Cooke has a Dead sample.
+test('fan_axis keeps a non-Alive NaN as null and record_fans removes a stale clipped file', () => {
+  const py = String.raw`
+import importlib.util, json, tempfile
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("rec", "scripts/record-phos-core.py")
+rec = importlib.util.module_from_spec(spec); spec.loader.exec_module(rec)
+N = rec.FAN_SAMPLES
+nan = float("nan")
+class Alive: pass
+class Virtual: pass
+class Missed: pass
+class Dead: pass
+class RayStatus:
+    ALIVE, VIRTUAL, MISSED, DEAD_E = Alive, Virtual, Missed, Dead
+class Run:
+    def __init__(self, bad, status):
+        self.bad, self.status = bad, status
+    def wavelengths(self): return [0.55]
+    def _fan(self): return [[(k / N, nan if k == 3 else 0.5) for k in range(N)]]
+    def x_fan(self): return self._fan()
+    def y_fan(self): return self._fan()
+    def _st(self): return [[self.status() if k == 3 else Alive() for k in range(N)]]
+    def x_statuses(self): return self._st()
+    def y_statuses(self): return self._st()
+class Settings:
+    status = Dead
+    def set_system_index(self, i): pass
+    def set_pupil_slice_angle(self, a): pass
+    def set_num_samples(self, n): pass
+    def run(self, model): return [Run(True, Settings.status)]
+class Sys:
+    def reference_wavelength(self): return 0.55
+class Model:
+    def sources(self, i): return [object()]
+    def system(self, i): return Sys()
+class OM:
+    @staticmethod
+    def cooke_triplet_kingslake(): return Model()
+class Phos:
+    RayStatus = RayStatus
+    TransverseRayErrorSettings = Settings
+    OpticalModel = OM
+rec.field_angle_deg = lambda src: 0.0
+rec.achromat = lambda phos, sample: Model()
+rec.clipped_cooke = lambda phos: Model()
+
+def axis(status):
+    block = [[(k / N, nan if k == 3 else 0.5) for k in range(N)]]
+    st = [[status() if k == 3 else Alive() for k in range(N)]]
+    try: return rec.fan_axis(Phos, "t", block, st)
+    except SystemExit as e: return str(e)
+
+res = {"dead": axis(Dead), "alive": axis(Alive)}
+with tempfile.TemporaryDirectory() as d:
+    d = Path(d)
+    stale = d / "cooke-clipped-fans.json"
+    stale.write_text("stale")
+    Settings.status = Dead
+    rec.record_fans(Phos, {}, d, {})
+    res["staleRemoved"] = not stale.exists()
+    res["cookeText"] = (d / "cooke-fans.json").read_text()
+    Settings.status = Missed
+    try: rec.record_fans(Phos, {}, d, {})
+    except SystemExit: pass
+    res["noDeadNoFile"] = not stale.exists()
+print(json.dumps(res))
+`;
+  const r = spawnSync('python3', ['-B', '-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.dead.points[0][3][1], null, 'a Dead NaN error is null');
+  assert.ok(Math.abs(out.dead.points[0][3][0] - 3 / 41) < 1e-6, 'its pupil coordinate stays');
+  assert.equal(out.dead.statuses[0][3], 'Dead');
+  assert.match(out.alive, /alive with a non-finite point/, 'an Alive NaN is refused');
+  assert.equal(out.staleRemoved, true, 'a Dead default Cooke removes a stale clipped file');
+  assert.ok(!out.cookeText.includes('NaN'), 'the fixture is valid JSON');
+  assert.doesNotThrow(() => JSON.parse(out.cookeText));
+  assert.equal(out.noDeadNoFile, true, 'no Dead anywhere leaves no clipped file');
+});
+
+// Plan #603 work item #629. fans() refuses a model whose reference wavelength is missing, or is not among a source's recorded wavelengths.
+test('fans refuses a missing or unrecorded reference wavelength', () => {
+  const py = String.raw`
+import importlib.util, json, tempfile
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("rec", "scripts/record-phos-core.py")
+rec = importlib.util.module_from_spec(spec); spec.loader.exec_module(rec)
+N = rec.FAN_SAMPLES
+class Alive: pass
+class Virtual: pass
+class Missed: pass
+class Dead: pass
+class RayStatus:
+    ALIVE, VIRTUAL, MISSED, DEAD_E = Alive, Virtual, Missed, Dead
+class Run:
+    def wavelengths(self): return [0.55]
+    def _fan(self): return [[(k / N, 0.5) for k in range(N)]]
+    def x_fan(self): return self._fan()
+    def y_fan(self): return self._fan()
+    def _st(self): return [[Alive() for k in range(N)]]
+    def x_statuses(self): return self._st()
+    def y_statuses(self): return self._st()
+class Settings:
+    def set_system_index(self, i): pass
+    def set_pupil_slice_angle(self, a): pass
+    def set_num_samples(self, n): pass
+    def run(self, model): return [Run()]
+class Sys:
+    def __init__(self, ref): self.ref = ref
+    def reference_wavelength(self): return self.ref
+class Model:
+    def __init__(self, ref): self.ref = ref
+    def sources(self, i): return [object()]
+    def system(self, i): return Sys(self.ref)
+class Phos:
+    RayStatus = RayStatus
+    TransverseRayErrorSettings = Settings
+rec.field_angle_deg = lambda src: 0.0
+
+def attempt(ref):
+    with tempfile.TemporaryDirectory() as d:
+        try: rec.fans(Phos, "t", Model(ref), Path(d), {}); return None
+        except SystemExit as e: return str(e)
+
+print(json.dumps({"none": attempt(None), "unrecorded": attempt(0.65), "recorded": attempt(0.55)}))
+`;
+  const r = spawnSync('python3', ['-B', '-I', '-c', py], { cwd: fileURLToPath(new URL('../..', import.meta.url)), encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.match(out.none, /has no reference wavelength/, 'a missing reference is refused');
+  assert.match(out.unrecorded, /650/, 'an unrecorded reference is refused naming it');
+  assert.match(out.unrecorded, /550/, 'and the recorded wavelengths');
+  assert.equal(out.recorded, null, 'a recorded reference passes');
+});

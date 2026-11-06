@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as scale from '../../packages/plots/src/scale.js';
@@ -193,4 +194,60 @@ test("table matches each renderer's floor width", () => {
   const d = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(ELEO.curve(curveInput));
   near(+d[1] * T.curve.aspect, +d[2], 'a default curve draws at the table aspect');
   assert.equal(T.layout2D.aspect, null);
+});
+
+// Plan #603 (agent_docs/plans/603-recorded-fans.md), outcome O2 (issue #604; #608 and #609 unskip).
+// oracle: closed-form ADR-0003 (F_LO = 162, TEXT_MIN = 9) and map2d.js's margins in text units: colorbar 3 + 0.6 x the widest label, x ticks max(1.2, 0.3 x the widest label)
+// What #608 must provide: mapMargins(props) -> { L, R } from map2d.js (the margins typedMap draws with, text units).
+const gridProps = (extra) => ({ values: [[0, 1, 2], [3, 4, 5], [6, 7, 8]], extent: [-1, 1, -1, 1], x: { label: 'x' }, y: { label: 'y' }, ...extra });
+test('mapMargins gives map2D\'s margins', async () => {
+  const { mapMargins } = await import('../../packages/plots/src/map2d.js');
+  assert.equal(typeof mapMargins, 'function', 'map2d.js exports mapMargins');
+  // No colorbar: 4.6 left, and at least 1.2 right.
+  const plain = mapMargins(gridProps());
+  near(plain.L, 4.6, 'L'); near(plain.R, 1.2, 'R with no colorbar');
+  // A linear colorbar over 0..8 labels 0, 2, 4, 6, 8: one character wide, so 3 + 0.6 on top of the margin.
+  near(mapMargins(gridProps({ value: { label: 'v' }, range: [0, 8] })).R, 1.2 + 3 + 0.6, 'R with a linear colorbar');
+  // A log colorbar over 1e-3..1 labels 0.001 ... 1: the widest is five characters.
+  near(mapMargins(gridProps({ value: { label: 'v' }, scale: 'log', range: [1e-3, 1] })).R, 1.2 + 3 + 0.6 * 5, 'R with a log colorbar');
+  // A five-character right-most x tick ("0.050"; curve's margin counts the largest tick, not a negative one) widens R past 1.2 by 0.3 per character.
+  const wide = mapMargins({ ...gridProps(), extent: [-0.05, 0.05, -0.05, 0.05], x: { label: 'x', ticks: [0, 0.025, 0.05] } });
+  near(wide.R, Math.max(1.2, 0.3 * 5), 'R from the widest x tick label');
+});
+// What #609 must provide: minWidth(name, props) on ELEO (packages/plots/src/sizes.js): F_LO + TEXT_MIN x (L + R) + (panels - 1) x panelStep.
+test('minWidth gives the floor frame (#587)', async () => {
+  // sizes.js directly: ELEO.minWidth is #610's export.
+  const { minWidth } = await import('../../packages/plots/src/sizes.js');
+  assert.equal(typeof minWidth, 'function', 'sizes.js exports minWidth');
+  const { mapMargins } = await import('../../packages/plots/src/map2d.js');
+  const colorbar = gridProps({ value: { label: 'v' }, range: [0, 8] }), log = gridProps({ value: { label: 'v' }, scale: 'log', range: [1e-3, 1] });
+  // map2D draws on a canvas (the gallery's floor test draws it); here frameOf, ADR-0003's own function, gives the frame at a width and margins.
+  for (const [what, props] of [['map2D with a linear colorbar', colorbar], ['map2D with a log colorbar', log]]) {
+    const w = minWidth('map2D', props), { L, R } = mapMargins(props);
+    assert.ok(Number.isFinite(w) && w > scale.F_LO, `${what}: a finite minimum above the frame floor`);
+    assert.ok(frameOf(w, L + R) >= scale.F_LO - TOL, `${what}: at minWidth the frame is at least F_LO`);
+    assert.ok(frameOf(w - 1, L + R) < scale.F_LO, `${what}: 1 px less is under F_LO`);
+  }
+  // A wider colorbar label costs TEXT_MIN px per text unit (0.6 a character): five characters against one.
+  near(minWidth('map2D', log) - minWidth('map2D', colorbar), scale.TEXT_MIN * 0.6 * 4, 'five characters against one');
+  // Without a sample a rayFan counts one panel; the table's width otherwise.
+  // (Importing sample.js loaded the sample as the default data, and rayFan({}) would draw its three fields; unload it for the no-sample case.)
+  const T = scale.PLOT_SIZES.rayFan;
+  near(minWidth('rayFan', {}), T.minWidth + 2 * T.panelStep, 'rayFan with the sample loaded counts its three fields');
+  ELEO.useSample(null);
+  try { near(minWidth('rayFan', {}), T.minWidth, 'rayFan with no sample is one panel'); } finally { ELEO.useSample(sample); }
+});
+
+// Plan #603, issue #610: minWidth is public, on the module and on the classic build's window.ELEO, the one function of sizes.js.
+// oracle: tests/unit/layout2d.test.js's layoutBounds case (a public export is on ELEO so eleo-plots.js carries it)
+test('ELEO.minWidth is exported on the module and on the classic build (#610)', async () => {
+  const { minWidth } = await import('../../packages/plots/src/sizes.js');
+  const plots = await import('../../packages/plots/src/index.js');
+  assert.equal(typeof plots.default.minWidth, 'function', 'ELEO.minWidth');
+  assert.equal(plots.default.minWidth, minWidth, 'ELEO.minWidth is sizes.js minWidth');
+  assert.equal(plots.minWidth, minWidth, 'named export');
+  const win = {};
+  vm.runInNewContext(readFileSync(new URL('../../packages/plots/dist/eleo-plots.js', import.meta.url), 'utf8'), { window: win });
+  assert.equal(typeof win.ELEO.minWidth, 'function', 'window.ELEO.minWidth');
+  assert.equal(win.ELEO.minWidth('bars'), minWidth('bars'), 'same floor on the classic build');
 });

@@ -676,3 +676,89 @@ test('default heights are whole px', async () => {
     assert.ok(Number.isInteger(v) && Math.abs(v - W * 314 / base) <= 0.5, `rayFan ${W}: height ${v}`);
   }
 });
+
+// Plan #603 (agent_docs/plans/603-recorded-fans.md), outcome O1 (issue #604; #605 records the fixtures, #606 adds ELEOAdapters.fans and unskips).
+// oracle: fixture phos-core TransverseRayError recorded by scripts/record-phos-core.py --only fans (roadmap U6, user at plan #464): per source
+// { fieldAngleDeg, wavelengths (nm), x: { points: [wavelength][sample] of [pupil, error mm], statuses }, y: same }; a non-Alive sample is a gap.
+// Plan #603 M2, issue #624 (CR #621): oracle: fixture as above minus the chief ray, the pupil-0 sample (found by its pupil value) at rec.referenceWavelengthNm of the same fan.
+// What #606 provides, #624 changes: ELEOAdapters.fans(rec) -> { panels, columns, x, y } in fanPanels' shape (row Py then row Px, a column per field, µm,
+// every non-Alive sample null, each error minus its fan's chief-ray error, a symmetric y range at fanPanels' next nice step over the shifted errors).
+test('recorded ray fans round trip (U6)', async () => {
+  const { existsSync } = await import('node:fs');
+  const { fanPanels } = await import('../../packages/plots/src/fan.js');
+  await import('../fixtures/phos-core/adapters.js');
+  const { ELEOAdapters } = globalThis;
+  assert.ok(typeof ELEOAdapters?.fans === 'function', 'adapters.js assigns globalThis.ELEOAdapters.fans');
+  const names = ['achromat-fans', 'cooke-fans'].concat(existsSync(new URL('../fixtures/phos-core/cooke-clipped-fans.json', import.meta.url)) ? ['cooke-clipped-fans'] : []);
+  let dead = 0;
+  // A clone with one interior alive sample made Dead, as the sample fans test nulls one (the default recordings may have no dead sample).
+  const clone = structuredClone(fixture('achromat-fans'));
+  clone.sources[1].y.statuses[0][3] = 'Dead';
+  // A clone whose field-1 y chief ray at the reference wavelength is Dead: the adapter throws a TypeError naming the field.
+  const noChief = structuredClone(fixture('achromat-fans'));
+  const refW = (src) => src.wavelengths.indexOf(noChief.referenceWavelengthNm);
+  const pupil0 = (src, axis, w) => src[axis].points[w].findIndex(([px]) => px === 0);
+  noChief.sources[1].y.statuses[refW(noChief.sources[1])][pupil0(noChief.sources[1], 'y', refW(noChief.sources[1]))] = 'Dead';
+  assert.throws(() => ELEOAdapters.fans(noChief), (e) => e instanceof TypeError && e.message.includes(`field ${noChief.sources[1].fieldAngleDeg}°`), 'a dead chief ray throws a TypeError naming the field');
+  // A recording whose centre pupil is 1e-17 (a computed -1 + 2i/(n-1)) draws as one at exactly 0; with the nearest sample at 0.05 the chief ray is missing and it throws (#628).
+  const tiny = structuredClone(fixture('achromat-fans'));
+  tiny.sources.forEach((src) => ['x', 'y'].forEach((axis) => src[axis].points.forEach((fan) => { fan.find(([px]) => px === 0)[0] = 1e-17; })));
+  assert.deepEqual(ELEOAdapters.fans(tiny).panels.map((pn) => pn.series.map((sr) => sr.points.map((pt) => pt[1]))), ELEOAdapters.fans(fixture('achromat-fans')).panels.map((pn) => pn.series.map((sr) => sr.points.map((pt) => pt[1]))), 'a centre pupil of 1e-17 gives the errors of one at 0');
+  const gapped = structuredClone(fixture('achromat-fans'));
+  { const src = gapped.sources[0], w = refW(src), i = pupil0(src, 'y', w); src.y.points[w].splice(i, 1); src.y.statuses[w].splice(i, 1); }
+  assert.throws(() => ELEOAdapters.fans(gapped), (e) => e instanceof TypeError && e.message.includes(`field ${gapped.sources[0].fieldAngleDeg}°`), 'a nearest pupil of 0.05 is no chief ray: a TypeError naming the field');
+  // A reference wavelength that is not recorded throws too.
+  const noRef = structuredClone(fixture('achromat-fans'));
+  noRef.referenceWavelengthNm = 123;
+  assert.throws(() => ELEOAdapters.fans(noRef), TypeError, 'an unrecorded reference throws a TypeError');
+  // A clone with negative field angles: fanPanels titles with U+2212, not a hyphen.
+  const neg = structuredClone(fixture('achromat-fans'));
+  neg.sources.forEach((s) => { s.fieldAngleDeg = -Math.abs(s.fieldAngleDeg) - 1; });
+  for (const [name, rec] of names.map((n) => [n, fixture(n)]).concat([['achromat-fans, one sample made dead', clone], ['achromat-fans, negative field angles', neg]])) {
+    const { panels, columns, x, y } = ELEOAdapters.fans(rec);
+    assert.equal(columns, rec.sources.length, `${name}: a column per field`);
+    assert.equal(panels.length, 2 * columns, `${name}: row Py then row Px`);
+    // Titles are fanPanels' own for the same angles (pinned against the number rule copied in adapters.js).
+    const own = fanPanels({ fields: rec.sources.map((s) => s.fieldAngleDeg), fans: rec.sources.map(() => ({ T: [[0, 0]], S: [[0, 0]] })) }, { kind: 'tra' });
+    assert.deepEqual(panels.map((pn) => pn.title), own.panels.map((pn) => pn.title), `${name}: panel titles are fanPanels'`);
+    // Every recorded sample is placed by its own pupil coordinate and error (mm to µm); every non-Alive one is null.
+    [['y', 0], ['x', columns]].forEach(([axis, base]) => rec.sources.forEach((src, f) => {
+      const rw = src.wavelengths.indexOf(rec.referenceWavelengthNm);
+      assert.ok(rw >= 0, `${name} ${axis} field ${f}: the reference wavelength is recorded`);
+      const ci = src[axis].points[rw].findIndex(([px]) => px === 0);
+      assert.ok(ci >= 0 && src[axis].statuses[rw][ci] === 'Alive', `${name} ${axis} field ${f}: an alive chief ray`);
+      const chief = src[axis].points[rw][ci][1];
+      const want = src[axis].points.map((fan, w) => fan.map(([px, err], i) => (src[axis].statuses[w][i] === 'Alive' ? [px, (err - chief) * 1000] : [px, null])));
+      assert.ok(Math.abs(want[rw][ci][1]) < 1e-9, `${name} ${axis} field ${f}: the reference fan is 0 at pupil 0`);
+      assert.equal(panels[base + f].series.length, want.length, `${name} ${axis} field ${f}: a series per wavelength`);
+      panels[base + f].series.forEach((s, w) => s.points.forEach((pt, i) => {
+        assert.ok(Math.abs(pt[0] - want[w][i][0]) < 1e-9, `${name} ${axis} ${f}/${w}/${i}: pupil`);
+        if (want[w][i][1] === null) { dead++; assert.equal(pt[1], null, `${name} ${axis} ${f}/${w}/${i}: a non-Alive sample is null`); }
+        else assert.ok(Math.abs(pt[1] - want[w][i][1]) < 1e-9, `${name} ${axis} ${f}/${w}/${i}: error in µm minus the chief ray`);
+      }));
+    }));
+    // The y range is fanPanels' rule on the same maximum (pinned against the copy in adapters.js).
+    const live = panels.flatMap((pn) => pn.series.flatMap((s) => s.points.map((pt) => pt[1]).filter((v) => v !== null)));
+    const probe = { fields: [0], fans: [{ T: [live], S: [live] }] };
+    assert.deepEqual(y.range, fanPanels(probe, { kind: 'tra' }).y.range, `${name}: the symmetric range at fanPanels' step`);
+    for (const [width, height] of SIZES) {
+      const svg = ELEO.curve({ panels, columns, x, y, width, height });
+      const groups = panelGroups(svg);
+      assert.equal(groups.length, panels.length, `${name} ${width}px: one group per panel`);
+      groups.forEach((g, p) => panels[p].series.forEach((s, k) => {
+        const liveSamples = s.points.filter((pt) => pt[1] !== null);
+        const drawn = g.paths[k].flat();
+        assert.equal(drawn.length, liveSamples.length, `${name} ${width}px panel ${p} series ${k}: every alive sample drawn, no dead one`);
+        liveSamples.forEach((pt, i) => {
+          const back = toData(g.M, toPx(g.M, drawn[i]));
+          const [ex, ey] = toPx(g.M, pt), [gx, gy] = toPx(g.M, back);
+          assert.ok(Math.hypot(ex - gx, ey - gy) <= TOL_PX, `${name} ${width}px panel ${p} series ${k} point ${i} within ${TOL_PX} px`);
+        });
+        let runs = 0, prev = false;
+        for (const pt of s.points) { const on = pt[1] !== null; if (on && !prev) runs++; prev = on; }
+        assert.equal(g.paths[k].length, runs, `${name} ${width}px panel ${p} series ${k}: a dead sample breaks the series`);
+      }));
+    }
+  }
+  assert.ok(dead > 0, 'some dead sample was drawn as a gap (the clone guarantees one)');
+});

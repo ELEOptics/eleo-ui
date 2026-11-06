@@ -378,7 +378,9 @@ test('map2D changeset became minors',
 // Map2D needs `map2D` (plots 0.7.0), so the plots-svelte peer must exclude 0.6.0 and admit 0.7.0. Plots is 0.7.0 on npm and in
 // the workspace, so `npm ci` resolves.
 // oracle: spec semver (a `>=X.Y.Z <M` range admits v when X.Y.Z <= v and v's major < M).
-test('plots-svelte peers plots >=0.7.0', () => {
+// Issue #598 (plan #512 M3 review): the wrappers draw at a width, which needs plots 0.8.0 (row O's minor, ADR-0003), so the
+// peer also excludes 0.7.0, where rayFan ignores `width`.
+test('plots-svelte peers plots >=0.8.0', () => {
   const range = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
   const m = range.match(/^>=(\d+)\.(\d+)\.(\d+) <(\d+)$/);
   assert.ok(m, `the plots peer ${range} is not >=X.Y.Z <M`);
@@ -389,7 +391,8 @@ test('plots-svelte peers plots >=0.7.0', () => {
     return cmp >= 0 && p[0] < hi;
   };
   assert.ok(!admits('0.6.0'), `${range} admits plots 0.6.0, which has no map2D`);
-  assert.ok(admits('0.7.0'), `${range} excludes plots 0.7.0`);
+  assert.ok(!admits('0.7.0'), `${range} admits plots 0.7.0, which ignores width`);
+  assert.ok(admits('0.8.0'), `${range} excludes plots 0.8.0`);
 });
 
 // Plan #389, issue #456 (CR #455), retired by #457 (plan #464): the peer is now >=0.7.0, which has the typed map2D, so the
@@ -429,4 +432,46 @@ test('row O changesets became minors',
   { skip: !rowOConsumed && 'changesets not yet versioned' }, () => {
     assert.equal(entry('plots', ROW_O_PLOTS_ENTRY).kind, 'Minor');
     assert.equal(entry('plots-svelte', ROW_O_SVELTE_ENTRY).kind, 'Minor');
+  });
+
+// Plan #603 (agent_docs/plans/603-recorded-fans.md), outcome O3 (issue #604; #598's item unskips). Row P: `minWidth` is a plots minor; plots-svelte
+// peers `@eleoptics/plots >=0.8.0 <1` as a patch, in its own file (#85), because plots 0.7 ignores `width` (#598).
+// oracle: spec semver (the peer admits only plots that draw at a width); @changesets/cli's plan of the named files
+// Once `changeset version` deleted the files, the twin below reads the CHANGELOG entries they became, as row N's does (#594).
+const ROW_P_PLOTS_ENTRY = /`minWidth\(name, props\)`/;
+const ROW_P_SVELTE_ENTRY = /Peer `@eleoptics\/plots` is now `>=0\.8\.0 <1`/;
+const rowPConsumed = ['min-width.md', 'plots-svelte-peer-0.8.md'].every((f) => !existsSync(join(repo, '.changeset', f)))
+  && ROW_P_PLOTS_ENTRY.test(readFileSync(join(repo, 'packages/plots/CHANGELOG.md'), 'utf8'))
+  && ROW_P_SVELTE_ENTRY.test(readFileSync(join(repo, 'packages/plots-svelte/CHANGELOG.md'), 'utf8'));
+test('row P changesets', { skip: rowPConsumed && 'consumed by changeset version' }, () => {
+  const read = (f) => {
+    const text = readFileSync(join(repo, '.changeset', f), 'utf8');
+    const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    assert.ok(m, `.changeset/${f} has no front matter`);
+    return { text, body: m[2] };
+  };
+  const plots = read('min-width.md');
+  const svelte = read('plots-svelte-peer-0.8.md');
+  assert.match(plots.body, /minWidth/, 'the plots body names minWidth');
+  assert.match(svelte.body, />=0\.8\.0 <1/, 'the plots-svelte body names the raised peer');
+  assert.equal(manifest('plots-svelte').peerDependencies['@eleoptics/plots'], '>=0.8.0 <1', 'plots-svelte peers plots 0.8 and up');
+  withWorkspace({ '@eleoptics/plots': 'minor' }, (ws) => {
+    rmSync(join(ws, '.changeset/bumps.md'));
+    writeFileSync(join(ws, '.changeset/min-width.md'), plots.text);
+    writeFileSync(join(ws, '.changeset/plots-svelte-peer-0.8.md'), svelte.text);
+    run(ws, 'git', ['add', '-A']);
+    run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'row P']);
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    const type = (name) => releases.find((r) => r.name === name)?.type;
+    assert.equal(type('@eleoptics/plots'), 'minor');
+    assert.equal(type('@eleoptics/plots-svelte'), 'patch');
+    assert.deepEqual(releases.map((r) => r.name).sort(), ['@eleoptics/plots', '@eleoptics/plots-svelte'], 'only plots and plots-svelte are planned');
+  });
+});
+
+test('row P changesets became a plots minor and a plots-svelte patch',
+  { skip: !rowPConsumed && 'changesets not yet versioned' }, () => {
+    assert.equal(entry('plots', ROW_P_PLOTS_ENTRY).kind, 'Minor');
+    assert.equal(entry('plots-svelte', ROW_P_SVELTE_ENTRY).kind, 'Patch');
   });

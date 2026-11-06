@@ -68,3 +68,12 @@ test('map2D typed grid type-checks', () => {
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/map2d.ts', import.meta.url))], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
+
+// Plan #603 (issue #610). tests/types/sizes.ts: minWidth(name, props) returns a number on the module and on ELEO,
+// and @ts-expect-error on an unknown renderer name and a missing name.
+// oracle: spec roadmap Constraints (typed API alongside the old one)
+test('minWidth type-checks', () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck', '--lib', 'es2022,dom',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/sizes.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});

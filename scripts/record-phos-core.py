@@ -46,6 +46,15 @@ does not rewrite them:
     its location() and rotation()). Header `surface` (the stop's interface index), `referenceWavelengthNm` (must be a recorded wavelength) and `semiDiameter` (max(w, h, 2 * norm) / 2
     of its aperture()). It exits non-zero unless there is a stop, the semi-diameter is finite and positive, and every alive
     point is within semiDiameter x (1 + 1e-4). Writes tests/fixtures/phos-core/cooke-footprint.json.
+  `fans`: TransverseRayError of the achromat and the Cooke triplet, 41 samples, pupil slice angle 0, the lens's own sources, per
+    source `{fieldAngleDeg, wavelengths (nm), x: {points, statuses}, y: {points, statuses}}`, header `referenceWavelengthNm` (the lens's reference
+    wavelength as wavefront and footprint read it; refused unless every source recorded it), points `[pupil, error mm]`[wavelength][41]
+    as recorded, except that a non-Alive sample's non-finite coordinate is written null (NaN is not JSON), statuses the Rust names
+    Alive/Virtual/Missed/Dead (status_name(); dead samples are kept). It exits non-zero on unequal
+    shapes or a non-finite alive sample. If the Cooke has no Dead sample it also records phos-core's clipped Cooke (stop aperture
+    0.65 x its normalization) as cooke-clipped-fans.json, and refuses to write that unless it has dead tails; if the Cooke has a
+    Dead sample it deletes a stale cooke-clipped-fans.json.
+    Writes tests/fixtures/phos-core/{achromat,cooke}-fans.json.
 """
 import argparse
 import json
@@ -581,12 +590,94 @@ def footprint(phos, model, outdir, header):
     return path
 
 
+FAN_SAMPLES = 41  # pupil samples of a recorded ray fan
+CLIP_FRACTION = 0.65  # the clipped Cooke's stop aperture, in its normalization (phos-core's own test)
+
+
+def status_name(phos, status):
+    # The client's four RayStatus classes by their Rust names (row M's rule; the ray-visibility fixture reuses it).
+    for cls, name in ((phos.RayStatus.ALIVE, "Alive"), (phos.RayStatus.VIRTUAL, "Virtual"),
+                      (phos.RayStatus.MISSED, "Missed"), (phos.RayStatus.DEAD_E, "Dead")):
+        if isinstance(status, cls):
+            return name
+    sys.exit(f"status_name: unknown ray status {status!r}")
+
+
+def fan_axis(phos, label, fan, stats):
+    # fan[w][k] = (pupil, error mm), stats[w][k] the RayStatus; dead samples stay, with their status, so a gap's position is data.
+    if len(fan) != len(stats) or any(len(f) != FAN_SAMPLES or len(t) != FAN_SAMPLES for f, t in zip(fan, stats)):
+        sys.exit(f"fans: {label} shape {[len(f) for f in fan]} points and {[len(t) for t in stats]} statuses, expected {FAN_SAMPLES} each")
+    names = [[status_name(phos, st) for st in t] for t in stats]
+    for w, block in enumerate(fan):
+        for k, p in enumerate(block):
+            if names[w][k] == "Alive" and not finite(p[0], p[1]):
+                sys.exit(f"fans: {label} wavelength {w} sample {k} is alive with a non-finite point")
+    # A non-Alive sample's non-finite coordinate is null (its position is still data, the adapter nulls it anyway): NaN is not JSON.
+    num = lambda x: rnd(x) if math.isfinite(x) else None
+    return {"points": [[[num(p[0]), num(p[1])] for p in block] for block in fan], "statuses": names}
+
+
+def fans(phos, lens, model, outdir, header, name=None):
+    # TransverseRayError per source, slice angle 0 (x and y fans along the pupil axes), the lens's own sources.
+    s = phos.TransverseRayErrorSettings()
+    s.set_system_index(0)
+    s.set_pupil_slice_angle(0.0)
+    s.set_num_samples(FAN_SAMPLES)
+    sources = model.sources(0)
+    ref = model.system(0).reference_wavelength()  # as wavefront() and footprint() read it, so every fixture of a lens agrees
+    if ref is None:
+        sys.exit(f"fans: the {lens} model has no reference wavelength")
+    ref_nm = rnd(ref * 1000)
+    runs = s.run(model)
+    if len(runs) != len(sources):
+        sys.exit(f"fans: {len(runs)} results for {len(sources)} sources, expected one each")
+    out = []
+    for i, (src, run) in enumerate(zip(sources, runs)):
+        wl = run.wavelengths()
+        axes = {a: fan_axis(phos, f"source {i} {a}", getattr(run, f"{a}_fan")(), getattr(run, f"{a}_statuses")()) for a in ("x", "y")}
+        for a, v in axes.items():
+            if len(v["points"]) != len(wl):
+                sys.exit(f"fans: source {i} {a} has {len(v['points'])} fans for {len(wl)} wavelengths")
+        if ref_nm not in [rnd(w * 1000) for w in wl]:
+            sys.exit(f"fans: reference wavelength {ref_nm} nm is not among source {i}'s recorded {[rnd(w * 1000) for w in wl]}")
+        out.append({"fieldAngleDeg": rnd(field_angle_deg(src)), "wavelengths": [rnd(w * 1000) for w in wl], **axes})
+    doc = {**header, "lens": lens, "analysis": "fans", "referenceWavelengthNm": ref_nm, "kind": "TransverseRayError, pupil slice angle 0; points [pupil, error mm], statuses Alive/Virtual/Missed/Dead",
+           "numSamples": FAN_SAMPLES, "sources": out}
+    path = outdir / (name or f"{lens}-fans.json")
+    path.write_text(json.dumps(doc, separators=(",", ":")) + "\n")
+    return path, doc
+
+
+def clipped_cooke(phos):
+    # phos-core's own test: the stop (interface 2) clipped to 0.65 of its normalization.
+    model = phos.OpticalModel.cooke_triplet_kingslake()
+    height = model.interface(0, 2).aperture().normalization()
+    model.set_interface_aperture(0, 2, phos.Aperture.centered_clear_circular(CLIP_FRACTION * height, False))
+    return model
+
+
+def record_fans(phos, sample, outdir, header):
+    ach = achromat(phos, sample)
+    paths = [fans(phos, "achromat", ach, outdir, header)[0]]
+    path, doc = fans(phos, "cooke", phos.OpticalModel.cooke_triplet_kingslake(), outdir, header)
+    paths.append(path)
+    if any(st == "Dead" for src in doc["sources"] for a in ("x", "y") for blk in src[a]["statuses"] for st in blk):
+        (outdir / "cooke-clipped-fans.json").unlink(missing_ok=True)  # the clipped file exists exactly when the rule says
+        return paths
+    # The default Cooke has no Dead sample: record the clipped one, and only if it really has dead tails.
+    path, doc = fans(phos, "cooke", clipped_cooke(phos), outdir, header, "cooke-clipped-fans.json")
+    if not any(st == "Dead" for src in doc["sources"] for a in ("x", "y") for blk in src[a]["statuses"] for st in blk):
+        path.unlink()
+        sys.exit("fans: the clipped Cooke has no dead tails, refusing to write cooke-clipped-fans.json")
+    return paths + [path]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--phos", required=True, help="<phos-core>/clients/python/src")
     default_out = str(ROOT / "tests/fixtures/phos-core")
     ap.add_argument("--out", default=default_out)
-    ap.add_argument("--only", choices=["seidel", "layout", "maps", "footprint"], help="record only this analysis; the other fixtures are left as they are")
+    ap.add_argument("--only", choices=["seidel", "layout", "maps", "footprint", "fans"], help="record only this analysis; the other fixtures are left as they are")
     ap.add_argument("--triplet", default=str(DEFAULT_TRIPLET), help="phos's fixtures/triplet.toml (--only layout)")
     args = ap.parse_args()
     sys.path.insert(0, args.phos)
@@ -608,6 +699,13 @@ def main():
             print(f"wrote {shown}/{path.name} (phos-core {sha[:10]})")
         return
     sample = json.loads((ROOT / "packages/plots/src/sample.json").read_text())
+    if args.only == "fans":
+        outdir = Path(args.out)
+        outdir.mkdir(parents=True, exist_ok=True)
+        shown = outdir.relative_to(ROOT) if outdir.is_relative_to(ROOT) else outdir
+        for path in record_fans(phos, sample, outdir, header):
+            print(f"wrote {shown}/{path.name} (phos-core {sha[:10]})")
+        return
 
     ach = achromat(phos, sample)
     efl = ach.first_order_data(0).focal_length()

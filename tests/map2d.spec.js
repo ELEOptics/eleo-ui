@@ -12,7 +12,15 @@ test('sample call unchanged', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) for (const kind of ['psf', 'wavefront']) {
-    const png = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="${kind}"]`).evaluate((c) => c.toDataURL('image/png'));
+    // A fresh canvas in that theme's tile (colors come from the element), drawn with the renderer's default size, not the gallery's.
+    const png = await page.locator(`.theme[data-theme="${theme}"] [data-tile="${kind}"] .eleo-plot__body`).evaluate((body, k) => {
+      const c = document.createElement('canvas');
+      body.appendChild(c);
+      window.ELEO.map2D(c, { kind: k });
+      const url = c.toDataURL('image/png');
+      c.remove();
+      return url;
+    }, kind);
     expect(png === baseline[`${kind}-${theme}`], `${kind} in ${theme} differs from the recording`).toBe(true);
   }
 });
@@ -341,6 +349,7 @@ test('recorded wavefront cells (U8)', async ({ page }) => {
     const r = await page.locator(sel).evaluate(async (el, p) => {
       const ELEO = window.ELEO, { grid, tile } = window.__o2;
       const t = tile(el);
+      t.style.maxWidth = '650px'; // a fixed draw width: this test checks cells, not the gallery's layout (CR #626)
       const [x0, x1, y0, y1] = p.extent;
       t.firstElementChild.innerHTML = ELEO.map2D({ values: p.values, polar: { radii: p.radii, angles: p.angles }, extent: p.extent, map: 'wave',
         aperture: { x: 0, y: 0, r: p.pupilRadius }, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, el: t });
