@@ -741,3 +741,92 @@ test('map2D draws its frame at F_LO at PLOT_SIZES.map2D.minWidth', async ({ page
   expect(r.sizes.length).toBeGreaterThan(0);
   for (const s of r.sizes) expect(Math.abs(s - 9), `text ${s}px`).toBeLessThanOrEqual(0.09);
 });
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O3 (issue #690; #696 unskips). Every typed map tile has axes, a ticked colorbar and a grid drawn after the <image>,
+// per axis by grid: { x: { major, minor }, y: { ... } } (false: none), in its colormap's grid token (--map-grid-<map>, minors --map-grid-<map>-minor).
+// oracle: closed-form Heckbert's 1-2-5 rule (as axisTicks, curve.js:26) for the majors and an even split for the minors; spec WCAG 2.1 contrast ratio, each grid token against its map's end stops (3:1, minor 1.5:1), both themes.
+// Fixture: values 4 x 8 over [0, 4] x [0, 2]: the plot area is less than 2:1, so y is padded and x spans [0, 4] exactly; major: 5 gives the ticks 0 to 4 and minor: 4 gives 0.2 steps.
+test.skip('grid over the image', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const col = page.locator(`.theme[data-theme="${theme}"]`);
+    // The gallery's typed map tiles: x and y axis labels, a colorbar with at least 3 ticks, grid lines after the <image> in the ember grid token.
+    const tiles = await col.locator('[data-tile][data-size="map2D"]').evaluateAll((els) => els.map((el) => {
+      const svg = el.querySelector('.eleo-plot__body svg'), image = svg.querySelector('image');
+      const cb = [...svg.querySelectorAll('image')].find((q) => q.getAttribute('width') !== null && +q.getAttribute('height') > 0 && q !== image);
+      const bx = cb ? +cb.getAttribute('x') + +cb.getAttribute('width') : Infinity;
+      const texts = [...svg.querySelectorAll('text')].map((t) => t.textContent.trim());
+      const lines = [...svg.querySelectorAll('line')].filter((l) => /^var\(--map-grid-/.test(l.getAttribute('stroke') || ''));
+      return {
+        tile: el.dataset.tile, hasX: texts.some((t) => /^x, /.test(t)), hasY: texts.some((t) => /^y, /.test(t)),
+        cbTicks: [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && /^[−-]?[\d.]+$/.test(t.textContent.trim())).length,
+        grid: lines.length, strokes: [...new Set(lines.map((l) => l.getAttribute('stroke')))],
+        allAfterImage: lines.every((l) => !!(image.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING)),
+      };
+    }));
+    expect(tiles.length, `${theme} map tiles`).toBeGreaterThan(0);
+    for (const t of tiles) {
+      expect(t.hasX, `${theme} ${t.tile} x axis label`).toBe(true);
+      expect(t.hasY, `${theme} ${t.tile} y axis label`).toBe(true);
+      expect(t.cbTicks, `${theme} ${t.tile} colorbar ticks`).toBeGreaterThanOrEqual(3);
+      expect(t.grid, `${theme} ${t.tile} grid lines`).toBeGreaterThan(0);
+      expect(t.allAfterImage, `${theme} ${t.tile} grid after the <image>`).toBe(true);
+      for (const s of t.strokes) expect(s, `${theme} ${t.tile} grid stroke`).toMatch(/^var\(--map-grid-ember(-minor)?\)$/);
+    }
+
+    // The explicit grid: 5 labelled x majors at the 1-2-5 ticks, 4 minors in each interval, every line after the <image>.
+    const r = await col.evaluate((el) => {
+      const values = Array.from({ length: 4 }, (_, j) => Array.from({ length: 8 }, (_, i) => (i + 8 * j) / 31));
+      el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map: 'ember', x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, value: { label: 'v', unit: 'a.u.' }, grid: { x: { major: 5, minor: 4 }, y: false }, el }));
+      const svg = el.lastElementChild, image = svg.querySelector('image'), frame = svg.querySelector('rect');
+      const stroke = (s) => [...svg.querySelectorAll('line')].filter((l) => l.getAttribute('stroke') === s);
+      const xs = (ls) => ls.filter((l) => l.getAttribute('x1') === l.getAttribute('x2')).map((l) => +l.getAttribute('x1'));
+      const ticks = [...svg.querySelectorAll('text.eleo-tick[text-anchor="middle"]')].map((t) => ({ x: +t.getAttribute('x'), s: t.textContent.trim() }));
+      const all = [...stroke('var(--map-grid-ember)'), ...stroke('var(--map-grid-ember-minor)')];
+      svg.remove();
+      return {
+        imgX: +image.getAttribute('x'), imgW: +image.getAttribute('width'), frameX: +frame.getAttribute('x'), frameW: +frame.getAttribute('width'),
+        majors: xs(stroke('var(--map-grid-ember)')), minors: xs(stroke('var(--map-grid-ember-minor)')), horizontal: all.filter((l) => l.getAttribute('y1') === l.getAttribute('y2')).length,
+        ticks, afterImage: all.length > 0 && all.every((l) => !!(image.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING)),
+      };
+    });
+    const ppu = r.imgW / 4, lo = (r.frameX - r.imgX) / ppu, hi = lo + r.frameW / ppu;
+    const nice = (v, round) => { const e = Math.floor(Math.log10(v)), f = v / 10 ** e; return (round ? (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) : (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10)) * 10 ** e; };
+    const d = nice(nice(hi - lo, false) / 4, true);
+    const want = [];
+    for (let k = Math.floor(lo / d); k <= Math.ceil(hi / d); k++) if (k * d >= lo - 1e-9 && k * d <= hi + 1e-9) want.push(+(k * d).toFixed(6));
+    const px = (v) => r.imgX + v * ppu;
+    expect(want.length, `${theme} the 1-2-5 rule gives 5 majors on [${lo}, ${hi}]`).toBe(5);
+    expect(r.majors.length, `${theme} x majors`).toBe(5);
+    want.forEach((v, i) => expect(Math.abs(r.majors[i] - px(v)), `${theme} major ${v} at its tick`).toBeLessThan(0.2));
+    want.forEach((v) => expect(r.ticks.some((t) => Math.abs(t.x - px(v)) < 0.2 && Number(t.s) === v), `${theme} major ${v} labelled`).toBe(true));
+    expect(r.minors.length, `${theme} x minors`).toBe(4 * (want.length - 1));
+    const wantMinors = want.slice(0, -1).flatMap((v) => [1, 2, 3, 4].map((m) => px(v + (m * d) / 5)));
+    wantMinors.forEach((m, i) => expect(Math.abs(r.minors[i] - m), `${theme} minor ${i}`).toBeLessThan(0.2));
+    expect(r.horizontal, `${theme} y: false draws no horizontal grid line`).toBe(0);
+    expect(r.afterImage, `${theme} explicit grid after the <image>`).toBe(true);
+
+    // Contrast of each map's grid token against its own map's lowest and highest stops (WCAG 2.1 relative luminance).
+    const c = await col.evaluate((el) => {
+      const lum = (rgb) => { const [R, G, B] = rgb.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * R + 0.7152 * G + 0.0722 * B; };
+      const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((p, q) => q - p); return (hi + 0.05) / (lo + 0.05); };
+      const out = {};
+      for (const map of ['ember', 'wave', 'viridis', 'gray']) {
+        el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values: [[0, 1], [1, 0]], extent: [0, 1, 0, 1], map, grid: { x: { major: 5, minor: 4 }, y: { major: 5, minor: 4 } }, el }));
+        const svg = el.lastElementChild, lut = window.ELEO.colormap(map, el);
+        const px = (s) => { const l = [...svg.querySelectorAll('line')].find((q) => q.getAttribute('stroke') === s); return l ? getComputedStyle(l).stroke.match(/[\d.]+/g).slice(0, 3).map(Number) : null; };
+        const major = px(`var(--map-grid-${map})`), minor = px(`var(--map-grid-${map}-minor)`);
+        out[map] = { major: major && [ratio(major, lut[0]), ratio(major, lut[255])], minor: minor && [ratio(minor, lut[0]), ratio(minor, lut[255])] };
+        svg.remove();
+      }
+      return out;
+    });
+    for (const [map, q] of Object.entries(c)) {
+      expect(q.major, `${theme} ${map} grid token drawn`).not.toBeNull();
+      expect(q.minor, `${theme} ${map} minor grid token drawn`).not.toBeNull();
+      q.major.forEach((v, i) => expect(v, `${theme} ${map} major vs end stop ${i}`).toBeGreaterThanOrEqual(3));
+      q.minor.forEach((v, i) => expect(v, `${theme} ${map} minor vs end stop ${i}`).toBeGreaterThanOrEqual(1.5));
+    }
+  }
+});

@@ -849,3 +849,29 @@ test('fan and footprint keys', async ({ page }) => {
   await settle(page);
   for (const theme of ['light', 'dark']) check(await measure(theme), `${theme} at minWidth`);
 });
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips). layout3D paints the rays over the image plane they end on.
+// oracle: user request 9 (rays over the plane they end on); property: the --mech pixels with rays are a strict subset of those without (rays: false), in both themes, in the default iso view.
+test.skip('layout3D rays over the image plane', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout3D"] .eleo-plot__body`).evaluate((body) => {
+      const mech = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(body, 'mech'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
+      const planePixels = (o) => {
+        const c = document.createElement('canvas');
+        body.appendChild(c);
+        window.ELEO.layout3D(c, o);
+        const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height), on = new Set();
+        for (let i = 0; i < data.length; i += 4) if (data[i] === mech[0] && data[i + 1] === mech[1] && data[i + 2] === mech[2]) on.add(i / 4);
+        c.remove();
+        return on;
+      };
+      const bare = planePixels({ rays: false }), withRays = planePixels({});
+      return { bare: bare.size, withRays: withRays.size, outside: [...withRays].filter((p) => !bare.has(p)).length };
+    });
+    expect(r.bare, `${theme} the plane is drawn`).toBeGreaterThan(0);
+    expect(r.outside, `${theme} --mech pixels with rays that the bare plane lacks`).toBe(0);
+    expect(r.withRays, `${theme} rays cover part of the plane`).toBeLessThan(r.bare);
+  }
+});
