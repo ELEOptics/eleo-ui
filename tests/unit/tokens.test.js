@@ -58,6 +58,7 @@ test('map grid contrast', () => {
     : [val(`map-${map}-0`, th), val(`map-${map}-8`, th)];
   for (const map of ['ember', 'wave', 'viridis', 'gray']) for (const th of ['light', 'dark']) {
     for (const [name, min] of [[`map-grid-${map}`, 3], [`map-grid-${map}-minor`, 1.5]]) {
+      assert.ok(tok(name).usage.includes(`the ${map} map's image`), `${name} usage names its map: ${tok(name).usage}`);
       const c = val(name, th);
       for (const [i, end] of ends(map, th).entries()) {
         const r = ratio(c, end);
