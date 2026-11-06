@@ -155,26 +155,32 @@ export function layout2D(o) {
     });
   });
   if (!L.rays.some(function (fan) { return fan.length; })) throw new Error("layout2D: no rays");
-  // `alive[k][i]`: the number of leading alive points of rays[k][i], an integer in 0..len; absent means all.
-  if (L.alive != null) {
-    if (!Array.isArray(L.alive) || L.alive.length !== L.rays.length) throw new Error("layout2D: alive needs one array per fan (" + L.rays.length + ")");
-    L.alive.forEach(function (row, k) {
-      if (!Array.isArray(row) || row.length !== L.rays[k].length) throw new Error("layout2D: alive[" + k + "] needs one count per ray of fan " + k + " (" + L.rays[k].length + ")");
-      row.forEach(function (a, i) { if (!Number.isInteger(a) || a < 0 || a > L.rays[k][i].length) throw new Error("layout2D: alive[" + k + "][" + i + "] is not an integer in 0.." + L.rays[k][i].length); });
+  // One shape walk for alive, dead and status: one array per fan, one `what` per ray of each; `check(value, k, i)` is the leaf check.
+  function perRay(name, what, check) {
+    var v = L[name];
+    if (!Array.isArray(v) || v.length !== L.rays.length) throw new Error("layout2D: " + name + " needs one array per fan (" + L.rays.length + ")");
+    v.forEach(function (row, k) {
+      if (!Array.isArray(row) || row.length !== L.rays[k].length) throw new Error("layout2D: " + name + "[" + k + "] needs one " + what + " per ray of fan " + k + " (" + L.rays[k].length + ")");
+      row.forEach(function (x, i) { check(x, k, i); });
     });
   }
+  // `alive[k][i]`: the number of leading alive points of rays[k][i], an integer in 0..len; absent means all.
+  if (L.alive != null) perRay("alive", "count", function (a, k, i) {
+    if (!Number.isInteger(a) || a < 0 || a > L.rays[k][i].length) throw new Error("layout2D: alive[" + k + "][" + i + "] is not an integer in 0.." + L.rays[k][i].length);
+  });
   // `dead[k][i]`: true where ray i of fan k was blocked at point a = alive[k][i] (< len); it is drawn solid through that point, no dotted part.
   if (L.dead != null) {
     if (L.alive == null) throw new Error("layout2D: dead comes only with alive");
-    if (!Array.isArray(L.dead) || L.dead.length !== L.rays.length) throw new Error("layout2D: dead needs one array per fan (" + L.rays.length + ")");
-    L.dead.forEach(function (row, k) {
-      if (!Array.isArray(row) || row.length !== L.rays[k].length) throw new Error("layout2D: dead[" + k + "] needs one flag per ray of fan " + k + " (" + L.rays[k].length + ")");
-      row.forEach(function (d, i) {
-        if (typeof d !== "boolean") throw new Error("layout2D: dead[" + k + "][" + i + "] is not a boolean");
-        if (d && !(L.alive[k][i] < L.rays[k][i].length)) throw new Error("layout2D: dead[" + k + "][" + i + "] is true but alive[" + k + "][" + i + "] is not below the ray's length");
-      });
+    perRay("dead", "flag", function (d, k, i) {
+      if (typeof d !== "boolean") throw new Error("layout2D: dead[" + k + "][" + i + "] is not a boolean");
+      if (d && !(L.alive[k][i] < L.rays[k][i].length)) throw new Error("layout2D: dead[" + k + "][" + i + "] is true but alive[" + k + "][" + i + "] is not below the ray's length");
     });
   }
+  // `status[k][i][j]`: the status of point j of rays[k][i], "Alive", "Virtual" or "Dead"; when present, `alive` and `dead` are ignored.
+  if (L.status != null) perRay("status", "array", function (pts, k, i) {
+    if (!Array.isArray(pts) || pts.length !== L.rays[k][i].length) throw new Error("layout2D: status[" + k + "][" + i + "] needs one status per point (" + L.rays[k][i].length + ")");
+    pts.forEach(function (st, j) { if (st !== "Alive" && st !== "Virtual" && st !== "Dead") throw new Error("layout2D: status[" + k + "][" + i + "][" + j + "] is not Alive, Virtual or Dead"); });
+  });
   if (o.labels != null && !Array.isArray(o.labels)) throw new Error("layout2D: labels must be an array (a string or null per fan)");
   if (o.labels && o.labels.length > L.rays.length) throw new Error("layout2D: labels has " + o.labels.length + " entries for " + L.rays.length + " fans");
   var S = L.surfaces;

@@ -1202,3 +1202,20 @@ test('show hides a status (U17)', { skip: '#643' }, () => {
     }
   }
 });
+
+// Plan #642, outcome O1, issue #647: layout2D names each status shape error. oracle: spec: one array per fan, per ray, per point, each Alive, Virtual or Dead.
+test('status is validated', () => {
+  const L = fixture('tolerance'), ok = L.rays.map((fan) => fan.map((r) => r.map(() => 'Alive')));
+  const bad = (status) => ELEO.layout2D({ data: { ...L, status } });
+  assert.doesNotThrow(() => bad(ok), 'a well-shaped status draws');
+  const f = L.rays.findIndex((fan) => fan.length > 1), i = 1, p = 0;
+  const at = (v) => ok.map((fan, k) => k !== f ? fan : fan.map((r, j) => j !== i ? r : v(r)));
+  assert.throws(() => bad('Alive'), { message: `layout2D: status needs one array per fan (${L.rays.length})` });
+  assert.throws(() => bad(ok.slice(1)), { message: `layout2D: status needs one array per fan (${L.rays.length})` });
+  assert.throws(() => bad(ok.map((fan, k) => k === f ? fan.slice(1) : fan)), { message: `layout2D: status[${f}] needs one array per ray of fan ${f} (${L.rays[f].length})` });
+  assert.throws(() => bad(at(() => 'Alive')), { message: `layout2D: status[${f}][${i}] needs one status per point (${L.rays[f][i].length})` });
+  assert.throws(() => bad(at((r) => r.slice(1))), { message: `layout2D: status[${f}][${i}] needs one status per point (${L.rays[f][i].length})` });
+  for (const v of ['ALIVE', 'Missed', 3, null]) {
+    assert.throws(() => bad(at((r) => r.map((s, j) => j === p ? v : s))), { message: `layout2D: status[${f}][${i}][${p}] is not Alive, Virtual or Dead` });
+  }
+});
