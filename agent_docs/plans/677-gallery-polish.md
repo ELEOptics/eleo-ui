@@ -79,7 +79,7 @@ checked in `tests/types/keys.ts`:
 - `CurveSeries.label?: string`; `key?: PlotKeyEntry[]`, `keyAt?: PlotKeyAt` on `CurveSeriesProps` and `CurvePanelsProps`.
 - `RayFanProps.key?: boolean`, `RayFanProps.keyAt?: PlotKeyAt`.
 - `SpotSeries.label?: string`; `keyAt?: PlotKeyAt` on `SpotPanelsProps`.
-- `Map2DGridProps.grid?: false | null | { x?: false | null | { major?: number; minor?: number | false }; y?: false | null | { major?: number; minor?: number | false } }` (`null` and `minor: false` added by #693, #746, #752).
+- `Map2DGridProps.grid?: boolean | null | { x?: false | null | { major?: number; minor?: number | false }; y?: false | null | { major?: number; minor?: number | false } }` (`null` and `minor: false` added by #693, #746, #752; `true` by #769, no grid by default, CR #767).
 - `Layout2DProps.key?: PlotKeyEntry[] | "glass"`.
 
 No `exports` change in any `package.json`.
