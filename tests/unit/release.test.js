@@ -479,7 +479,7 @@ test('row P changesets became a plots minor and a plots-svelte patch',
 // Plan #642 (agent_docs/plans/642-ray-visibility.md), outcome O6 (issue #651). Row Q: a layout's `status` and the `show` option are a
 // plots minor, in one file; the label clamp and the named image error are a plots patch, in another. oracle: spec semver (a visible change
 // ships as a minor); @changesets/cli's plan of the named file. Once `changeset version` deleted a file, its twin below reads the
-// CHANGELOG entry it became, as rows O and P do: each changeset has its own gate and twin.
+// CHANGELOG entry it became. Unlike rows O and P, which share one gate and one twin, row Q gives each changeset its own gate and twin.
 const ROW_Q_ENTRY = /With `status`, a ray is drawn to its last point/;
 const ROW_Q_PATCH_ENTRY = /at least 1 em below the top of a cropping/;
 const rowQConsumed = barsConsumed('layout-status.md', 'plots', ROW_Q_ENTRY);
