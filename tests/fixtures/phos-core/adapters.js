@@ -65,7 +65,7 @@
         })
       };
     },
-    /* footprint(recording) -> { panels, unit, origin, ... }: one panel, a series per field (index = field) of the alive rays' stop-local
+    /* footprint(recording) -> { panels, unit, origin, ... }: one panel, a series per field (index = field, labelled `F<k> <angle>°`) of the alive rays' stop-local
        x/y in mm (verbatim, at the wavelength nearest the header's referenceWavelengthNm), and the stop's semi-diameter as `circle`.
        Every field fills the stop and the overlap is the point, so no panel per field. */
     footprint: function (rec) {
@@ -79,7 +79,7 @@
           series: rec.sources.map(function (s, i) {
             var w = 0;
             s.wavelengths.forEach(function (nm, j) { if (Math.abs(nm - rec.referenceWavelengthNm) < Math.abs(s.wavelengths[w] - rec.referenceWavelengthNm)) w = j; });
-            return { points: s.points[w], index: i };
+            return { points: s.points[w], index: i, label: 'F' + (i + 1) + ' ' + s.fieldAngleDeg.toFixed(1) + '°' };
           }),
           circle: { radius: rec.semiDiameter, label: 'Semi-diameter' }
         }]
@@ -135,7 +135,7 @@
         aperture: { x: 0, y: 0, r: rec.pupilRadius }, value: { label: 'OPD', unit: 'waves' }
       };
     },
-    /* fans(recording) -> { panels, columns, x, y } in the shape of fanPanels (packages/plots/src/fan.js): row T (the y fan, Py) then row S
+    /* fans(recording) -> { panels, columns, x, y, key } (key: `<nm> nm` per wavelength of the first source, index = wavelength) in the shape of fanPanels (packages/plots/src/fan.js): row T (the y fan, Py) then row S
        (the x fan, Px), a column per field titled `<angle>° · Py`, a series per wavelength (index = wavelength) of [pupil, error in µm]
        (the recording is in mm) minus the fan's chief-ray error (the sample at rec.referenceWavelengthNm with the smallest |pupil|, under 1e-9, so that wavelength's fan crosses 0 at pupil 0 and
        the others keep their lateral-colour offset); a chief ray that is not Alive, or a reference not recorded, throws a TypeError naming the field.
@@ -171,6 +171,7 @@
       var nice = [5, 10, 20, 25, 50, 100, 200].find(function (v) { return v >= mx; }) || Math.ceil(mx);
       return {
         panels: panels, columns: rec.sources.length, x: { label: 'Pupil', range: [-1, 1] },
+        key: rec.sources[0].wavelengths.map(function (nm, w) { return { label: nm.toFixed(1) + ' nm', index: w }; }),
         y: { label: 'Transverse ray aberration', unit: 'µm', range: [-nice, nice] }
       };
     },

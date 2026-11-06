@@ -753,3 +753,14 @@ test('labels', async () => {
   const html = readFileSync(new URL('../../gallery/index.html', import.meta.url), 'utf8');
   assert.match(html, /MTF_LIMITS = \[[^\]]*\{ x: 50, label: '50 cycles\/mm' \}/);
 });
+
+// Plan #677 M2, work item #687. The footprint labels each field and the fans key their wavelengths.
+test('keys', async () => {
+  // oracle: fixtures cooke-footprint.json sources[].fieldAngleDeg and achromat-fans.json sources[0].wavelengths
+  await import('../fixtures/phos-core/adapters.js');
+  const A = globalThis.ELEOAdapters;
+  const fp = read('../fixtures/phos-core/cooke-footprint.json');
+  assert.deepEqual(A.footprint(fp).panels[0].series.map((s) => s.label), ['F1 0.0°', 'F2 17.0°', 'F3 24.0°']);
+  const fans = read('../fixtures/phos-core/achromat-fans.json');
+  assert.deepEqual(A.fans(fans).key, [{ label: '486.1 nm', index: 0 }, { label: '587.6 nm', index: 1 }, { label: '656.3 nm', index: 2 }]);
+});
