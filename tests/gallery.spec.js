@@ -804,7 +804,7 @@ const FAN_FOOT_KEYS = {
   rayFan: ['486.1 nm', '587.6 nm', '656.3 nm'],
   'rayFan-opd': ['486.1 nm', '587.6 nm', '656.3 nm'],
 };
-test.skip('fan and footprint keys', async ({ page }) => {
+test('fan and footprint keys', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
