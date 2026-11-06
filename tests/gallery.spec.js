@@ -691,4 +691,21 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
     if (!c.id.startsWith('layout3D')) expect(Math.abs(c.renderedH - c.rendered), `${c.id} square`).toBeLessThanOrEqual(1);
     else expect(Math.abs(c.renderedH / c.rendered - 320 / 560), 'layout3D aspect').toBeLessThan(0.01);
   });
+  // A pixel-ratio change at the same CSS width redraws every canvas at the new ratio (#638).
+  const cdp = await page.context().newCDPSession(page);
+  // The height differs by 1 px: Chromium reports a pixel-ratio change to media queries only with a viewport change, and the width, which redraws the tiles by itself, stays.
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 700, height: 901, deviceScaleFactor: 2, mobile: false });
+  await expect.poll(async () => (await widths()).every((c) => c.dpr === 2 && Math.abs(c.backing - c.rendered * c.dpr) <= 1), { message: 'backing follows the pixel ratio' }).toBe(true);
+  // The airy image is radially symmetric: left/right and top/bottom halves match pixel for pixel.
+  const sym = await page.locator('[data-canvas="airy"]').first().evaluate((c) => {
+    const n = c.width, d = c.getContext('2d').getImageData(0, 0, n, n).data;
+    let bad = 0;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) for (let k = 0; k < 4; k++) {
+      const a = d[(y * n + x) * 4 + k];
+      if (a !== d[(y * n + (n - 1 - x)) * 4 + k] || a !== d[((n - 1 - y) * n + x) * 4 + k]) bad++;
+    }
+    return { n, bad };
+  });
+  expect(sym.n, 'airy drawn').toBeGreaterThan(100);
+  expect(sym.bad, 'airy mirror-symmetric').toBe(0);
 });

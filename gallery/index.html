@@ -63,8 +63,8 @@
       <section class="eleo-plot" data-tile="fieldCurvature" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">field curvature</span></div><div class="eleo-plot__body" data-svg="fieldCurvature"></div></section>
       <section class="eleo-plot" data-tile="distortion" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">distortion</span></div><div class="eleo-plot__body" data-svg="distortion"></div></section>
       <section class="eleo-plot" data-tile="chromaticFocus" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">chromatic focus</span></div><div class="eleo-plot__body" data-svg="chromaticFocus"></div></section>
-      <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D" width="480" height="300"></canvas></div></section>
-      <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy" width="240" height="240"></canvas></div></section>
+      <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D"></canvas></div></section>
+      <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy"></canvas></div></section>
     <!-- Segmented control specimen, not a tile. Each column's <form> scopes its own radio group. -->
     <form><div class="eleo-seg" role="radiogroup" aria-label="Units"><label><input type="radio" name="units" value="um" checked><span>µm</span></label><label><input type="radio" name="units" value="waves"><span>waves</span></label><label><input type="radio" name="units" value="mm"><span>mm</span></label></div></form>
     <section class="eleo-plot" data-tile="icons"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Icons</h3><span class="eleo-plot__meta">glass, then line</span></div><div class="eleo-plot__body icons" data-icons></div></section>
@@ -127,9 +127,15 @@
       // The pattern depends only on the radius: tabulate sqrt(I) once over 0 to the corner radius, then interpolate per pixel.
       var T = 2048, rmax = Math.SQRT1_2 * span, tab = new Float64Array(T + 1);
       for (var i = 0; i <= T; i++) tab[i] = Math.sqrt(ELEO.airy(i / T * rmax, 0.5876, 4));
-      for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
-        var t = Math.min(T, Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / n * span / rmax * T), j = Math.min(T - 1, Math.floor(t)), v = tab[j] + (tab[j + 1] - tab[j]) * (t - j), c = lut[Math.round(v * 255)], p = (y * n + x) * 4;
-        img.data[p] = c[0]; img.data[p + 1] = c[1]; img.data[p + 2] = c[2]; img.data[p + 3] = 255;
+      // The image is symmetric about both axes (x + 0.5 - n/2 flips sign under x -> n-1-x): compute the top-left quadrant, copy it into the other three.
+      var half = (n + 1) >> 1, d = img.data;
+      for (var y = 0; y < half; y++) for (var x = 0; x < half; x++) {
+        var t = Math.min(T, Math.hypot(x + 0.5 - n / 2, y + 0.5 - n / 2) / n * span / rmax * T), j = Math.min(T - 1, Math.floor(t)), v = tab[j] + (tab[j + 1] - tab[j]) * (t - j), c = lut[Math.round(v * 255)];
+        var xs = [x, n - 1 - x], ys = [y, n - 1 - y];
+        for (var a = 0; a < 2; a++) for (var b = 0; b < 2; b++) {
+          var p = (ys[b] * n + xs[a]) * 4;
+          d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2]; d[p + 3] = 255;
+        }
       }
       ctx.putImageData(img, 0, 0);
     }
@@ -173,6 +179,12 @@
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
     }
+    // A pixel-ratio change (zoom, a move to another screen) redraws the canvases at their last width; the query names the current ratio, so re-arm it after each change.
+    function watchRatio() {
+      var mq = window.matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)');
+      mq.addEventListener('change', function () { drawCanvases(); watchRatio(); }, { once: true });
+    }
+    watchRatio();
     function fitCanvases(theme) {
       theme.querySelectorAll('[data-canvas]').forEach(function (el) {
         var body = el.parentNode;
