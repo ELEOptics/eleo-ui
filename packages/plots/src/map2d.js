@@ -8,14 +8,15 @@ import { colormap } from "./physics.js";
 
 var r2 = function (v) { return +v.toFixed(2); };
 
-/* An axis's grid option, as { major, minor } (counts, 0 for none). `grid: false` or an axis `false` is no lines; no `grid`, or an axis left out, is the default majors and no minors. */
+/* An axis's grid option, as { major, minor } (counts, 0 for none). `grid: false` or an axis `false` is no lines; no `grid`, or an axis left out (`null` too), is the default majors and no minors. */
 function gridOf(g, k) {
   var a = g === false ? false : g && g[k];
+  if (a === null) a = undefined;
   if (a === false) return { major: 0, minor: 0 };
   if (a === undefined) return { major: 6, minor: 0, dflt: true };
-  var ok = function (v, lo) { return typeof v === "number" && Number.isInteger(v) && v >= lo; };
+  var ok = function (v, lo, hi) { return typeof v === "number" && Number.isInteger(v) && v >= lo && !(v > hi); };
   if (a.major !== undefined && !ok(a.major, 2)) throw new TypeError("map2D: grid." + k + ".major must be an integer of at least 2");
-  if (a.minor !== undefined && a.minor !== false && !ok(a.minor, 0)) throw new TypeError("map2D: grid." + k + ".minor must be a whole number of lines per interval, or false");
+  if (a.minor !== undefined && a.minor !== false && !ok(a.minor, 0, 20)) throw new TypeError("map2D: grid." + k + ".minor must be a whole number of lines per interval, at most 20, or false");
   return { major: a.major || 6, minor: a.minor || 0, dflt: a.major === undefined };
 }
 /* The axis with its ticks fixed to `major` nice ticks over `r`, unless it has its own `ticks` or no `major`: scales, plotCell's labels and the grid then use the same ticks. */

@@ -862,3 +862,27 @@ test('default grid over the image', async ({ page }) => {
   expect(r.off.tokens + r.off.minors + r.off.plotGrid, 'grid: false draws no lines').toBe(0);
   expect(r.off.ticks, 'grid: false keeps the tick labels').toBeGreaterThan(0);
 });
+
+// #746 (review M3 round 1, findings 1, 3, 8): `grid: null` and an axis `null` act as left out (the Svelte wrapper spreads props), `minor` above 20 throws the `map2D: grid` TypeError.
+// oracle: by definition, left out is the default (same line counts as `undefined`); the cap is the stated limit, 20 lines per interval is allowed and 21 is not.
+test('grid option', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const values = Array.from({ length: 4 }, (_, j) => Array.from({ length: 8 }, (_, i) => (i + 8 * j) / 31));
+    const draw = (grid) => {
+      try {
+        const s = window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map: 'ember', x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, grid, el });
+        return (s.match(/<line[^>]*var\(--map-grid-ember[^>]*>/g) || []).length;
+      } catch (e) { return e instanceof TypeError ? e.message : 'not a TypeError: ' + e.name; }
+    };
+    return { dflt: draw(undefined), gridNull: draw(null), xNull: draw({ x: null }), yNull: draw({ x: null, y: null }), cap: draw({ x: { minor: 20 } }), over: draw({ x: { minor: 21 } }), huge: draw({ y: { minor: 1e6 } }) };
+  });
+  expect(r.dflt).toBeGreaterThan(0);
+  expect(r.gridNull, 'grid: null is the default').toBe(r.dflt);
+  expect(r.xNull, 'an axis null is the default').toBe(r.dflt);
+  expect(r.yNull).toBe(r.dflt);
+  expect(r.cap, 'minor 20 is allowed').toBeGreaterThan(r.dflt);
+  expect(r.over).toMatch(/^map2D: grid\.x\.minor/);
+  expect(r.huge).toMatch(/^map2D: grid\.y\.minor/);
+});
