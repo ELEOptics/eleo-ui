@@ -767,7 +767,7 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
 // Each key text is distinct, overlaps no other key text and no other text of the figure (axis labels, ticks), and stays inside the SVG unless it is alone on its line (bars' rule: a lone over-long entry may overrun).
 // mtf-limits' vertical limit reads "50 cycles/mm".
 const CURVE_KEYS = { mtf: 6, 'mtf-limits': 6, fieldCurvature: 2, distortion: 1 };
-test.skip('curve keys', async ({ page }) => {
+test('curve keys', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
