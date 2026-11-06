@@ -517,6 +517,9 @@ test('key', () => {
   assert.ok(Math.max(...ys) < H, 'every text inside the height');
   const plain = ELEO.spot({ panels: [{ series: [{ points: pts, index: 0 }] }], unit: 'mm', width: 400, height: 260 });
   assert.ok(!/data-key/.test(plain), 'no label, no key');
+  const empty = ELEO.spot({ panels: [{ series: [{ points: pts, index: 0, label: '' }] }], unit: 'mm', width: 400, height: 260 });
+  assert.ok(!/data-key/.test(empty), 'an empty label is not keyed');
+  assert.equal(empty, plain, 'and reserves no row');
   // a corner: one box per panel inside it, with that panel's labels, and no foot rows
   const corner = ELEO.spot({ ...mk(), keyAt: 'top-right' });
   assert.equal([...corner.matchAll(/class="eleo-key"/g)].length, 2, 'a box per panel');

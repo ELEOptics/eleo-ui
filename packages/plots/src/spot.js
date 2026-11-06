@@ -64,7 +64,7 @@ function typedSpot(o) {
   if (["below", "top-left", "top-right", "bottom-left", "bottom-right"].indexOf(at) < 0) throw new TypeError('spot: unknown keyAt "' + at + '"');
   var entsOf = function (ps) {
     var out = [];
-    ps.forEach(function (p) { (p.series || []).forEach(function (se) { if (se.label !== undefined && se.label !== null && !out.some(function (e) { return e.label === String(se.label); })) out.push({ label: String(se.label), index: se.index || 0, kind: "dot" }); }); });
+    ps.forEach(function (p) { (p.series || []).forEach(function (se) { if (se.label && !out.some(function (e) { return e.label === String(se.label); })) out.push({ label: String(se.label), index: se.index || 0, kind: "dot" }); }); });
     return out;
   };
   var ents = at === "below" ? entsOf(panels) : [];
