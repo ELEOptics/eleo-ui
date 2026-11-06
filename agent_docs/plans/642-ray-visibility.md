@@ -1,7 +1,7 @@
 # Plan [#642]: Ray status per point and visibility in layout2D
 
 Status: approved 2026-11-05
-Branch: `plan/642-ray-visibility` PR: <pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row Q
+Branch: `plan/642-ray-visibility` PR: [#652] Depends on: none Roadmap: `agent_docs/roadmap.md`, row Q
 
 ## Problem
 
@@ -162,3 +162,5 @@ One bullet per entry (bare lines render as one paragraph).
 [#649]: https://github.com/ELEOptics/eleo-ui/issues/649
 [#650]: https://github.com/ELEOptics/eleo-ui/issues/650
 [#651]: https://github.com/ELEOptics/eleo-ui/issues/651
+
+[#652]: https://github.com/ELEOptics/eleo-ui/pull/652
