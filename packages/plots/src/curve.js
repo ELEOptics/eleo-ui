@@ -132,7 +132,8 @@ function cornerKey(ents, at, t, w, h, T, mg) {
   var kl = keyLayout(ents, t, { L: 0, R: Math.max(0, pw - 4 * pad), maxRow: 1000 });
   var bw = r2(kl.right + 2 * pad), bh = r2(line * kl.rows + 2 * pad - 0.4 * t);
   var bx = at.slice(-4) === "left" ? L + pad : L + pw - pad - bw, by = at.slice(0, 3) === "top" ? T + pad : T + ph - pad - bh;
-  bx = Math.max(L + pad, bx);
+  /* Clamp the start inside the plot on both axes: a box that fits lies wholly inside, a larger one overruns only the far edges. */
+  bx = Math.max(L + pad, bx); by = Math.max(T + pad, by);
   var places = kl.places.map(function (p) { return [bx + pad + p[0], p[1]]; });
   return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, ents, t, by + pad - 0.2 * t, { mark: true });
 }

@@ -862,13 +862,20 @@ test('key swatch follows the role', () => {
 // oracle: invariant (the key box lies within the SVG's viewBox)
 test('corner key stays in the plot', async () => {
   const pts = [[0, 1], [400, 0]];
-  const series = Array.from({ length: 8 }, (_, i) => ({ points: pts, index: i, label: 'series number ' + i }));
-  for (const keyAt of ['top-right', 'top-left']) {
-    const s = ELEO.curve({ series, keyAt, width: 300, height: 120, x: { range: [0, 400] }, y: { range: [0, 1] } });
-    const r = s.match(/<rect class="eleo-key" x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
-    assert.ok(r, keyAt + ': key box present');
-    const [x, , w] = r.slice(1).map(Number);
-    assert.ok(x >= 0, keyAt + ': box starts inside, x=' + x);
-    assert.ok(x + w <= 300 + 1e-6, keyAt + ': box ends inside, right=' + (x + w));
+  const mk = (n, label) => Array.from({ length: n }, (_, i) => ({ points: pts, index: i, label: label || 'series number ' + i }));
+  const nums = (m) => m.slice(1).map(Number);
+  const box = (s) => nums(s.match(/<rect class="eleo-key" x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/));
+  const plot = (s) => nums(s.match(/<rect x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="none" stroke="var\(--plot-grid\)"/));
+  for (const keyAt of ['top-left', 'top-right', 'bottom-left', 'bottom-right']) {
+    const o = { keyAt, width: 300, height: 120, x: { range: [0, 400] }, y: { range: [0, 1] } };
+    const e = 1e-6;
+    let svg = ELEO.curve({ ...o, series: mk(3, 's') });
+    let [fx, fy, fw, fh] = plot(svg), [x, y, w, h] = box(svg);
+    assert.ok(x >= fx - e && x + w <= fx + fw + e && y >= fy - e && y + h <= fy + fh + e, keyAt + ': 3 short labels lie inside the plot frame, box ' + [x, y, w, h] + ' frame ' + [fx, fy, fw, fh]);
+    for (const [name, series] of [['8 labels', mk(8)], ['80-character label', mk(1, 'x'.repeat(80))]]) {
+      svg = ELEO.curve({ ...o, series });
+      [fx, fy] = plot(svg); [x, y] = box(svg);
+      assert.ok(x >= fx - e && y >= fy - e, keyAt + ': ' + name + ' starts inside the plot frame, box ' + [x, y] + ' frame ' + [fx, fy]);
+    }
   }
 });
