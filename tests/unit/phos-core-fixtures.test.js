@@ -707,3 +707,23 @@ print(json.dumps({"none": attempt(None), "unrecorded": attempt(0.65), "recorded"
   assert.match(out.unrecorded, /550/, 'and the recorded wavelengths');
   assert.equal(out.recorded, null, 'a recorded reference passes');
 });
+
+// Plan #642 work item #643 (#646 unskips). oracle: fixture phos-core 580090e: each kept point's status as the recorder writes it (status_name() names), and alive and dead as they follow from it (roadmap U17)
+test('recorded layouts carry each point\'s status (U17)', { skip: '#643' }, () => {
+  for (const name of ['wandersleb', 'cassegrain']) {
+    const f = read(`../fixtures/phos-core/${name}-layout.json`);
+    assert.ok(Array.isArray(f.status), `${name}: the recording carries status`);
+    assert.equal(f.status.length, f.rays.length, `${name}: one status array per field`);
+    f.rays.forEach((fan, k) => {
+      assert.equal(f.status[k].length, fan.length, `${name} field ${k}: one per ray`);
+      fan.forEach((ray, i) => {
+        const st = f.status[k][i], tag = `${name} field ${k} ray ${i}`;
+        assert.equal(st.length, ray.length, `${tag}: one status per kept point`);
+        assert.ok(st.every((s) => ['Alive', 'Virtual', 'Dead'].includes(s)), `${tag}: Alive, Virtual or Dead`);
+        const first = st.findIndex((s) => s !== 'Alive'), a = first < 0 ? st.length : first;
+        assert.equal(f.alive[k][i], a, `${tag}: alive is the first non-Alive index`);
+        assert.equal(f.dead[k][i], first >= 0 && st[first] === 'Dead', `${tag}: dead is whether the first non-Alive is Dead`);
+      });
+    });
+  }
+});

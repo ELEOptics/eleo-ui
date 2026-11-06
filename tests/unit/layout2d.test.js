@@ -1149,3 +1149,56 @@ test('collimated rays start on a pupil-centred arc', () => {
   const finite = { surfaces, rays: [[[[-20, 0], [0, 0], [9, 0]]], [[[-20, 2], [0, 0], [9, -1]]]] };
   assert.deepEqual(drawnStarts(finite, drawn(ELEO.layout2D({ data: finite, rays: 'fan' })).polylines), [[[-20, 0]], [[-20, 2]]]);
 });
+
+// Plan #642 (agent_docs/plans/642-ray-visibility.md), outcomes O1 and O2 (issue #643; #648 and #649 unskip).
+// oracle: fixture the Wandersleb and Cassegrain layouts re-recorded by scripts/record-phos-core.py at the fixtures' pinned phos-core sha, with each kept point's status (roadmap U17)
+// Expected runs for one ray: segment j (point j-1 to j) takes point j's status; the ray ends at its first Dead point;
+// adjacent segments of one status are one run, a polyline from the run's first point to its last.
+function statusRuns(ray, st) {
+  const end = st.indexOf('Dead') < 0 ? ray.length - 1 : st.indexOf('Dead'), runs = [];
+  for (let j = 1; j <= end; j++) {
+    if (runs.length && runs[runs.length - 1].status === st[j]) runs[runs.length - 1].pts.push(ray[j]);
+    else runs.push({ status: st[j], pts: [ray[j - 1], ray[j]] });
+  }
+  return runs;
+}
+const STATUSES = ['Alive', 'Virtual', 'Dead'];
+const RECORDINGS = ['wandersleb', 'cassegrain'].map((n) => JSON.parse(readFileSync(new URL(`../fixtures/phos-core/${n}-layout.json`, import.meta.url))));
+// Polylines carrying a status, as mm point lists with the drawing's dash.
+function statusPolylines(svg) {
+  const { M, polylines } = drawn(svg), back = inverse(M);
+  return polylines.filter((a) => a['data-status']).map((a) => ({ status: a['data-status'], dash: a['stroke-dasharray'], pts: pairs(a.points).map(back) }));
+}
+
+test('recorded ray status per point (U17)', { skip: '#643' }, () => {
+  for (const L of RECORDINGS) for (const width of [1000, 600]) {
+    assert.ok(Array.isArray(L.status), 'the recording carries status per point');
+    const got = statusPolylines(ELEO.layout2D({ data: L, rays: 'fan', width }));
+    let want = 0;
+    L.rays.forEach((fan, k) => fan.forEach((ray, i) => {
+      for (const run of statusRuns(ray, L.status[k][i])) {
+        want++;
+        assert.ok(got.some((p) => p.status === run.status && samePathFrom1(p.pts, run.pts)), `width ${width} field ${k} ray ${i}: a ${run.status} polyline recovers its run`);
+        const p = got.find((q) => q.status === run.status && samePathFrom1(q.pts, run.pts));
+        if (run.status === 'Virtual') assert.equal(p.dash, '1 3', 'Virtual is dotted');
+        else if (i !== L.chief[k]) assert.ok(!p.dash, `${run.status} is solid`);
+      }
+    }));
+    assert.equal(got.length, want, `width ${width}: every status polyline is some ray's run`);
+  }
+});
+
+test('show hides a status (U17)', { skip: '#643' }, () => {
+  for (const L of RECORDINGS) for (const width of [1000, 600]) {
+    const all = ELEO.layout2D({ data: L, rays: 'fan', width }), full = statusPolylines(all);
+    assert.ok(full.length > 0, 'the drawing carries data-status polylines');
+    for (const hidden of STATUSES) {
+      const show = STATUSES.filter((s) => s !== hidden), svg = ELEO.layout2D({ data: L, rays: 'fan', width, show });
+      const got = statusPolylines(svg);
+      assert.equal(got.filter((p) => p.status === hidden).length, 0, `width ${width}: ${hidden} draws no polyline`);
+      assert.deepEqual(got, full.filter((p) => p.status !== hidden), `width ${width}: the others are as with every status shown`);
+      assert.equal(drawn(svg).M.join(' '), drawn(all).M.join(' '), 'the transform does not reflow');
+      assert.equal(svg.match(/viewBox="[^"]*"/)[0], all.match(/viewBox="[^"]*"/)[0], 'the viewBox does not reflow');
+    }
+  }
+});
