@@ -36,7 +36,7 @@
         y: { label: 'Modulus', range: [0, 1], ticks: [0, 0.2, 0.4, 0.6, 0.8, 1] }
       };
     },
-    /* fieldCurvature(recording) -> { series, x, y }: tangential and sagittal focus shift against the field angle. */
+    /* fieldCurvature(recording) -> { series, x, y }: tangential and sagittal focus shift against the field angle, labelled `Tangential` and `Sagittal`. */
     fieldCurvature: function (rec) {
       var rs = rec.sources.map(function (s) { return atRef(rec, s); });
       function line(key, role) {
@@ -174,7 +174,7 @@
         y: { label: 'Transverse ray aberration', unit: 'µm', range: [-nice, nice] }
       };
     },
-    /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
+    /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series labelled `Distortion`. */
     distortion: function (rec) {
       var pts = rec.sources.map(function (s) { return [atRef(rec, s).percent, s.fieldAngleDeg]; });
       return { series: [{ points: pts, index: 0, label: 'Distortion' }], x: { label: 'Distortion', unit: '%' }, y: yAxis(rec) };

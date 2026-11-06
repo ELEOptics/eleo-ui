@@ -738,6 +738,7 @@ test('recorded layouts carry each point\'s status (U17)', () => {
 
 // Plan #677 M1, work item #682. The curve adapters label their series from the recorded field and orientation (the key reads `label`).
 test('labels', async () => {
+  // oracle: fixture achromat-mtf.json fieldAngleDeg and the recorded orientations
   await import('../fixtures/phos-core/adapters.js');
   globalThis.ELEO = globalThis.ELEO || { mtfDiffraction: () => 1 };
   const A = globalThis.ELEOAdapters;
