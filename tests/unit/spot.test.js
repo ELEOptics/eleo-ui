@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELEO from '../../packages/plots/src/index.js';
+import { idx } from '../../packages/plots/src/common.js';
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -496,5 +497,38 @@ test('height fit margin is the drawn foot', async () => {
         assert.ok(Math.abs(H - lastY - (5 + t)) < 0.05, `${tag}: the foot below the last baseline is 5 + t (${H - lastY} vs ${5 + t})`);
       }
     }
+  }
+});
+
+// Plan #677, issue #686. oracle: ADR-0003 foot layout in text units (a key row is 1.4 t after 0.7 t); the height-fit keeps the figure inside `height`
+test('key', () => {
+  const pts = [[1, 1], [-1, 0.5]];
+  const mk = (extra) => ({ panels: [{ series: [{ points: pts, index: 0, label: 'F1 0.0°', ...extra }, { points: pts, index: 1, label: 'F2 17.0°' }] }, { series: [{ points: pts, index: 0, label: 'F1 0.0°' }] }], unit: 'mm', width: 400, height: 260 });
+  const svg = ELEO.spot(mk());
+  const keys = [...svg.matchAll(/<text [^>]*data-key[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  assert.deepEqual(keys, ['F1 0.0°', 'F2 17.0°'], 'each distinct label keyed once');
+  const keyDots = (sv) => [...sv.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)" fill="([^"]+)"\/>/g)].map((m) => ({ cy: +m[2], fill: m[4] }));
+  const keyTexts = (sv) => [...sv.matchAll(/<text [^>]*data-key[^>]*y="([\d.]+)"[^>]*>([^<]*)<\/text>/g)].map((m) => ({ y: +m[1], text: m[2] }));
+  const kd = keyDots(svg), kt = keyTexts(svg);
+  assert.equal(kd.length, 2, 'one dot per key entry');
+  kd.forEach((d, i) => { assert.equal(d.fill, idx(i), `dot ${i} in idx(${i})`); assert.ok(Math.abs(d.cy - (kt[i].y - 0.4 * 9)) < 1.5, `dot ${i} on its key row`); });
+  const H = +svg.match(/viewBox="0 0 [\d.]+ ([\d.]+)"/)[1];
+  const ys = [...svg.matchAll(/<text [^>]*y="([\d.]+)"/g)].map((m) => +m[1]);
+  assert.ok(Math.max(...ys) < H, 'every text inside the height');
+  const plain = ELEO.spot({ panels: [{ series: [{ points: pts, index: 0 }] }], unit: 'mm', width: 400, height: 260 });
+  assert.ok(!/data-key/.test(plain), 'no label, no key');
+  // a corner: one box per panel inside it, with that panel's labels, and no foot rows
+  const corner = ELEO.spot({ ...mk(), keyAt: 'top-right' });
+  assert.equal([...corner.matchAll(/class="eleo-key"/g)].length, 2, 'a box per panel');
+  assert.deepEqual(keyTexts(corner).map((k) => k.text), ['F1 0.0°', 'F2 17.0°', 'F1 0.0°'], 'each panel its own labels');
+  assert.throws(() => ELEO.spot({ ...mk(), keyAt: 'middle' }), TypeError);
+  // height, no width, labels that wrap: every key baseline + 0.3 t inside H
+  const many = Array.from({ length: 9 }, (_, i) => ({ points: pts, index: i % 8, label: `Field ${i} ${i * 3.5}°` }));
+  for (const height of [140, 200, 320]) {
+    const sv = ELEO.spot({ panels: [{ series: many }, { series: many }], unit: 'mm', height });
+    const Hh = +sv.match(/viewBox="0 0 [\d.]+ ([\d.]+)"/)[1];
+    const tt = [...sv.matchAll(/<text [^>]*data-key[^>]*y="([\d.]+)"[^>]*font-size:([\d.]+)px/g)].map((m) => [+m[2], +m[1]]);
+    assert.equal(tt.length, 9);
+    tt.forEach(([t, y]) => assert.ok(y + 0.3 * t <= Hh + 1e-6, `height ${height}: baseline ${y} + 0.3 * ${t} within ${Hh}`));
   }
 });

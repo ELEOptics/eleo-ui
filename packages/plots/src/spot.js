@@ -1,6 +1,7 @@
 import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
+import { keyLayout, keyMarkup } from "./key.js";
 import { frameText, frameWeight, frameOf } from "./scale.js";
 
 var r2 = function (v) { return Math.round(v * 100) / 100; };
@@ -21,6 +22,16 @@ function plain(v, p) {
 var sig3 = function (v) { return plain(v, 3); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
+/* A corner key inside a panel: a box on --surface (no stroke), the start clamped inside the frame, wrapped at the panel's width. */
+function cornerKey(ents, at, t, ox, top, side) {
+  if (!ents.length) return "";
+  var pad = 0.4 * t, kl = keyLayout(ents, t, { L: 0, R: Math.max(0, side - 4 * pad), maxRow: 1000 });
+  var bw = r2(kl.right + 2 * pad), bh = r2(1.4 * t * kl.rows + 2 * pad - 0.4 * t);
+  var bx = at.slice(-4) === "left" ? ox + pad : ox + side - pad - bw, by = at.slice(0, 3) === "top" ? top + pad : top + side - pad - bh;
+  bx = Math.max(ox + pad, bx); by = Math.max(top + pad, by);
+  var places = kl.places.map(function (q) { return [bx + pad + q[0], q[1]]; });
+  return '<rect class="eleo-key" x="' + r2(bx) + '" y="' + r2(by) + '" width="' + bw + '" height="' + bh + '" fill="var(--surface)"/>' + keyMarkup(places, ents, t, by + pad - 0.2 * t, { mark: true });
+}
 function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
   var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
@@ -47,12 +58,27 @@ function typedSpot(o) {
   if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
   /* ADR-0003: a panel's side is the frame F; the text is frameText(F) times textScale, and the layout below the panel is in text units (1.8 under it, 1.5 a line, a foot of 2.8 + 1.5 a line). */
-  var tOf = function (F) { return frameText(F) * ts; }, footM = (2.8 + 1.5 * (notesMax + cap.length)) * ts, footOf = function (F) { return footM * frameText(F) + 1; };
+  var tOf = function (F) { return frameText(F) * ts; };
+  /* The key: one dot entry per distinct series label (the first use's index): below the captions (`keyAt` "below", default), or in a corner of each panel, for that panel's own labels. */
+  var at = o.keyAt === undefined ? "below" : o.keyAt;
+  if (["below", "top-left", "top-right", "bottom-left", "bottom-right"].indexOf(at) < 0) throw new TypeError('spot: unknown keyAt "' + at + '"');
+  var entsOf = function (ps) {
+    var out = [];
+    ps.forEach(function (p) { (p.series || []).forEach(function (se) { if (se.label !== undefined && se.label !== null && !out.some(function (e) { return e.label === String(se.label); })) out.push({ label: String(se.label), index: se.index || 0, kind: "dot" }); }); });
+    return out;
+  };
+  var ents = at === "below" ? entsOf(panels) : [];
   var side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
-  if (o.height && side + 8 + footOf(side) > o.height) {
-    /* side + 8 + foot(side) = height is F + m * frameText(F) = height - 9 (ADR-0003), which frameOf solves. */
-    side = frameOf(o.height - 9, footM);
-  }
+  var keyW = function (F) { return o.width || n * F + (n - 1) * gap; };
+  var keyRows = function (F) { return ents.length ? keyLayout(ents, tOf(F), { L: 0, R: keyW(F), maxRow: 1000 }).rows : 0; };
+  var rows = keyRows(side), footM, footOf = function (F) { return footM * frameText(F) + 1; }, fit = function () {
+    footM = (2.8 + 1.5 * (notesMax + cap.length) + (rows ? 0.7 + 1.4 * rows : 0)) * ts;
+    var F = side0;
+    if (o.height && F + 8 + footOf(F) > o.height) F = frameOf(o.height - 9, footM);
+    return F;
+  }, side0 = side;
+  /* Without a width the key wraps at n * F + gaps, which shrinks with F: recount the rows at the fitted side and fit again until they hold (rows only grow, so it ends). */
+  for (var it = 0; it <= ents.length; it++) { side = fit(); var need = keyRows(Math.max(Math.floor(side * 100) / 100, 1)); if (need <= rows) break; rows = need; }
   side = Math.max(Math.floor(side * 100) / 100, 1);
   var t = tOf(side), foot = footOf(side), wt = frameWeight(side), sty = ' style="font-size:' + +t.toFixed(2) + 'px"';
   var W = o.width || Math.max(n * side + (n - 1) * gap, 0.6 * t * Math.max.apply(null, cap.map(function (c) { return c.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
@@ -72,11 +98,16 @@ function typedSpot(o) {
     if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
+    if (at !== "below") g += cornerKey(entsOf([p]), at, t, ox, top, side);
     var ty = r2(top + side + 1.8 * t);
     g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + sty + ' x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
     (p.notes || []).forEach(function (nt, j) { g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(ty + 1.5 * t * (j + 1)) + '">' + esc(nt) + "</text>"; });
   });
   cap.forEach(function (ct, j) { g += '<text class="eleo-tick"' + sty + ' x="0" y="' + r2(top + side + 1.8 * t + 1.5 * t * (notesMax + j + 1)) + '">' + esc(ct) + "</text>"; });
+  if (ents.length) {
+    var kl = keyLayout(ents, t, { L: 0, R: keyW(side), maxRow: 1000 });
+    g += keyMarkup(kl.places, ents, t, top + side + 1.8 * t + 1.5 * t * (notesMax + cap.length) + 0.7 * t, { mark: true });
+  }
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
 /* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`; RMS and GEO are the renderer's. */
