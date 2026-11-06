@@ -119,7 +119,7 @@ text size; the distortion tile keys in the top-right corner (`keyAt: "top-right"
 | #711 | README height rule: line 91's default names the below key, line 99 "the SVG's height becomes" (CR #707, finding 7) | forced (CR #707, finding 7) | `packages/plots/README.md` | none (doc only) |  |
 | #712 | Adapter headers name their labels; the `labels` test's oracle line (findings 8, 9) | forced (findings 8, 9) | `tests/fixtures/phos-core/adapters.js`, `tests/unit/phos-core-fixtures.test.js` | `tests/unit/phos-core-fixtures.test.js::labels` |  |
 
-### M2: Fan and footprint keys GitHub: `P677 M2: Fan and footprint keys`
+### M2: Fan and footprint keys (done 2026-11-06) GitHub: `P677 M2: Fan and footprint keys`
 
 Demo: the footprint, TRA and OPD tiles keyed inside the SVG at the plot's text size at 1440, 1100 and 700 px; no
 footers. Proves: O2
@@ -204,3 +204,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 M1 demo (user): go; M1 accepted.
 - 2026-11-06 review M2 round 1 (1 blocking, 4 backlog): CR #738 accepted (orchestrator: restores the plan's approved `RayFanProps.keyAt`), fixed by #739; backlog #740 to #742 into M2 (#743, finding 5's comments, folded into #740 and #742, since a comment-only item needs a hook-only test).
 - 2026-11-06 review M2 round 2 (1 blocking, 1 backlog): CR #744 accepted (orchestrator: a simplification inside #739's Files), fixed by #745. Finding 2: #742's "byte-identical" holds for curve but not spot, whose corner box now rounds with key.js's `toFixed(2)` (76 of 22704 sweep calls differ by 0.01 px); accepted as is (orchestrator) because spot corner keys are new in this plan (#686) and unreleased, so no shipped output changes; considered changing spot's `r2` (moves every spot value, re-records its baselines).
+- 2026-11-06 M2 reviewed in 3 rounds (5, 2, 0 counting pulled-in items); round 3 says 0 blocking; ticked.
