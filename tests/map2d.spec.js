@@ -745,7 +745,7 @@ test('map2D draws its frame at F_LO at PLOT_SIZES.map2D.minWidth', async ({ page
   for (const s of r.sizes) expect(Math.abs(s - 9), `text ${s}px`).toBeLessThanOrEqual(0.09);
 });
 
-// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O3 (issue #690; #696 unskips). Every typed map tile has axes, a ticked colorbar and a grid drawn after the <image>,
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O3 (issue #690; #696 unskips). Every typed map tile has axes and a ticked colorbar; a grid, when asked for, is drawn after the <image>,
 // per axis by grid: { x: { major, minor }, y: { ... } } (false: none), in its colormap's grid token (--map-grid-<map>, minors --map-grid-<map>-minor).
 // oracle: closed-form Heckbert's 1-2-5 rule (as axisTicks, curve.js:26) for the majors and an even split for the minors; spec WCAG 2.1 contrast ratio, each grid token against its map's end stops (at least 2:1, minor 1.3:1) and under 2.6:1, minor 1.7:1, against the ground stop (ember stop 0, wave stop 4) or, for viridis and gray, the nearer end (CR #765), both themes.
 // Fixture: values 4 x 8 over [0, 4] x [0, 2]: the plot area is less than 2:1, so y is padded and x spans [0, 4] exactly; major: 5 gives the ticks 0 to 4 and minor: 4 gives 0.2 steps.
@@ -754,7 +754,7 @@ test('grid over the image', async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
     const col = page.locator(`.theme[data-theme="${theme}"]`);
-    // The gallery's typed map tiles: x and y axis labels, a colorbar with at least 3 ticks, grid lines after the <image> in the ember grid token.
+    // The gallery's typed map tiles: x and y axis labels, a colorbar with at least 3 ticks; grid lines, after the <image> in the ember grid token, only on the tile that asks for them (CR #767).
     const tiles = await col.locator('[data-tile][data-size="map2D"]').evaluateAll((els) => els.map((el) => {
       const svg = el.querySelector('.eleo-plot__body svg'), image = svg.querySelector('image');
       const cb = [...svg.querySelectorAll('image')].find((q) => q.getAttribute('width') !== null && +q.getAttribute('height') > 0 && q !== image);
@@ -773,7 +773,8 @@ test('grid over the image', async ({ page }) => {
       expect(t.hasX, `${theme} ${t.tile} x axis label`).toBe(true);
       expect(t.hasY, `${theme} ${t.tile} y axis label`).toBe(true);
       expect(t.cbTicks, `${theme} ${t.tile} colorbar ticks`).toBeGreaterThanOrEqual(3);
-      expect(t.grid, `${theme} ${t.tile} grid lines`).toBeGreaterThan(0);
+      if (t.tile === 'irradiance-gaussian') expect(t.grid, `${theme} ${t.tile} asks for a grid`).toBeGreaterThan(0);
+      else expect(t.grid, `${theme} ${t.tile} asks for none (CR #767)`).toBe(0);
       expect(t.allAfterImage, `${theme} ${t.tile} grid after the <image>`).toBe(true);
       for (const s of t.strokes) expect(s, `${theme} ${t.tile} grid stroke`).toMatch(/^var\(--map-grid-ember(-minor)?\)$/);
     }
@@ -838,15 +839,15 @@ test('grid over the image', async ({ page }) => {
   }
 });
 
-// #693: a map without `grid` has its majors over the image in its map's token, none in --plot-grid inside the frame (those the image hid).
-// oracle: closed-form, the lines at the labelled x ticks (the fixture's x spans [0, 4] exactly, ticks 0 to 4 at 1 mm).
+// #769 (CR #767, user: "a plot with a continuous color should not have grids turned on by default"): a map without `grid` (or `null`, or `false`) draws no grid lines, over or under the image, and keeps its tick labels; `grid: true` draws the default majors over the image, in the map's token.
+// oracle: by definition (the CR), no line in any grid stroke, nor a --plot-grid line inside the frame (the image would hide it); the tick labels are the frame's, so they stay; `true` is the old default, majors at the labelled ticks, none of them minor.
 test('default grid over the image', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
     const values = Array.from({ length: 4 }, (_, j) => Array.from({ length: 8 }, (_, i) => (i + 8 * j) / 31));
     const out = {};
-    for (const [name, grid] of [['default', undefined], ['off', false]]) {
+    for (const [name, grid] of [['default', undefined], ['null', null], ['off', false], ['on', true]]) {
       el.insertAdjacentHTML('beforeend', window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map: 'wave', x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, grid, el }));
       const svg = el.lastElementChild, image = svg.querySelector('image'), frame = svg.querySelector('rect');
       const lines = [...svg.querySelectorAll('line')];
@@ -856,22 +857,25 @@ test('default grid over the image', async ({ page }) => {
         tokens: tokens.length, minors: lines.filter((l) => l.getAttribute('stroke') === 'var(--map-grid-wave-minor)').length,
         plotGrid: lines.filter((l) => l.getAttribute('stroke') === 'var(--plot-grid)' && l.getAttribute('x1') === l.getAttribute('x2') && inFrame(l)).length,
         after: tokens.every((l) => !!(image.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING)),
-        ticks: [...svg.querySelectorAll('text.eleo-tick[text-anchor="middle"]')].length,
+        ticks: [...svg.querySelectorAll('text.eleo-tick[text-anchor="middle"]')].map((t) => t.textContent.trim()).join(','),
       };
       svg.remove();
     }
     return out;
   });
-  expect(r.default.tokens, 'vertical and horizontal majors in the wave token').toBeGreaterThan(5);
-  expect(r.default.minors).toBe(0);
-  expect(r.default.plotGrid, 'no --plot-grid line inside the frame').toBe(0);
-  expect(r.default.after).toBe(true);
-  expect(r.off.tokens + r.off.minors + r.off.plotGrid, 'grid: false draws no lines').toBe(0);
-  expect(r.off.ticks, 'grid: false keeps the tick labels').toBeGreaterThan(0);
+  for (const name of ['default', 'null', 'off']) {
+    expect(r[name].tokens + r[name].minors + r[name].plotGrid, `grid ${name} draws no grid lines`).toBe(0);
+    expect(r[name].ticks, `grid ${name} keeps the tick labels`).toBe(r.on.ticks);
+  }
+  expect(r.on.ticks.length, 'the tick labels are there').toBeGreaterThan(0);
+  expect(r.on.tokens, 'grid: true draws vertical and horizontal majors in the wave token').toBeGreaterThan(5);
+  expect(r.on.minors).toBe(0);
+  expect(r.on.plotGrid, 'no --plot-grid line inside the frame').toBe(0);
+  expect(r.on.after).toBe(true);
 });
 
 // #746 (review M3 round 1, findings 1, 3, 8): `grid: null` and an axis `null` act as left out (the Svelte wrapper spreads props), `minor` above 20 throws the `map2D: grid` TypeError.
-// oracle: by definition, left out is the default (same line counts as `undefined`); the cap is the stated limit, 20 lines per interval is allowed and 21 is not.
+// oracle: by definition, a `grid` left out or `null` is no grid, an axis `null` or left out in an object is `grid: true`'s axis (same line counts); the cap is the stated limit, 20 lines per interval is allowed and 21 is not.
 test('grid option', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -884,20 +888,21 @@ test('grid option', async ({ page }) => {
       } catch (e) { return e instanceof TypeError ? e.message : 'not a TypeError: ' + e.name; }
     };
     const tokens = (map) => {
-      const s = window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, el });
+      const s = window.ELEO.map2D({ values, extent: [0, 4, 0, 2], map, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, grid: true, el });
       return { names: [...new Set((s.match(/--map-grid-[^)]*/g) || []))].sort(), raw: s.includes(map) };
     };
-    return { unknown: tokens('inferno'), inject: tokens('x)" onload="alert(1)'), dflt: draw(undefined), gridNull: draw(null), xNull: draw({ x: null }), yNull: draw({ x: null, y: null }), cap: draw({ x: { minor: 20 } }), over: draw({ x: { minor: 21 } }), huge: draw({ y: { minor: 1e6 } }) };
+    return { unknown: tokens('inferno'), inject: tokens('x)" onload="alert(1)'), dflt: draw(undefined), on: draw(true), gridNull: draw(null), xNull: draw({ x: null }), yNull: draw({ x: null, y: null }), cap: draw({ x: { minor: 20 } }), over: draw({ x: { minor: 21 } }), huge: draw({ y: { minor: 1e6 } }) };
   });
-  expect(r.dflt).toBeGreaterThan(0);
+  expect(r.dflt, 'no grid is no lines').toBe(0);
+  expect(r.on, 'grid: true draws the default majors').toBeGreaterThan(0);
   expect(r.unknown.names, 'an unknown map strokes the ember tokens colormap falls back to').toEqual(['--map-grid-ember']);
   expect(r.unknown.raw, 'the unknown name does not reach the markup').toBe(false);
   expect(r.inject.names, 'an injection string strokes the ember tokens').toEqual(['--map-grid-ember']);
   expect(r.inject.raw, 'the injection string does not reach the markup').toBe(false);
-  expect(r.gridNull, 'grid: null is the default').toBe(r.dflt);
-  expect(r.xNull, 'an axis null is the default').toBe(r.dflt);
-  expect(r.yNull).toBe(r.dflt);
-  expect(r.cap, 'minor 20 is allowed').toBeGreaterThan(r.dflt);
+  expect(r.gridNull, 'grid: null is no grid').toBe(r.dflt);
+  expect(r.xNull, 'an axis null is the default axis').toBe(r.on);
+  expect(r.yNull).toBe(r.on);
+  expect(r.cap, 'minor 20 is allowed').toBeGreaterThan(r.on);
   expect(r.over).toMatch(/^map2D: grid\.x\.minor/);
   expect(r.huge).toMatch(/^map2D: grid\.y\.minor/);
 });

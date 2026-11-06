@@ -874,7 +874,7 @@ test('layout3D rays over the image plane', async ({ page }) => {
 });
 
 // Plan #677 M3, #694: the sample canvas psf and wavefront tiles are gone; the linear recorded PSF has a colorbar labelled "Intensity, relative"; one map tile shows the `grid` option.
-// oracle: spec (user, round 1: drop the two tiles; the log tile's colorbar is the model for the linear one); the explicit grid draws its minor lines in the map's minor token, which a default grid never draws.
+// oracle: spec (user, round 1: drop the two tiles; the log tile's colorbar is the model for the linear one); the explicit grid draws its lines and its minors in the map's grid tokens; a tile that asks for none draws none (CR #767).
 test('map tiles', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -883,12 +883,13 @@ test('map tiles', async ({ page }) => {
     await expect(col.locator('[data-tile="psf"], [data-tile="wavefront"], [data-canvas="psf"], [data-canvas="wavefront"]'), `${theme} sample canvas map tiles`).toHaveCount(0);
     const tile = (name) => col.locator(`[data-tile="${name}"]`).evaluate((el) => {
       const svg = el.querySelector('svg');
-      return { images: svg.querySelectorAll('image').length, text: svg.textContent, minors: svg.querySelectorAll('line[stroke$="-minor)"]').length };
+      return { images: svg.querySelectorAll('image').length, text: svg.textContent, minors: svg.querySelectorAll('line[stroke$="-minor)"]').length, lines: svg.querySelectorAll('line[stroke^="var(--map-grid-"]').length };
     });
     const lin = await tile('psf-recorded');
     expect(lin.images, `${theme} linear PSF image and colorbar`).toBe(2);
     expect(lin.text, `${theme} linear PSF colorbar label`).toContain('Intensity, relative');
-    expect((await tile('psf-log')).minors, `${theme} a default grid has no minor lines`).toBe(0);
+    for (const name of ['psf-recorded', 'psf-log', 'wavefront-recorded']) expect((await tile(name)).lines, `${theme} ${name} asks for no grid`).toBe(0);
+    expect((await tile('irradiance-gaussian')).lines, `${theme} the grid demo keeps its explicit grid`).toBeGreaterThan(0);
     expect((await tile('irradiance-gaussian')).minors, `${theme} the grid demo draws minor lines`).toBeGreaterThan(0);
   }
 });
