@@ -118,6 +118,7 @@ Wandersleb with `show: ["Alive", "Dead"]` (the draft `review-assets` release, ne
 | [#658] | `alive` and `dead` are not validated when `status` is present (review M1 round 1, finding 3) | skip their `perRay` calls beside `status`, as the Constraints and the Core JSDoc say; considered rewording the docs, which edits Core `index.d.ts` | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `layout2d.test.js::alive and dead are ignored when status is present` | [#657] |
 | [#661] | With `status`, a ray drawn to its last point; every `Virtual` and `Dead` run in one `<g opacity=".35">` before the `.85` group of `Alive` runs, dashes as today; without `status` unchanged (CR [#660], M1 demo) | `end` the last point only with `status`, the faded polylines in a second group emitted only when non-empty, so a legacy drawing gains no bytes (O3); considered a per-polyline `stroke-opacity`, which darkens where faded rays cross | `packages/plots/src/layout2d.js`, `packages/plots/README.md`, `tests/unit/layout2d.test.js` | `layout2d.test.js::recorded ray status per point (U17)` (Dead runs past the first Dead point; the faded group) | [#658] |
 | [#664] | With `status`, segment j takes point j - 1's status: a Cassegrain ray blocked at the secondary is Alive up to it, faded Dead after (CR [#663], M1 demo 2); without `status` unchanged | the segment status `L.status ? st[j - 1] : st[j]` in the run loop, because runs, `show` and the faded split already key on it; considered remapping `status` before drawing, which also moves `mirrorBodies`' reading | `packages/plots/src/layout2d.js`, `packages/plots/README.md`, `tests/unit/layout2d.test.js` | `layout2d.test.js::recorded ray status per point (U17)` (start-point rule; each Cassegrain dead ray's first segment Alive) | [#661] |
+| [#666] | Roadmap U17: "(with `status` a segment takes the status of its start point, CR [#663]; without it, of its end point)" (CR [#665], review M1 round 4, finding 1) | the reviewer's wording because it states both rules as the README does; considered deferring to plan end's U17 cut, which leaves the roadmap wrong until then | `agent_docs/roadmap.md` | none to write: a doc fix | [#664] |
 
 ### M2: absorbed fixes and the release GitHub: `P642 M2: Fixes and release`
 
@@ -153,6 +154,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-06 M1 demo (user): no-go. "Show the rays in a lower opacity after they are Dead or Vignetted" and "show Virtual as light, but dotted instead of solid"; Dead and vignetted not told apart (phos-core has no Vignetted status: an aperture gives `Dead("Vignetted by opaque aperture")`). CR [#660] accepted, item [#661]; O1 reworded (replaces round 1's "no further" for layouts with `status`); M1 unticked.
 - 2026-11-06 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog [#662] (a test guard anchors on the first ray group), not pulled in: the code is correct and the demo waits on it; CR [#660] resolved; M1 ticked again. Awaiting the user's M1 demo.
 - 2026-11-06 M1 demo 2 (user): no-go. "The rays segments should be displayed in the style that corresponds to their status": rays vignetted by the secondary or missing the primary "shown alive up to that intersection, then shown in their Dead or Virtual status". CR [#663] accepted, item [#664]; O1 reworded (a segment takes its start point's status, with `status` only); M1 unticked.
+- 2026-11-06 review M1 round 4 (code-reviewer, claude-opus-5-5): 1 blocking, CR [#665] accepted (roadmap U17 states the end-point rule), item [#666]; CRs [#660] and [#663] resolved.
 
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
@@ -183,6 +185,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#662]: https://github.com/ELEOptics/eleo-ui/issues/662
 [#663]: https://github.com/ELEOptics/eleo-ui/issues/663
 [#664]: https://github.com/ELEOptics/eleo-ui/issues/664
+[#665]: https://github.com/ELEOptics/eleo-ui/issues/665
+[#666]: https://github.com/ELEOptics/eleo-ui/issues/666
 [#655]: https://github.com/ELEOptics/eleo-ui/issues/655
 [#656]: https://github.com/ELEOptics/eleo-ui/issues/656
 [#657]: https://github.com/ELEOptics/eleo-ui/issues/657
