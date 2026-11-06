@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELEO from '../../packages/plots/src/index.js';
 import { idx } from '../../packages/plots/src/common.js';
+import { niceTicks } from '../../packages/plots/src/axis.js';
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -534,4 +535,20 @@ test('key', () => {
     assert.equal(tt.length, 9);
     tt.forEach(([t, y]) => assert.ok(y + 0.3 * t <= Hh + 1e-6, `height ${height}: baseline ${y} + 0.3 * ${t} within ${Hh}`));
   }
+});
+
+// #770 (CR #768): a grid at the nice ticks of [-half, half], under the series; grid: false draws none.
+test('grid', () => {
+  const panels = [{ series: [{ points: [[1, 2], [-3, 4]], index: 0 }, { points: [[0, 1]], index: 1 }] }];
+  const svg = ELEO.spot({ panels, unit: 'µm', width: 300, half: 5 });
+  const lines = [...svg.matchAll(/<path d="M([\d.]+),([\d.]+) V([\d.]+)" [^>]*data-grid="x"[^>]*\/>/g)];
+  const side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(svg)[1];
+  const want = niceTicks(-5, 5, 5).ticks.filter((t) => Math.abs(t) <= 5).map((t) => +(side / 2 + (t * side) / 10).toFixed(2));
+  assert.deepEqual(lines.map((m) => +(+m[1]).toFixed(2)), want, 'x positions are the nice ticks of [-half, half]');
+  assert.ok(/stroke="var\(--plot-grid\)"/.test(lines[0][0]), 'in --plot-grid');
+  const first = svg.indexOf('stroke-linecap="round"'), last = svg.lastIndexOf('data-grid=');
+  assert.ok(last > -1 && first > last, 'every grid line before the first series path');
+  assert.ok(/data-grid="y"/.test(svg), 'and horizontal lines');
+  const off = ELEO.spot({ panels, unit: 'µm', width: 300, half: 5, grid: false });
+  assert.ok(!/data-grid/.test(off), 'grid: false draws none');
 });

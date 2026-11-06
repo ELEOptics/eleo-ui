@@ -25,6 +25,7 @@ const spotProps: SpotPanelsProps = { panels: [{ series: [ss] }], keyAt: spotAt }
 const spotSvg: string = spot(spotProps);
 const fanProps: RayFanProps = { key: true, keyAt: at };
 const fanSvg: string = rayFan(fanProps);
+spot({ panels: [{ series: [ss] }], grid: false });
 // @ts-expect-error spot's keyAt is one of five places
 spot({ panels: [{ series: [ss] }], keyAt: 'middle' });
 // @ts-expect-error rayFan's keyAt is one of five places

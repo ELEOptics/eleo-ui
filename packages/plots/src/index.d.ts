@@ -106,6 +106,8 @@ export interface SpotPanelsProps {
   reference?: "chief" | "centroid";
   /** RMS and GEO radius lines under each panel. Default true. */
   showStats?: boolean;
+  /** `false` draws no grid lines; the frame and centre cross stay. Default true: lines at the nice ticks of [-half, half], in --plot-grid, under the dots. */
+  grid?: boolean;
   /** Draw each panel's Airy circle. Default true. */
   showAiry?: boolean;
   /** Box size rule. Default "common". */
@@ -136,6 +138,8 @@ export interface SpotSampleProps {
   scale?: "common" | "auto";
   /** Box half-width in µm; overrides the automatic common size. */
   half?: number;
+  /** `false` draws no grid lines; the frame and centre cross stay. Default true: lines at the nice ticks of [-half, half], in --plot-grid, under the dots. */
+  grid?: boolean;
   /** Airy circle. Default true. */
   airy?: boolean;
   /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */

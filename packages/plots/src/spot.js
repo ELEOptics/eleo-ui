@@ -2,6 +2,7 @@ import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
+import { niceTicks } from "./axis.js";
 import { frameText, frameWeight, frameOf } from "./scale.js";
 
 var r2 = function (v) { return Math.round(v * 100) / 100; };
@@ -79,6 +80,11 @@ function typedSpot(o) {
     if (!isFinite(side / 2 / half)) half = 1;
     var s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
     g += '<rect x="' + (ox + .5) + '" y="' + (top + .5) + '" width="' + (side - 1) + '" height="' + (side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
+    if (o.grid !== false) niceTicks(-half, half, 5).ticks.filter(function (tk) { return Math.abs(tk) <= half; }).forEach(function (tk) {
+      var u = r2(cx + tk * s);
+      g += '<path d="M' + r2(ox + u) + "," + top + " V" + (top + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="x"/>';
+      g += '<path d="M' + ox + "," + r2(top + u) + " H" + (ox + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
+    });
     g += '<path d="M' + (ox + 6) + "," + (top + cx) + " H" + (ox + side - 6) + " M" + (ox + cx) + "," + (top + 6) + " V" + (top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
     g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, cx, cx].join(" ") + ')">';
     (p.series || []).forEach(function (se) {
@@ -113,7 +119,7 @@ export function spotPanels(D, o) {
     return p;
   });
   var r = { panels: panels, reference: "centroid", unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry", "grid"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
   return r;
 }
 export function spot(o) {
