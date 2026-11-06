@@ -179,6 +179,8 @@ export interface RayFanProps {
   key?: boolean;
   /** Where the `key` goes, as `curve`'s `keyAt`: "below" the fans (default) or a corner box in each panel. An unknown value throws curve's TypeError. */
   keyAt?: PlotKeyAt;
+  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
+  grid?: boolean;
 }
 export interface Map2DProps {
   data?: object;
@@ -278,6 +280,8 @@ export interface CurveSeriesProps {
   key?: PlotKeyEntry[];
   /** Default "below". */
   keyAt?: PlotKeyAt;
+  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
+  grid?: boolean;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
@@ -297,6 +301,8 @@ export interface CurvePanelsProps {
   key?: PlotKeyEntry[];
   /** Default "below". */
   keyAt?: PlotKeyAt;
+  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
+  grid?: boolean;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
@@ -334,6 +340,8 @@ export interface BarPlotProps {
   y?: CurveAxis;
   /** y limits only: a category axis has no x value to draw at (an x limit throws). */
   limits?: PlotLimitY[];
+  /** `false` draws no grid lines; the tick labels, frame, zero line and category dividers stay. Default true. */
+  grid?: boolean;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   /** Drawing height in px. Default `round(width * 260 / 460)`. */

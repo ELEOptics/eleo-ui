@@ -158,6 +158,7 @@ function typedCurve(o) {
     var cw = W / cols;
     sc = scales({ x: x, y: y, limits: lim }, panels.map(function (p) { return p.series || []; }), true);
     var mg = curveMargins(sc, cw), top = 1.4 * mg.t, T = 2.2 * mg.t;
+    if (o.grid === false) mg.grid = false;
     if (ents.length && !corner) placeBelow(mg.t, mg.L, W - mg.R, top + T + mg.B);
     var ch = (Hf - top) / rows;
     panels.forEach(function (p, i) {
@@ -168,6 +169,7 @@ function typedCurve(o) {
   }
   sc = scales({ x: x, y: y, limits: lim }, [o.series]);
   var m1 = curveMargins(sc, W);
+  if (o.grid === false) m1.grid = false;
   if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, 2.6 * m1.t + m1.B);
   g = cell(o.series, W, Hf, 2.6 * m1.t, false, m1) + labels(m1) + below;
   return svg(W, Hs, g, lab(y) + " against " + lab(x) + " plot");

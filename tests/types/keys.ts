@@ -30,3 +30,13 @@ spot({ panels: [{ series: [ss] }], keyAt: 'middle' });
 // @ts-expect-error rayFan's keyAt is one of five places
 rayFan({ key: true, keyAt: 'middle' });
 export { spotSvg, fanSvg };
+
+// Plan #677 M3 (#759): grid: false on curve, rayFan and bars.
+import { bars } from '../../packages/plots/src/index';
+const gridCurve: string = curve({ series: [s], grid: false });
+const gridPanels: string = curve({ panels: [{ series: [s] }], grid: false });
+const gridFan: string = rayFan({ grid: false });
+const gridBars: string = bars({ categories: ['a'], series: [{ values: [1] }], grid: false });
+// @ts-expect-error grid is a boolean
+curve({ series: [s], grid: 'off' });
+export { gridCurve, gridPanels, gridFan, gridBars };

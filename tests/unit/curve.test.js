@@ -903,3 +903,30 @@ test('plotCell without grid', async () => {
   assert.deepEqual(texts(off), texts(on), 'tick text unchanged');
   assert.equal(on.replace(/<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g, ''), off, 'nothing else differs');
 });
+
+// Plan #677, issue #759 (CR #757). oracle: property: grid: false on curve (single, panels), rayFan and bars removes exactly the grid lines; without it the SVG is unchanged.
+test('grid false', async () => {
+  const { curve } = await import('../../packages/plots/src/curve.js');
+  const { bars } = await import('../../packages/plots/src/bars.js');
+  const { rayFan } = await import('../../packages/plots/src/fan.js');
+  const gridLine = /<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g;
+  const count = (s) => (s.match(gridLine) || []).length;
+  const texts = (s) => s.match(/<text [^>]*>[^<]*<\/text>/g);
+  const s = [{ points: [[0, 0], [1, 1], [2, 0.5]], index: 0 }];
+  const cases = {
+    single: [curve, { series: s }, 0],
+    panels: [curve, { panels: [{ series: s }, { series: s }], columns: 2 }, 0],
+    bars: [bars, { categories: ['a', 'b', 'c'], series: [{ values: [1, -1, 2] }], total: 'S' }, 3],
+  };
+  for (const [name, [fn, props, dividers]] of Object.entries(cases)) {
+    const on = fn(props), off = fn({ ...props, grid: false });
+    assert.equal(fn({ ...props, grid: true }), on, name + ': grid: true is the default');
+    assert.ok(count(on) > dividers, name + ': grid lines by default');
+    assert.equal(count(off), dividers, name + ': only the dividers remain with grid: false');
+    assert.deepEqual(texts(off), texts(on), name + ': tick text unchanged');
+    assert.ok(off.includes('<rect') && off.length < on.length, name + ': frame stays');
+  }
+  const fan = rayFan({ grid: false }), fanOn = rayFan({});
+  assert.ok(count(fanOn) > 0 && count(fan) === 0, 'rayFan: no grid lines with grid: false');
+  assert.deepEqual(texts(fan), texts(fanOn), 'rayFan: tick text unchanged');
+});
