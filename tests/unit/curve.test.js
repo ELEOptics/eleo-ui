@@ -700,6 +700,13 @@ test('recorded ray fans round trip (U6)', async () => {
   const pupil0 = (src, axis, w) => src[axis].points[w].findIndex(([px]) => px === 0);
   noChief.sources[1].y.statuses[refW(noChief.sources[1])][pupil0(noChief.sources[1], 'y', refW(noChief.sources[1]))] = 'Dead';
   assert.throws(() => ELEOAdapters.fans(noChief), (e) => e instanceof TypeError && e.message.includes(String(noChief.sources[1].fieldAngleDeg)), 'a dead chief ray throws a TypeError naming the field');
+  // A recording whose centre pupil is 1e-17 (a computed -1 + 2i/(n-1)) draws as one at exactly 0; with the nearest sample at 0.05 the chief ray is missing and it throws (#628).
+  const tiny = structuredClone(fixture('achromat-fans'));
+  tiny.sources.forEach((src) => ['x', 'y'].forEach((axis) => src[axis].points.forEach((fan) => { fan.find(([px]) => px === 0)[0] = 1e-17; })));
+  assert.deepEqual(ELEOAdapters.fans(tiny).panels.map((pn) => pn.series.map((sr) => sr.points.map((pt) => pt[1]))), ELEOAdapters.fans(fixture('achromat-fans')).panels.map((pn) => pn.series.map((sr) => sr.points.map((pt) => pt[1]))), 'a centre pupil of 1e-17 gives the errors of one at 0');
+  const gapped = structuredClone(fixture('achromat-fans'));
+  { const src = gapped.sources[0], w = refW(src), i = pupil0(src, 'y', w); src.y.points[w].splice(i, 1); src.y.statuses[w].splice(i, 1); }
+  assert.throws(() => ELEOAdapters.fans(gapped), (e) => e instanceof TypeError && e.message.includes(String(gapped.sources[0].fieldAngleDeg)), 'a nearest pupil of 0.05 is no chief ray: a TypeError naming the field');
   // A reference wavelength that is not recorded throws too.
   const noRef = structuredClone(fixture('achromat-fans'));
   noRef.referenceWavelengthNm = 123;
