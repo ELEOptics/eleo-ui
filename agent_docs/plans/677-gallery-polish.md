@@ -174,6 +174,7 @@ layout3D's rays over the image plane; spot and footprint panels with a grid unde
 | #775 | spot rounds the panel origin in grid, frame and cross; grid docs say strictly inside ±half | r2 as the panel's svg x; considered a numeric test only | `packages/plots/src/spot.js`, `packages/plots/src/index.d.ts`, `packages/plots/README.md`, `.changeset/spot-grid.md`, `tests/unit/spot.test.js` | `tests/unit/spot.test.js::grid` | #774 |
 | #776 | spot rounds every origin-derived number (the ±half label among them); the test checks every element | forced (review finding) | `packages/plots/src/spot.js`, `tests/unit/spot.test.js` | `tests/unit/spot.test.js::grid` | #775 |
 | #777 | The spot test's two-decimal check covers coordinates, not font-size, for 1 to 3 panels | exclude font-size (toFixed(3) is the shared convention); considered rounding key.js's font-size | `tests/unit/spot.test.js` | `tests/unit/spot.test.js::grid` | #776 |
+| #778 | The spot test's two-decimal comment says it checks every number but font-size | forced (review finding; user, at the breaker) | `tests/unit/spot.test.js` | `tests/unit/spot.test.js::grid` | #777 |
 
 ### M4: Layout keys GitHub: `P677 M4: Layout keys`
 
@@ -246,3 +247,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-06 review M3 round 11 (0 blocking, 2 backlog): both into #775.
 - 2026-11-06 review M3 round 12 (0 blocking, 1 backlog): #776 into M3.
 - 2026-11-06 review M3 round 13 (0 blocking, 1 backlog): #777 into M3. Counts 6, 2, 1, 1 since the re-demo: round 13 did not fall, so a round 14 that does not fall trips the breaker.
+- 2026-11-06 review M3 round 14 (0 blocking, 1 backlog): the breaker tripped (1, 1, 1); user: "Fix it, review again". #778 into M3, then round 15.
