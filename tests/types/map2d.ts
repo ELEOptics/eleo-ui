@@ -51,4 +51,8 @@ map2D({ values: [['a']], extent: [0, 1, 0, 1] });
 map2D({ values: [[1]], extent: [0, 1, 0, 1], map: 'red' });
 // @ts-expect-error polar needs both radii and angles
 map2D({ values: [[1]], extent: [-1, 1, -1, 1], polar: { radii: [1] } });
-export { a, b, c, d, r };
+
+// Grid lines: an option or an axis left out may be null, as documented (#746 runtime, #752; review M3 round 2).
+const e: string = map2D({ values: [[1]], extent: [0, 1, 0, 1], grid: null });
+const f: string = map2D({ values: [[1]], extent: [0, 1, 0, 1], grid: { x: null, y: { major: 4, minor: 1 } } });
+export { a, b, c, d, e, f, r };

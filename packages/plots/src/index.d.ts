@@ -82,6 +82,8 @@ export interface SpotSeries {
   points: [number | null, number | null][];
   /** Palette slot: the series color follows idx(index). Default 0. */
   index?: number;
+  /** Keys the series in the SVG: a dot in its color and this text, once per distinct label, below the captions, or in each panel's corner by `keyAt`. */
+  label?: string;
 }
 /** One spot panel, usually one field. */
 export interface SpotPanel {
@@ -104,6 +106,8 @@ export interface SpotPanelsProps {
   reference?: "chief" | "centroid";
   /** RMS and GEO radius lines under each panel. Default true. */
   showStats?: boolean;
+  /** `false` draws no grid lines; the frame and centre cross stay. Default true: lines at the nice ticks strictly inside (-half, half) (the frame draws the edges), in --plot-grid, under the dots. */
+  grid?: boolean;
   /** Draw each panel's Airy circle. Default true. */
   showAiry?: boolean;
   /** Box size rule. Default "common". */
@@ -116,6 +120,8 @@ export interface SpotPanelsProps {
   label?: string;
   /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
   textScale?: number;
+  /** Where series labels are keyed: "below" the captions (default), or a corner of each panel (a box on --surface with that panel's labels; no rows reserved). */
+  keyAt?: PlotKeyAt;
   /** Drawing width in px; a panel's side, `(width - 22 * (panels - 1)) / panels` (less when `height` caps it), is ADR-0003's frame (text size and margins by the same rule, `textScale` multiplying the text). Without it, 150 px panels. */
   width?: number;
   /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
@@ -132,6 +138,8 @@ export interface SpotSampleProps {
   scale?: "common" | "auto";
   /** Box half-width in µm; overrides the automatic common size. */
   half?: number;
+  /** `false` draws no grid lines; the frame and centre cross stay. Default true: lines at the nice ticks strictly inside (-half, half) (the frame draws the edges), in --plot-grid, under the dots. */
+  grid?: boolean;
   /** Airy circle. Default true. */
   airy?: boolean;
   /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
@@ -171,6 +179,12 @@ export interface RayFanProps {
   /** The figure's height in px. Default 314 for the default shape, scaled with the width. */
   height?: number;
   panelWidth?: number;
+  /** `true` keys each sample wavelength ("486.1 nm") below the fans, through `curve`'s key. Default no key. */
+  key?: boolean;
+  /** Where the `key` goes, as `curve`'s `keyAt`: "below" the fans (default) or a corner box in each panel. An unknown value throws curve's TypeError. */
+  keyAt?: PlotKeyAt;
+  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
+  grid?: boolean;
 }
 export interface Map2DProps {
   data?: object;
@@ -208,6 +222,8 @@ export interface Map2DGridProps {
   aperture?: { x: number; y: number; r: number };
   /** The colorbar's axis: `label` and `unit` name the value; `ticks` apply. Default none drawn without it. */
   value?: CurveAxis;
+  /** Grid lines drawn over the image (the frame's own lines are not drawn), per axis, in the map's grid tokens (`--map-grid-<map>`, minors `--map-grid-<map>-minor`). `major` is the target for the labelled nice ticks, about that many (at least 2; the 1-2-5 rule picks the step; the axis's own `ticks` win); `minor` is the lines evenly spaced inside each interval (at most 20, else a `map2D: grid` TypeError). `true` draws the default majors and no minors on both axes; in an object, an axis left out (or `null`) has them and `false` draws no lines on that axis. `false`, `null` or no `grid` draws no lines at all, over or under the image; the tick labels stay. Default: no grid. */
+  grid?: boolean | null | { x?: false | null | { major?: number; minor?: number | false }; y?: false | null | { major?: number; minor?: number | false } };
   /** Element whose tokens color the map. Default the document root. */
   el?: Element;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
@@ -225,7 +241,13 @@ export interface CurveSeries {
   index?: number;
   /** "tangential" is solid, "sagittal" dashed, "reference" a dotted ink line, "limit" a dash-dot ink line. The last two ignore `index`. Default solid, like tangential. */
   role?: "tangential" | "sagittal" | "reference" | "limit";
+  /** Named in the key: one entry per distinct label, from its first use's role and index. A series without one has no key entry. */
+  label?: string;
 }
+/** A key entry: a line swatch in the role's colour (`index`'s palette slot, or `--ink` for `reference` and `limit`) and `role`'s dash, then the label (ADR-0001: never a color). */
+export interface PlotKeyEntry { label: string; index?: number; role?: CurveSeries["role"] }
+/** Where a key goes: under the x label (the SVG grows by its rows, or with a `height` the frame gives them up) or in a plot corner, on a `--surface` box that never resizes the frame. */
+export type PlotKeyAt = "below" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export interface CurveAxis {
   /** Drawn as "label, unit". */
   label?: string;
@@ -258,6 +280,12 @@ export interface CurveSeriesProps {
   y?: CurveAxis;
   /** Limit lines and bands; an auto range contains them. */
   limits?: PlotLimit[];
+  /** The key's entries, replacing those the series labels give; `[]` draws none. */
+  key?: PlotKeyEntry[];
+  /** Default "below". */
+  keyAt?: PlotKeyAt;
+  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
+  grid?: boolean;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
@@ -273,6 +301,12 @@ export interface CurvePanelsProps {
   y?: CurveAxis;
   /** Limit lines and bands, drawn in every panel. */
   limits?: PlotLimit[];
+  /** The key's entries, replacing those the series labels give: one key for the figure below, or one per panel in a corner. */
+  key?: PlotKeyEntry[];
+  /** Default "below". */
+  keyAt?: PlotKeyAt;
+  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
+  grid?: boolean;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
@@ -286,6 +320,8 @@ export interface CurveKindProps {
   /** Drawing width in px, as for a typed call (ADR-0003). Default 460. */
   width?: number;
   height?: number;
+  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
+  grid?: boolean;
   series?: never;
   panels?: never;
   limits?: never;
@@ -310,6 +346,8 @@ export interface BarPlotProps {
   y?: CurveAxis;
   /** y limits only: a category axis has no x value to draw at (an x limit throws). */
   limits?: PlotLimitY[];
+  /** `false` draws no grid lines; the tick labels, frame, zero line and category dividers stay. Default true. */
+  grid?: boolean;
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   /** Drawing height in px. Default `round(width * 260 / 460)`. */

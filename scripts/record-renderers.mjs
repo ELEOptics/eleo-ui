@@ -3,6 +3,8 @@
 // then asserts the current build draws the same strings. Never re-record from code under test,
 // except that the layout2D entries were re-recorded at plan #337 #382 by the user's choice (CR #381),
 // and again at plan #512 #519 by the user's choice at approval (draws to ADR-0003's rule, after #518),
+// the seidel and seidel-terms entries were recorded at plan #677 #679 from main's build (before #680),
+// and the seidel entry alone re-recorded at plan #677 #556 by the user's choice (CR #703: its limit label offsets scale with the text),
 // and the throughFocus entry at plan #512 #570 (after #525, same choice); #528 re-runs it if a later M2 change moves it.
 //   node scripts/record-renderers.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -18,6 +20,8 @@ const phosLayout = (name) => {
   delete layout.status;
   return layout;
 };
+
+const seidelRecording = () => JSON.parse(readFileSync(new URL('../tests/fixtures/phos-core/achromat-seidel.json', import.meta.url), 'utf8'));
 
 // The calls the gallery makes (gallery/index.html, SVG and legend tiles), keyed by tile.
 export function draws() {
@@ -37,6 +41,9 @@ export function draws() {
       () => ELEO.layout2D({ ...globalThis.ELEOAdapters.layout(phosLayout(name)), width }),
     ]))),
     'throughFocus': () => ELEO.throughFocus(),
+    // The recorded achromat Seidel sums through the adapter, as the gallery's seidel tiles draw them (plan #677 #679: before the key extraction).
+    'seidel': () => ELEO.bars({ ...globalThis.ELEOAdapters.seidel(seidelRecording()), limits: [{ y: 0.05, label: '0.05 mm' }], width: 1000 }),
+    'seidel-terms': () => ELEO.bars({ ...globalThis.ELEOAdapters.seidel(seidelRecording(), { by: 'term' }), width: 1000 }),
     'legend-field': () => ELEO.legend('field'),
     'legend-wavelength': () => ELEO.legend('wavelength'),
     'legend-ts': () => ELEO.legend('ts'),

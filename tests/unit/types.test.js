@@ -86,3 +86,12 @@ test('minWidth type-checks', () => {
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/sizes.ts', import.meta.url))], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
+
+// Plan #677, O1 (#681). tests/types/keys.ts: a labelled series, a key of entries and keyAt compile on both curve calls,
+// and @ts-expect-error on an unknown keyAt and a color on a key entry.
+// oracle: spec ADR-0001 (roles and indexes, never a color)
+test('curve keys type-check under --strict', () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck', '--lib', 'es2022,dom',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/keys.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});

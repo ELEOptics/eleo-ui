@@ -1,6 +1,8 @@
 import { idx, svg, esc, NS } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
+import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
+import { niceTicks } from "./axis.js";
 import { frameText, frameWeight, frameOf } from "./scale.js";
 
 var r2 = function (v) { return Math.round(v * 100) / 100; };
@@ -46,13 +48,28 @@ function typedSpot(o) {
   var line = shared && cl ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
   if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
-  /* ADR-0003: a panel's side is the frame F; the text is frameText(F) times textScale, and the layout below the panel is in text units (1.8 under it, 1.5 a line, a foot of 2.8 + 1.5 a line). */
-  var tOf = function (F) { return frameText(F) * ts; }, footM = (2.8 + 1.5 * (notesMax + cap.length)) * ts, footOf = function (F) { return footM * frameText(F) + 1; };
+  /* ADR-0003: a panel's side is the frame F; the text is frameText(F) times textScale, and the layout below the panel is in text units (1.8 under it, 1.5 a line, a foot of 2.8 + 1.5 a line, plus 0.7 + 1.4 a key row). */
+  var tOf = function (F) { return frameText(F) * ts; };
+  /* The key: one dot entry per distinct series label (the first use's index): below the captions (`keyAt` "below", default), or in a corner of each panel, for that panel's own labels. */
+  var at = o.keyAt === undefined ? "below" : o.keyAt;
+  if (KEY_AT.indexOf(at) < 0) throw new TypeError('spot: unknown keyAt "' + at + '"');
+  var entsOf = function (ps) {
+    var out = [];
+    ps.forEach(function (p) { (p.series || []).forEach(function (se) { if (se.label && !out.some(function (e) { return e.label === String(se.label); })) out.push({ label: String(se.label), index: se.index || 0, kind: "dot" }); }); });
+    return out;
+  };
+  var ents = at === "below" ? entsOf(panels) : [];
   var side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
-  if (o.height && side + 8 + footOf(side) > o.height) {
-    /* side + 8 + foot(side) = height is F + m * frameText(F) = height - 9 (ADR-0003), which frameOf solves. */
-    side = frameOf(o.height - 9, footM);
-  }
+  var keyW = function (F) { return o.width || n * F + (n - 1) * gap; };
+  var keyRows = function (F) { return ents.length ? keyLayout(ents, tOf(F), { L: 0, R: keyW(F), maxRow: 1000 }).rows : 0; };
+  var rows = keyRows(side), footM, footOf = function (F) { return footM * frameText(F) + 1; }, fit = function () {
+    footM = (2.8 + 1.5 * (notesMax + cap.length) + (rows ? 0.7 + 1.4 * rows : 0)) * ts;
+    var F = side0;
+    if (o.height && F + 8 + footOf(F) > o.height) F = frameOf(o.height - 9, footM);
+    return F;
+  }, side0 = side;
+  /* Without a width the key wraps at n * F + gaps, which shrinks with F: recount the rows at the fitted side and fit again until they hold (rows only grow, so it ends). */
+  for (var it = 0; it <= ents.length; it++) { side = fit(); var need = keyRows(Math.max(Math.floor(side * 100) / 100, 1)); if (need <= rows) break; rows = need; }
   side = Math.max(Math.floor(side * 100) / 100, 1);
   var t = tOf(side), foot = footOf(side), wt = frameWeight(side), sty = ' style="font-size:' + +t.toFixed(2) + 'px"';
   var W = o.width || Math.max(n * side + (n - 1) * gap, 0.6 * t * Math.max.apply(null, cap.map(function (c) { return c.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
@@ -61,10 +78,15 @@ function typedSpot(o) {
   panels.forEach(function (p, i) {
     var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common;
     if (!isFinite(side / 2 / half)) half = 1;
-    var s = (side / 2) / half, ox = i * (side + gap), cx = side / 2;
-    g += '<rect x="' + (ox + .5) + '" y="' + (top + .5) + '" width="' + (side - 1) + '" height="' + (side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
-    g += '<path d="M' + (ox + 6) + "," + (top + cx) + " H" + (ox + side - 6) + " M" + (ox + cx) + "," + (top + 6) + " V" + (top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
-    g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, cx, cx].join(" ") + ')">';
+    var s = (side / 2) / half, ox = r2(i * (side + gap)), cx = side / 2;
+    g += '<rect x="' + r2(ox + .5) + '" y="' + (top + .5) + '" width="' + r2(side - 1) + '" height="' + r2(side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
+    if (o.grid !== false) niceTicks(-half, half, 5).ticks.filter(function (tk) { return Math.abs(tk) < half; }).forEach(function (tk) {
+      var u = r2(cx + tk * s);
+      g += '<path d="M' + r2(ox + u) + "," + top + " V" + r2(top + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="x"/>';
+      g += '<path d="M' + ox + "," + r2(top + u) + " H" + r2(ox + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
+    });
+    g += '<path d="M' + r2(ox + 6) + "," + r2(top + cx) + " H" + r2(ox + side - 6) + " M" + r2(ox + cx) + "," + (top + 6) + " V" + r2(top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
+    g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, r2(cx), r2(cx)].join(" ") + ')">';
     (p.series || []).forEach(function (se) {
       var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
       g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
@@ -72,11 +94,17 @@ function typedSpot(o) {
     if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
     g += "</g></svg>";
+    var pe = at === "below" ? [] : entsOf([p]);
+    if (pe.length) g += cornerBox(pe, at, t, ox, top, side, side);
     var ty = r2(top + side + 1.8 * t);
-    g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + sty + ' x="' + (ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
+    g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + sty + ' x="' + r2(ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
     (p.notes || []).forEach(function (nt, j) { g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(ty + 1.5 * t * (j + 1)) + '">' + esc(nt) + "</text>"; });
   });
   cap.forEach(function (ct, j) { g += '<text class="eleo-tick"' + sty + ' x="0" y="' + r2(top + side + 1.8 * t + 1.5 * t * (notesMax + j + 1)) + '">' + esc(ct) + "</text>"; });
+  if (ents.length) {
+    var kl = keyLayout(ents, t, { L: 0, R: keyW(side), maxRow: 1000 });
+    g += keyMarkup(kl.places, ents, t, top + side + 1.8 * t + 1.5 * t * (notesMax + cap.length) + 0.7 * t, { mark: true });
+  }
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
 /* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`; RMS and GEO are the renderer's. */
@@ -91,7 +119,7 @@ export function spotPanels(D, o) {
     return p;
   });
   var r = { panels: panels, reference: "centroid", unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry", "grid"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
   return r;
 }
 export function spot(o) {

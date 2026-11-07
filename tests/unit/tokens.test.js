@@ -45,3 +45,38 @@ test('glass band ends in range', async () => {
     assert.ok(ends.lo.l <= lo + 0.02, `glass-band-lo ${th}: L ${ends.lo.l} not at the dark end ${lo}`);
   }
 });
+
+// oracle: WCAG 2.1 contrast ratio of each map's grid tokens. Floors (major 2:1, minor 1.3:1) against the map's lowest and highest stops, the
+// same ends tests/map2d.spec.js::grid over the image reads from ELEO.colormap(map, el)[0] and [255]. Upper bounds (major under 2.6:1, minor under 1.7:1)
+// against the ground stop (ember stop 0, wave stop 4: they fill most of an image, CR #765), or the nearer end stop for viridis and gray, which have none.
+// A sweep over neutral-warm greys found the ordering (major at least the minor against the ground, or the middle stop) feasible in all eight cases, so no case is exempt.
+// The value also sits near the targets (2:1 and 1.3:1 against that reference): major under 2.2:1, minor under 1.45:1, or 1.6:1 on viridis and gray (they cannot go lower: a quieter minor would out-contrast the major against the middle stop)).
+test('map grid contrast', () => {
+  const tok = (n) => json.color.tokens.find((t) => t.name === n);
+  const val = (n, th) => { assert.ok(tok(n), `${n} is defined`); return tok(n).value[th]; };
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.2126 * lin(n >> 16 & 255) + 0.7152 * lin(n >> 8 & 255) + 0.0722 * lin(n & 255); };
+  const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+  const ends = (map, th) => map === 'viridis' ? ['#440154', '#fde725'] : map === 'gray' ? ['#000000', '#ffffff']
+    : [val(`map-${map}-0`, th), val(`map-${map}-8`, th)];
+  const mid = (map, th) => map === 'viridis' ? '#21918c' : map === 'gray' ? '#808080' : val(`map-${map}-4`, th);
+  const ground = (map, th) => map === 'ember' ? val('map-ember-0', th) : map === 'wave' ? val('map-wave-4', th) : null;
+  for (const map of ['ember', 'wave', 'viridis', 'gray']) for (const th of ['light', 'dark']) {
+    const g = ground(map, th), e = ends(map, th);
+    const upper = (c) => g ? ratio(c, g) : Math.min(...e.map((x) => ratio(c, x)));
+    const what = g ? `the ground stop ${g}` : `the nearer end stop`;
+    for (const [name, min, max, near] of [[`map-grid-${map}`, 2, 2.6, 2.2], [`map-grid-${map}-minor`, 1.3, 1.7, g ? 1.45 : 1.6]]) {
+      assert.ok(tok(name).usage.includes(`the ${map} map's image`), `${name} usage names its map: ${tok(name).usage}`);
+      const c = val(name, th);
+      e.forEach((end, i) => {
+        const r = ratio(c, end);
+        assert.ok(r >= min, `${name} ${th} ${c} vs ${map} stop ${i ? 'highest' : 'lowest'} ${end}: ${r.toFixed(2)}:1 < ${min}:1`);
+      });
+      const u = upper(c);
+      assert.ok(u < max, `${name} ${th} ${c}: ${u.toFixed(2)}:1 against ${what}, not under ${max}:1`);
+      assert.ok(u < near, `${name} ${th} ${c}: ${u.toFixed(2)}:1 against ${what}, not near the ${min}:1 target (under ${near}:1)`);
+    }
+    const ref = g || mid(map, th), a = ratio(val(`map-grid-${map}`, th), ref), b = ratio(val(`map-grid-${map}-minor`, th), ref);
+    assert.ok(a >= b, `map-grid-${map} ${th}: major ${a.toFixed(2)}:1 vs ${g ? 'the ground' : 'the middle'} stop ${ref} is weaker than its minor ${b.toFixed(2)}:1`);
+  }
+});

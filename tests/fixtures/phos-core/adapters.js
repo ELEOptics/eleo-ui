@@ -15,14 +15,14 @@
     return { label: 'Field', unit: '°', range: [0, Math.max.apply(null, angles)] };
   }
   globalThis.ELEOAdapters = {
-    /* mtf(recording, { diffraction }) -> { series, x, y }: one tangential and one sagittal series per field. The recorded
+    /* mtf(recording, { diffraction }) -> { series, x, y }: one tangential and one sagittal series per field, labelled `<angle>° tangential` or `<angle>° sagittal`. The recorded
        grid runs past cutoff, so x.range stops at 400 cycles/mm and the viewport clips the rest. With diffraction, a last
        series with role 'reference' is the diffraction limit at the reference wavelength and working f-number. */
     mtf: function (rec, opts) {
       var series = [];
       rec.sources.forEach(function (s, i) {
-        series.push({ points: s.tangential, index: i, role: 'tangential' });
-        series.push({ points: s.sagittal, index: i, role: 'sagittal' });
+        series.push({ points: s.tangential, index: i, role: 'tangential', label: s.fieldAngleDeg + '° tangential' });
+        series.push({ points: s.sagittal, index: i, role: 'sagittal', label: s.fieldAngleDeg + '° sagittal' });
       });
       if (opts && opts.diffraction) {
         var lambda = rec.referenceWavelengthNm * 1e-6, fo = rec.firstOrder, N = fo.workingFNumber != null ? fo.workingFNumber : fo.fNumber;
@@ -36,12 +36,12 @@
         y: { label: 'Modulus', range: [0, 1], ticks: [0, 0.2, 0.4, 0.6, 0.8, 1] }
       };
     },
-    /* fieldCurvature(recording) -> { series, x, y }: tangential and sagittal focus shift against the field angle. */
+    /* fieldCurvature(recording) -> { series, x, y }: tangential and sagittal focus shift against the field angle, labelled `Tangential` and `Sagittal`. */
     fieldCurvature: function (rec) {
       var rs = rec.sources.map(function (s) { return atRef(rec, s); });
       function line(key, role) {
         var pts = rs.map(function (r, i) { return [r[key], rec.sources[i].fieldAngleDeg]; });
-        return { points: pts, index: 0, role: role };
+        return { points: pts, index: 0, role: role, label: role === 'tangential' ? 'Tangential' : 'Sagittal' };
       }
       return { series: [line('tangential', 'tangential'), line('sagittal', 'sagittal')], x: { label: 'Focus shift', unit: 'mm' }, y: yAxis(rec) };
     },
@@ -65,7 +65,7 @@
         })
       };
     },
-    /* footprint(recording) -> { panels, unit, origin, ... }: one panel, a series per field (index = field) of the alive rays' stop-local
+    /* footprint(recording) -> { panels, unit, origin, ... }: one panel, a series per field (index = field, labelled `F<k> <angle>°`) of the alive rays' stop-local
        x/y in mm (verbatim, at the wavelength nearest the header's referenceWavelengthNm), and the stop's semi-diameter as `circle`.
        Every field fills the stop and the overlap is the point, so no panel per field. */
     footprint: function (rec) {
@@ -79,7 +79,7 @@
           series: rec.sources.map(function (s, i) {
             var w = 0;
             s.wavelengths.forEach(function (nm, j) { if (Math.abs(nm - rec.referenceWavelengthNm) < Math.abs(s.wavelengths[w] - rec.referenceWavelengthNm)) w = j; });
-            return { points: s.points[w], index: i };
+            return { points: s.points[w], index: i, label: 'F' + (i + 1) + ' ' + s.fieldAngleDeg.toFixed(1) + '°' };
           }),
           circle: { radius: rec.semiDiameter, label: 'Semi-diameter' }
         }]
@@ -116,13 +116,13 @@
     layout: function (rec) {
       return { data: rec, rays: 'fan', width: 1000, labels: rec.fieldsDeg.map(function (a) { return a + '°'; }) };
     },
-    /* psf(recording, { log }) -> the typed map2D props (without `el`, which the caller sets): the recorded PointSpread grid and its extent in mm,
-       linear over its range, on the ember map; with `log` on the log scale, divided by its peak, and a colorbar for the relative intensity. */
+    /* psf(recording, { log }) -> the typed map2D props (without `el`, which the caller sets): the recorded PointSpread grid divided by its peak (so the brightest value is 1) and its extent in mm,
+       on the ember map, with a colorbar for the relative intensity; linear over its range, or with `log` on the log scale. */
     psf: function (rec, opts) {
-      var values = rec.values;
-      if (opts && opts.log) { var pk = 0; rec.values.forEach(function (r) { r.forEach(function (v) { if (v > pk) pk = v; }); }); if (pk > 0) values = rec.values.map(function (r) { return r.map(function (v) { return v / pk; }); }); }
-      var props = { values: values, extent: rec.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Point spread' };
-      if (opts && opts.log) { props.scale = 'log'; props.value = { label: 'Intensity', unit: 'relative' }; }
+      var pk = 0; rec.values.forEach(function (r) { r.forEach(function (v) { if (v > pk) pk = v; }); });
+      var values = pk > 0 ? rec.values.map(function (r) { return r.map(function (v) { return v / pk; }); }) : rec.values;
+      var props = { values: values, extent: rec.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', label: 'Point spread', value: { label: 'Intensity', unit: 'relative' } };
+      if (opts && opts.log) props.scale = 'log';
       return props;
     },
     /* wavefront(recording) -> the typed map2D props (without `el`): the recorded WavefrontError as polar samples on the ember map
@@ -135,7 +135,7 @@
         aperture: { x: 0, y: 0, r: rec.pupilRadius }, value: { label: 'OPD', unit: 'waves' }
       };
     },
-    /* fans(recording) -> { panels, columns, x, y } in the shape of fanPanels (packages/plots/src/fan.js): row T (the y fan, Py) then row S
+    /* fans(recording) -> { panels, columns, x, y, key } (key: `<nm> nm` per wavelength of the first source, index = wavelength) in the shape of fanPanels (packages/plots/src/fan.js): row T (the y fan, Py) then row S
        (the x fan, Px), a column per field titled `<angle>° · Py`, a series per wavelength (index = wavelength) of [pupil, error in µm]
        (the recording is in mm) minus the fan's chief-ray error (the sample at rec.referenceWavelengthNm with the smallest |pupil|, under 1e-9, so that wavelength's fan crosses 0 at pupil 0 and
        the others keep their lateral-colour offset); a chief ray that is not Alive, or a reference not recorded, throws a TypeError naming the field.
@@ -171,13 +171,14 @@
       var nice = [5, 10, 20, 25, 50, 100, 200].find(function (v) { return v >= mx; }) || Math.ceil(mx);
       return {
         panels: panels, columns: rec.sources.length, x: { label: 'Pupil', range: [-1, 1] },
+        key: rec.sources[0].wavelengths.map(function (nm, w) { return { label: nm.toFixed(1) + ' nm', index: w }; }),
         y: { label: 'Transverse ray aberration', unit: 'µm', range: [-nice, nice] }
       };
     },
-    /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series. */
+    /* distortion(recording) -> { series, x, y }: percent distortion against the field angle, one solid series labelled `Distortion`. */
     distortion: function (rec) {
       var pts = rec.sources.map(function (s) { return [atRef(rec, s).percent, s.fieldAngleDeg]; });
-      return { series: [{ points: pts, index: 0 }], x: { label: 'Distortion', unit: '%' }, y: yAxis(rec) };
+      return { series: [{ points: pts, index: 0, label: 'Distortion' }], x: { label: 'Distortion', unit: '%' }, y: yAxis(rec) };
     }
   };
 })();
