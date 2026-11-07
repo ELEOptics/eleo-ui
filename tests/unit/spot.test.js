@@ -548,23 +548,23 @@ test('grid', () => {
   assert.deepEqual(lines.map((m) => +(+m[1]).toFixed(2)), at([-4, -2, 0, 2, 4], 5), 'half 5: x positions are -4 -2 0 2 4');
   const big = ELEO.spot({ panels, unit: 'µm', width: 300, half: 10 });
   assert.deepEqual(xs(big).map((m) => +(+m[1]).toFixed(2)), at([-5, 0, 5], 10), 'half 10: -5 0 5, none on the frame edge');
-  assert.ok(/stroke="var\(--plot-grid\)"/.test(lines[0][0]), 'in --plot-grid');
+  assert.ok(/stroke="var\(--plot-grid\)"/.test(lines[0][0]), 'the first x grid line has stroke var(--plot-grid)');
   const first = svg.indexOf('stroke-linecap="round"'), last = svg.lastIndexOf('data-grid=');
   assert.ok(last > -1 && first > last, 'every grid line before the first series path');
-  assert.ok(/data-grid="y"/.test(svg), 'and horizontal lines');
+  assert.ok(/data-grid="y"/.test(svg), 'the SVG has horizontal grid lines too');
   const off = ELEO.spot({ panels, unit: 'µm', width: 300, half: 5, grid: false });
   assert.ok(!/data-grid/.test(off), 'grid: false draws none');
-  // the markup writes the panel origin to 2 decimals everywhere, as the panel's <svg x> does (width 200.74, 3 panels: origin 74.24000000000001 unrounded)
+  // every <rect>/<path> that carries var(--plot-grid) (frames, grid lines, crosses) has no number with 3 or more decimals, as the panel's <svg x> has none (width 200.74, 3 panels: origin 74.24000000000001 unrounded)
   const three = ELEO.spot({ panels: [panels[0], panels[0], panels[0]], unit: 'µm', width: 200.74, half: 5 });
   const drawn = [...three.matchAll(/<(?:rect|path)[^>]*var\(--plot-grid\)[^>]*>/g)].map((m) => m[0]);
-  assert.ok(drawn.length > 9, 'frames, grid lines and crosses found');
-  drawn.forEach((el) => assert.ok(!/\d\.\d{3,}/.test(el), `at most 2 decimals: ${el}`));
-  // #776: and in every other element outside the data-space group of the whole SVG: titles, captions, notes, the ± tick label, the key (below and in a corner), for 1, 2 and 3 panels.
-  // Only origin-derived coordinates (x, y, width, height, d, transform): font-size is toFixed(3) by the repo's convention (key.js, plotCell)
+  assert.ok(drawn.length > 9, 'more than 9 elements carry var(--plot-grid)');
+  drawn.forEach((el) => assert.ok(!/\d\.\d{3,}/.test(el), `no number with 3 or more decimals: ${el}`));
+  // #776: in every start tag of the whole SVG (titles, captions, notes, the ± tick label, the key below and in a corner), for 1, 2 and 3 panels:
+  // no number with 3 or more decimals, except in font-size (toFixed(3) by the repo's convention: key.js, plotCell) and in three kinds of element left out of the check: any with matrix(, a path 'M... h0', a circle at cx=0 cy=0.
   const lab = [{ title: 'T', notes: ['n'], airy: 1.2345, circle: { radius: 2.3456, label: 'c' }, series: [{ points: [[1, 2], [-3, 4]], index: 0, label: 'a' }, { points: [[0, 1]], index: 1, label: 'b' }] }];
   for (const n of [1, 2, 3]) for (const keyAt of [undefined, 'top-left', 'bottom-right']) {
     const whole = ELEO.spot({ panels: Array(n).fill(lab[0]), unit: 'µm', width: 200.74, half: 5, keyAt });
     const bad = [...whole.matchAll(/<[a-z][^>]*>/g)].map((m) => m[0]).filter((el) => /\d\.\d{3,}/.test(el.replace(/font-size:[\d.]+px/g, '')) && !/matrix\(|<path d="M[^"]* h0|<circle cx="0" cy="0"/.test(el));
-    assert.deepEqual(bad, [], `${n} panels, keyAt ${keyAt}: no origin-derived coordinate has more than 2 decimals`);
+    assert.deepEqual(bad, [], `${n} panels, keyAt ${keyAt}: every start tag but the three left out has no number with 3 or more decimals outside font-size`);
   }
 });
