@@ -201,6 +201,7 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 | #733 | A stop bar wherever STO is labelled; the renderer baseline's layout2D entries re-recorded (CR #729, user) | in `layout2d.js` because it draws the label and the bar; considered a per-tile `marks` option (the user asked for every plot) | `packages/plots/src/layout2d.js`, `tests/fixtures/renderers-baseline.json`, `.changeset/layout2d-stop-bar.md` | `tests/unit/layout2d.test.js::a labelled stop has its bar` |  |
 | #796 | CR #795: `record-renderers.mjs`'s header names #733's layout2D re-record (user's choice, CR #729) | forced (stale doc) | `scripts/record-renderers.mjs` | none | #733 |
 | #701 | Unskip O5 acceptance tests | forced (`workflow.md`, TDD) | `tests/gallery.spec.js` | `layout keys` | #697, #698, #699, #669, #700, #732, #733 |
+| #797 | `glass-fills.spec.js::glass legend matches the drawing` reads the Cooke tile's SVG glass key (and `glassLegend`'s HTML directly); #699 removed the footer it read | re-point the test because U12 needs its check; considered deleting it | `tests/glass-fills.spec.js` | `tests/glass-fills.spec.js::glass legend matches the drawing` | #701 |
 
 ## Risks and spikes
 
@@ -268,3 +269,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-09 M3 reviewed again after the second re-demo (rounds 16 to 20: 6, 2, 2, 1, 0); round 20 says 0 blocking, nothing pulled in; ticked.
 - 2026-11-09 M3 accepted (demo go, user).
 - 2026-11-09 stale doc from #733's worker: CR #795 accepted (orchestrator: a comment outside Core) by #796.
+- 2026-11-09 M4 wave end: the full gate on 06df964 was red (`glass legend matches the drawing` read the footer #699 removed; #699's Files missed that test). The orchestrator's command chain pushed it and labelled the items done anyway; labels removed and corrected on each issue. Fixed forward by #797 rather than reverting #699, since #701's unskipped test needs #699.
