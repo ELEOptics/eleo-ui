@@ -185,7 +185,7 @@ layout3D's rays over the image plane; spot, footprint and through-focus panels f
 | #792 | Review M3 round 18: the #791 minWidth cases assert tightness; spot's `airyOf`/`circleOf` aliases dropped | forced (review findings) | `packages/plots/src/spot.js`, `tests/unit/scale.test.js` | `tests/unit/scale.test.js` | #791 |
 | #794 | CR #793: the minWidth tightness check runs for every case | forced (review finding) | `tests/unit/scale.test.js` | `tests/unit/scale.test.js` | #792 |
 
-### M4: Layout keys GitHub: `P677 M4: Layout keys`
+### M4: Layout keys (done 2026-11-09) GitHub: `P677 M4: Layout keys`
 
 Demo: the layout2D tiles keyed in the SVG at the layout's text size, no footers, no keys below 630 px; merit-before
 with a cropped box shows its 12° and 24° labels apart; the release planned. Proves: O5
@@ -277,3 +277,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-09 review M4 round 1 (0 blocking, 7 backlog): findings 1 and 4 into #798; 2, 3, 6 and 7 into #799 (6 is a JSDoc line in Core index.d.ts, the approved `key`'s doc); finding 5 kept (orchestrator: standalone stop ticks always ignored `marks`; CR #729 does not forbid a bar without the label).
 - 2026-11-09 #799 returned cr: the standalone layout entry would be 132 B over its 2 kB per-row budget. CR #800 (user): "I think we should drop the 2 kB budget"; accepted, by #801; #799 after it.
 - 2026-11-09 review M4 round 2 (0 blocking, 4 backlog): findings 1 to 3 into #802; finding 4 (ADR-0002:18 cites the dropped size budget) is an ADR, reported to the user.
+- 2026-11-09 review M4 round 3 (0 blocking, 1 backlog): #803 filed, not pulled in (orchestrator: it tightens curve's released key API, outside M4). M4 reviewed (rounds 1 to 3: 7, 4, 1); round 3 has 0 blocking and nothing pulled in; ticked.
