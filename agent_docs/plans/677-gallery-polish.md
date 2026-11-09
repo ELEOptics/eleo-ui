@@ -138,7 +138,7 @@ footers. Proves: O2
 | #742 | `key.js` exports `KEY_AT` and `cornerBox`; `curve` and `spot` use them (output unchanged); spot's foot comment names the key rows | in key.js because #680 put the key there to stop drift (#586); considered two copies | `packages/plots/src/key.js`, `packages/plots/src/curve.js`, `packages/plots/src/spot.js` | `tests/unit/key.test.js::corner box` | #741 |
 | #745 | CR #744: `rayFan` passes `keyAt: o.keyAt` in its spec literal, no guard | in the literal because curve reads a missing `keyAt` as "below"; considered keeping the guard | `packages/plots/src/fan.js` | `tests/unit/fan.test.js::rayFan key keyAt` | #739 |
 
-### M3: Maps and the 3D image plane GitHub: `P677 M3: Maps and the 3D image plane`
+### M3: Maps and the 3D image plane (done 2026-11-09) GitHub: `P677 M3: Maps and the 3D image plane`
 
 Demo: every Map2D tile with axes and a ticked colorbar and no grid (CR #779); the sample canvas PSF and wavefront tiles gone;
 layout3D's rays over the image plane; spot, footprint and through-focus panels from one panel function with a grid under the dots and tick labels
@@ -264,3 +264,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-09 review M3 round 17 (0 blocking, 2 backlog): both into #791.
 - 2026-11-09 review M3 round 18 (0 blocking, 2 backlog): both into #792. Counts 6, 2, 2 since the second re-demo: a round 19 that does not fall trips the breaker.
 - 2026-11-09 review M3 round 19 (1 blocking): CR #793 accepted (orchestrator: a test guard) by #794.
+- 2026-11-09 M3 reviewed again after the second re-demo (rounds 16 to 20: 6, 2, 2, 1, 0); round 20 says 0 blocking, nothing pulled in; ticked.
