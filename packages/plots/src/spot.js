@@ -28,6 +28,22 @@ var tickList = function (half) { return niceTicks(-half, half, 5).ticks.filter(f
 export var labelM = function (half) { return Math.max(SPOT_LABEL_M, 0.6 * Math.max.apply(null, [0].concat(tickList(half).map(function (k) { return k.s.length; }))) + 0.6); };
 var sig3 = function (v) { return plain(v, 3); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
+var airyR = function (o, p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
+var circleR = function (p) { return p.circle && isFinite(p.circle.radius) && p.circle.radius > 0 ? +p.circle.radius : 0; };
+/* The halves typedSpot draws with (one per panel: the common one, or each panel's own under scale "auto", where `half` is ignored) and the left margin LM (text units) they need, for o and its raw panels: the half comes from the data (about the centroid under that reference) when no `half` is given. typedSpot and minWidth both call it, so they agree. */
+export function spotLM(o, panels) {
+  var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid";
+  var ext = panels.map(function (p) {
+    var pts = [], m = Math.max(airyR(o, p), circleR(p)), sx = 0, sy = 0;
+    (p.series || []).forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { pts.push(q); sx += +q[0]; sy += +q[1]; } }); });
+    var mx = cen && pts.length ? sx / pts.length : 0, my = cen && pts.length ? sy / pts.length : 0;
+    pts.forEach(function (q) { m = Math.max(m, Math.abs(q[0] - mx), Math.abs(q[1] - my)); });
+    return m;
+  });
+  var common = isFinite(o.half) && o.half > 0 && isFinite(75 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
+  var halves = panels.map(function (p, i) { var h = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common; return isFinite(75 / h) ? h : 1; });
+  return { halves: halves, LM: Math.max.apply(null, [SPOT_LABEL_M].concat(halves.map(labelM))) };
+}
 /* One square spot panel at (x, y), side `side`, the same scale `side / 2 / half` on both axes: the frame (stroke `frame`, default --plot-grid), the grid strictly inside ±half under the dots (`grid` not false), the centre cross, then in a nested svg (which clips) one round-cap dot path per series and a circle per positive radius in `circles`. wt is the dot weight, frameWeight(side). typedSpot and throughFocus both draw their panels with it; `o.labels` ({ x, y } flags, with `o.t` the text size in px) writes the tick labels of the same ticks outside the frame: x centred under the bottom edge, y right-aligned left of the left edge, every other one dropped until neighbours clear each other; the caller adds anything else outside the frame. */
 function spotPanel(x, y, side, half, o) {
   var s = (side / 2) / half, cx = side / 2, g = "", fy = r2(y);
@@ -59,8 +75,8 @@ function spotPanel(x, y, side, half, o) {
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
-  var airyOf = function (p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
-  var circleOf = function (p) { return p.circle && isFinite(p.circle.radius) && p.circle.radius > 0 ? +p.circle.radius : 0; };
+  var airyOf = function (p) { return airyR(o, p); };
+  var circleOf = circleR;
   var anyStats = false, ts = isFinite(o.textScale) && o.textScale > 0 ? +o.textScale : 1;
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
@@ -93,10 +109,7 @@ function typedSpot(o) {
     ps.forEach(function (p) { (p.series || []).forEach(function (se) { if (se.label && !out.some(function (e) { return e.label === String(se.label); })) out.push({ label: String(se.label), index: se.index || 0, kind: "dot" }); }); });
     return out;
   };
-  var ext = panels.map(function (p) { var m = Math.max(airyOf(p), circleOf(p)); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
-  var common = isFinite(o.half) && o.half > 0 && isFinite(75 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
-  var halves = panels.map(function (p, i) { var h = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common; return isFinite(75 / h) ? h : 1; });
-  var LM = Math.max.apply(null, [SPOT_LABEL_M].concat(halves.map(labelM))), lmOf = function (F) { return LM * frameText(F) * ts; };
+  var sl = spotLM(o, o.panels), halves = sl.halves, LM = sl.LM, lmOf = function (F) { return LM * frameText(F) * ts; };
   var ents = at === "below" ? entsOf(panels) : [];
   var side = o.width ? frameOf((o.width - (n - 1) * gap) / Math.max(n, 1), LM * ts) : 150;
   var keyW = function (F) { return o.width || n * (F + lmOf(F)) + (n - 1) * gap; };

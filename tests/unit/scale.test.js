@@ -249,7 +249,17 @@ test('minWidth for spot and throughFocus holds an F_LO frame for any half (#790)
     assert.ok(frameOf(minWidth('spot', { half, panels: [{}] }) - 1, m) < scale.F_LO, `spot half ${half}: 1 px less is under F_LO`);
     near(minWidth('throughFocus', { half }) - minWidth('throughFocus', {}), scale.TEXT_MIN * (m - 2.4), `throughFocus half ${half}: the margin is labelM`);
   }
-  near(minWidth('spot', { panels: [{}] }), scale.PLOT_SIZES.spot.minWidth, 'no props keeps the 2.4 default');
+  // An empty panel draws half 1 (no data to size by), so its margin is labelM(1), not the 2.4 default.
+  near(minWidth('spot', { panels: [{}] }), scale.PLOT_SIZES.spot.minWidth + scale.TEXT_MIN * (labelM(1) - scale.SPOT_LABEL_M), 'an empty panel draws half 1');
+  // #791: the margin is the one spot draws: the half from the data without `half`, the per-panel halves under scale auto.
+  near(labelM(0.05), 3.6, 'half 0.05 labels "\u22120.04", five characters');
+  const small = { panels: [{ series: [{ points: [[0.03, 0.01], [-0.02, 0.03]] }] }] };
+  const cases = { 'data half, no half': small, 'half 40, scale auto': { ...small, half: 40, scale: 'auto' }, 'wide data, half 0.05, scale auto': { panels: [{ series: [{ points: [[30, 10]] }] }], half: 0.05, scale: 'auto' } };
+  for (const [what, props] of Object.entries(cases)) {
+    const w = minWidth('spot', props), f = panelFrames(ELEO.spot({ ...props, width: w }))[0];
+    assert.ok(f >= scale.F_LO - TOL, `${what}: spot at minWidth draws a frame of at least F_LO (${f})`);
+    if (what.startsWith('wide')) near(w, scale.PLOT_SIZES.spot.minWidth, `${what}: no extra margin`);
+  }
 });
 
 // Plan #603, issue #610: minWidth is public, on the module and on the classic build's window.ELEO, the one function of sizes.js.
