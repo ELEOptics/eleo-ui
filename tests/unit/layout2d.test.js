@@ -1341,7 +1341,7 @@ test('key', () => {
   assert.deepEqual(keyTexts(ELEO.layout2D({ data: L, width: 1440, key: 'glass' })), fills.map((f) => f.name));
   for (const f of fills) assert.ok(both.includes(`style="fill:${f.fill}"`), `the ${f.name} swatch is filled as glassLegend fills it, through style`);
   // a bad key throws curve's kind of TypeError, at any width
-  for (const bad of ['Glass', 'x', 5, true, {}, [null], ['glass', 3], [{ label: 'a', index: -1 }], [{ label: 'a', index: 1.5 }], [{ label: 'a', index: '1' }]]) {
+  for (const bad of ['Glass', 'x', 5, true, {}, [null], ['glass', 3], [{ index: 0 }], [{ label: 'a', index: -1 }], [{ label: 'a', index: 1.5 }], [{ label: 'a', index: '1' }]]) {
     for (const width of [1000, 600]) assert.throws(() => ELEO.layout2D({ data: L, width, key: bad }), { name: 'TypeError', message: /^layout2D: key / }, `${JSON.stringify(bad)} at ${width}`);
   }
   // below 630 no key and no room

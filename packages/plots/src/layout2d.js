@@ -226,11 +226,12 @@ export function layout2D(o) {
     if (o.key !== "glass") o.key.forEach(function (e) {
       if (e === "glass") return;
       if (e === null || typeof e !== "object") throw new TypeError('layout2D: key entries are "glass" or objects');
+      if (typeof e.label !== "string") throw new TypeError("layout2D: key entries need a string label");
       if (e.index !== undefined && (!Number.isInteger(e.index) || e.index < 0)) throw new TypeError("layout2D: key index must be a non-negative integer");
     });
   }
   if (o.key != null && tx0) {
-    (o.key === "glass" ? ["glass"] : Array.isArray(o.key) ? o.key : []).forEach(function (e) {
+    (o.key === "glass" ? ["glass"] : o.key).forEach(function (e) {
       if (e === "glass") { var gs = drawnGlasses(S), gf = glassFill(gs); new Set(gs.map(function (x) { return x.name; })).forEach(function (name) { kents.push({ label: name, col: gf.get(name) }); }); }
       else kents.push({ label: e.label, index: e.index, kind: "line" });
     });
