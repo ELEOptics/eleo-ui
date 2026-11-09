@@ -258,6 +258,7 @@ test('minWidth for spot and throughFocus holds an F_LO frame for any half (#790)
   for (const [what, props] of Object.entries(cases)) {
     const w = minWidth('spot', props), f = panelFrames(ELEO.spot({ ...props, width: w }))[0];
     assert.ok(f >= scale.F_LO - TOL, `${what}: spot at minWidth draws a frame of at least F_LO (${f})`);
+    if (!what.startsWith('wide')) assert.ok(panelFrames(ELEO.spot({ ...props, width: w - 1 }))[0] < scale.F_LO, `${what}: 1 px less draws a frame under F_LO`);
     if (what.startsWith('wide')) near(w, scale.PLOT_SIZES.spot.minWidth, `${what}: no extra margin`);
   }
 });

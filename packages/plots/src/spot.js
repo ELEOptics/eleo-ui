@@ -75,8 +75,6 @@ function spotPanel(x, y, side, half, o) {
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
-  var airyOf = function (p) { return airyR(o, p); };
-  var circleOf = circleR;
   var anyStats = false, ts = isFinite(o.textScale) && o.textScale > 0 ? +o.textScale : 1;
   var panels = o.panels.map(function (p) {
     var sx = 0, sy = 0, k = 0, series = p.series || [];
@@ -90,12 +88,12 @@ function typedSpot(o) {
   }), n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
   var notesMax = Math.max.apply(null, [0].concat(panels.map(function (p) { return (p.notes || []).length; })));
   /* One caption line per active setting, each at the first panel's left edge and short enough for a one-panel figure. */
-  var radii = panels.map(airyOf).filter(Boolean);
+  var radii = panels.map(function (p) { return airyR(o, p); }).filter(Boolean);
   var cap = ["Reference: " + ref];
   if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return sig3(r) === sig3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
-  var circles = panels.filter(circleOf), labelOf = function (p) { return String(p.circle.label == null ? "" : p.circle.label).trim(); }, cl = circles.length ? labelOf(circles[0]) : "";
-  var shared = circles.length > 0 && circles.length === n && circles.every(function (p) { return sig3(circleOf(p)) === sig3(circleOf(circles[0])) && labelOf(p) === cl; });
-  var line = shared && cl ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
+  var circles = panels.filter(circleR), labelOf = function (p) { return String(p.circle.label == null ? "" : p.circle.label).trim(); }, cl = circles.length ? labelOf(circles[0]) : "";
+  var shared = circles.length > 0 && circles.length === n && circles.every(function (p) { return sig3(circleR(p)) === sig3(circleR(circles[0])) && labelOf(p) === cl; });
+  var line = shared && cl ? (cl + " " + sig3(circleR(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
   if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
   if (o.unit) cap.push("x, y in " + o.unit);
@@ -128,7 +126,7 @@ function typedSpot(o) {
   panels.forEach(function (p, i) {
     var half = halves[i];
     var ox = r2(lm + i * (side + lm + gap));
-    g += spotPanel(ox, top, side, half, { series: p.series || [], circles: [airyOf(p), circleOf(p)], grid: o.grid !== false, wt: wt, labels: { x: true, y: true }, t: t });
+    g += spotPanel(ox, top, side, half, { series: p.series || [], circles: [airyR(o, p), circleR(p)], grid: o.grid !== false, wt: wt, labels: { x: true, y: true }, t: t });
     var pe = at === "below" ? [] : entsOf([p]);
     if (pe.length) g += cornerBox(pe, at, t, ox, top, side, side);
     var ty = r2(top + side + 3.3 * t);
