@@ -183,6 +183,7 @@ layout3D's rays over the image plane; spot, footprint and through-focus panels f
 | #790 | Review M3 round 16: CR #788 (spot `width` doc in index.d.ts), CR #789 (README `textScale` bullet), `minWidth` with `labelM(half)`, throughFocus's label room doc, a tighter text-size test, `tickList` reuse | one item for the round because each fix is a line or two; considered one item per finding | `packages/plots/src/index.d.ts`, `packages/plots/README.md`, `packages/plots/src/sizes.js`, `packages/plots/src/scale.js`, `packages/plots/src/spot.js`, `.changeset/through-focus-panels.md`, `tests/unit/spot.test.js`, `tests/unit/scale.test.js` | `tests/unit/scale.test.js`, `tests/unit/spot.test.js::tick labels` | #787 |
 | #791 | Review M3 round 17: `minWidth('spot')` reads the half `typedSpot` draws with (data, `scale: 'auto'`) through one exported helper; its test renders at minWidth | one helper because the renderer and minWidth must agree; considered duplicating the half rules in sizes.js | `packages/plots/src/spot.js`, `packages/plots/src/sizes.js`, `tests/unit/scale.test.js` | `tests/unit/scale.test.js` | #790 |
 | #792 | Review M3 round 18: the #791 minWidth cases assert tightness; spot's `airyOf`/`circleOf` aliases dropped | forced (review findings) | `packages/plots/src/spot.js`, `tests/unit/scale.test.js` | `tests/unit/scale.test.js` | #791 |
+| #794 | CR #793: the minWidth tightness check runs for every case | forced (review finding) | `tests/unit/scale.test.js` | `tests/unit/scale.test.js` | #792 |
 
 ### M4: Layout keys GitHub: `P677 M4: Layout keys`
 
@@ -262,3 +263,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-09 review M3 round 16 (2 blocking, 4 backlog): CR #788 and CR #789 accepted (orchestrator: docs of #784's approved layout; #788 in Core index.d.ts, a comment) by #790 with findings 3 to 6.
 - 2026-11-09 review M3 round 17 (0 blocking, 2 backlog): both into #791.
 - 2026-11-09 review M3 round 18 (0 blocking, 2 backlog): both into #792. Counts 6, 2, 2 since the second re-demo: a round 19 that does not fall trips the breaker.
+- 2026-11-09 review M3 round 19 (1 blocking): CR #793 accepted (orchestrator: a test guard) by #794.
