@@ -1331,7 +1331,7 @@ test('key', () => {
   assert.ok(h(svg) > h(base), 'the SVG grows under the drawing');
   assert.ok(Number.isInteger(h(svg)), 'a whole-px height');
   assert.match(svg, /<line [^>]*stroke="var\(--series-1,[^"]*"[^>]*\/>.*<text[^>]*data-key/, 'a line swatch in idx(0)');
-  const t = layoutTextOf(1000), size = [...svg.matchAll(/<text[^>]*data-key[^>]*font-size:([\d.]+)px/g)].map((m) => +m[1]);
+  const t = T_OF(1000), size = [...svg.matchAll(/<text[^>]*data-key[^>]*font-size:([\d.]+)px/g)].map((m) => +m[1]);
   assert.ok(size.length === 2 && size.every((v) => Math.abs(v - t) < 0.01), 'the key is at the layout text size');
   const ys = [...svg.matchAll(/<text[^>]*data-key[^>]* y="([\d.]+)"/g)].map((m) => +m[1]);
   assert.ok(ys.every((y) => y > h(base) - 8 * t / 10 * 2 && y < h(svg)), 'the key sits under the drawing, inside the SVG');
@@ -1339,11 +1339,14 @@ test('key', () => {
   const both = ELEO.layout2D({ data: L, width: 1440, key: [...entries, 'glass'] });
   assert.deepEqual(keyTexts(both), ['F1 0.0°', 'F2 5.0°', ...fills.map((f) => f.name)]);
   assert.deepEqual(keyTexts(ELEO.layout2D({ data: L, width: 1440, key: 'glass' })), fills.map((f) => f.name));
-  for (const f of fills) assert.ok(both.includes(`fill="${f.fill}"`), `the ${f.name} swatch is filled as glassLegend fills it`);
+  for (const f of fills) assert.ok(both.includes(`style="fill:${f.fill}"`), `the ${f.name} swatch is filled as glassLegend fills it, through style`);
+  // a bad key throws curve's kind of TypeError, at any width
+  for (const bad of ['Glass', 'x', 5, true, {}, [null], ['glass', 3], [{ label: 'a', index: -1 }], [{ label: 'a', index: 1.5 }], [{ label: 'a', index: '1' }]]) {
+    for (const width of [1000, 600]) assert.throws(() => ELEO.layout2D({ data: L, width, key: bad }), { name: 'TypeError', message: /^layout2D: key / }, `${JSON.stringify(bad)} at ${width}`);
+  }
   // below 630 no key and no room
   assert.equal(ELEO.layout2D({ data: L, width: 600, key: entries }), ELEO.layout2D({ data: L, width: 600 }), 'not drawn below 630, no room kept');
 });
-const layoutTextOf = T_OF;
 
 // Plan #677 #733 (CR #729, user). oracle: property every STO label has its bar: two vertical lines at the stop's z from ±sd outward, in the viewBox, on a glass surface too.
 test('a labelled stop has its bar', () => {

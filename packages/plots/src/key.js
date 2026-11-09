@@ -23,14 +23,17 @@ export function keyLayout(entries, t, o) {
   return { rows: entries.length ? row + 1 : 0, places: places, right: right };
 }
 
+/* A swatch's fill: a bare var() colour as the fill attribute; any other (a CSS colour function, such as a glass's relative colour) through style, since a colour function in a presentation attribute is not safe. */
+function fillOf(col) { return col.indexOf("var(") === 0 ? ' fill="' + col + '"' : ' style="fill:' + col + '"'; }
+
 /* Phase two: the markup, the first row's top at y, a row every 1.4 t below. `o.mark` puts data-key on each label's <text>. */
 export function keyMarkup(places, entries, t, y, o) {
   var mk = o && o.mark ? " data-key" : "", ts = ' style="font-size:' + +t.toFixed(3) + 'px"', g = "";
   entries.forEach(function (e, k) {
     var x = r2(places[k][0]), ky = r2(y + 1.4 * t * places[k][1]), col = e.col || idx(e.index || 0), s = r2(sw(e, t)), kind = e.kind || "square";
     if (kind === "line") g += '<line x1="' + x + '" y1="' + r2(ky + 0.4 * t) + '" x2="' + r2(x + s) + '" y2="' + r2(ky + 0.4 * t) + '" stroke="' + col + '" stroke-width="' + r2(0.15 * t) + '"' + (e.cap ? ' stroke-linecap="' + e.cap + '"' : "") + (e.dash ? ' stroke-dasharray="' + e.dash + '"' : "") + ' fill="none"/>';
-    else if (kind === "dot") g += '<circle cx="' + r2(x + 0.4 * t) + '" cy="' + r2(ky + 0.4 * t) + '" r="' + r2(0.3 * t) + '" fill="' + col + '"/>';
-    else g += '<rect x="' + x + '" y="' + ky + '" width="' + s + '" height="' + s + '" fill="' + col + '"/>';
+    else if (kind === "dot") g += '<circle cx="' + r2(x + 0.4 * t) + '" cy="' + r2(ky + 0.4 * t) + '" r="' + r2(0.3 * t) + '"' + fillOf(col) + "/>";
+    else g += '<rect x="' + x + '" y="' + ky + '" width="' + s + '" height="' + s + '"' + fillOf(col) + "/>";
     g += '<text class="eleo-tick"' + mk + ' x="' + r2(places[k][0] + off(e, t)) + '" y="' + r2(ky + 0.8 * t) + '"' + ts + '>' + esc(e.label) + "</text>";
   });
   return g;

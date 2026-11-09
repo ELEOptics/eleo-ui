@@ -51,6 +51,17 @@ test('swatch by kind', () => {
   for (const l of ['sq', 'ln', 'dt']) assert.ok(m.includes('>' + l + '</text>'));
 });
 
+test('a colour that is not a bare var() goes in style, a bare var() stays an attribute', () => {
+  const glass = 'color-mix(in oklab, var(--glass-crown) 60%, var(--surface))';
+  const entries = [{ label: 'g', col: glass }, { label: 'c', index: 1 }, { label: 'g2', col: glass, kind: 'dot' }];
+  const { places } = keyLayout(entries, t, { L: 0, R: 1000, maxRow: 0 });
+  const m = keyMarkup(places, entries, t, 50);
+  assert.match(m, new RegExp('<rect [^>]*style="fill:' + glass.replace(/[()]/g, '\\$&') + '"'));
+  assert.ok(!m.includes('fill="' + glass), 'no colour function in a presentation attribute');
+  assert.match(m, /<circle [^>]*style="fill:color-mix/);
+  assert.match(m, /<rect x="[\d.]+" y="[\d.]+" width="8" height="8" fill="var\(--series-2,[^"]*\)"\/>/, 'a bare var stays a fill attribute');
+});
+
 test('mark puts data-key on each label text', () => {
   const entries = [{ label: 'a', index: 0 }, { label: 'b', index: 1, kind: 'line' }];
   const { places } = keyLayout(entries, t, { L: 0, R: 1000, maxRow: 0 });

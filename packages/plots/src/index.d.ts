@@ -63,7 +63,7 @@ export interface Layout2DProps {
   marks?: boolean;
   /** The statuses drawn. Default all three. */
   show?: RayStatus[];
-  /** A key row under the scale bar, in the SVG at the layout's text size: entries (a line swatch in idx(`index`), then the label) and `"glass"` (one swatch per distinct drawn glass, as `glassLegend` gives, in first-use order), in one row in the order given. The SVG grows by its lines, to a whole px. Not drawn below a width of 630, with no room kept. Default none. */
+  /** A key row under the scale bar, in the SVG at the layout's text size: entries (a line swatch in idx(`index`), then the label) and `"glass"` (one swatch per distinct drawn glass, as `glassLegend` gives, in first-use order), in one row in the order given, wrapping at the drawing's width. The SVG grows by its lines, to a whole px. Not drawn below a width of 630, with no room kept. Default none. */
   key?: (PlotKeyEntry | "glass")[] | "glass";
 }
 export interface Layout3DProps {

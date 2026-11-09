@@ -221,6 +221,14 @@ export function layout2D(o) {
   var Hg = (B.yhi - B.ylo) * s + top + (tx0 ? 27 * u : PAD), tx = PAD - B.zmin * s, ty = top + B.yhi * s;
   // `key`: entries ({ label, index }: a line swatch in idx(index)) and "glass" (one swatch per distinct drawn glass, filled as glassLegend fills it), in one row that wraps at the pad, under the scale bar at the layout text size; not drawn below W = 630, with no room kept.
   var KP = 8 * u, kents = [], kl = null;
+  if (o.key != null) {
+    if (o.key !== "glass" && !Array.isArray(o.key)) throw new TypeError('layout2D: key must be "glass" or an array of entries');
+    if (o.key !== "glass") o.key.forEach(function (e) {
+      if (e === "glass") return;
+      if (e === null || typeof e !== "object") throw new TypeError('layout2D: key entries are "glass" or objects');
+      if (e.index !== undefined && (!Number.isInteger(e.index) || e.index < 0)) throw new TypeError("layout2D: key index must be a non-negative integer");
+    });
+  }
   if (o.key != null && tx0) {
     (o.key === "glass" ? ["glass"] : Array.isArray(o.key) ? o.key : []).forEach(function (e) {
       if (e === "glass") { var gs = drawnGlasses(S), gf = glassFill(gs); new Set(gs.map(function (x) { return x.name; })).forEach(function (name) { kents.push({ label: name, col: gf.get(name) }); }); }

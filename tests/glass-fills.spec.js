@@ -116,10 +116,9 @@ test('glass legend matches the drawing', async ({ page }) => {
     // The SVG key: each glass-naming label with the rect swatch drawn just before it (a field entry, even one named F2, has a line swatch).
     const svgKeys = await tile.locator('.eleo-plot__body svg text[data-key]').evaluateAll((els, names) => els
       .filter((el) => el.previousElementSibling.tagName.toLowerCase() === 'rect' && names.includes(el.textContent.trim()))
-      .map((el) => ({ name: el.textContent.trim(), tag: 'rect', fill: getComputedStyle(el.previousElementSibling).fill })), firstUse);
+      .map((el) => ({ name: el.textContent.trim(), fill: getComputedStyle(el.previousElementSibling).fill })), firstUse);
     expect(svgKeys.map((k) => k.name), `${theme}: SVG glass keys name each glass once, in first-use order`).toEqual(firstUse);
     for (const k of svgKeys) {
-      expect(k.tag, `${theme}: ${k.name} key is preceded by a swatch rect`).toBe('rect');
       expect(k.fill, `${theme}: ${k.name} swatch fill equals its lenses' polygon fill`).toBe(fillOf.get(k.name));
     }
 
