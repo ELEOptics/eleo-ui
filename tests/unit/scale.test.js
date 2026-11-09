@@ -185,9 +185,9 @@ test("table matches each renderer's floor width", () => {
   const L = fixture('analysis'), lay = (width) => sizes(ELEO.layout2D({ data: L, labels: ['a', 'b', 'c'], width }));
   assert.ok(lay(at('layout2D')).length > 0 && lay(at('layout2D') - 1).length === 0, 'layout2D labels start at minWidth');
   lay(at('layout2D')).forEach((s) => near(s, 9, 'layout2D text at the floor'));
-  // ADR-0003's figures (spot's now carry the y labels' 2.4 text units per panel): throughFocus about 894 (the renderer's own floor is within 1 %).
+  // ADR-0003's figures (spot's now carry the y labels' 2.4 text units per panel): throughFocus about 894 plus the y labels' 2.4 text units, 919 (the renderer's own floor is within 1 %).
   near(at('spot', 3), 3 * (162 + 9 * 2.4) + 2 * 22, 'spot, three panels: a frame, 2.4 text units for the y labels, 22 between');
-  assert.ok(Math.abs(at('throughFocus', 5) / 894 - 1) <= 0.01, `throughFocus, five columns: ${at('throughFocus', 5)} against about 894`);
+  assert.ok(Math.abs(at('throughFocus', 5) / (894 + 2.4 * 9) - 1) <= 0.01, `throughFocus, five columns: ${at('throughFocus', 5)} against about 916`);
   // The defaults: each renderer's own default width, and the aspect it draws at.
   assert.deepEqual([T.curve.width, T.bars.width, T.map2D.width, T.layout2D.width, T.rayFan.width, T.spot.width], [460, 460, 460, 1000, 228, 150]);
   near(T.curve.aspect, 260 / 460, 'curve aspect'); near(T.map2D.aspect, 360 / 460, 'map2D aspect');

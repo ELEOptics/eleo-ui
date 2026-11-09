@@ -44,7 +44,7 @@ export function layoutWeight(W) {
 /* The size table of ADR-0003, from the functions above and the renderers' margins, so it cannot drift.
    Per renderer: `width` and `aspect` (height / width, null where the height follows the content) of its default drawing of one panel,
    `minWidth` the narrowest figure of one panel (its plot frame at F_LO, text at 9 px), and `panelStep` the width each further panel adds at that floor
-   (rayFan's columns, spot's panels with their 22 px gap, throughFocus's columns with their 10 px gap; 0 for a single plot). A figure of n panels needs
+   (rayFan's columns, spot's panels with their 22 px gap, throughFocus's columns with their 10 px gap, and its row label of 4.2 text units plus 2.4 for the y labels before the first; 0 for a single plot). A figure of n panels needs
    minWidth + (n - 1) * panelStep. The curve family (curve, rayFan, bars, map2D) has 4.6 text units of margin on the left and, at least, 1.2 on the right;
    wider tick labels, or map2D's colorbar, widen the right margin and need TEXT_MIN px more per text unit. */
 var CURVE_M = 4.6 + 1.2, TF_LABEL = 4.2, SPOT_GAP = 22, TF_GAP = 10;
@@ -55,6 +55,6 @@ export var PLOT_SIZES = {
   bars: { width: 460, aspect: 260 / 460, minWidth: curveMin, panelStep: 0 },
   map2D: { width: 460, aspect: 360 / 460, minWidth: curveMin, panelStep: 0 },
   spot: { width: 150, aspect: null, minWidth: F_LO + TEXT_MIN * SPOT_LABEL_M, panelStep: F_LO + SPOT_GAP + TEXT_MIN * SPOT_LABEL_M },
-  throughFocus: { width: TF_LABEL * TEXT_MIN + 92 + TF_GAP, aspect: null, minWidth: TF_LABEL * TEXT_MIN + F_LO + TF_GAP, panelStep: F_LO + TF_GAP },
+  throughFocus: { width: (TF_LABEL + SPOT_LABEL_M) * TEXT_MIN + 92 + TF_GAP, aspect: null, minWidth: (TF_LABEL + SPOT_LABEL_M) * TEXT_MIN + F_LO + TF_GAP, panelStep: F_LO + TF_GAP },
   layout2D: { width: 1000, aspect: null, minWidth: W_LO, panelStep: 0 },
 };

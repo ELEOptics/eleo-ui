@@ -440,7 +440,7 @@ test('text follows ADR-0003 per panel', async () => {
   const wOf = (m) => +/viewBox="0 0 ([\d.]+) /.exec(m)[1];
   assert.ok(wOf(ELEO.spot({ ...nar, textScale: 0.5 })) < wOf(ELEO.spot(nar)), 'the caption width estimate shrinks');
 
-  // throughFocus: width gives the row label and the panels (3 columns here); F is a panel's side, rect width + 1.
+  // throughFocus: width gives the row label, the y labels' room and the panels (5 columns here); F is a panel's side, rect width + 1.
   const tfSeen = new Set(), tfRects = (m) => [...m.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1);
   const cols = 5; // the sample's defocus steps
   for (const width of [500, 1100, 3000]) {
@@ -452,7 +452,7 @@ test('text follows ADR-0003 per panel', async () => {
     const widths = dots(m);
     assert.ok(widths.length > 0);
     widths.forEach((w) => near(w, 2.2 * frameWeight(F), `${width} dot width`));
-    near(F, frameOf((width - cols * 10) / cols, 4.2 / cols), `${width}: F solves the row label's room`);
+    near(F, frameOf((width - cols * 10) / cols, (4.2 + 2.4) / cols), `${width}: F solves the row label's room and the y labels' 2.4 text units`);
   }
   assert.deepEqual([...tfSeen].sort(), ['above', 'below', 'inside']);
 });
@@ -632,3 +632,47 @@ test('tick labels', () => {
   assert.ok(Math.abs(+vb - 300) < 0.02, 'the figure still fits width');
   assert.ok(!/±/.test(ELEO.spot({ panels, half: 40, width: 300 })), 'no ± without a unit either');
 });
+
+// Plan #677 M3 (#785, CR #781): throughFocus labels its outer edges only: x under the bottom row, y left of the left column, with a caption "x, y in µm" under the figure.
+// oracle: spec CR #781 (user): half 40 steps by 20 (−20 0 20); the room is 4.2 text units of row label plus labelM (2.4) of y labels, in ADR-0003 text units; a label never touches the RMS lines, the column heads or the field labels
+test('throughFocus tick labels', async () => {
+  const { frameOf, frameText } = await import('../../packages/plots/src/scale.js');
+  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const rows = sample.throughFocus.spots.length, cols = sample.throughFocus.defocus.length;
+  const tx = (svg) => [...svg.matchAll(/<text\b([^>]*)>(.*?)<\/text>/g)].map((m) => ({ a: m[1], t: m[2].replace(/<[^>]*>/g, ''), x: +/\bx="(-?[\d.]+)"/.exec(m[1])[1], y: +/\by="(-?[\d.]+)"/.exec(m[1])[1] }));
+  for (const grid of [true, false]) {
+    const width = 1100, svg = ELEO.throughFocus({ data: sample, width, grid }), all = tx(svg);
+    const rects = [...svg.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => ({ x: +/\bx="([\d.]+)"/.exec(r[0])[1] - .5, y: +/\by="([\d.]+)"/.exec(r[0])[1] - .5, w: +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1 }));
+    const F = rects[0].w, t = frameText(F), left = rects[0].x, bottom = Math.max(...rects.map((r) => r.y));
+    near2(F, frameOf((width - cols * 10) / cols, (4.2 + 2.4) / cols), 'F solves the row label and the y labels');
+    near2(left, 6.6 * t, 'the first panel starts after 4.2 + 2.4 text units');
+    const ticks = all.filter((x) => /^(−20|0|20)$/.test(x.t)), X = ticks.filter((x) => /text-anchor="middle"/.test(x.a)), Y = ticks.filter((x) => /text-anchor="end"/.test(x.a));
+    assert.equal(X.length, 3 * cols, `grid ${grid}: three x labels under each column of the bottom row only`);
+    assert.equal(Y.length, 3 * rows, `grid ${grid}: three y labels left of each row's first panel only`);
+    assert.equal(ticks.length, X.length + Y.length);
+    X.forEach((x) => near2(x.y, bottom + F + 1.2 * t, 'x labels one line under the bottom row'));
+    Y.forEach((y) => near2(y.x, left - 0.4 * t, 'y labels right-aligned in front of the left column'));
+    // x labels are centred on the grid lines of their cell.
+    const cell0 = X.filter((x) => x.x > left && x.x < left + F).map((x) => x.x).sort((a, b) => a - b);
+    near2(cell0[1] - left, F / 2, 'zero is centred'); near2(cell0[2] - cell0[1], 20 * F / 80, 'twenty is a quarter of the side along');
+    // Nothing collides: the y labels clear the field labels, the x labels clear the RMS lines of the bottom row, the caption clears both.
+    const fields = all.filter((x) => /eleo-val/.test(x.a) && x.x === 0);
+    assert.equal(fields.length, rows, 'one field label per row');
+    fields.forEach((f) => assert.ok(f.x + 0.6 * t * f.t.length < left - 0.4 * t - 0.6 * t * 3, `field label "${f.t}" ends before the y labels begin`));
+    const rms = all.filter((x) => /^RMS/.test(x.t)), lastRms = rms.filter((x) => x.y > bottom);
+    assert.equal(rms.length, rows * cols);
+    rects.forEach((r, k) => near2(rms[k].y, r.y + F + (r.y === bottom ? 2.5 : 1.3) * t, 'RMS at B + 1.3t, the bottom row\'s at B + 2.5t'));
+    assert.equal(lastRms.length, cols, 'one bottom row of RMS lines');
+    assert.ok(lastRms.every((r) => r.y - X[0].y >= 1.2 * t - 0.01), 'the bottom row\'s RMS lines sit a text line under the x labels');
+    rms.forEach((r) => assert.ok(!X.some((x) => Math.abs(x.y - r.y) < t), 'no x label shares a line with an RMS line'));
+    const pitch = [...new Set(rects.map((r) => r.y))].sort((a, b) => a - b); near2(pitch[1] - pitch[0], F + 2.6 * t, 'row pitch is B + 2.6t');
+    const cap = all.filter((x) => x.t === 'x, y in µm');
+    assert.equal(cap.length, 1, 'one caption');
+    near2(cap[0].x, left, 'the caption starts at the first panel\'s left edge');
+    assert.ok(cap[0].y - Math.max(...rms.map((r) => r.y)) >= 1.2 * t - 0.01, 'the caption is under the RMS lines');
+    const H = +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1];
+    assert.ok(cap[0].y < H, 'the caption is inside the figure');
+    all.filter((x) => /text-anchor="middle"/.test(x.a) && !/^(−20|0|20)$/.test(x.t)).forEach((h) => assert.ok(h.y < t * 2.2, 'column heads stay on top'));
+  }
+});
+function near2(a, b, m) { assert.ok(Math.abs(a - b) <= 0.02, `${m}: ${a} against ${b}`); }

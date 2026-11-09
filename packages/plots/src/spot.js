@@ -149,22 +149,23 @@ export function spot(o) {
   o = o || {};
   return typedSpot(o.panels ? o : spotPanels(data(o), o));
 }
-/* throughFocus (ADR-0003): a panel's side B is the frame; text is frameText(B), the row label's room 4.2 text units, and the rows' gaps are in text units. With `width`, B solves lw + cols * (B + gap) = width; without, B is 92. */
+/* throughFocus (ADR-0003): a panel's side B is the frame; text is frameText(B), the row label's room 4.2 text units plus labelM(half) for the y tick labels, and the rows' gaps are in text units. With `width`, B solves lw + cols * (B + gap) = width; without, B is 92. Only the outer edges are labelled (every cell shares one scale): x under the bottom row, y left of the left column, and a caption line "x, y in µm" under the figure. Each RMS line sits 1.3 text units under its panel, the bottom row's 2.5 (under its x labels). */
 export function throughFocus(o) {
   o = o || {}; var D = data(o), T = D.throughFocus, gap = 10, LW = 4.2;
-  var cols = T.defocus.length, rows = T.spots.length, g = "", half = o.half || 40;
-  var B = isFinite(o.width) && o.width > 0 && cols ? r2(Math.floor(frameOf((+o.width - cols * gap) / cols, LW / cols) * 100) / 100) : 92;
+  var cols = T.defocus.length, rows = T.spots.length, g = "", half = o.half || 40, YM = labelM(half);
+  var B = isFinite(o.width) && o.width > 0 && cols ? r2(Math.floor(frameOf((+o.width - cols * gap) / cols, (LW + YM) / cols) * 100) / 100) : 92;
   var t = frameText(B), sty = ' style="font-size:' + +t.toFixed(2) + 'px"', wt = frameWeight(B);
-  var lw = r2(LW * t), th = r2(2.2 * t), pitch = r2(B + 2.6 * t), W = r2(Math.max(lw + cols * (B + gap), isFinite(o.width) ? +o.width : 0)), H = r2(th + rows * pitch);
+  var lw = r2((LW + YM) * t), th = r2(2.2 * t), pitch = r2(B + 2.6 * t), W = r2(Math.max(lw + cols * (B + gap), isFinite(o.width) ? +o.width : 0)), H = r2(th + rows * pitch + 2.7 * t);
   T.defocus.forEach(function (dz, j) { g += '<text class="eleo-tick"' + sty + ' x="' + r2(lw + j * (B + gap) + B / 2) + '" y="' + r2(1.2 * t) + '" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + " µm</text>"; });
   T.spots.forEach(function (row, i) {
     var oy = r2(th + i * pitch);
     g += '<text class="eleo-val"' + sty + ' x="0" y="' + r2(oy + B / 2 + 0.4 * t) + '">' + fmt(D.fields[i], 1) + "°</text>";
     row.forEach(function (cell, j) {
       var ox = r2(lw + j * (B + gap));
-      g += spotPanel(ox, oy, B, half, { series: cell.pts.map(function (pts, wi) { return { points: pts, index: wi }; }), grid: o.grid !== false, wt: wt, frame: j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)" });
-      g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + 1.3 * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + cell.rms.toFixed(1) + "</tspan></text>";
+      g += spotPanel(ox, oy, B, half, { series: cell.pts.map(function (pts, wi) { return { points: pts, index: wi }; }), grid: o.grid !== false, wt: wt, frame: j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)", labels: { x: i === rows - 1, y: j === 0 }, t: t });
+      g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + (i === rows - 1 ? 2.5 : 1.3) * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + cell.rms.toFixed(1) + "</tspan></text>";
     });
   });
+  g += '<text class="eleo-tick"' + sty + ' x="' + lw + '" y="' + r2(th + rows * pitch + 1.5 * t) + '">x, y in µm</text>';
   return svg(W, H, g, "Through-focus spot diagrams, fields by rows, focus shift by columns");
 }
