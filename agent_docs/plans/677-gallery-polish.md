@@ -199,6 +199,7 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 | #700 | Release planned: `release.test.js` names row R's changesets (plots minor, tokens minor; plots-svelte unplanned, its wrappers spread props) | forced (`release.test.js`'s per-row changeset tests, as row Q's) | `tests/unit/release.test.js` | `release.test.js::row R changesets` | all above |
 | #732 | Drop the merit before/after tile and the tests only it uses (CR #727, user) | forced (CR #727) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js` (tile lists) |  |
 | #733 | A stop bar wherever STO is labelled; the renderer baseline's layout2D entries re-recorded (CR #729, user) | in `layout2d.js` because it draws the label and the bar; considered a per-tile `marks` option (the user asked for every plot) | `packages/plots/src/layout2d.js`, `tests/fixtures/renderers-baseline.json`, `.changeset/layout2d-stop-bar.md` | `tests/unit/layout2d.test.js::a labelled stop has its bar` |  |
+| #796 | CR #795: `record-renderers.mjs`'s header names #733's layout2D re-record (user's choice, CR #729) | forced (stale doc) | `scripts/record-renderers.mjs` | none | #733 |
 | #701 | Unskip O5 acceptance tests | forced (`workflow.md`, TDD) | `tests/gallery.spec.js` | `layout keys` | #697, #698, #699, #669, #700, #732, #733 |
 
 ## Risks and spikes
@@ -266,3 +267,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-09 review M3 round 19 (1 blocking): CR #793 accepted (orchestrator: a test guard) by #794.
 - 2026-11-09 M3 reviewed again after the second re-demo (rounds 16 to 20: 6, 2, 2, 1, 0); round 20 says 0 blocking, nothing pulled in; ticked.
 - 2026-11-09 M3 accepted (demo go, user).
+- 2026-11-09 stale doc from #733's worker: CR #795 accepted (orchestrator: a comment outside Core) by #796.
