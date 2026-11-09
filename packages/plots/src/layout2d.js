@@ -32,6 +32,8 @@ function badProfile(s) {
 }
 // A stop with no glass on either side is drawn as two ticks, reaching sd + 2.5.
 function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i - 1].glass); }
+// A stop's bar runs from ±sd out to ±(sd + 2.5); on a glass surface it stops at the box (the glass already reaches sd), so it stays in view.
+function stopEnd(S, i, k, B) { var e = S[i].sd + 2.5; return standalone(S, i) ? k * e : k > 0 ? Math.min(e, Math.max(B.yhi, S[i].sd)) : Math.max(-e, Math.min(B.ylo, -S[i].sd)); }
 // A lens stop reaches its profile edge, |profile[0][1]| (layoutBounds' rule), so its label clears the glass.
 function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : Math.abs(S[i].profile[0][1]); }
 
@@ -252,7 +254,7 @@ export function layout2D(o) {
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
     if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
-    if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
+    if (a.stop) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, stopEnd(S, i, k, B), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0];
   // One group per opacity, so it does not darken where rays cross (a per-polyline stroke-opacity would). With `status`, Virtual and Dead runs go in a faded
@@ -299,7 +301,7 @@ export function layout2D(o) {
   // Labels the clamp put on one baseline would stack: top to bottom, each sits at least 1 em below the one above (#669). Unclamped labels stay where they are.
   tags.filter(function (a) { return a.clamped; }).sort(function (a, b) { return a.py - b.py; }).forEach(function (a, j, v) { if (j && a.py < v[j - 1].py + 10 * u) a.py = v[j - 1].py + 10 * u; });
   if (o.marks !== false) {
-    S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
+    S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(Math.max(reach(S, i), stopEnd(S, i, 1, B))), "STO"); });
     if (img) {
       // With labels, IMA goes below the image line's lower end and a 12 px line below the lowest label.
       // Its baseline drops the text's height (0.9 em: the ascent of plots.css `.eleo-tick`'s font) plus the 0.5 em gap `above` leaves.

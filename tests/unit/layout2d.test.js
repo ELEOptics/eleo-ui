@@ -168,11 +168,13 @@ function dashesArePx({ lines, polylines }) {
   assert.ok(chief.every((a) => a['stroke-dasharray'] === '6 4'), 'chief dashes 6 4 px');
 }
 
-test('triplet draws 3 polygons, no stop ticks', () => {
+test('triplet draws 3 polygons, a stop bar only at its stop', () => {
   const L = fixture('tolerance');
   const d = drawn(ELEO.layout2D({ data: L }));
   assert.equal(d.polygons.length, 3);
-  assert.equal(d.lines.filter((a) => vertical(a) && !at(+a.x1, image(L))).length, 0, 'no stop ticks');
+  // CR #729: the stop is on glass and has its bar there, two lines; no other surface draws a tick.
+  const stopZ = L.surfaces.find((x) => x.stop).z;
+  assert.equal(d.lines.filter((a) => vertical(a) && !at(+a.x1, image(L)) && !at(+a.x1, stopZ)).length, 0, 'no stop ticks off the stop');
   dashesArePx(d);
 });
 
@@ -1336,3 +1338,22 @@ test('key', () => {
   assert.equal(ELEO.layout2D({ data: L, width: 600, key: entries }), ELEO.layout2D({ data: L, width: 600 }), 'not drawn below 630, no room kept');
 });
 const layoutTextOf = T_OF;
+
+// Plan #677 #733 (CR #729, user). oracle: property every STO label has its bar: two vertical lines at the stop's z from ±sd outward, in the viewBox, on a glass surface too.
+test('a labelled stop has its bar', () => {
+  const pinned = { zmin: -8, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // gallery/index.html SAMPLE_BOX
+  for (const [name, o] of [['sample', {}], ['sample, pinned box', { box: pinned }]]) {
+    const svg = ELEO.layout2D({ data: sample.layout, ...o });
+    const { body } = geometry(svg); // the group draws in mm
+    const lines = [...body.matchAll(/<line\b[^>]*>/g)].map((m) => attrs(m[0])).map((a) => [[+a.x1, +a.y1], [+a.x2, +a.y2]]);
+    const stops = sample.layout.surfaces.filter((x) => x.stop);
+    assert.ok(stops.length > 0 && stops.some((x) => x.glass), `${name}: a stop on glass`);
+    for (const s of stops) {
+      for (const k of [1, -1]) {
+        const bar = lines.find(([p, q]) => at(p[0], s.z) && at(q[0], s.z) && Math.min(k * p[1], k * q[1]) > k * 0 && near([0, Math.min(k * p[1], k * q[1])], [0, s.sd]));
+        assert.ok(bar, `${name}: stop bar at z=${s.z} starts at ${k * s.sd}`);
+        assert.ok(Math.max(k * bar[0][1], k * bar[1][1]) > s.sd + 0.1, `${name}: the bar at ${k} reaches out of the aperture`);
+      }
+    }
+  }
+});
