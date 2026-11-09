@@ -1,6 +1,6 @@
 # Plan #677: Gallery polish from the #642 M2 demo
 
-Status: approved 2026-11-06
+Status: done 2026-11-09
 Branch: `plan/677-gallery-polish` PR: #702 Depends on: none (plan #642 merged 2026-11-06, PR #652) Roadmap: `agent_docs/roadmap.md`, row R
 
 ## Problem
@@ -279,3 +279,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-09 review M4 round 2 (0 blocking, 4 backlog): findings 1 to 3 into #802; finding 4 (ADR-0002:18 cites the dropped size budget) is an ADR, reported to the user.
 - 2026-11-09 review M4 round 3 (0 blocking, 1 backlog): #803 filed, not pulled in (orchestrator: it tightens curve's released key API, outside M4). M4 reviewed (rounds 1 to 3: 7, 4, 1); round 3 has 0 blocking and nothing pulled in; ticked.
 - 2026-11-09 M4 accepted (demo go, user).
+- 2026-11-09 plan end (orchestrator): main is an ancestor of HEAD, so no catch-up. Re-verified the `CLAUDE.md` commands: `npm ci && npm run build`, `scripts/check.sh` (unit and gallery), `npm run gallery` (serves), `npx changeset` (status lists the planned minors). Roadmap row R done, and [#556]'s Deferred row dropped. Status done.
