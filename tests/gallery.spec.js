@@ -873,7 +873,7 @@ test('map tiles', async ({ page }) => {
 // reference: the key texts equal the text of legend('field' | 'wavelength') and glassLegend(fixture), in order (the glasses tile: exactly the field entries, then the glass entries, all in one row at 1440).
 // The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
 const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
-test.skip('layout keys', async ({ page }) => {
+test('layout keys',async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const expected = await page.evaluate(async (kinds) => {
