@@ -37,10 +37,10 @@
     <section class="theme" data-theme="dark"><h2>Dark</h2></section>
   </main>
   <template id="tiles">
-    <section class="eleo-plot" data-tile="layout2D" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div><div class="eleo-plot__ft eleo-legend" data-legend="field"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-fan" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
+    <section class="eleo-plot" data-tile="layout2D" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-fan" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div></section>
     <section class="eleo-plot" data-tile="layout2D-shared" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-glasses" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-glasses" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div></section>
     <section class="eleo-plot" data-tile="layout2D-wandersleb" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Wandersleb triplet, recorded, fan with ray status</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-wandersleb"></div></section>
     <section class="eleo-plot" data-tile="layout2D-cassegrain" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cassegrain, recorded, on-axis chief obscured</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-cassegrain"></div></section>
     <section class="eleo-plot" data-tile="layout2D-cassegrain-dead-hidden" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cassegrain, recorded, Dead hidden</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-cassegrain-dead-hidden"></div></section>
@@ -85,6 +85,15 @@
     // Each tile names the data it needs and draws from it. draw() below calls a tile only when `need()` gives something;
     // otherwise the tile draws nothing and the rest of the page draws.
     function sampleBox() { return SAMPLE_BOX; }
+    // Key entries from the sample's fields and wavelengths, labelled as the footer legends were ("F1 0.0°", "λ1 486.1 nm"); none without a sample.
+    function legendKey(kind) {
+      var S = ELEO.sample; if (!S) return [];
+      return (kind === 'field' ? S.fields : S.wl).map(function (v, i) {
+        return { label: kind === 'field' ? 'F' + (i + 1) + ' ' + ELEO.fmt(v, 1) + '°' : 'λ' + (i + 1) + ' ' + v.toFixed(1) + ' nm', index: i };
+      });
+    }
+    // The Cooke tile keys the fields it draws rays for (F1..Fn), then its glasses, in one list.
+    function fieldKey(d) { return d.rays.map(function (_, i) { return { label: 'F' + (i + 1), index: i }; }).concat('glass'); }
     function meritTile(k, w) {
       try { return ELEO.layout2D({ data: MERIT[k], width: w, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
       catch (e) { console.error('merit-' + k + ':', e); return ''; }
@@ -95,11 +104,11 @@
     function atWidth(d, w, more) { return Object.assign({}, d, more, { width: w }); }
     var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50, label: '50 cycles/mm' }, { y: [0, 0.3] }];
     var SVG = {
-      'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box }); } },
-      'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
+      'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, key: legendKey('field') }); } },
+      'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }); } },
       'merit-before': { need: function () { return MERIT_BOX; }, draw: function (_, w) { return meritTile('before', w); } },
       'merit-after': { need: function () { return MERIT_BOX; }, draw: function (_, w) { return meritTile('after', w); } },
-      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w) { return ELEO.layout2D({ data: d, width: w, marks: false }); } },
+      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w) { return ELEO.layout2D({ data: d, width: w, marks: false, key: fieldKey(d) }); } },
       'layout2D-wandersleb': recTile('layout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
       'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
       'layout2D-cassegrain-dead-hidden': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w, { show: ['Alive', 'Virtual'] })); }),
@@ -213,13 +222,6 @@
         });
         theme.querySelectorAll('[data-map]').forEach(function (el) { ELEO.fit(el, function (w) { el._w = w; drawMap(el); }); });
         fitCanvases(theme);
-        // The glass legend keys its own recording; empty, like the tile, if its fixture failed.
-        // The field and wavelength legends key the sample; empty, like its tiles, without it.
-        theme.querySelectorAll('[data-legend]').forEach(function (el) {
-          var k = el.dataset.legend;
-          el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '')
-            : SAMPLE_BOX ? ELEO.legend(k) : '';
-        });
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
           .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));
         theme.querySelector('[data-icons]').innerHTML = icons.join('');
