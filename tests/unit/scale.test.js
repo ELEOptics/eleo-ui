@@ -238,6 +238,20 @@ test('minWidth gives the floor frame (#587)', async () => {
   try { near(minWidth('rayFan', {}), T.minWidth, 'rayFan with no sample is one panel'); } finally { ELEO.useSample(sample); }
 });
 
+// Plan #677 M3 (#790, finding 3): spot and throughFocus margins follow labelM(half), so a small half's longer y labels still leave an F_LO frame.
+// oracle: closed-form ADR-0003 (frameOf at the returned width and labelM's margin is at least F_LO); half 0.05 labels "\u22120.04" (five characters, 3.6 text units)
+test('minWidth for spot and throughFocus holds an F_LO frame for any half (#790)', async () => {
+  const { minWidth } = await import('../../packages/plots/src/sizes.js');
+  const { labelM } = await import('../../packages/plots/src/spot.js');
+  for (const half of [40, 0.5, 0.05]) {
+    const m = labelM(half);
+    assert.ok(frameOf(minWidth('spot', { half, panels: [{}] }), m) >= scale.F_LO - TOL, `spot half ${half}: frame at least F_LO`);
+    assert.ok(frameOf(minWidth('spot', { half, panels: [{}] }) - 1, m) < scale.F_LO, `spot half ${half}: 1 px less is under F_LO`);
+    near(minWidth('throughFocus', { half }) - minWidth('throughFocus', {}), scale.TEXT_MIN * (m - 2.4), `throughFocus half ${half}: the margin is labelM`);
+  }
+  near(minWidth('spot', { panels: [{}] }), scale.PLOT_SIZES.spot.minWidth, 'no props keeps the 2.4 default');
+});
+
 // Plan #603, issue #610: minWidth is public, on the module and on the classic build's window.ELEO, the one function of sizes.js.
 // oracle: tests/unit/layout2d.test.js's layoutBounds case (a public export is on ELEO so eleo-plots.js carries it)
 test('ELEO.minWidth is exported on the module and on the classic build (#610)', async () => {

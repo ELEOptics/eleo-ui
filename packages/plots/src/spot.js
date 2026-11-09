@@ -25,15 +25,15 @@ var tickText = function (v) { return plain(v, 6).replace(/(\.\d*?)0+$/, "$1").re
 /* The grid's ticks, strictly inside ±half, as { v, s } (value, label text). */
 var tickList = function (half) { return niceTicks(-half, half, 5).ticks.filter(function (tk) { return Math.abs(tk) < half; }).map(function (tk) { return { v: tk, s: tickText(tk) }; }); };
 /* The left margin (text units) a panel needs for its y labels: 0.6 per character plus 0.6, at least SPOT_LABEL_M. */
-var labelM = function (half) { return Math.max(SPOT_LABEL_M, 0.6 * Math.max.apply(null, [0].concat(tickList(half).map(function (k) { return k.s.length; }))) + 0.6); };
+export var labelM = function (half) { return Math.max(SPOT_LABEL_M, 0.6 * Math.max.apply(null, [0].concat(tickList(half).map(function (k) { return k.s.length; }))) + 0.6); };
 var sig3 = function (v) { return plain(v, 3); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 /* One square spot panel at (x, y), side `side`, the same scale `side / 2 / half` on both axes: the frame (stroke `frame`, default --plot-grid), the grid strictly inside ±half under the dots (`grid` not false), the centre cross, then in a nested svg (which clips) one round-cap dot path per series and a circle per positive radius in `circles`. wt is the dot weight, frameWeight(side). typedSpot and throughFocus both draw their panels with it; `o.labels` ({ x, y } flags, with `o.t` the text size in px) writes the tick labels of the same ticks outside the frame: x centred under the bottom edge, y right-aligned left of the left edge, every other one dropped until neighbours clear each other; the caller adds anything else outside the frame. */
 function spotPanel(x, y, side, half, o) {
   var s = (side / 2) / half, cx = side / 2, g = "", fy = r2(y);
   g += '<rect x="' + r2(x + .5) + '" y="' + r2(y + .5) + '" width="' + r2(side - 1) + '" height="' + r2(side - 1) + '" rx="3" fill="none" stroke="' + (o.frame || "var(--plot-grid)") + '"/>';
-  if (o.grid !== false) niceTicks(-half, half, 5).ticks.filter(function (tk) { return Math.abs(tk) < half; }).forEach(function (tk) {
-    var u = r2(cx + tk * s);
+  if (o.grid !== false) tickList(half).forEach(function (k) {
+    var u = r2(cx + k.v * s);
     g += '<path d="M' + r2(x + u) + "," + fy + " V" + r2(y + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="x"/>';
     g += '<path d="M' + x + "," + r2(y + u) + " H" + r2(x + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
   });
@@ -114,7 +114,6 @@ function typedSpot(o) {
   var W = o.width || Math.max(n * (side + lm) + (n - 1) * gap, lm + 0.6 * t * Math.max.apply(null, cap.map(function (c) { return c.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
   panels.forEach(function (p, i) {
     var half = halves[i];
-    if (!isFinite(side / 2 / half)) half = 1;
     var ox = r2(lm + i * (side + lm + gap));
     g += spotPanel(ox, top, side, half, { series: p.series || [], circles: [airyOf(p), circleOf(p)], grid: o.grid !== false, wt: wt, labels: { x: true, y: true }, t: t });
     var pe = at === "below" ? [] : entsOf([p]);

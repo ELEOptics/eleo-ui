@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELEO from '../../packages/plots/src/index.js';
 import { idx } from '../../packages/plots/src/common.js';
+import { frameText } from '../../packages/plots/src/scale.js';
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -623,7 +624,7 @@ test('tick labels', () => {
   });
   Y.forEach((y) => assert.ok(+/\bx="([\d.]+)"/.exec(y.a)[1] < left, 'y labels sit left of the frame'));
   Y.forEach((y, i) => assert.ok(Math.abs(+/\by="([\d.]+)"/.exec(y.a)[1] - (4 + side / 2 - ([-20, 0, 20][i] * side) / 80 + 0.35 * size)) < 0.02, 'y label beside its tick, −20 lowest'));
-  assert.ok(Math.abs(size - Math.max(9, Math.min(13, side / 18))) < 1e-6 || size > 13 || size === 9, 'text at the panel size');
+  assert.ok(Math.abs(size - frameText(side)) < 0.01, 'text at the panel size');
   const capX = /<text\b[^>]*\bx="([\d.]+)"[^>]*>x, y in µm<\/text>/.exec(svg);
   assert.ok(capX && Math.abs(+capX[1] - left) < 0.02, 'caption lines start at the first frame\'s left edge');
   const off = ELEO.spot({ panels, half: 40, unit: 'µm', width: 300, grid: false });
