@@ -911,3 +911,48 @@ test('map tiles', async ({ page }) => {
     for (const name of ['psf-recorded', 'psf-log', 'wavefront-recorded', 'irradiance-gaussian']) expect((await tile(name)).lines, `${theme} ${name} asks for no grid (CR #779)`).toBe(0);
   }
 });
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O5 (issue #697; #701 unskips). layout2D keys its fans or glasses in the SVG, with no HTML footer.
+// Contract: every key entry's label is a <text data-key> in the figure's SVG (as in 'curve keys'), in the order of the `key` list; CR #728: the glass key joins the field key in one row.
+// oracle: closed-form ADR-0003 (layoutText above) for the key text size, within 1%, at 1440, 1100, 700 px; at a width where layoutText is null (the labels are hidden below 630 px) the tile has no key text;
+// reference: the key texts equal the text of legend('field' | 'wavelength') and glassLegend(fixture), in order (the glasses tile: exactly the field entries, then the glass entries, all in one row at 1440).
+// The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
+const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
+test.skip('layout keys', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const expected = await page.evaluate(async (kinds) => {
+    const text = (html) => [...new DOMParser().parseFromString(html, 'text/html').body.children].map((e) => e.textContent);
+    const glasses = await fetch('/tests/fixtures/layouts/analysis-glasses.json').then((r) => r.json());
+    const out = {};
+    for (const [tile, kind] of Object.entries(kinds)) out[tile] = kind === 'field+glass' ? { field: glasses.rays.map((_, i) => `F${i + 1}`), glass: text(window.ELEO.glassLegend(glasses)) } : { all: text(window.ELEO.legend(kind)) };
+    return out;
+  }, LAYOUT_KEYS);
+  const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
+    const tile = document.querySelector(`.theme[data-theme="${th}"] [data-tile="${name}"]`);
+    const svg = tile.querySelector('.eleo-plot__body svg');
+    const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    return {
+      tile: name, W: svg.getBoundingClientRect().width, footers: tile.querySelectorAll('.eleo-plot__ft').length,
+      keys: [...svg.querySelectorAll('text[data-key]')].map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
+    };
+  }), [theme, Object.keys(LAYOUT_KEYS)]);
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      await settle(page);
+      for (const r of await measure(theme)) {
+        const w = `${theme} ${width} ${r.tile}`, want = layoutText(r.W), e = expected[r.tile];
+        expect(r.footers, `${w} has no footer`).toBe(0);
+        if (want === null) { expect(r.keys.map((k) => k.text), `${w} (W ${r.W}) key hidden`).toEqual([]); continue; }
+        const texts = r.keys.map((k) => k.text);
+        if (e.all) expect(texts, `${w} keys`).toEqual(e.all);
+        else {
+          expect(texts, `${w} field keys, then glass keys`).toEqual([...e.field, ...e.glass]);
+          if (width === 1440) expect(r.keys.every((k) => Math.abs(k.t - r.keys[0].t) < 1), `${w} field and glass keys share one row`).toBe(true);
+        }
+        for (const k of r.keys) expect(Math.abs(k.size / want - 1), `${w} key "${k.text}" ${k.size}px against ${want}px`).toBeLessThanOrEqual(0.01);
+      }
+    }
+  }
+});
