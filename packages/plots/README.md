@@ -207,6 +207,6 @@ mtfDiffraction(nu, 0.0005876, 4); // nu in cycles/mm, lambda in mm; 0 past cutof
 <script src="eleo-plots-sample.js"></script>  <!-- optional: the sample system -->
 ```
 
-`eleo-physics.js` is the physics helpers alone (1 KB). `eleo-layout.js` is `layout2D`, `layoutBounds`, `glassLegend` and `fit` alone, with no sample, for drawing recorded layouts. It styles its own texts, so `tokens.css` is all it needs (a size test caps its growth at 2 KB gzipped per roadmap row).
+`eleo-physics.js` is the physics helpers alone (1 KB). `eleo-layout.js` is `layout2D`, `layoutBounds`, `glassLegend` and `fit` alone, with no sample, for drawing recorded layouts. It styles its own texts, so `tokens.css` is all it needs.
 
 For Svelte, see [`@eleoptics/plots-svelte`](https://www.npmjs.com/package/@eleoptics/plots-svelte). MIT licensed. Part of [eleo-ui](https://github.com/ELEOptics/eleo-ui).

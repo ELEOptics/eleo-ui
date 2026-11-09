@@ -13,8 +13,7 @@ the sample and every gallery tile keep working through every row. Group "Plot ty
 consumer pulls (after C for phos, then whenever phos adopts the next converted renderer), and J removes
 `kind` and the sample-shaped `data` in one major release. Recorded phos-core fixtures cover public lenses
 only (the sample achromat, the Cooke triplet, the Wandersleb triplet). From row D on, each row keeps U14's redraw budget for the
-renderers it touches. The standalone layout entry (U4, shipped to the website) grows by at most 2 kB gzipped
-per row, checked by a size test.
+renderers it touches.
 
 The one living roadmap of this repo: the only agent_docs artifact edited and appended as work lands. The
 planner scopes the next plan from it; the orchestrator ticks the plan's row at plan end. A goal that needs
