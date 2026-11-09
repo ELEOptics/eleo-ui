@@ -17,7 +17,7 @@ export { html, colored };
 
 // Plan #677 M2 (#740): spot's series label and keyAt, rayFan's key and keyAt.
 import type { SpotSeries, SpotPanelsProps, RayFanProps } from '../../packages/plots/src/index';
-import { spot, rayFan } from '../../packages/plots/src/index';
+import { spot, rayFan, throughFocus } from '../../packages/plots/src/index';
 
 const ss: SpotSeries = { points: [[0, 1]], index: 0, label: '486.1 nm' };
 const spotAt: SpotPanelsProps['keyAt'] = at;
@@ -26,6 +26,9 @@ const spotSvg: string = spot(spotProps);
 const fanProps: RayFanProps = { key: true, keyAt: at };
 const fanSvg: string = rayFan(fanProps);
 spot({ panels: [{ series: [ss] }], grid: false });
+throughFocus({ grid: false });
+// @ts-expect-error throughFocus's grid is a boolean
+throughFocus({ grid: 'off' });
 // @ts-expect-error spot's keyAt is one of five places
 spot({ panels: [{ series: [ss] }], keyAt: 'middle' });
 // @ts-expect-error rayFan's keyAt is one of five places

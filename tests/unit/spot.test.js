@@ -448,9 +448,9 @@ test('text follows ADR-0003 per panel', async () => {
     assert.ok(F > 1, `${width}: panels drawn`);
     texts(m).forEach((x, i) => { assert.ok(x.size, `${width}: text ${i} inline`); near(+x.size[1], t, `${width} text ${i}`); });
     near(+/viewBox="0 0 ([\d.]+) /.exec(m)[1], width, `${width}: the figure is as wide as asked`);
-    const radii = [...m.matchAll(/<circle\b[^>]*r="([\d.]+)"/g)].map((c) => +c[1]);
-    assert.ok(radii.length > 0);
-    radii.forEach((r) => near(r, 0.9 * frameWeight(F), `${width} dot radius`));
+    const widths = dots(m);
+    assert.ok(widths.length > 0);
+    widths.forEach((w) => near(w, 2.2 * frameWeight(F), `${width} dot width`));
     near(F, frameOf((width - cols * 10) / cols, 4.2 / cols), `${width}: F solves the row label's room`);
   }
   assert.deepEqual([...tfSeen].sort(), ['above', 'below', 'inside']);
@@ -567,4 +567,36 @@ test('grid', () => {
     const bad = [...whole.matchAll(/<[a-z][^>]*>/g)].map((m) => m[0]).filter((el) => /\d\.\d{3,}/.test(el.replace(/font-size:[\d.]+px/g, '')) && !/matrix\(|<path d="M[^"]* h0|<circle cx="0" cy="0"/.test(el));
     assert.deepEqual(bad, [], `${n} panels, keyAt ${keyAt}: every start tag but the three left out has no number with 3 or more decimals outside font-size`);
   }
+});
+
+// Plan #677 M3 (#783, CR #780): throughFocus draws each cell with spot's panel function: grid under spot's dots, a centre cross, round-cap dots, a clipping nested svg.
+// oracle: spec CR #780 (user): every cell drawn by spot's panel function
+test('throughFocus panels', async () => {
+  const { frameWeight } = await import('../../packages/plots/src/scale.js');
+  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const tf = ELEO.throughFocus({ data: sample, width: 1100 });
+  const rects = [...tf.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)];
+  assert.ok(rects.length > 0, 'cells drawn');
+  const F = +/\bwidth="([\d.]+)"/.exec(rects[0][0])[1] + 1;
+  // Every cell: a nested svg, one grid, round-cap dot paths (no circle dots), and the in-focus column alone in --ink-subtle.
+  const nested = [...tf.matchAll(/<svg x=/g)].length;
+  assert.equal(nested, rects.length, 'one clipping svg per cell');
+  assert.ok([...tf.matchAll(/data-grid="x"/g)].length > 0 && [...tf.matchAll(/data-grid="y"/g)].length > 0, 'grid lines drawn');
+  assert.equal([...tf.matchAll(/data-grid="x"/g)].length, [...tf.matchAll(/data-grid="y"/g)].length, 'as many vertical as horizontal');
+  assert.ok(/<path d="M[^"]*h0[^"]*"[^>]*stroke-linecap="round"/.test(tf), 'dots are round-cap paths');
+  assert.ok(!/<circle\b/.test(tf), 'no circle dots');
+  const w = [...tf.matchAll(/<path d="M[^"]*h0[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
+  assert.ok(w.length > 0);
+  w.forEach((x) => assert.ok(Math.abs(x - 2.2 * frameWeight(F)) <= 0.001, `dot width ${x}`));
+  assert.equal([...tf.matchAll(/stroke="var\(--ink-subtle\)"/g)].length, sample.throughFocus.spots.length, 'only the in-focus column (one cell per row) is --ink-subtle');
+  // The grid sits strictly inside the frame and under the dots.
+  assert.ok(tf.indexOf('data-grid') < tf.indexOf('stroke-linecap="round"'), 'grid before dots');
+  [...tf.matchAll(/<path d="M([\d.]+),[\d.]+ V[\d.]+" [^>]*data-grid="x"/g)].forEach((m) => {
+    const ox = Math.max(...[...rects].map((r) => +/\bx="([\d.]+)"/.exec(r[0])[1] - .5).filter((x) => x <= +m[1]));
+    assert.ok(+m[1] > ox && +m[1] < ox + F, 'a grid line is strictly inside its frame');
+  });
+  // grid: false draws none and nothing else changes.
+  const off = ELEO.throughFocus({ data: sample, width: 1100, grid: false });
+  assert.ok(!/data-grid/.test(off), 'grid: false draws none');
+  assert.equal(off.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), tf.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), 'grid: false removes the grid lines only');
 });

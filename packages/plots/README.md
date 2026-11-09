@@ -171,7 +171,7 @@ RMS, GEO
 - **`grid`:** lines at the nice ticks strictly inside (-half, half) (about 5 per side; the frame draws the edges) in `--plot-grid`, inside each frame and under the dots and circles. `grid: false` draws none; the frame and centre cross stay.
 - **`label`:** the SVG's `aria-label` (default `Spot diagrams`).
 - **Drawing:** each panel is a nested `<svg>` holding one `<g transform="matrix(...)">` in data coordinates, with the same scale on both axes and a non-scaling stroke; inverting the matrix recovers the points. A series is one `<path>` of dots, each `M x,y h0` under a round cap (2.2 px across, times `sqrt(F / 234)` above F = 234).
-- **`throughFocus({ data, half?, width? })`:** the sample's through-focus spots, fields by rows and focus shifts by columns. `width` is the drawing width in px; a panel's side F solves `F + 4.2 * t(F) / columns = (width - 10 * columns) / columns` (4.2 text units of row label, a 10 px gap per column), with `t` the same text size as `spot`'s, and dots grow by `sqrt(F / 234)` above F = 234. Without a `width` a panel is 92 px.
+- **`throughFocus({ data, half?, width?, grid? })`:** the sample's through-focus spots, fields by rows and focus shifts by columns. Each cell is drawn by `spot`'s panel function: frame, grid under the dots (`grid: false` draws none), centre cross and round-cap dots, so a cell looks like a `spot` panel. `width` is the drawing width in px; a panel's side F solves `F + 4.2 * t(F) / columns = (width - 10 * columns) / columns` (4.2 text units of row label, a 10 px gap per column), with `t` the same text size as `spot`'s, and dots are `spot`'s, 2.2 * frameWeight(F) wide (growing by `sqrt(F / 234)` above F = 234). Without a `width` a panel is 92 px.
 
 ## Palettes
 

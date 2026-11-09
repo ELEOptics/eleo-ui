@@ -164,6 +164,8 @@ export interface ThroughFocusProps {
   half?: number;
   /** The figure's width in px. A panel's side is ADR-0003's frame, solved from it; 92 px without it. */
   width?: number;
+  /** `false` draws no grid lines in the cells. Default: `spot`'s grid, at the nice ticks strictly inside (-half, half), under the dots. */
+  grid?: boolean;
 }
 export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
 export interface RayFanProps {

@@ -22,6 +22,24 @@ function plain(v, p) {
 }
 var sig3 = function (v) { return plain(v, 3); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
+/* One square spot panel at (x, y), side `side`, the same scale `side / 2 / half` on both axes: the frame (stroke `frame`, default --plot-grid), the grid strictly inside ±half under the dots (`grid` not false), the centre cross, then in a nested svg (which clips) one round-cap dot path per series and a circle per positive radius in `circles`. wt is the dot weight, frameWeight(side). typedSpot and throughFocus both draw their panels with it; the caller adds anything outside the frame. */
+function spotPanel(x, y, side, half, o) {
+  var s = (side / 2) / half, cx = side / 2, g = "", fy = r2(y);
+  g += '<rect x="' + r2(x + .5) + '" y="' + r2(y + .5) + '" width="' + r2(side - 1) + '" height="' + r2(side - 1) + '" rx="3" fill="none" stroke="' + (o.frame || "var(--plot-grid)") + '"/>';
+  if (o.grid !== false) niceTicks(-half, half, 5).ticks.filter(function (tk) { return Math.abs(tk) < half; }).forEach(function (tk) {
+    var u = r2(cx + tk * s);
+    g += '<path d="M' + r2(x + u) + "," + fy + " V" + r2(y + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="x"/>';
+    g += '<path d="M' + x + "," + r2(y + u) + " H" + r2(x + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
+  });
+  g += '<path d="M' + r2(x + 6) + "," + r2(y + cx) + " H" + r2(x + side - 6) + " M" + r2(x + cx) + "," + r2(y + 6) + " V" + r2(y + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
+  g += '<svg x="' + +x.toFixed(2) + '" y="' + +y.toFixed(2) + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, r2(cx), r2(cx)].join(" ") + ')">';
+  (o.series || []).forEach(function (se) {
+    var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
+    g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * o.wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
+  });
+  (o.circles || []).forEach(function (r) { if (r) g += '<circle cx="0" cy="0" r="' + r + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>"; });
+  return g + "</g></svg>";
+}
 /* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
 function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
@@ -78,22 +96,8 @@ function typedSpot(o) {
   panels.forEach(function (p, i) {
     var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common;
     if (!isFinite(side / 2 / half)) half = 1;
-    var s = (side / 2) / half, ox = r2(i * (side + gap)), cx = side / 2;
-    g += '<rect x="' + r2(ox + .5) + '" y="' + (top + .5) + '" width="' + r2(side - 1) + '" height="' + r2(side - 1) + '" rx="3" fill="none" stroke="var(--plot-grid)"/>';
-    if (o.grid !== false) niceTicks(-half, half, 5).ticks.filter(function (tk) { return Math.abs(tk) < half; }).forEach(function (tk) {
-      var u = r2(cx + tk * s);
-      g += '<path d="M' + r2(ox + u) + "," + top + " V" + r2(top + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="x"/>';
-      g += '<path d="M' + ox + "," + r2(top + u) + " H" + r2(ox + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
-    });
-    g += '<path d="M' + r2(ox + 6) + "," + r2(top + cx) + " H" + r2(ox + side - 6) + " M" + r2(ox + cx) + "," + (top + 6) + " V" + r2(top + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
-    g += '<svg x="' + +ox.toFixed(2) + '" y="' + top + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, r2(cx), r2(cx)].join(" ") + ')">';
-    (p.series || []).forEach(function (se) {
-      var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
-      g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
-    });
-    if (airyOf(p)) g += '<circle cx="0" cy="0" r="' + airyOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
-    if (circleOf(p)) g += '<circle cx="0" cy="0" r="' + circleOf(p) + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>";
-    g += "</g></svg>";
+    var ox = r2(i * (side + gap));
+    g += spotPanel(ox, top, side, half, { series: p.series || [], circles: [airyOf(p), circleOf(p)], grid: o.grid !== false, wt: wt });
     var pe = at === "below" ? [] : entsOf([p]);
     if (pe.length) g += cornerBox(pe, at, t, ox, top, side, side);
     var ty = r2(top + side + 1.8 * t);
@@ -131,16 +135,15 @@ export function throughFocus(o) {
   o = o || {}; var D = data(o), T = D.throughFocus, gap = 10, LW = 4.2;
   var cols = T.defocus.length, rows = T.spots.length, g = "", half = o.half || 40;
   var B = isFinite(o.width) && o.width > 0 && cols ? r2(Math.floor(frameOf((+o.width - cols * gap) / cols, LW / cols) * 100) / 100) : 92;
-  var t = frameText(B), sty = ' style="font-size:' + +t.toFixed(2) + 'px"', wt = frameWeight(B), s = (B / 2) / half;
+  var t = frameText(B), sty = ' style="font-size:' + +t.toFixed(2) + 'px"', wt = frameWeight(B);
   var lw = r2(LW * t), th = r2(2.2 * t), pitch = r2(B + 2.6 * t), W = r2(Math.max(lw + cols * (B + gap), isFinite(o.width) ? +o.width : 0)), H = r2(th + rows * pitch);
   T.defocus.forEach(function (dz, j) { g += '<text class="eleo-tick"' + sty + ' x="' + r2(lw + j * (B + gap) + B / 2) + '" y="' + r2(1.2 * t) + '" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + " µm</text>"; });
   T.spots.forEach(function (row, i) {
     var oy = r2(th + i * pitch);
     g += '<text class="eleo-val"' + sty + ' x="0" y="' + r2(oy + B / 2 + 0.4 * t) + '">' + fmt(D.fields[i], 1) + "°</text>";
     row.forEach(function (cell, j) {
-      var ox = r2(lw + j * (B + gap)), cx = ox + B / 2, cy = oy + B / 2;
-      g += '<rect x="' + (ox + .5) + '" y="' + (oy + .5) + '" width="' + (B - 1) + '" height="' + (B - 1) + '" rx="3" fill="none" stroke="' + (j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)") + '"/>';
-      cell.pts.forEach(function (pts, wi) { pts.forEach(function (p) { var x = cx + p[0] * s, y = cy - p[1] * s; if (Math.abs(x - cx) < B / 2 && Math.abs(y - cy) < B / 2) g += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + +(.9 * wt).toFixed(3) + '" fill="' + idx(wi) + '" fill-opacity=".85"/>'; }); });
+      var ox = r2(lw + j * (B + gap));
+      g += spotPanel(ox, oy, B, half, { series: cell.pts.map(function (pts, wi) { return { points: pts, index: wi }; }), grid: o.grid !== false, wt: wt, frame: j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)" });
       g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + 1.3 * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + cell.rms.toFixed(1) + "</tspan></text>";
     });
   });
