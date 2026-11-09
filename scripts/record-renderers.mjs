@@ -5,7 +5,8 @@
 // and again at plan #512 #519 by the user's choice at approval (draws to ADR-0003's rule, after #518),
 // the seidel and seidel-terms entries were recorded at plan #677 #679 from main's build (before #680),
 // and the seidel entry alone re-recorded at plan #677 #556 by the user's choice (CR #703: its limit label offsets scale with the text),
-// and the throughFocus entry at plan #512 #570 (after #525, same choice); #528 re-runs it if a later M2 change moves it.
+// and the throughFocus entry at plan #512 #570 (after #525, same choice); #528 re-runs it if a later M2 change moves it,
+// and the throughFocus entry again at plan #677 #783 and #785 by the user's choice (CR #780: one panel function; CR #781: tick labels on the outer edges).
 //   node scripts/record-renderers.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import ELEO from '../packages/plots/dist/index.js';
