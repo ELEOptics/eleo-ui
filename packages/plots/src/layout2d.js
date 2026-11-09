@@ -295,7 +295,9 @@ export function layout2D(o) {
   // Each field's label starts 6 px past the image plane (its own chief end's z with no image surface), its baseline 4 px
   // below its chief's end, never above 1 em from the top (a cropping box, #160); the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: Math.max(10 * u, +Y(ends[k][1]) + 4 * u), t: esc(t) }); });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: Math.max(10 * u, +Y(ends[k][1]) + 4 * u), clamped: +Y(ends[k][1]) + 4 * u < 10 * u, t: esc(t) }); });
+  // Labels the clamp put on one baseline would stack: top to bottom, each sits at least 1 em below the one above (#669). Unclamped labels stay where they are.
+  tags.filter(function (a) { return a.clamped; }).sort(function (a, b) { return a.py - b.py; }).forEach(function (a, j, v) { if (j && a.py < v[j - 1].py + 10 * u) a.py = v[j - 1].py + 10 * u; });
   if (o.marks !== false) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
     if (img) {

@@ -612,6 +612,19 @@ test('labels stay inside a cropping box (#160)', () => {
   });
 });
 
+// Plan #677, #669: clamped field labels must not stack on one spot.
+// oracle: property (O5) with merit-before and a box of ylo/yhi / 4, the 12° and 24° baselines differ by at least 1 em
+test('clamped labels do not stack', () => {
+  const L = fixture('merit-before'), b = layoutBounds([L]);
+  const box = { ...b, ylo: b.ylo / 4, yhi: b.yhi / 4 };
+  const labels = ['0°', '12°', '24°'];
+  const svg = ELEO.layout2D({ data: L, labels, box });
+  const T = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+  const u = T_OF(1000) / 10;
+  const y = (l) => +T.find((x) => x.text === l).y;
+  assert.ok(Math.abs(y('24°') - y('12°')) >= 10 * u - 0.01, `12° at ${y('12°')} and 24° at ${y('24°')} are at least 1 em apart`);
+});
+
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
 // Plan #30, #63: review M2 finding 3. The label room above the geometry is the box's alone, so a pinned box
 // gives one transform whatever the layouts' stops reach.
