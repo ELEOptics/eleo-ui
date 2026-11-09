@@ -265,3 +265,4 @@ with a cropped box shows its 12° and 24° labels apart; the release planned. Pr
 - 2026-11-09 review M3 round 18 (0 blocking, 2 backlog): both into #792. Counts 6, 2, 2 since the second re-demo: a round 19 that does not fall trips the breaker.
 - 2026-11-09 review M3 round 19 (1 blocking): CR #793 accepted (orchestrator: a test guard) by #794.
 - 2026-11-09 M3 reviewed again after the second re-demo (rounds 16 to 20: 6, 2, 2, 1, 0); round 20 says 0 blocking, nothing pulled in; ticked.
+- 2026-11-09 M3 accepted (demo go, user).
