@@ -80,7 +80,7 @@ checked in `tests/types/keys.ts`:
 - `RayFanProps.key?: boolean`, `RayFanProps.keyAt?: PlotKeyAt`.
 - `SpotSeries.label?: string`; `keyAt?: PlotKeyAt` on `SpotPanelsProps`.
 - `Map2DGridProps.grid?: boolean | null | { x?: false | null | { major?: number; minor?: number | false }; y?: false | null | { major?: number; minor?: number | false } }` (`null` and `minor: false` added by #693, #746, #752; `true` by #769, no grid by default, CR #767).
-- `Layout2DProps.key?: PlotKeyEntry[] | "glass"`.
+- `Layout2DProps.key?: (PlotKeyEntry | "glass")[] | "glass"` (CR #728: entries and "glass" in one list).
 
 No `exports` change in any `package.json`.
 
