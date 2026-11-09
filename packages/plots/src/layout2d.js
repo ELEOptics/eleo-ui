@@ -254,7 +254,7 @@ export function layout2D(o) {
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
     if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
-    if (a.stop) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, stopEnd(S, i, k, B), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
+    if (a.stop) [1, -1].forEach(function (k) { var m = k * a.sd, e = stopEnd(S, i, k, B); if (e - m) g += line(a.z, m, a.z, e, 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0];
   // One group per opacity, so it does not darken where rays cross (a per-polyline stroke-opacity would). With `status`, Virtual and Dead runs go in a faded
@@ -297,9 +297,9 @@ export function layout2D(o) {
   // Each field's label starts 6 px past the image plane (its own chief end's z with no image surface), its baseline 4 px
   // below its chief's end, never above 1 em from the top (a cropping box, #160); the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: Math.max(10 * u, +Y(ends[k][1]) + 4 * u), clamped: +Y(ends[k][1]) + 4 * u < 10 * u, t: esc(t) }); });
-  // Labels the clamp put on one baseline would stack: top to bottom, each sits at least 1 em below the one above (#669). Unclamped labels stay where they are.
-  tags.filter(function (a) { return a.clamped; }).sort(function (a, b) { return a.py - b.py; }).forEach(function (a, j, v) { if (j && a.py < v[j - 1].py + 10 * u) a.py = v[j - 1].py + 10 * u; });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, q: +Y(ends[k][1]) + 4 * u, t: esc(t) }); });
+  // Labels keep the drawing's top-to-bottom order (their unclamped baselines) and clear each other: top to bottom, a label within 1 em of a clamped or pushed one above (its baseline below the unclamped one) sits 1 em below it (#669, #798). With no clamped label nothing moves.
+  tags.slice().sort(function (a, b) { return a.q - b.q; }).forEach(function (a, j, v) { var p = v[j - 1]; a.py = Math.max(10 * u, a.q, p && p.py > p.q ? p.py + 10 * u : 0); });
   if (o.marks !== false) {
     S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(Math.max(reach(S, i), stopEnd(S, i, 1, B))), "STO"); });
     if (img) {

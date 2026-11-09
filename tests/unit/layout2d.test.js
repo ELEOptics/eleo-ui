@@ -615,16 +615,22 @@ test('labels stay inside a cropping box (#160)', () => {
 });
 
 // Plan #677, #669: clamped field labels must not stack on one spot.
-// oracle: property (O5) with merit-before and a box of ylo/yhi / 4, the 12° and 24° baselines differ by at least 1 em
+// oracle: property (O5) with merit-before: at a box of ylo/yhi / 2.4 the 24° and 12° baselines are at least 1 em apart, and at / 4 the labels keep the drawing's top-to-bottom order (0° above 12° above 24°, as the fan ends fall)
 test('clamped labels do not stack', () => {
   const L = fixture('merit-before'), b = layoutBounds([L]);
-  const box = { ...b, ylo: b.ylo / 4, yhi: b.yhi / 4 };
   const labels = ['0°', '12°', '24°'];
-  const svg = ELEO.layout2D({ data: L, labels, box });
-  const T = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
   const u = T_OF(1000) / 10;
-  const y = (l) => +T.find((x) => x.text === l).y;
+  const ys = (div) => {
+    const box = { ...b, ylo: b.ylo / div, yhi: b.yhi / div };
+    const svg = ELEO.layout2D({ data: L, labels, box });
+    const T = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+    return (l) => +T.find((x) => x.text === l).y;
+  };
+  const y = ys(2.4);
   assert.ok(Math.abs(y('24°') - y('12°')) >= 10 * u - 0.01, `12° at ${y('12°')} and 24° at ${y('24°')} are at least 1 em apart`);
+  const z = ys(4);
+  assert.ok(z('24°') < z('12°'), `24° (${z('24°')}) stays above 12° (${z('12°')}), as in the drawing`);
+  assert.ok(z('12°') < z('0°'), `12° (${z('12°')}) stays above 0° (${z('0°')})`);
 });
 
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
@@ -1356,4 +1362,9 @@ test('a labelled stop has its bar', () => {
       }
     }
   }
+  // A glass stop cropped below its sd has no bar to draw: no zero-length dot outside the box.
+  const s0 = sample.layout.surfaces.find((x) => x.stop && x.glass);
+  const crop = ELEO.layout2D({ data: sample.layout, box: { zmin: -8, zmax: sample.zimg + 4, ylo: -s0.sd / 2, yhi: s0.sd / 2 } });
+  const dots = [...geometry(crop).body.matchAll(/<line\b[^>]*>/g)].map((m) => attrs(m[0])).filter((a) => +a.x1 === +a.x2 && +a.y1 === +a.y2);
+  assert.equal(dots.length, 0, 'no zero-length line');
 });
