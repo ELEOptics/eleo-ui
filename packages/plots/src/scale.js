@@ -8,6 +8,8 @@ export const F_HI = 234;
 /* layout2D: W is the drawing width. Labels are W / 70 px from W_LO to W_HI, hidden below W_LO. */
 export const W_LO = 630;
 export const W_HI = 910;
+/* spot: the room (text units) left of each panel for its y tick labels, at least this: three characters at 0.6 plus 0.6. */
+export const SPOT_LABEL_M = 2.4;
 
 /* Text size in px for a frame of width F. */
 export function frameText(F) {
@@ -52,7 +54,7 @@ export var PLOT_SIZES = {
   rayFan: { width: 228, aspect: 314 / 228, minWidth: curveMin, panelStep: curveMin },
   bars: { width: 460, aspect: 260 / 460, minWidth: curveMin, panelStep: 0 },
   map2D: { width: 460, aspect: 360 / 460, minWidth: curveMin, panelStep: 0 },
-  spot: { width: 150, aspect: null, minWidth: F_LO, panelStep: F_LO + SPOT_GAP },
+  spot: { width: 150, aspect: null, minWidth: F_LO + TEXT_MIN * SPOT_LABEL_M, panelStep: F_LO + SPOT_GAP + TEXT_MIN * SPOT_LABEL_M },
   throughFocus: { width: TF_LABEL * TEXT_MIN + 92 + TF_GAP, aspect: null, minWidth: TF_LABEL * TEXT_MIN + F_LO + TF_GAP, panelStep: F_LO + TF_GAP },
   layout2D: { width: 1000, aspect: null, minWidth: W_LO, panelStep: 0 },
 };

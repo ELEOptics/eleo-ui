@@ -3,7 +3,7 @@ import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
 import { niceTicks } from "./axis.js";
-import { frameText, frameWeight, frameOf } from "./scale.js";
+import { frameText, frameWeight, frameOf, SPOT_LABEL_M } from "./scale.js";
 
 var r2 = function (v) { return Math.round(v * 100) / 100; };
 
@@ -20,9 +20,15 @@ function plain(v, p) {
   if (Math.abs(v) < 1e-100) return "0";
   return Math.abs(v) >= 1 ? v.toFixed(0) : v.toFixed(Math.min(100, p - 1 - Math.floor(Math.log10(Math.abs(v)))));
 }
+/* A tick as label text: no exponent, no trailing zeros, a true minus sign. */
+var tickText = function (v) { return plain(v, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "").replace("-", "\u2212"); };
+/* The grid's ticks, strictly inside ±half, as { v, s } (value, label text). */
+var tickList = function (half) { return niceTicks(-half, half, 5).ticks.filter(function (tk) { return Math.abs(tk) < half; }).map(function (tk) { return { v: tk, s: tickText(tk) }; }); };
+/* The left margin (text units) a panel needs for its y labels: 0.6 per character plus 0.6, at least SPOT_LABEL_M. */
+var labelM = function (half) { return Math.max(SPOT_LABEL_M, 0.6 * Math.max.apply(null, [0].concat(tickList(half).map(function (k) { return k.s.length; }))) + 0.6); };
 var sig3 = function (v) { return plain(v, 3); };
 var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
-/* One square spot panel at (x, y), side `side`, the same scale `side / 2 / half` on both axes: the frame (stroke `frame`, default --plot-grid), the grid strictly inside ±half under the dots (`grid` not false), the centre cross, then in a nested svg (which clips) one round-cap dot path per series and a circle per positive radius in `circles`. wt is the dot weight, frameWeight(side). typedSpot and throughFocus both draw their panels with it; the caller adds anything outside the frame. */
+/* One square spot panel at (x, y), side `side`, the same scale `side / 2 / half` on both axes: the frame (stroke `frame`, default --plot-grid), the grid strictly inside ±half under the dots (`grid` not false), the centre cross, then in a nested svg (which clips) one round-cap dot path per series and a circle per positive radius in `circles`. wt is the dot weight, frameWeight(side). typedSpot and throughFocus both draw their panels with it; `o.labels` ({ x, y } flags, with `o.t` the text size in px) writes the tick labels of the same ticks outside the frame: x centred under the bottom edge, y right-aligned left of the left edge, every other one dropped until neighbours clear each other; the caller adds anything else outside the frame. */
 function spotPanel(x, y, side, half, o) {
   var s = (side / 2) / half, cx = side / 2, g = "", fy = r2(y);
   g += '<rect x="' + r2(x + .5) + '" y="' + r2(y + .5) + '" width="' + r2(side - 1) + '" height="' + r2(side - 1) + '" rx="3" fill="none" stroke="' + (o.frame || "var(--plot-grid)") + '"/>';
@@ -31,6 +37,16 @@ function spotPanel(x, y, side, half, o) {
     g += '<path d="M' + r2(x + u) + "," + fy + " V" + r2(y + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="x"/>';
     g += '<path d="M' + x + "," + r2(y + u) + " H" + r2(x + side) + '" fill="none" stroke="var(--plot-grid)" data-grid="y"/>';
   });
+  if (o.labels && (o.labels.x || o.labels.y)) {
+    var tl = tickList(half), t = o.t, sty = ' style="font-size:' + +t.toFixed(2) + 'px"', wide = Math.max.apply(null, [0].concat(tl.map(function (k) { return k.s.length; }))) * 0.6 * t;
+    var step = 1, pitch = tl.length > 1 ? Math.abs(tl[1].v - tl[0].v) * s : side;
+    while (step * pitch < wide + 0.5 * t && step < tl.length) step++;
+    var zi = Math.max(0, tl.findIndex(function (q) { return q.v === 0; }));
+    tl.filter(function (k, i) { return (i - zi) % step === 0; }).forEach(function (k) {
+      if (o.labels.x) g += '<text class="eleo-tick"' + sty + ' x="' + r2(x + cx + k.v * s) + '" y="' + r2(y + side + 1.2 * t) + '" text-anchor="middle">' + k.s + "</text>";
+      if (o.labels.y) g += '<text class="eleo-tick"' + sty + ' x="' + r2(x - 0.4 * t) + '" y="' + r2(y + cx - k.v * s + 0.35 * t) + '" text-anchor="end">' + k.s + "</text>";
+    });
+  }
   g += '<path d="M' + r2(x + 6) + "," + r2(y + cx) + " H" + r2(x + side - 6) + " M" + r2(x + cx) + "," + r2(y + 6) + " V" + r2(y + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
   g += '<svg x="' + +x.toFixed(2) + '" y="' + +y.toFixed(2) + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, r2(cx), r2(cx)].join(" ") + ')">';
   (o.series || []).forEach(function (se) {
@@ -57,7 +73,7 @@ function typedSpot(o) {
     return Object.assign({}, p, { series: drawn, notes: stats.concat(p.notes || []) });
   }), n = panels.length, gap = 22, unit = o.unit ? " " + esc(o.unit) : "", g = "";
   var notesMax = Math.max.apply(null, [0].concat(panels.map(function (p) { return (p.notes || []).length; })));
-  /* One caption line per active setting, each at x=0 and short enough for a one-panel figure. */
+  /* One caption line per active setting, each at the first panel's left edge and short enough for a one-panel figure. */
   var radii = panels.map(airyOf).filter(Boolean);
   var cap = ["Reference: " + ref];
   if (radii.length) cap.push(radii.length === n && radii.every(function (r) { return sig3(r) === sig3(radii[0]); }) ? "Airy radius " + sig3(radii[0]) + (o.unit ? " " + o.unit : "") : "Airy circle");
@@ -66,7 +82,8 @@ function typedSpot(o) {
   var line = shared && cl ? (cl + " " + sig3(circleOf(circles[0])) + (o.unit ? " " + o.unit : "")).trim() : cl;
   if (circles.length && line) cap.push(line);
   if (anyStats) cap.push("RMS, GEO");
-  /* ADR-0003: a panel's side is the frame F; the text is frameText(F) times textScale, and the layout below the panel is in text units (1.8 under it, 1.5 a line, a foot of 2.8 + 1.5 a line, plus 0.7 + 1.4 a key row). */
+  if (o.unit) cap.push("x, y in " + o.unit);
+  /* ADR-0003: a panel's side is the frame F; the text is frameText(F) times textScale, and the layout below the panel is in text units (a text line of 1.5 under it for the x labels, 1.8 more to the title, 1.5 a line, a foot of 4.3 + 1.5 a line, plus 0.7 + 1.4 a key row; a left margin of labelM(half) before each panel). */
   var tOf = function (F) { return frameText(F) * ts; };
   /* The key: one dot entry per distinct series label (the first use's index): below the captions (`keyAt` "below", default), or in a corner of each panel, for that panel's own labels. */
   var at = o.keyAt === undefined ? "below" : o.keyAt;
@@ -76,12 +93,16 @@ function typedSpot(o) {
     ps.forEach(function (p) { (p.series || []).forEach(function (se) { if (se.label && !out.some(function (e) { return e.label === String(se.label); })) out.push({ label: String(se.label), index: se.index || 0, kind: "dot" }); }); });
     return out;
   };
+  var ext = panels.map(function (p) { var m = Math.max(airyOf(p), circleOf(p)); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
+  var common = isFinite(o.half) && o.half > 0 && isFinite(75 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
+  var halves = panels.map(function (p, i) { var h = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common; return isFinite(75 / h) ? h : 1; });
+  var LM = Math.max.apply(null, [SPOT_LABEL_M].concat(halves.map(labelM))), lmOf = function (F) { return LM * frameText(F) * ts; };
   var ents = at === "below" ? entsOf(panels) : [];
-  var side = o.width ? (o.width - (n - 1) * gap) / Math.max(n, 1) : 150;
-  var keyW = function (F) { return o.width || n * F + (n - 1) * gap; };
-  var keyRows = function (F) { return ents.length ? keyLayout(ents, tOf(F), { L: 0, R: keyW(F), maxRow: 1000 }).rows : 0; };
+  var side = o.width ? frameOf((o.width - (n - 1) * gap) / Math.max(n, 1), LM * ts) : 150;
+  var keyW = function (F) { return o.width || n * (F + lmOf(F)) + (n - 1) * gap; };
+  var keyRows = function (F) { return ents.length ? keyLayout(ents, tOf(F), { L: lmOf(F), R: keyW(F), maxRow: 1000 }).rows : 0; };
   var rows = keyRows(side), footM, footOf = function (F) { return footM * frameText(F) + 1; }, fit = function () {
-    footM = (2.8 + 1.5 * (notesMax + cap.length) + (rows ? 0.7 + 1.4 * rows : 0)) * ts;
+    footM = (4.3 + 1.5 * (notesMax + cap.length) + (rows ? 0.7 + 1.4 * rows : 0)) * ts;
     var F = side0;
     if (o.height && F + 8 + footOf(F) > o.height) F = frameOf(o.height - 9, footM);
     return F;
@@ -89,25 +110,23 @@ function typedSpot(o) {
   /* Without a width the key wraps at n * F + gaps, which shrinks with F: recount the rows at the fitted side and fit again until they hold (rows only grow, so it ends). */
   for (var it = 0; it <= ents.length; it++) { side = fit(); var need = keyRows(Math.max(Math.floor(side * 100) / 100, 1)); if (need <= rows) break; rows = need; }
   side = Math.max(Math.floor(side * 100) / 100, 1);
-  var t = tOf(side), foot = footOf(side), wt = frameWeight(side), sty = ' style="font-size:' + +t.toFixed(2) + 'px"';
-  var W = o.width || Math.max(n * side + (n - 1) * gap, 0.6 * t * Math.max.apply(null, cap.map(function (c) { return c.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
-  var ext = panels.map(function (p) { var m = Math.max(airyOf(p), circleOf(p)); (p.series || []).forEach(function (s) { (s.points || []).forEach(function (q) { if (live(q)) m = Math.max(m, Math.abs(q[0]), Math.abs(q[1])); }); }); return m; });
-  var common = isFinite(o.half) && o.half > 0 && isFinite(side / 2 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
+  var t = tOf(side), lm = lmOf(side), foot = footOf(side), wt = frameWeight(side), sty = ' style="font-size:' + +t.toFixed(2) + 'px"';
+  var W = o.width || Math.max(n * (side + lm) + (n - 1) * gap, lm + 0.6 * t * Math.max.apply(null, cap.map(function (c) { return c.length; })) + 12), H = Math.max(o.height || 0, side + 8 + foot), top = 4;
   panels.forEach(function (p, i) {
-    var half = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common;
+    var half = halves[i];
     if (!isFinite(side / 2 / half)) half = 1;
-    var ox = r2(i * (side + gap));
-    g += spotPanel(ox, top, side, half, { series: p.series || [], circles: [airyOf(p), circleOf(p)], grid: o.grid !== false, wt: wt });
+    var ox = r2(lm + i * (side + lm + gap));
+    g += spotPanel(ox, top, side, half, { series: p.series || [], circles: [airyOf(p), circleOf(p)], grid: o.grid !== false, wt: wt, labels: { x: true, y: true }, t: t });
     var pe = at === "below" ? [] : entsOf([p]);
     if (pe.length) g += cornerBox(pe, at, t, ox, top, side, side);
-    var ty = r2(top + side + 1.8 * t);
-    g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "") + '<text class="eleo-tick"' + sty + ' x="' + r2(ox + side) + '" y="' + ty + '" text-anchor="end">±' + plain(half, 6).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") + unit + "</text>";
+    var ty = r2(top + side + 3.3 * t);
+    g += (p.title ? '<text class="eleo-val"' + sty + ' x="' + ox + '" y="' + ty + '">' + esc(p.title) + "</text>" : "");
     (p.notes || []).forEach(function (nt, j) { g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(ty + 1.5 * t * (j + 1)) + '">' + esc(nt) + "</text>"; });
   });
-  cap.forEach(function (ct, j) { g += '<text class="eleo-tick"' + sty + ' x="0" y="' + r2(top + side + 1.8 * t + 1.5 * t * (notesMax + j + 1)) + '">' + esc(ct) + "</text>"; });
+  cap.forEach(function (ct, j) { g += '<text class="eleo-tick"' + sty + ' x="' + r2(lm) + '" y="' + r2(top + side + 3.3 * t + 1.5 * t * (notesMax + j + 1)) + '">' + esc(ct) + "</text>"; });
   if (ents.length) {
-    var kl = keyLayout(ents, t, { L: 0, R: keyW(side), maxRow: 1000 });
-    g += keyMarkup(kl.places, ents, t, top + side + 1.8 * t + 1.5 * t * (notesMax + cap.length) + 0.7 * t, { mark: true });
+    var kl = keyLayout(ents, t, { L: lm, R: keyW(side), maxRow: 1000 });
+    g += keyMarkup(kl.places, ents, t, top + side + 3.3 * t + 1.5 * t * (notesMax + cap.length) + 0.7 * t, { mark: true });
   }
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }

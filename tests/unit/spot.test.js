@@ -115,10 +115,10 @@ test('typed points round trip, common and auto scale', () => {
       if (scale === 'common') groups.forEach((g, p) => assert.ok(Math.abs(Math.abs(g.M[0]) - Math.abs(groups[0].M[0])) <= 1e-9 * Math.abs(groups[0].M[0]), `${label} panel ${p}: one common scale`));
       else assert.ok(Math.abs(groups[0].M[0]) > Math.abs(groups[1].M[0]), `${label}: auto fits each panel, the tight one larger`);
       assert.ok(svg.includes('M0.4,-1.2 h0'), `${label}: dots are M x y h0`);
-      assert.ok(svg.includes('±') && svg.includes('µm') && svg.includes('100 % 6.53 µm') && svg.includes('1.0°'), `${label}: half, unit, title and notes drawn`);
+      assert.ok(!svg.includes('±') && svg.includes('x, y in µm') && svg.includes('100 % 6.53 µm') && svg.includes('1.0°'), `${label}: unit, title and notes drawn, no ±half`);
     }
   }
-  assert.ok(ELEO.spot({ panels: [panels[2]], scale: 'common', half: 7 }).includes('±7'), 'half overrides the common size');
+  assert.ok(ELEO.spot({ panels: [panels[2]], scale: 'common', half: 7 }).includes('>−5<'), 'half overrides the common size: the ticks run to ±5');
 });
 
 // #240: spot() on the sample is the adapter spotPanels(sample, o) and then the typed path.
@@ -255,7 +255,7 @@ test('labelled circle', () => {
   assert.ok(r, 'the circle is drawn');
   assert.ok(Math.abs(Math.abs(g.M[0]) * (+r[1] - 1.5)) <= TOL_PX, 'its radius maps to 1.5');
   assert.ok(texts(on).includes('Semi-diameter 1.50 mm'), 'caption: ' + texts(on));
-  assert.ok(texts(on).some((t) => /^±2 mm$/.test(t)), 'the half covers the circle: ' + texts(on));
+  assert.ok(texts(on).includes('1') && texts(on).includes('−1') && !texts(on).includes('2'), 'the half (2) covers the circle, its ticks stop at ±1: ' + texts(on));
   const plain = ELEO.spot({ panels: [{ series }], ...base });
   assert.equal(ELEO.spot({ panels: [{ series, circle: undefined }], ...base }), plain, 'undefined circle: same markup');
   const two = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: 'Stop' } }, { series, circle: { radius: 2, label: 'Stop' } }], unit: 'mm' });
@@ -313,7 +313,7 @@ test('caption lines and stats labels', async () => {
   assert.ok(edge.includes('Airy radius 1000 µm'), '999.6 prints 1000: ' + edge);
   const tiny = texts(ELEO.spot({ panels: [{ series: [{ points: [[4e-7, 0], [-4e-7, 0]] }], airy: 4e-7 }], unit: 'mm' }));
   assert.ok(!tiny.some((t) => /\de[+-]?\d/.test(t)), 'no exponent below 1e-6: ' + tiny);
-  assert.ok(tiny.includes('±0.0000004 mm'), 'the half label has no exponent: ' + tiny);
+  assert.ok(tiny.includes('0') && tiny.includes('x, y in mm'), 'the tick labels are kept apart, the caption names the unit: ' + tiny);
   const radii = texts(ELEO.spot({ panels: [{ series: pts, airy: 1231, circle: { radius: 1231, label: 'X' } }, { series: pts, airy: 1234, circle: { radius: 1234, label: 'X' } }], unit: 'µm' }));
   assert.ok(radii.includes('Airy circle') && !radii.some((t) => /^Airy radius/.test(t)), '1231 and 1234 differ as printed: ' + radii);
   assert.ok(radii.includes('X') && !radii.some((t) => /^X \d/.test(t)), 'nor does the circle line share them: ' + radii);
@@ -393,41 +393,42 @@ test('circle caption rule stated alike in index.d.ts and README', async () => {
 });
 
 // ADR-0003 (plan #512, #525): spot's text is frameText(F) for F = one panel's side, times textScale; the layout around it is in text units
-// (1.8 under a panel, 1.5 a line, a foot of 2.8 + 1.5 a line); dots weigh 2.2 * frameWeight(F). throughFocus takes `width` the same way.
+// (1.5 for the x labels and 1.8 more to the title, 1.5 a line, a foot of 4.3 + 1.5 a line, a left margin of 2.4 for the y labels); dots weigh 2.2 * frameWeight(F). throughFocus takes `width` the same way.
 // oracle: closed-form ADR-0003
 test('text follows ADR-0003 per panel', async () => {
   const { frameText, frameWeight, frameOf } = await import('../../packages/plots/src/scale.js');
   const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
   const near = (a, b, m) => assert.ok(Math.abs(a - b) <= 0.01, `${m}: ${a} against ${b}`);
   const base = { panels: [{ title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], airy: 2.87, notes: ['n1'] }], unit: 'µm', reference: 'centroid' };
-  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ y: +/\by="(-?[\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
+  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ anchor: /text-anchor="(\w+)"/.exec(t[1]), y: +/\by="(-?[\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
   const hOf = (m) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(m)[1];
   const dots = (m) => [...m.matchAll(/<path d="M[^"]*h0[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
   const seen = new Set();
   // One panel: F is the width. 100 is under the band, 200 inside it, 1200 above.
   for (const width of [100, 200, 1200]) {
-    const F = width, t = frameText(F);
-    seen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
+    seen.add(frameOf(width, 2.4) < 162 ? 'below' : frameOf(width, 2.4) <= 234 ? 'inside' : 'above');
     for (const ts of [1, 0.5, 2]) {
-      const m = ELEO.spot({ ...base, width, textScale: ts }), tx = texts(m);
+      const F = frameOf(width, 2.4 * ts), t = frameText(F);
+      const m = ELEO.spot({ ...base, width, textScale: ts }), tx = texts(m), body = tx.filter((x) => !x.anchor);
+      assert.ok(tx.length > body.length, `${width} x${ts}: tick labels drawn`);
       assert.ok(tx.length > 0, `${width}: text drawn`);
       tx.forEach((x, i) => { assert.ok(x.size, `${width}: text ${i} has an inline size`); near(+x.size[1], t * ts, `${width} x${ts} text ${i} size`); });
-      // 3 lines under the panel (±half, RMS, GEO) and a note: first text is the title at 1.8 t under the panel; lines 1.5 t apart.
-      const plotBottom = tx[0].y - 1.8 * t * ts;
-      near(plotBottom, 4 + width, `${width} x${ts} the panel ends at its side`);
-      near(tx[2].y - tx[1].y, 1.5 * t * ts, `${width} x${ts} line pitch`);
-      // 3 notes + 3 caption lines: the foot is (2.8 + 1.5 * 6) t + 1.
-      near(hOf(m), width + 8 + (2.8 + 1.5 * 6) * t * ts + 1, `${width} x${ts} height`);
+      // the title is the first text that is not a tick label, 3.3 t under the panel; lines 1.5 t apart.
+      const plotBottom = body[0].y - 3.3 * t * ts;
+      near(plotBottom, 4 + Math.floor(F * 100) / 100, `${width} x${ts} the panel ends at its side`);
+      near(body[2].y - body[1].y, 1.5 * t * ts, `${width} x${ts} line pitch`);
+      // 3 notes + 4 caption lines: the foot is (4.3 + 1.5 * 7) t + 1.
+      near(hOf(m), Math.floor(F * 100) / 100 + 8 + (4.3 + 1.5 * 7) * t * ts + 1, `${width} x${ts} height`);
       dots(m).forEach((w) => near(w, 2.2 * frameWeight(F), `${width} dot width`));
       assert.ok(dots(m).length > 0, 'dots drawn');
     }
   }
   assert.deepEqual([...seen].sort(), ['above', 'below', 'inside']);
   // Three panels: F is one panel's side, (width - 2 gaps) / 3, not the figure's width.
-  const m3 = ELEO.spot({ data: sample, width: 1500 }), F3 = (1500 - 44) / 3;
+  const m3 = ELEO.spot({ data: sample, width: 1500 }), F3 = frameOf((1500 - 44) / 3, 2.4);
   texts(m3).forEach((x, i) => near(+x.size[1], frameText(F3), `three panels text ${i}`));
   // A height that bites shrinks the panel; the text follows the smaller side.
-  const mh = ELEO.spot({ ...base, width: 600, height: 300 }), side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(mh)[1];
+  const mh = ELEO.spot({ ...base, width: 600, height: 300 }), side = +/<svg x="[\d.]+" y="4" width="([\d.]+)"/.exec(mh)[1];
   assert.ok(side < 300, 'the height shrank the panel');
   texts(mh).forEach((x, i) => near(+x.size[1], frameText(side), `height-bound text ${i}`));
   assert.ok(hOf(mh) <= 300 + 0.011, 'it fits the height');
@@ -467,10 +468,10 @@ test('height fit solves frameOf', async () => {
     for (const ts of [1, 2]) {
       // Two stats notes plus `extra` given ones; two caption lines (Reference, RMS/GEO).
       const notes = Array.from({ length: extra }, (_, i) => `note ${i}`);
-      const m = (2.8 + 1.5 * (2 + extra + 2)) * ts;
+      const m = (4.3 + 1.5 * (2 + extra + 2)) * ts;
       for (const height of [300, 330, 380, 500, 900]) {
         const svg = ELEO.spot({ panels: [{ series: [{ points: pts }], notes }], width: 2000, height, textScale: ts });
-        const side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(svg)[1], F = frameOf(height - 9, m);
+        const side = +/<svg x="[\d.]+" y="4" width="([\d.]+)"/.exec(svg)[1], F = frameOf(height - 9, m);
         seen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
         assert.equal(side, Math.max(floor2(F), 1), `${height} x${ts} +${extra}: side is floor2(frameOf(height - 9, m))`);
         const H = +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1];
@@ -482,7 +483,7 @@ test('height fit solves frameOf', async () => {
 });
 
 // #590: the height fit and the drawn foot are one quantity: a fitted figure's bottom is the height, and sits 5 + t below the last caption baseline.
-// oracle: closed-form ADR-0003 (foot = (2.8 + 1.5 lines) t + 1; last baseline = side + 4 + (1.8 + 1.5 lines) t)
+// oracle: closed-form ADR-0003 (foot = (4.3 + 1.5 lines) t + 1; last baseline = side + 4 + (3.3 + 1.5 lines) t)
 test('height fit margin is the drawn foot', async () => {
   const pts = [[1, 2], [-2, 1], [0.5, -1]];
   for (const extra of [0, 3]) {
@@ -543,8 +544,8 @@ test('grid', () => {
   const xs = (svg) => [...svg.matchAll(/<path d="M([\d.]+),([\d.]+) V([\d.]+)" [^>]*data-grid="x"[^>]*\/>/g)];
   const svg = ELEO.spot({ panels, unit: 'µm', width: 300, half: 5 });
   const lines = xs(svg);
-  const side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(svg)[1];
-  const at = (ticks, half) => ticks.map((t) => +(side / 2 + (t * side) / (2 * half)).toFixed(2));
+  const side = +/<svg x="[\d.]+" y="4" width="([\d.]+)"/.exec(svg)[1], left = +/<svg x="([\d.]+)" y="4"/.exec(svg)[1];
+  const at = (ticks, half) => ticks.map((t) => +(left + side / 2 + (t * side) / (2 * half)).toFixed(2));
   assert.deepEqual(lines.map((m) => +(+m[1]).toFixed(2)), at([-4, -2, 0, 2, 4], 5), 'half 5: x positions are -4 -2 0 2 4');
   const big = ELEO.spot({ panels, unit: 'µm', width: 300, half: 10 });
   assert.deepEqual(xs(big).map((m) => +(+m[1]).toFixed(2)), at([-5, 0, 5], 10), 'half 10: -5 0 5, none on the frame edge');
@@ -559,7 +560,7 @@ test('grid', () => {
   const drawn = [...three.matchAll(/<(?:rect|path)[^>]*var\(--plot-grid\)[^>]*>/g)].map((m) => m[0]);
   assert.ok(drawn.length > 9, 'more than 9 elements carry var(--plot-grid)');
   drawn.forEach((el) => assert.ok(!/\d\.\d{3,}/.test(el), `no number with 3 or more decimals: ${el}`));
-  // #776: in every start tag of the whole SVG (titles, captions, notes, the ± tick label, the key below and in a corner), for 1, 2 and 3 panels:
+  // #776: in every start tag of the whole SVG (titles, captions, notes, the tick labels, the key below and in a corner), for 1, 2 and 3 panels:
   // no number with 3 or more decimals, except in font-size (toFixed(3) by the repo's convention: key.js, plotCell) and in three kinds of element left out of the check: any with matrix(, a path 'M... h0', a circle at cx=0 cy=0.
   const lab = [{ title: 'T', notes: ['n'], airy: 1.2345, circle: { radius: 2.3456, label: 'c' }, series: [{ points: [[1, 2], [-3, 4]], index: 0, label: 'a' }, { points: [[0, 1]], index: 1, label: 'b' }] }];
   for (const n of [1, 2, 3]) for (const keyAt of [undefined, 'top-left', 'bottom-right']) {
@@ -599,4 +600,35 @@ test('throughFocus panels', async () => {
   const off = ELEO.throughFocus({ data: sample, width: 1100, grid: false });
   assert.ok(!/data-grid/.test(off), 'grid: false draws none');
   assert.equal(off.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), tf.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), 'grid: false removes the grid lines only');
+});
+
+// Plan #677 M3 (#784, CR #781): each spot panel labels its grid ticks (x under the bottom edge, y right-aligned left of the left edge), also with grid: false; the ±half label is gone and the caption says "x, y in <unit>".
+// oracle: spec CR #781 (user): half 40 steps by 20 (−20 0 20); a label sits at side / 2 + t * side / (2 * half), the text at the panel's text size
+test('tick labels', () => {
+  const panels = [{ series: [{ points: [[1, 2], [-3, 4]], index: 0 }] }];
+  const tx = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ a: m[1], t: m[2] }));
+  const svg = ELEO.spot({ panels, half: 40, unit: 'µm', width: 300 });
+  const all = tx(svg), ticks = all.filter((x) => /^(−20|0|20)$/.test(x.t));
+  assert.equal(ticks.length, 6, 'three x labels and three y labels');
+  assert.ok(ticks.every((x) => /class="eleo-tick"/.test(x.a)), 'tick text is eleo-tick');
+  assert.ok(!all.some((x) => /±/.test(x.t)), 'no ±half label');
+  assert.ok(all.some((x) => x.t === 'x, y in µm'), 'the caption names the unit');
+  const side = +/<svg x="([\d.]+)" y="4" width="([\d.]+)"/.exec(svg)[2], left = +/<svg x="([\d.]+)" y="4"/.exec(svg)[1];
+  const size = +/font-size:([\d.]+)px/.exec(ticks[0].a)[1];
+  const X = ticks.filter((x) => /text-anchor="middle"/.test(x.a)), Y = ticks.filter((x) => /text-anchor="end"/.test(x.a));
+  assert.equal(X.length, 3); assert.equal(Y.length, 3);
+  X.forEach((x, i) => {
+    assert.ok(Math.abs(+/\bx="([\d.]+)"/.exec(x.a)[1] - (left + side / 2 + ([-20, 0, 20][i] * side) / 80)) < 0.02, 'x label centred on its tick');
+    assert.ok(+/\by="([\d.]+)"/.exec(x.a)[1] > 4 + side, 'x labels sit under the frame');
+  });
+  Y.forEach((y) => assert.ok(+/\bx="([\d.]+)"/.exec(y.a)[1] < left, 'y labels sit left of the frame'));
+  Y.forEach((y, i) => assert.ok(Math.abs(+/\by="([\d.]+)"/.exec(y.a)[1] - (4 + side / 2 - ([-20, 0, 20][i] * side) / 80 + 0.35 * size)) < 0.02, 'y label beside its tick, −20 lowest'));
+  assert.ok(Math.abs(size - Math.max(9, Math.min(13, side / 18))) < 1e-6 || size > 13 || size === 9, 'text at the panel size');
+  const capX = /<text\b[^>]*\bx="([\d.]+)"[^>]*>x, y in µm<\/text>/.exec(svg);
+  assert.ok(capX && Math.abs(+capX[1] - left) < 0.02, 'caption lines start at the first frame\'s left edge');
+  const off = ELEO.spot({ panels, half: 40, unit: 'µm', width: 300, grid: false });
+  assert.equal(tx(off).filter((x) => /^(−20|0|20)$/.test(x.t)).length, 6, 'grid: false keeps the labels');
+  const vb = /viewBox="0 0 ([\d.]+)/.exec(svg)[1];
+  assert.ok(Math.abs(+vb - 300) < 0.02, 'the figure still fits width');
+  assert.ok(!/±/.test(ELEO.spot({ panels, half: 40, width: 300 })), 'no ± without a unit either');
 });
