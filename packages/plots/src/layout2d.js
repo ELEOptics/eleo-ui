@@ -4,6 +4,7 @@
 import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
 import { layoutText, layoutWeight } from './scale.js';
+import { keyLayout, keyMarkup } from './key.js';
 
 // plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
 // The size is an inline style on each text (ADR-0003), since the class's size would beat an attribute.
@@ -215,7 +216,17 @@ export function layout2D(o) {
   if (!(W - 2 * PAD - room > 0)) throw new Error("layout2D: width too narrow for the 4 px pad and the labels");
   // Room above the geometry for the labels, 1.5 em whatever the stops reach, so one box gives one transform; the pad alone when the text is hidden. The scale bar's room below is 2.7 em.
   var top = tx0 ? 15 * u : PAD;
-  var H = Math.round((B.yhi - B.ylo) * s + top + (tx0 ? 27 * u : PAD)), tx = PAD - B.zmin * s, ty = top + B.yhi * s;
+  var Hg = (B.yhi - B.ylo) * s + top + (tx0 ? 27 * u : PAD), tx = PAD - B.zmin * s, ty = top + B.yhi * s;
+  // `key`: entries ({ label, index }: a line swatch in idx(index)) and "glass" (one swatch per distinct drawn glass, filled as glassLegend fills it), in one row that wraps at the pad, under the scale bar at the layout text size; not drawn below W = 630, with no room kept.
+  var KP = 8 * u, kents = [], kl = null;
+  if (o.key != null && tx0) {
+    (o.key === "glass" ? ["glass"] : Array.isArray(o.key) ? o.key : []).forEach(function (e) {
+      if (e === "glass") { var gs = drawnGlasses(S), gf = glassFill(gs); new Set(gs.map(function (x) { return x.name; })).forEach(function (name) { kents.push({ label: name, col: gf.get(name) }); }); }
+      else kents.push({ label: e.label, index: e.index, kind: "line" });
+    });
+    kl = keyLayout(kents, tx0, { L: KP, R: W - KP, maxRow: 1000 });
+  }
+  var H = Math.round(Math.round(Hg) + (kl && kl.rows ? tx0 * (1.4 * kl.rows - 0.4) + 0.6 * tx0 : 0));
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
@@ -295,7 +306,8 @@ export function layout2D(o) {
     }
   }
   tags.forEach(function (a) { g += label(a.x, a.py, a.t, "start"); });
-  var by = H - 8 * u;
+  var Hd = Math.round(Hg), by = Hd - 8 * u;
   g += '<path d="M' + n(8 * u) + "," + n(by - 4 * u) + "v" + n(8 * u) + "m0," + n(-4 * u) + "h" + n(10 * s) + "m0," + n(-4 * u) + "v" + n(8 * u) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + n(10 * s + 16 * u) + '" y="' + n(by + 3 * u) + '"' + tsz + '>10 mm</text>';
+  if (kl && kl.rows) g += keyMarkup(kl.places, kents, tx0, Hd, { mark: true });
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
 }

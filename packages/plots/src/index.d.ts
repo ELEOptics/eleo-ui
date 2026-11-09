@@ -63,6 +63,8 @@ export interface Layout2DProps {
   marks?: boolean;
   /** The statuses drawn. Default all three. */
   show?: RayStatus[];
+  /** A key row under the scale bar, in the SVG at the layout's text size: entries (a line swatch in idx(`index`), then the label) and `"glass"` (one swatch per distinct drawn glass, as `glassLegend` gives, in first-use order), in one row in the order given. The SVG grows by its lines, to a whole px. Not drawn below a width of 630, with no room kept. Default none. */
+  key?: (PlotKeyEntry | "glass")[] | "glass";
 }
 export interface Layout3DProps {
   data?: object;
@@ -224,7 +226,7 @@ export interface Map2DGridProps {
   aperture?: { x: number; y: number; r: number };
   /** The colorbar's axis: `label` and `unit` name the value; `ticks` apply. Default none drawn without it. */
   value?: CurveAxis;
-  /** Grid lines drawn over the image (the frame's own lines are not drawn), per axis, in the map's grid tokens (`--map-grid-<map>`, minors `--map-grid-<map>-minor`). `major` is the target for the labelled nice ticks, about that many (at least 2; the 1-2-5 rule picks the step; the axis's own `ticks` win); `minor` is the lines evenly spaced inside each interval (at most 20, else a `map2D: grid` TypeError). `true` draws the default majors and no minors on both axes; in an object, an axis left out (or `null`) has them and `false` draws no lines on that axis. `false`, `null` or no `grid` draws no lines at all, over or under the image; the tick labels stay. Default: no grid. */
+  /** Grid lines drawn over the image (the frame's own lines are not drawn), per axis, in the map's grid tokens (`--map-grid-<map>`, minors `--map-grid-<map>-minor`). `major` is the target for the labelled nice ticks, about that many (at least 2; the 1-2-5 rule picks the step; the axis's own `ticks` win); `minor` is the lines evenly spaced inside each interval (at most 20, else a `map2D: grid` TypeError); `false` for none. `true` draws the default majors and no minors on both axes; in an object, an axis left out (or `null`) has them and `false` draws no lines on that axis. `false`, `null` or no `grid` draws no lines at all, over or under the image; the tick labels stay. Default: no grid. */
   grid?: boolean | null | { x?: false | null | { major?: number; minor?: number | false }; y?: false | null | { major?: number; minor?: number | false } };
   /** Element whose tokens color the map. Default the document root. */
   el?: Element;

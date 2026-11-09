@@ -1296,3 +1296,30 @@ test('a one-point ray with alive 0 draws its dotted point (O3)', () => {
   const hidden = drawn(ELEO.layout2D({ data: L, rays: 'fan', show: ['Alive', 'Dead'] })).polylines;
   assert.equal(hidden.length, 0, 'Virtual hidden draws nothing');
 });
+
+// Plan #677, issue #698: O5: layout2D({ key }) draws entries (a line swatch in idx(index)) and "glass" (the swatches glassLegend gives) in one row under the drawing, at layoutText(W), nothing below 630. oracle: spec (CR #728), glassLegend, ADR-0003.
+test('key', () => {
+  const L = fixture('analysis-glasses'), keyTexts = (svg) => [...svg.matchAll(/<text[^>]*data-key[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  const fills = [...ELEO.glassLegend(L).matchAll(/--c:([^"]*)">([^<]*)</g)].map((m) => ({ fill: m[1], name: m[2] }));
+  const base = ELEO.layout2D({ data: L, width: 1000 });
+  assert.equal(keyTexts(base).length, 0, 'no key without the option');
+  const entries = [{ label: 'F1 0.0°', index: 0 }, { label: 'F2 5.0°', index: 1 }];
+  const svg = ELEO.layout2D({ data: L, width: 1000, key: entries });
+  assert.deepEqual(keyTexts(svg), ['F1 0.0°', 'F2 5.0°']);
+  const h = (s) => +/viewBox="0 0 [\d.]+ (\d+)"/.exec(s)[1];
+  assert.ok(h(svg) > h(base), 'the SVG grows under the drawing');
+  assert.ok(Number.isInteger(h(svg)), 'a whole-px height');
+  assert.match(svg, /<line [^>]*stroke="var\(--series-1,[^"]*"[^>]*\/>.*<text[^>]*data-key/, 'a line swatch in idx(0)');
+  const t = layoutTextOf(1000), size = [...svg.matchAll(/<text[^>]*data-key[^>]*font-size:([\d.]+)px/g)].map((m) => +m[1]);
+  assert.ok(size.length === 2 && size.every((v) => Math.abs(v - t) < 0.01), 'the key is at the layout text size');
+  const ys = [...svg.matchAll(/<text[^>]*data-key[^>]* y="([\d.]+)"/g)].map((m) => +m[1]);
+  assert.ok(ys.every((y) => y > h(base) - 8 * t / 10 * 2 && y < h(svg)), 'the key sits under the drawing, inside the SVG');
+  // "glass" and entries in one row, the glasses after the fields.
+  const both = ELEO.layout2D({ data: L, width: 1440, key: [...entries, 'glass'] });
+  assert.deepEqual(keyTexts(both), ['F1 0.0°', 'F2 5.0°', ...fills.map((f) => f.name)]);
+  assert.deepEqual(keyTexts(ELEO.layout2D({ data: L, width: 1440, key: 'glass' })), fills.map((f) => f.name));
+  for (const f of fills) assert.ok(both.includes(`fill="${f.fill}"`), `the ${f.name} swatch is filled as glassLegend fills it`);
+  // below 630 no key and no room
+  assert.equal(ELEO.layout2D({ data: L, width: 600, key: entries }), ELEO.layout2D({ data: L, width: 600 }), 'not drawn below 630, no room kept');
+});
+const layoutTextOf = T_OF;
