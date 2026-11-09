@@ -754,7 +754,7 @@ test('grid over the image', async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
     const col = page.locator(`.theme[data-theme="${theme}"]`);
-    // The gallery's typed map tiles: x and y axis labels, a colorbar with at least 3 ticks; grid lines, after the <image> in the ember grid token, only on the tile that asks for them (CR #767).
+    // The gallery's typed map tiles: x and y axis labels, a colorbar with at least 3 ticks; grid lines, after the <image> in the ember grid token, none on the gallery tiles (CR #767, #779).
     const tiles = await col.locator('[data-tile][data-size="map2D"]').evaluateAll((els) => els.map((el) => {
       const svg = el.querySelector('.eleo-plot__body svg'), image = svg.querySelector('image');
       const cb = [...svg.querySelectorAll('image')].find((q) => q.getAttribute('width') !== null && +q.getAttribute('height') > 0 && q !== image);
@@ -773,8 +773,7 @@ test('grid over the image', async ({ page }) => {
       expect(t.hasX, `${theme} ${t.tile} x axis label`).toBe(true);
       expect(t.hasY, `${theme} ${t.tile} y axis label`).toBe(true);
       expect(t.cbTicks, `${theme} ${t.tile} colorbar ticks`).toBeGreaterThanOrEqual(3);
-      if (t.tile === 'irradiance-gaussian') expect(t.grid, `${theme} ${t.tile} asks for a grid`).toBeGreaterThan(0);
-      else expect(t.grid, `${theme} ${t.tile} asks for none (CR #767)`).toBe(0);
+      expect(t.grid, `${theme} ${t.tile} asks for none (CR #767, #779)`).toBe(0);
       expect(t.allAfterImage, `${theme} ${t.tile} grid after the <image>`).toBe(true);
       for (const s of t.strokes) expect(s, `${theme} ${t.tile} grid stroke`).toMatch(/^var\(--map-grid-ember(-minor)?\)$/);
     }
