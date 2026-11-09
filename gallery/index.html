@@ -39,7 +39,6 @@
   <template id="tiles">
     <section class="eleo-plot" data-tile="layout2D" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div></section>
     <section class="eleo-plot" data-tile="layout2D-fan" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-shared" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
     <section class="eleo-plot" data-tile="layout2D-glasses" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div></section>
     <section class="eleo-plot" data-tile="layout2D-wandersleb" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Wandersleb triplet, recorded, fan with ray status</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-wandersleb"></div></section>
     <section class="eleo-plot" data-tile="layout2D-cassegrain" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cassegrain, recorded, on-axis chief obscured</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-cassegrain"></div></section>
@@ -72,9 +71,6 @@
     // The sample tiles keep their framing: a pinned box, not the rays' bounds. If eleo-plots-sample.js failed to load,
     // ELEO.sample is null, SAMPLE_BOX stays null and the sample tiles draw nothing while the rest of the page draws.
     var SAMPLE_BOX = ELEO.sample && { zmin: -8, zmax: ELEO.sample.zimg + 4, ylo: -13.5, yhi: 13.5 };
-    // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below;
-    // if either fixture fails, MERIT_BOX stays unset and the tile draws nothing while the rest of the page draws.
-    var MERIT = {}, MERIT_BOX;
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
@@ -94,10 +90,6 @@
     }
     // The Cooke tile keys the fields it draws rays for (F1..Fn), then its glasses, in one list.
     function fieldKey(d) { return d.rays.map(function (_, i) { return { label: 'F' + (i + 1), index: i }; }).concat('glass'); }
-    function meritTile(k, w) {
-      try { return ELEO.layout2D({ data: MERIT[k], width: w, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
-      catch (e) { console.error('merit-' + k + ':', e); return ''; }
-    }
     // A recorded tile: draws REC[k] (the adapter's result) through the renderer `render`; blank while REC[k] is unset.
     // draw(data, w) gets the body's content width; every framed tile passes it on as `width` (ADR-0003).
     function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d, w) { return render(d, w); } }; }
@@ -106,8 +98,6 @@
     var SVG = {
       'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, key: legendKey('field') }); } },
       'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }); } },
-      'merit-before': { need: function () { return MERIT_BOX; }, draw: function (_, w) { return meritTile('before', w); } },
-      'merit-after': { need: function () { return MERIT_BOX; }, draw: function (_, w) { return meritTile('after', w); } },
       'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w) { return ELEO.layout2D({ data: d, width: w, marks: false, key: fieldKey(d) }); } },
       'layout2D-wandersleb': recTile('layout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
       'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
@@ -240,16 +230,6 @@
     }).then(function (d) { GLASSES = d; }).catch(function (e) {
       console.error('gallery: glasses tile skipped:', e);
     });
-    var merit = Promise.all(['before', 'after'].map(function (k) {
-      return fetch('/tests/fixtures/layouts/merit-' + k + '.json').then(function (r) {
-        if (!r.ok) throw new Error('merit-' + k + '.json: ' + r.status);
-        return r.json();
-      }).then(function (d) { MERIT[k] = d; });
-    })).then(function () {
-      MERIT_BOX = ELEO.layoutBounds([MERIT.before, MERIT.after]);
-    }).catch(function (e) {
-      console.error('gallery: merit tile skipped:', e);
-    });
     var adapters = new Promise(function (ok, no) {
       var el = document.createElement('script');
       el.src = '/tests/fixtures/phos-core/adapters.js';
@@ -291,7 +271,7 @@
     ].reduce(function (all, lt) {
       return all.concat(lt[1].map(function (t) { return recorded(t[0], lt[0], t[1], t[2]); }));
     }, []));
-    Promise.all([glasses, merit, phos]).then(function () {
+    Promise.all([glasses, phos]).then(function () {
       draw();
       document.body.dataset.ready = 'true';
     });

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // The gallery's tile count.
-const TILES = 26;
+const TILES = 25;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -29,25 +29,6 @@ test('gallery renders every tile in both themes', async ({ page }) => {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
     for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
-  }
-});
-
-// #69: a missing merit fixture fails its one tile, not the page. oracle: property, one broken tile doesn't
-// blank the others. The 404 and the gallery's own report of it are the expected console errors.
-test('a missing merit fixture blanks only its tile', async ({ page }) => {
-  const thrown = [];
-  page.on('pageerror', (e) => thrown.push(e.message));
-  await page.route('**/merit-before.json', (route) => route.fulfill({ status: 404, body: '' }));
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  expect(thrown).toEqual([]);
-  for (const theme of ['light', 'dark']) {
-    const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(TILES);
-    for (const t of tiles) {
-      if (t.tile === 'layout2D-shared') expect(t.svgMarks + t.inked, `${theme} merit tile drew`).toBe(0);
-      else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
-    }
   }
 });
 
@@ -136,34 +117,8 @@ for (const [tile, fixture] of [['footprint', 'cooke-footprint.json'], ['rayFan',
   });
 }
 
-// Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
-// labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
-// or the merit tile's other drawing. The gallery's own report of it is the expected console error.
-test('a rejected merit fixture blanks only its tile', async ({ page }) => {
-  const thrown = [], logged = [];
-  page.on('pageerror', (e) => thrown.push(e.message));
-  page.on('console', (m) => m.type() === 'error' && logged.push(m.text()));
-  await page.route('**/merit-before.json', async (route) => {
-    const L = await (await route.fetch()).json();
-    await route.fulfill({ json: { ...L, rays: L.rays.slice(0, 2) } });
-  });
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  expect(thrown).toEqual([]);
-  expect(logged.length, 'the gallery logs the rejected drawing').toBeGreaterThan(0);
-  for (const theme of ['light', 'dark']) {
-    const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(TILES);
-    for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
-    const merit = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout2D-shared"] [data-svg]`).evaluateAll((els) =>
-      Object.fromEntries(els.map((el) => [el.dataset.svg, el.querySelectorAll('svg *').length])));
-    expect(merit['merit-before'], `${theme}: the rejected drawing is blank`).toBe(0);
-    expect(merit['merit-after'], `${theme}: the merit tile's other drawing still draws`).toBeGreaterThan(0);
-  }
-});
-
 // Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
-// the tiles that bring their own data (merit, glasses, the recorded curves and spot) or need none (airy, icons) still draw. The 404 is the expected
+// the tiles that bring their own data (glasses, the recorded curves and spot) or need none (airy, icons) still draw. The 404 is the expected
 // console error.
 test('a missing sample script blanks only the sample tiles', async ({ page }) => {
   const thrown = [];
@@ -176,7 +131,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   const mins = await page.$$eval('[data-tile][data-size]', (ts) => ts.map((t) => ({ tile: t.dataset.tile, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 })));
   expect(mins.length).toBeGreaterThan(0);
   for (const m of mins) expect(m.min, `${m.tile} --tile-min`).toBeGreaterThanOrEqual(m.floor - 0.5);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
+  const ownData = ['layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
