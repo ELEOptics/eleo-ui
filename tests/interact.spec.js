@@ -70,30 +70,44 @@ test('curve hover round trip', async ({ page }) => {
 test('non-finite points are skipped', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  const p = await page.evaluate(() => {
-    const host = document.createElement('div');
-    host.id = 'nan-host';
-    host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9';
-    host.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 1], [1, NaN], [2, 3], [3, 4]], index: 0 }], x: { range: [0, 3] }, y: { range: [0, 5] }, width: 400, height: 300 });
-    document.body.append(host);
+  // A panels curve draws a <path> that breaks at the gap, so each side reads and the gap reads nothing; a single-plot <polyline> holding a NaN is not drawn at all by a browser, so it reads nothing, before the NaN or after.
+  const pts = [[0, 1], [1, 2], [2, null], [3, 4], [4, 5]], nan = [[0, 1], [1, 2], [2, NaN], [3, 4], [4, 5]];
+  await page.evaluate(([pts, nan]) => {
+    const make = (id, top, html) => { const host = document.createElement('div'); host.id = id; host.style.cssText = `position:fixed;left:0;top:${top}px;width:400px;background:#fff;z-index:9`; host.innerHTML = html; document.body.append(host); window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) }); };
     window.HOVER = [];
-    window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) });
-    const mark = host.querySelector('[data-series]');
-    const group = mark.parentNode;
-    const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
-    const vp = group.closest('svg');
-    const root = vp.ownerSVGElement || vp;
-    const box = root.getBoundingClientRect();
-    const k = box.width / root.viewBox.baseVal.width;
-    const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
-    return { clientX: box.left + (vx + a * 2 + e) * k, clientY: box.top + (vy + d * 3 + f) * k, a, d, k };
-  });
-  await page.mouse.move(p.clientX, p.clientY);
-  const ev = await page.evaluate(() => window.HOVER.at(-1));
-  expect(ev, 'point [2,3] hovered').toBeTruthy();
-  expect(Math.abs(ev.x - 2) * Math.abs(p.a) * p.k, 'x within TOL_PX').toBeLessThanOrEqual(TOL_PX);
-  expect(Math.abs(ev.y - 3) * Math.abs(p.d) * p.k, 'y within TOL_PX').toBeLessThanOrEqual(TOL_PX);
-  await page.evaluate(() => window.STOP());
+    const axes = { x: { range: [0, 4] }, y: { range: [0, 6] }, width: 400 };
+    make('gap-host', 0, window.ELEO.curve({ panels: [{ series: [{ points: pts, index: 0 }] }], ...axes }));
+    make('nan-host', 260, window.ELEO.curve({ series: [{ points: nan, index: 0 }], ...axes }));
+    // Where data point (x, y) of a host's mark is drawn in client px, from the data group's matrix attribute, never getScreenCTM.
+    window.AT = (id, x, y) => {
+      const group = document.querySelector(`#${id} [data-series]`).parentNode;
+      const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+      const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      // a panels drawing wraps its panels in a <g transform="translate(tx ty)"> between the root and the viewport
+      let tx = 0, ty = 0;
+      for (let g = vp.parentNode; g && g !== root.parentNode; g = g.parentNode) { const t = (g.getAttribute && g.getAttribute('transform') || '').match(/translate\(([^)]*)\)/); if (t) { const [u, v] = t[1].split(/[\s,]+/).map(Number); tx += u; ty += v || 0; } }
+      return { clientX: box.left + (tx + (+vp.getAttribute('x') || 0) + a * x + e) * k, clientY: box.top + (ty + (+vp.getAttribute('y') || 0) + d * y + f) * k, a, d, k };
+    };
+  }, [pts, nan]);
+  const read = async (id, x, y) => {
+    const p = await page.evaluate(([id, x, y]) => window.AT(id, x, y), [id, x, y]);
+    await page.mouse.move(0, 700);
+    await page.evaluate(() => { window.HOVER = []; });
+    await page.mouse.move(p.clientX, p.clientY);
+    return { ev: await page.evaluate(() => window.HOVER.at(-1) || null), p };
+  };
+  // each side of the gap: the midpoint of segment [0, 1] and of [3, 4] reads interpolated values on that segment
+  for (const [x, y] of [[0.5, 1.5], [3.5, 4.5]]) {
+    const { ev, p } = await read('gap-host', x, y);
+    expect(ev, `segment at ${x} hovered`).toBeTruthy();
+    expect(ev.interpolated, `${x} interpolated`).toBe(true);
+    expect(Math.abs(ev.x - x) * Math.abs(p.a) * p.k, `x of ${x} within TOL_PX`).toBeLessThanOrEqual(TOL_PX);
+    expect(Math.abs(ev.y - y) * Math.abs(p.d) * p.k, `y of ${x} within TOL_PX`).toBeLessThanOrEqual(TOL_PX);
+  }
+  // across the gap, between (1, 2) and (3, 4), no segment is drawn: nothing is hovered
+  expect((await read('gap-host', 2, 3)).ev, 'gap hovers nothing').toBeNull();
+  // a polyline with a NaN is not drawn: nothing before it, nothing after it
+  for (const [x, y] of [[0.5, 1.5], [3.5, 4.5]]) expect((await read('nan-host', x, y)).ev, `NaN polyline at ${x} hovers nothing`).toBeNull();
 });
 
 // #858: hovering draws a dot on the point and drop lines to the frame's bottom (x axis) and left (y axis) edges, in an overlay on the host.
