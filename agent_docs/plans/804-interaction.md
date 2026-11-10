@@ -265,3 +265,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M1 round 12 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M1 ticked again; re-demo pending.
 - 2026-11-10 M1 accepted (user: go at re-demo 3). No ADR was exercised.
 - 2026-11-10 CR #892 (orchestrator): M2 had no item making `interact` read bars or layout rays (O1); items #893, #894 added before #819.
+- 2026-11-10 #815 (measurement, U14/O7): hover, median of 20 pointer moves in headless Chromium on the developer's machine, 3 runs: spot of 10 000 points 6.30, 6.40, 6.35 ms; 256 x 256 map 0.10, 0.05, 0.05 ms. Both under 16 ms, so #850 (parse cache) is not needed now; spot at 40% of the budget is the one to watch.
