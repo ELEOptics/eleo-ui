@@ -149,3 +149,4 @@
 .eleo-hover__v { width: 1px; }
 .eleo-hover__h { height: 1px; }
 .eleo-hover__dot { position: absolute; box-sizing: border-box; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; border: 1px solid var(--surface); }
+.eleo-hover__tip { position: absolute; box-sizing: border-box; max-width: 100%; padding: 2px 6px; white-space: nowrap; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-md); font: 400 10px var(--font-mono); font-variant-numeric: tabular-nums; }

@@ -126,3 +126,51 @@ test('hover marks the point and its drop lines', async ({ page }) => {
   await expect(light.locator(`[data-tile="${tile}"] .eleo-hover__dot`), 'gone on leave').toHaveCount(0);
   await page.evaluate(() => window.STOP());
 });
+
+// #859: while a point is hovered a tooltip with readout(event, axes) sits near the pointer, inside the host, off the dot; it hides on leave and `tooltip: false` removes it.
+test('tooltip follows the pointer', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  // Own host: the gallery binds interact on its tiles too, without axes.
+  const tile = 'own', light = page.locator('body');
+  await page.evaluate(() => {
+    const body = document.createElement('div');
+    body.dataset.tile = 'own';
+    body.style.cssText = 'position:fixed;left:0;top:0;width:460px;background:#fff;z-index:9';
+    body.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 3.5], [5, 5], [6, 4], [7, 2]], index: 0, label: 'S' }], x: { range: [0, 7] }, y: { range: [0, 5] }, width: 460, height: 260 });
+    document.body.append(body);
+    window.AXES = { x: { unit: 'cycles/mm', digits: 1 }, y: { digits: 3 } };
+    window.HOVER = [];
+    window.STOP = window.ELEO.interact(body, { axes: window.AXES, onhover: (ev) => window.HOVER.push(ev) });
+  });
+  const tip = light.locator(`[data-tile="${tile}"] .eleo-hover__tip`);
+  for (const index of [3, 7]) {
+    const p = await drawnAt(light, tile, 0, index);
+    await page.mouse.move(p.clientX, p.clientY);
+    const want = await page.evaluate(() => window.ELEO.readout(window.HOVER.at(-1), window.AXES));
+    await expect(tip.first()).toHaveText(want);
+    expect(want).toContain('cycles/mm');
+    const box = await tip.first().evaluate((el) => {
+      const r = el.getBoundingClientRect(), h = el.closest('.eleo-hover-host').getBoundingClientRect();
+      return { l: r.left, r: r.right, t: r.top, b: r.bottom, hl: h.left, hr: h.right, ht: h.top, hb: h.bottom };
+    });
+    expect(box.l, 'inside host left').toBeGreaterThanOrEqual(box.hl - 0.5);
+    expect(box.r, 'inside host right').toBeLessThanOrEqual(box.hr + 0.5);
+    expect(box.t, 'inside host top').toBeGreaterThanOrEqual(box.ht - 0.5);
+    expect(box.b, 'inside host bottom').toBeLessThanOrEqual(box.hb + 0.5);
+    const covers = p.clientX >= box.l - 4 && p.clientX <= box.r + 4 && p.clientY >= box.t - 4 && p.clientY <= box.b + 4;
+    expect(covers, 'does not cover the dot').toBe(false);
+    const dx = Math.max(box.l - p.clientX, 0, p.clientX - box.r), dy = Math.max(box.t - p.clientY, 0, p.clientY - box.b);
+    expect(Math.hypot(dx, dy), 'near the pointer').toBeLessThanOrEqual(40);
+  }
+  await page.mouse.move(2, 2);
+  await expect(tip, 'gone on leave').toHaveCount(0);
+  await page.evaluate(() => window.STOP());
+  // tooltip: false
+  await page.evaluate(() => { window.STOP = window.ELEO.interact(document.querySelector('[data-tile="own"]'), { tooltip: false }); });
+  const p = await drawnAt(light, tile, 0, 3);
+  await page.mouse.move(p.clientX, p.clientY);
+  await expect(light.locator(`[data-tile="${tile}"] .eleo-hover__dot`).first()).toHaveCount(1);
+  await expect(tip, 'tooltip off').toHaveCount(0);
+  await page.evaluate(() => window.STOP());
+});

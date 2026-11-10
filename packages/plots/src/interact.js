@@ -1,5 +1,6 @@
 // Pointer interaction on a drawn plot. The listeners sit on the host, not on the marks: a redraw replaces the markup, and a host listener survives it.
 import { fmt } from "./color.js";
+var TIP_GAP = 14; // px between the pointer and the tooltip
 var REACH = 24; // client px: a pointer farther than this from every point hovers nothing
 
 /* The finite [x, y] pairs of a polyline's points or a path's data, in data coordinates. Path data is M/L pairs and `h0` dots, which add no point. A pair with a non-finite coordinate (a polyline's "NaN") is dropped whole, so it never shifts the pairs after it. */
@@ -25,12 +26,24 @@ function nearest(host, cx, cy) {
   return best;
 }
 
-/* The overlay layer's three parts: a dot and two 1 px drop lines, as divs positioned in host px. */
-function overlay() {
+/* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (the last child) unless `tip` is false; divs positioned in host px. */
+function overlay(marks, tip) {
   var layer = document.createElement("div");
   layer.className = "eleo-hover";
-  ["v", "h", "dot"].forEach(function (k) { var d = document.createElement("div"); d.className = "eleo-hover__" + k; layer.appendChild(d); });
+  (marks ? ["v", "h", "dot"] : []).concat(tip ? ["tip"] : []).forEach(function (k) { var d = document.createElement("div"); d.className = "eleo-hover__" + k; layer.appendChild(d); });
   return layer;
+}
+
+/* Sets the tooltip's text and puts it TIP_GAP px right of and below the pointer, flipped to the other side of the pointer where it would pass the host's edge, then clamped inside the host. The layer is re-added when a redraw replaced the host's markup. */
+function showTip(host, layer, text, cx, cy) {
+  var tip = layer.lastChild, hb = host.getBoundingClientRect();
+  if (layer.parentNode !== host) host.appendChild(layer);
+  tip.textContent = text;
+  var ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop, x = cx - ox, y = cy - oy;
+  var w = tip.offsetWidth, h = tip.offsetHeight, W = host.clientWidth, H = host.clientHeight;
+  var left = x + TIP_GAP + w > W ? x - TIP_GAP - w : x + TIP_GAP, top = y + TIP_GAP + h > H ? y - TIP_GAP - h : y + TIP_GAP;
+  tip.style.left = Math.max(0, Math.min(left, W - w)) + "px";
+  tip.style.top = Math.max(0, Math.min(top, H - h)) + "px";
 }
 
 /* Puts the dot on the hovered point and the drop lines from it to the plot frame's bottom and left edges (the nested viewport's box). The layer is re-added when a redraw replaced the host's markup. */
@@ -47,10 +60,10 @@ function showMarks(host, layer, b) {
   if (layer.parentNode !== host) host.appendChild(layer);
 }
 
-/* interact(el, { onhover }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer, and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false. Returns stop(). */
+/* interact(el, { onhover, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer, and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
 export function interact(el, opts) {
-  var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), layer = marks && overlay();
-  if (marks) el.classList.add("eleo-hover-host");
+  var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, layer = (marks || tip) && overlay(marks, tip);
+  if (layer) el.classList.add("eleo-hover-host");
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
     var b = nearest(el, e.clientX, e.clientY);
@@ -58,12 +71,13 @@ export function interact(el, opts) {
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y, series: { index: +d.series, label: d.label, role: d.role } };
     if (d.panel !== undefined) ev.panel = +d.panel;
+    if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
     emit(ev, [d.panel, d.series, b.index].join());
   }
-  function leave() { if (marks) layer.remove(); emit(null, ""); }
+  function leave() { if (layer) layer.remove(); emit(null, ""); }
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
-  return function stop() { if (marks) { layer.remove(); el.classList.remove("eleo-hover-host"); } el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); };
+  return function stop() { if (layer) { layer.remove(); el.classList.remove("eleo-hover-host"); } el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); };
 }
 
 /* One value as text: `fmt` to `spec.digits` decimals, or to at most 2 with trailing zeros dropped, then a space and `spec.unit`. */
