@@ -11,7 +11,7 @@ const drawnAt = (page, tile, series, index) => page.locator(`[data-tile="${tile}
   .evaluate((mark, index) => {
     const group = mark.parentNode;
     const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
-    // The drawn points, parsed by the rule interact's pairs() states: strip M/L and h<n>, split on commas and spaces, drop a pair with a non-finite coordinate.
+    // The drawn points, parsed by the rule interact's runs() states: strip M/L and h<n>, split on commas and spaces, drop a pair with a non-finite coordinate (a path's M and a dropped pair break runs; a polyline with any non-finite pair has no points).
     const n = (mark.getAttribute('points') || mark.getAttribute('d') || '').replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
     const pts = [];
     for (let i = 0; i + 1 < n.length; i += 2) if (Number.isFinite(n[i]) && Number.isFinite(n[i + 1])) pts.push([n[i], n[i + 1]]);
