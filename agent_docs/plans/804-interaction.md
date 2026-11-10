@@ -166,7 +166,7 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
-Done 2026-11-10: reviewed in 5 rounds (Review M2: 0 blocking, round 5), full gate green on 79baa00; demo pending.
+Done 2026-11-10: reviewed in 5 rounds (Review M2: 0 blocking, round 5), full gate green on 79baa00; demo: go with tooltip fixes (user, CRs #920, #921), reviewed before the tick.
 
 Demo: every gallery tile's hover dot and tooltip follow the pointer (spot dots, bars, map samples with their value, layout
 rays with field and status); clicking a series, bar, surface or field fan logs its select event in the browser console (`ELEO.interact(el, { onselect: console.log })`; CR #863); the
@@ -211,6 +211,10 @@ rays with field and status); clicking a series, bar, surface or field fan logs i
 | #917 | Click ignores data-series marks outside a matrix group | forced (finding 3) | `packages/plots/src/interact.js` | `tests/interact.spec.js::foreign data-series markup is ignored` | #916 |
 | #918 | Click's foreign-mark check sits in its series branch | forced (review M2 round 4 finding 1) | `packages/plots/src/interact.js` | `tests/interact.spec.js::foreign data-series markup is ignored` | #917 |
 | #919 | The masked-sample tooltip check asserts real text | forced (review M2 round 4 finding 2) | `tests/interact.spec.js` | `tests/interact.spec.js::map hover value` | #918 |
+| #922 | Bar rects carry their series label and category label (CR #920) | forced (CR #920, user) | `packages/plots/src/bars.js`, `tests/unit/split.test.js` | `tests/unit/bars.test.js::bar data attributes` | #919 |
+| #923 | Bar tooltip reads series · category, value (CR #920) | forced (CR #920, user: "SI · 2, −0.07 mm") | `packages/plots/src/interact.js`, `packages/plots/src/index.d.ts`, `packages/plots/README.md` | `tests/interact.spec.js::bar hover` | #922 |
+| #924 | Layout ray tooltip names field and ray (CR #921) | forced (CR #921, user) | `packages/plots/src/interact.js`, `packages/plots/README.md` | `tests/unit/readout.test.js::ray readout` | #923 |
+| #925 | Gallery spot and layout tooltips carry units (CR #921) | forced (CR #921, user) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::spot and layout tooltips carry units` | #924 |
 
 ### M3: zoom, pan and reset GitHub: `P804 M3: Zoom and pan`
 
@@ -291,3 +295,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M2 round 3 (code-reviewer, claude-opus-5-5): 1 blocking, CR #914 (plots README predates #910's null) accepted; backlog #916, #917 pulled in. Carried CRs all resolved. Per-round count: 11, 5, 3.
 - 2026-11-10 review M2 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved; backlog #918, #919 pulled in. Per-round count: 11, 5, 3, 2.
 - 2026-11-10 review M2 round 5 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M2 ticked; demo pending.
+- 2026-11-10 M2 demo (user): go, with tooltip fixes added before the tick and reviewed, no re-demo. CR #920 (bar tooltip names its series and category label: "SI · 2, −0.07 mm") and CR #921 (spot tooltips carry units; layout ray tooltips read "field f · ray r · z mm, y mm"), accepted by the user. Items #922, #923, #924, #925.
