@@ -263,6 +263,39 @@ test('live region survives a redraw', async ({ page }) => {
   await expect(tip, 'no listener after stop').toHaveCount(0);
 });
 
+// #881: the live region is written only when its text changes; moves that keep the text leave it untouched.
+test('tooltip writes only changed text', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const light = page.locator('body');
+  await page.evaluate(() => {
+    const body = document.createElement('div');
+    body.dataset.tile = 'writes';
+    body.style.cssText = 'position:fixed;left:0;top:0;width:460px;background:#fff;z-index:9';
+    body.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 3.5], [5, 5], [6, 4], [7, 2]], index: 0, label: 'S' }], x: { range: [0, 7] }, y: { range: [0, 5] }, width: 460, height: 260 });
+    document.body.append(body);
+    window.STOP = window.ELEO.interact(body);
+  });
+  const tip = light.locator('[data-tile="writes"] .eleo-hover__tip');
+  const p = await drawnAt(light, 'writes', 0, 3);
+  await page.mouse.move(p.clientX, p.clientY);
+  await expect(tip).not.toHaveText('');
+  const text = await tip.textContent();
+  await tip.evaluate((el) => {
+    window.MUT = 0;
+    window.OBS = new MutationObserver((r) => { window.MUT += r.length; });
+    window.OBS.observe(el, { childList: true, characterData: true, subtree: true });
+  });
+  for (const d of [0, 0, 0.2, -0.2, 0]) await page.mouse.move(p.clientX + d, p.clientY);
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 50)));
+  expect(await tip.textContent(), 'text unchanged by the tiny moves').toBe(text);
+  expect(await page.evaluate(() => window.MUT + window.OBS.takeRecords().length), 'no mutation for unchanged text').toBe(0);
+  const q = await drawnAt(light, 'writes', 0, 5);
+  await page.mouse.move(q.clientX, q.clientY);
+  await expect(tip, 'a changed reading is written').not.toHaveText(text);
+  await page.evaluate(() => { window.OBS.disconnect(); window.STOP(); });
+});
+
 // #871: a redraw under a pointer already inside the host re-adds the empty live region at once, with no move.
 test('live region survives a redraw under the pointer', async ({ page }) => {
   await page.goto('/gallery/');

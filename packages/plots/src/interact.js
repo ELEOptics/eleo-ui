@@ -64,7 +64,7 @@ function hide(layer, tip) {
 function showTip(host, layer, text, cx, cy) {
   var tip = layer.lastChild, hb = host.getBoundingClientRect();
   if (layer.parentNode !== host) host.appendChild(layer);
-  tip.textContent = text;
+  if (tip.textContent !== text) tip.textContent = text; // a live region is rewritten only when its text changes
   var ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop, x = cx - ox, y = cy - oy;
   var w = tip.offsetWidth, h = tip.offsetHeight, W = host.clientWidth, H = host.clientHeight;
   var left = x + TIP_GAP + w > W ? x - TIP_GAP - w : x + TIP_GAP, top = y + TIP_GAP + h > H ? y - TIP_GAP - h : y + TIP_GAP;
