@@ -941,3 +941,21 @@ test('readout line under every tile', async ({ page }) => {
     await expect(lineOf(theme)).toHaveText('');
   }
 });
+
+// Plan #804, issue #847: the readout takes its units from the tile's own recording (REC's x and y specs), not a hand-kept table.
+// oracle: the field curvature adapter's axes (x unit `mm`, y unit `°`) and closed-form `readout()`: `<label> · <x> mm, <y> °`.
+test('readout units from each tile\'s recording', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const sel = '.theme[data-theme="light"] [data-tile="fieldCurvature"]';
+  const mark = page.locator(`${sel} polyline[data-series], ${sel} path[data-series]`).first();
+  await mark.scrollIntoViewIfNeeded();
+  const at = await mark.evaluate((m) => {
+    const g = m.parentNode, [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const n = (m.getAttribute('points') || m.getAttribute('d')).match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+    const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+    return { x: box.left + ((+vp.getAttribute('x') || 0) + a * n[0] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * n[1] + f) * k };
+  });
+  await page.mouse.move(at.x, at.y);
+  await expect(page.locator(`${sel} > .eleo-plot__readout`)).toHaveText(/^(Tangential|Sagittal) · -?[\d.]+ mm, [\d.]+ ?°$/);
+});
