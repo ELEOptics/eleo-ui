@@ -202,7 +202,12 @@
       theme.querySelectorAll('[data-size]').forEach(function (t) { t.style.setProperty('--tile-min', (tileMin(t) + 26) + 'px'); });
     }
     // Axis specs for the tooltip's units: the tile's own recording (REC's x and y; the limits tile draws the MTF recording). A tile with no recording reads bare numbers.
-    function tileAxes(tile) { return REC[tile === 'mtf-limits' ? 'mtf' : tile]; }
+    // A spot or footprint tile reads in its recording's unit, throughFocus in the µm it draws, a layout tile in mm.
+    function tileAxes(tile) {
+      var u = tile === 'throughFocus' ? 'µm' : (tile === 'spot' || tile === 'footprint') && REC[tile] && REC[tile].unit;
+      if (tile.indexOf('layout2D') === 0) u = 'mm';
+      return u ? { x: { unit: u }, y: { unit: u } } : REC[tile === 'mtf-limits' ? 'mtf' : tile];
+    }
     // A typed map tile's interact options: the values the tile draws and its own axis specs (x, y, value), each with enough digits to tell neighbouring samples apart (the PSF's extent is hundredths of a mm, so its x and y read to 4 decimals; the rest to 2, the value to 3; a log map's value to its decades plus one, so its faint cells do not all read 0.000).
     function mapInteract(props) {
       var e = props.extent, small = Math.min(e[1] - e[0], e[3] - e[2]) < 1, d = small ? 4 : 2;

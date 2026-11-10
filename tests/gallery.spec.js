@@ -1020,3 +1020,33 @@ test('map tiles show their value', async ({ page }) => {
     }
   }
 });
+
+// Plan #804, issue #925, CR #921: the spot, footprint and throughFocus tiles take their units from their recording, the layout tiles read in mm.
+// oracle: closed-form `readout()`: a spot reads `<label> · <x> µm, <y> µm`; a layout ray point reads `field <f> · ray <r> · <x> mm, <y> mm` (#924).
+// The pointer is placed at a point's drawn position from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
+test('spot and layout tooltips carry units', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['dark', 'light']) {
+    const spot = `.theme[data-theme="${theme}"] [data-tile="spot"]`;
+    const dot = page.locator(`${spot} path[data-series], ${spot} polyline[data-series]`).first();
+    await dot.scrollIntoViewIfNeeded();
+    const at = await drawnPoint(dot, 0);
+    await page.mouse.move(at.x, at.y);
+    await expect(page.locator(`${spot} .eleo-hover__tip`), `${theme} spot tooltip`).toHaveText(/µm, −?[\d.]+ µm$/);
+    await page.mouse.move(2, 2);
+
+    const lay = `.theme[data-theme="${theme}"] [data-tile="layout2D-wandersleb"]`;
+    const ray = page.locator(`${lay} polyline[data-field="0"][data-ray="0"]`).first();
+    await ray.scrollIntoViewIfNeeded();
+    // The layout's geometry sits in one matrix(...) group above its runs, not directly over them: find it, then place point 2 as drawnPoint does.
+    const pt = await ray.evaluate((m) => {
+      const g = m.closest('g[transform^="matrix"]'), [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+      const n = m.getAttribute('points').split(/[\s,]+/).filter(Boolean).map(Number), root = g.ownerSVGElement, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      return { x: box.left + (a * n[4] + e) * k, y: box.top + (d * n[5] + f) * k };
+    });
+    await page.mouse.move(pt.x, pt.y);
+    await expect(page.locator(`${lay} .eleo-hover__tip`), `${theme} layout tooltip`).toHaveText(/^field \d+ · ray \d+ · −?[\d.]+ mm, −?[\d.]+ mm$/);
+    await page.mouse.move(2, 2);
+  }
+});
