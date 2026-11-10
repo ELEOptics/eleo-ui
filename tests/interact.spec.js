@@ -106,6 +106,8 @@ test('non-finite points are skipped', async ({ page }) => {
   }
   // across the gap, between (1, 2) and (3, 4), no segment is drawn: nothing is hovered
   expect((await read('gap-host', 2, 3)).ev, 'gap hovers nothing').toBeNull();
+  // the oracle this rests on: Chromium parses no point of a polyline holding a NaN, and hover reads the browser's parse
+  expect(await page.evaluate(() => document.querySelector('#nan-host polyline').points.numberOfItems), 'Chromium parses no point of the NaN polyline').toBe(0);
   // a polyline with a NaN is not drawn: nothing before it, nothing after it
   for (const [x, y] of [[0.5, 1.5], [3.5, 4.5]]) expect((await read('nan-host', x, y)).ev, `NaN polyline at ${x} hovers nothing`).toBeNull();
 });

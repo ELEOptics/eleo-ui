@@ -4,19 +4,24 @@ var TIP_GAP = 14; // px between the pointer and the tooltip
 var REACH = 24; // client px: a pointer farther than this from every point and segment hovers nothing
 var SNAP = 6; // client px: within this of a point the hover is that point, not the line beside it
 
-/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them. A path's `M` starts a new run, and so does a pair with a non-finite coordinate, which is dropped whole so it never shifts the pairs after it; `h0` dots add no point. A browser draws nothing of a polyline holding a non-finite coordinate (its whole points list is dropped, not just the part after it), so such a polyline has no points here. */
+/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them. A polyline is one run of the browser's own parse of its points (`mark.points`), so hover follows whatever that browser draws (Chromium parses none of a list holding a NaN). A path's `d` is parsed here: its `M` starts a new run, and so does a pair with a non-finite coordinate, which is dropped whole so it never shifts the pairs after it; `h0` dots add no point. */
 function runs(mark) {
-  var p = [], join = [], pts = mark.getAttribute("points");
-  var parts = pts != null ? [["L", pts]] : (mark.getAttribute("d") || "").split(/(?=[ML])/).map(function (t) { return [t.charAt(0) === "M" ? "M" : "L", t.replace(/h\s*-?[\d.]+/g, " ").replace(/[ML]/g, " ")]; });
-  var open = false, bad = false; // `open`: the previous pair was kept and ended a run still open; `bad`: a polyline holds a non-finite pair
-  parts.forEach(function (part, k) {
-    if (part[0] === "M" || k === 0 && pts != null) open = false;
-    var n = part[1].split(/[\s,]+/).filter(Boolean).map(Number);
+  var p = [], join = [], open = false; // `open`: the previous pair was kept and ended a run still open
+  if (mark.points) {
+    for (var k = 0; k < mark.points.numberOfItems; k++) {
+      var q = mark.points.getItem(k);
+      if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); open = true; } else open = false;
+    }
+    return { p: p, join: join };
+  }
+  (mark.getAttribute("d") || "").split(/(?=[ML])/).forEach(function (t) {
+    if (t.charAt(0) === "M") open = false;
+    var n = t.replace(/h\s*-?[\d.]+/g, " ").replace(/[ML]/g, " ").split(/[\s,]+/).filter(Boolean).map(Number);
     for (var i = 0; i + 1 < n.length; i += 2) {
-      if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); open = true; } else { open = false; bad = pts != null; }
+      if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); open = true; } else open = false;
     }
   });
-  return bad ? { p: [], join: [] } : { p: p, join: join };
+  return { p: p, join: join };
 }
 
 /* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. */
