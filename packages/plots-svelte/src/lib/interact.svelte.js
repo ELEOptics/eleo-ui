@@ -6,7 +6,7 @@ const bind = (el, opts) => (opts?.onhover || opts?.onselect || opts?.marks !== f
 
 /**
  * @param {HTMLElement} el
- * @param {Omit<import('@eleoptics/plots').InteractOptions, 'onselect'> & { onselect?: (event: import('@eleoptics/plots').SelectEvent | null) => void }} [opts]
+ * @param {import('@eleoptics/plots').InteractOptions} [opts]
  */
 export function hover(el, opts) {
   let stop = bind(el, opts);

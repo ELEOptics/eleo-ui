@@ -7,7 +7,7 @@
   import { themeTick } from './theme.svelte.js';
   import { hover } from './interact.svelte.js';
   /**
-   * @typedef {{ onhover?: (event: import('@eleoptics/plots').HoverEvent | null) => void, onselect?: (event: import('@eleoptics/plots').SelectEvent | null) => void }} HoverProps
+   * @typedef {{ onhover?: (event: import('@eleoptics/plots').HoverEvent | null) => void, onselect?: (event: import('@eleoptics/plots').SelectEvent) => void }} HoverProps
    * @typedef {Omit<import('@eleoptics/plots').Map2DProps, 'map'> & Omit<import('@eleoptics/plots').Map2DGridProps, 'range' | 'el'> & { label?: string, range?: [number, number] } & HoverProps} TypedProps
    * @typedef {Omit<import('@eleoptics/plots').Map2DProps, 'map'> & Partial<Omit<import('@eleoptics/plots').Map2DGridProps, 'range' | 'el' | 'values'>> & { values?: undefined, label?: string, range?: { lo: number, hi: number } } & HoverProps} SampleProps
    */

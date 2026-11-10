@@ -153,3 +153,12 @@ test('bar, map and layout callbacks', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('wrappers and the hover action type onselect without null (#908)', () => {
+  const dir = new URL('../../packages/plots-svelte/src/lib/', import.meta.url);
+  for (const f of ['CurvePlot', 'SpotDiagram', 'RayFan', 'BarPlot', 'Map2D', 'Layout2D'].map((n) => `${n}.svelte`).concat('interact.svelte.js')) {
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    assert.match(src, /onselect\??: \(event: import\('@eleoptics\/plots'\)\.SelectEvent\) => void|InteractOptions\} \[opts\]/, `${f} does not type onselect`);
+    assert.doesNotMatch(src, /SelectEvent \| null/, `${f} types onselect with | null`);
+  }
+});
