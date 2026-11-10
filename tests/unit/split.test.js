@@ -9,10 +9,13 @@ import { draws } from '../../scripts/record-renderers.mjs';
 // The fixture is recorded by scripts/record-renderers.mjs from that build, never from the code under test; the layout2D entries were re-recorded at plan #337 #382 by the user's choice (CR #381).
 const baseline = JSON.parse(readFileSync(new URL('../fixtures/renderers-baseline.json', import.meta.url), 'utf8'));
 
+// Plan #804 M1 (#806): data-* attributes are not part of the base markup; both sides are compared without them.
+const bare = (m) => m.replace(/ data-[a-z-]+="[^"]*"/g, '');
+
 test('SVG renderers draw the base markup', () => {
   const now = draws();
   assert.deepEqual(Object.keys(now), Object.keys(baseline), 'same renderers as recorded');
-  for (const [name, draw] of Object.entries(now)) assert.equal(draw(), baseline[name], name);
+  for (const [name, draw] of Object.entries(now)) assert.equal(bare(draw()), bare(baseline[name]), name);
 });
 // Plan 162 M1: curve and legend moved verbatim to curve.js and legend.js; this guard covers the moved modules.
 // Plan 162 M1: spot, throughFocus and rayFan moved verbatim to spot.js and fan.js; the guard covered them too.
@@ -38,6 +41,6 @@ test('bars baseline', () => {
   for (const name of ['seidel', 'seidel-terms']) {
     assert.ok(name in baseline, `${name} recorded`);
     assert.ok(name in now, `${name} drawn`);
-    assert.equal(now[name](), baseline[name], name);
+    assert.equal(bare(now[name]()), bare(baseline[name]), name);
   }
 });

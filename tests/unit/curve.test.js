@@ -937,3 +937,21 @@ test('grid false', async () => {
   assert.ok(count(fanOn) > 0 && count(fan) === 0, 'rayFan: no grid lines with grid: false');
   assert.deepEqual(texts(fan), texts(fanOn), 'rayFan: tick text unchanged');
 });
+
+// Plan #804 M1 (#806): each curve mark names its series, so a hover or click can say which one.
+// oracle: closed-form the series index, role, label and panel index the caller passed
+test('series data attributes', () => {
+  const series = [{ points: [[0, 0], [1, 1]], label: 'A<&"', role: 'tangential', index: 1 }, { points: [[0, 1], [1, 0]] }];
+  const one = ELEO.curve({ series });
+  const marks1 = one.match(/<polyline [^>]*>/g);
+  assert.equal(marks1.length, 2);
+  assert.match(marks1[0], /data-series="0"/);
+  assert.match(marks1[0], /data-role="tangential"/);
+  assert.match(marks1[0], /data-label="A&lt;&amp;&quot;"/);
+  assert.doesNotMatch(marks1[0], /data-panel/);
+  assert.match(marks1[1], /data-series="1"/);
+  assert.doesNotMatch(marks1[1], /data-role|data-label/);
+  const many = ELEO.curve({ panels: [{ series: [series[0]] }, { series: [series[1], series[0]] }] });
+  const marks2 = many.match(/<path [^>]*data-series[^>]*>/g);
+  assert.deepEqual(marks2.map((m) => [m.match(/data-panel="(\d+)"/)[1], m.match(/data-series="(\d+)"/)[1]]), [['0', '0'], ['1', '0'], ['1', '1']]);
+});

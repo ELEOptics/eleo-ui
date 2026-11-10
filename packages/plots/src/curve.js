@@ -41,9 +41,11 @@ function seriesPath(pts) {
   flush();
   return d;
 }
-function seriesMarkup(s, panel, wt) {
+/* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. */
+function seriesMarkup(s, panel, wt, si, pi) {
   var st = roleStyle(s, wt), pts = s.points || [];
-  var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
+  var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label).replace(/"/g, "&quot;") + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
+  var attrs = ids + ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
   if (panel) return '<path d="' + seriesPath(pts) + '"' + attrs;
   return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;
 }
@@ -151,7 +153,7 @@ function typedCurve(o) {
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(Hf - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
   var sc, g = "", lim = checkLimits(o.limits, "curve");
-  var cell = function (series, w, h, T, panel, mg) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel, mg.wt); }).join("")), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
+  var cell = function (series, w, h, T, panel, mg, pi) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi); }).join("")), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
@@ -163,7 +165,7 @@ function typedCurve(o) {
     var ch = (Hf - top) / rows;
     panels.forEach(function (p, i) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
-      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="' + r2(mg.L) + '" y="' + r2(T - 0.6 * mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true, mg) + "</g>";
+      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="' + r2(mg.L) + '" y="' + r2(T - 0.6 * mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true, mg, i) + "</g>";
     });
     return svg(W, Hs, g + labels(mg) + below, lab(y) + " against " + lab(x) + " plot");
   }
