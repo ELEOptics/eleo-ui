@@ -798,3 +798,27 @@ test('select events', async ({ page }) => {
     await page.evaluate(() => window.STOP());
   }
 });
+
+// #911: a [data-series] mark outside any matrix group is foreign markup: interact skips it, hovers nothing and throws nothing.
+test('foreign data-series markup is ignored', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await install(page);
+  await page.evaluate(() => {
+    window.HOVER = [];
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px;background:#fff;z-index:9999';
+    host.innerHTML = '<svg width="200" height="200" viewBox="0 0 200 200"><path data-series="0" d="M0,0 L10,10" stroke="red"/></svg>';
+    document.body.appendChild(host);
+    window.HOST = host;
+    window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) });
+  });
+  await page.mouse.move(150, 150);
+  await page.mouse.move(5, 5);
+  await page.mouse.move(6, 6);
+  expect(await page.evaluate(() => window.HOVER.filter((ev) => ev !== null).length), 'nothing hovered').toBe(0);
+  expect(errors, 'no page error').toEqual([]);
+  await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
+});

@@ -31,7 +31,7 @@ function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 function nearest(host, cx, cy) {
   var snap = null, best = null, bar = null;
   host.querySelectorAll("[data-series], polyline[data-ray]").forEach(function (mark) {
-    var g = dataGroup(mark), m = g.getScreenCTM && g.getScreenCTM();
+    var g = dataGroup(mark), m = g && g.getScreenCTM();
     if (!m) return;
     var at = new DOMPoint(cx, cy).matrixTransform(m.inverse());
     if (mark.localName === "rect") { // a bar is hovered with the pointer inside its box or within SNAP client px of its value end inside its x span (so a bar under a pixel tall, or of zero height, can be); its value is its y when below zero, else its height, and the bar whose value end is nearest wins
