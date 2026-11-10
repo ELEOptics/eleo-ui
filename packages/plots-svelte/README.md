@@ -75,17 +75,7 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 />
 ```
 
-`CurvePlot` takes `onhover` and `onselect`: `onhover({ x, y, series: { index, label?, role? }, panel? })` fires for the curve point nearest the pointer and `onhover(null)` when it leaves (`series.index` is the series' position in `series`, or in its panel, not its `index` palette slot); `onselect` is accepted and does nothing yet. `PlotCard` takes `readout`, a string shown in a footer line (empty text keeps the line, so the card does not change height); format a hover event with `readout(event, { x, y })` from `@eleoptics/plots`:
-
-```svelte
-<script>
-  import { readout } from '@eleoptics/plots';
-  let hovered = $state(null);
-</script>
-<PlotCard title="MTF" readout={readout(hovered, { x: { unit: 'cycles/mm' }, y: {} })}>
-  <CurvePlot series={[...]} onhover={(e) => (hovered = e)} />
-</PlotCard>
-```
+`CurvePlot` takes `onhover` and `onselect`: `onhover({ x, y, series: { index, label?, role? }, panel? })` fires for the curve point nearest the pointer and `onhover(null)` when it leaves (`series.index` is the series' position in `series`, or in its panel, not its `index` palette slot); `onselect` is accepted and does nothing yet. With no callback, `CurvePlot` still draws a hover dot, drop lines to both axes and a tooltip near the pointer, `Tangential · 120 cycles/mm, 0.62`, with units from its `x` and `y` specs; `PlotCard` has no readout line.
 
 `BarPlot` draws signed, grouped bars: a group per category, a bar per series (`values`, `index`, `label`), with `total` appending a group of per-series sums and `y` the value axis (`label`, `unit`, `range`, `ticks`). `limits` pass through as in `CurvePlot`, y only (`[{ y: number | [lo, hi], label? }]`): a category axis has no x value, so an `x` limit throws. `BarPlot` needs `@eleoptics/plots` 0.5.0 or later (`bars`); with an older plots, rendering it throws `BarPlot needs @eleoptics/plots 0.5.0 or later (bars)`, and the other components still work. There is no color option:
 

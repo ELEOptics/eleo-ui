@@ -101,9 +101,9 @@ test('Layout2D in a narrow box draws its default', async ({ page }) => {
 });
 
 // Plan #804 (agent_docs/plans/804-interaction.md), outcome O3 (issue #805; #812 unskips). oracle: closed-form `readout()` of the event's fields and the caller's axis specs.
-// The harness (tests/fixtures/svelte/ReadoutHarness.svelte, #811) holds a CurvePlot in a PlotCard whose `readout` prop shows the last hover event through `readout(event, { x, y })`.
+// The harness (tests/fixtures/svelte/ReadoutHarness.svelte, #811) holds a CurvePlot with no callback in a PlotCard; its tooltip `.eleo-hover__tip` shows `readout(event, { x, y })` (CR #857).
 const harness = fileURLToPath(new URL('./fixtures/svelte/ReadoutHarness.svelte', import.meta.url));
-test('PlotCard hover readout', async ({ page }) => {
+test('CurvePlot hover tooltip', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.addScriptTag({ content: await bundle(`import ReadoutHarness from ${JSON.stringify(harness)};\nwindow.WRAPPERS.ReadoutHarness = ReadoutHarness;`) });
@@ -129,5 +129,5 @@ test('PlotCard hover readout', async ({ page }) => {
     return { x: box.left + (vx + a * 120 + e) * k, y: box.top + (vy + d * 0.62 + f) * k };
   });
   await page.mouse.move(at.x, at.y);
-  await expect(page.locator('#harness .eleo-plot__readout')).toHaveText('Tangential · 120 cycles/mm, 0.62');
+  await expect(page.locator('#harness .eleo-hover__tip')).toHaveText('Tangential · 120 cycles/mm, 0.62');
 });

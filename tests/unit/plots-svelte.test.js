@@ -46,30 +46,9 @@ test('wrappers pass width through on the server', async () => {
   }
 });
 
-// Plan #804 (agent_docs/plans/804-interaction.md), outcome O3 (issue #810). oracle: closed-form (the readout text a caller passes is the text in the footer line, class `eleo-plot__readout`).
-// PlotCard is compiled for the server alone; it imports nothing. The line stays when the text is empty, so the card does not change height on hover.
-test('PlotCard readout', async () => {
-  const { compile } = await import('svelte/compiler');
-  const { render } = await import('svelte/server');
-  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-card-'));
-  try {
-    const src = readFileSync(new URL('../../packages/plots-svelte/src/lib/PlotCard.svelte', import.meta.url), 'utf8');
-    const js = compile(src, { generate: 'server', filename: 'PlotCard.svelte' }).js.code
-      .replaceAll("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')));
-    writeFileSync(join(dir, 'PlotCard.js'), js);
-    const Card = (await import(pathToFileURL(join(dir, 'PlotCard.js')).href)).default;
-    const shown = render(Card, { props: { title: 'MTF', readout: 'Tangential · 120 cycles/mm, 0.62' } }).body;
-    assert.match(shown, /<div class="eleo-plot__ft eleo-plot__readout"[^>]*>Tangential · 120 cycles\/mm, 0\.62<\/div>/);
-    assert.match(render(Card, { props: { title: 'MTF', readout: '' } }).body, /class="eleo-plot__ft eleo-plot__readout"/, 'an empty readout drops the line');
-    assert.doesNotMatch(render(Card, { props: { title: 'MTF' } }).body, /eleo-plot__readout/, 'no readout prop still draws a line');
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-// Plan #804, outcome O4 (issue #843). oracle: closed-form (binds minus stops is the number of live listeners: one with a callback, none without).
+// Plan #804, outcome O4 (issue #843). oracle: closed-form (binds minus stops is the number of live listeners: one while marks, tooltip or a callback is on, none when marks and tooltip are off and no callback is given; CR #857).
 // The hover action is imported against a stub `interact` that counts binds and stops.
-test('hover binds only with a callback', async () => {
+test('hover binds unless marks and tooltip are off', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-hover-'));
   try {
     const count = { binds: 0, stops: 0 };
@@ -80,26 +59,31 @@ test('hover binds only with a callback', async () => {
     const live = () => count.binds - count.stops;
     const el = {};
 
-    const none = hover(el, {});
-    assert.equal(live(), 0, 'no callback still binds a pointer listener');
-    none.update({ onhover() {} });
+    const off = { marks: false, tooltip: false };
+    const none = hover(el, off);
+    assert.equal(live(), 0, 'marks and tooltip off with no callback still binds');
+    none.update({ ...off, onhover() {} });
     assert.equal(live(), 1, 'a callback added later does not bind');
-    none.update({});
+    none.update(off);
     assert.equal(live(), 0, 'a callback removed later does not stop');
-    none.update({ onselect() {} });
+    none.update({ ...off, onselect() {} });
     assert.equal(live(), 1, 'onselect added later does not bind');
-    none.update({ onselect() {}, onhover() {} });
+    none.update({ ...off, onselect() {}, onhover() {} });
     assert.equal(live(), 1, 'a changed callback leaks or drops the listener');
+    none.update({ tooltip: false });
+    assert.equal(live(), 1, 'marks on by default does not bind');
+    none.update({ marks: false });
+    assert.equal(live(), 1, 'tooltip on by default does not bind');
     none.destroy();
     assert.equal(live(), 0, 'destroy leaves a listener');
 
-    const given = hover(el, { onhover() {} });
-    assert.equal(live(), 1, 'a callback at mount does not bind');
-    given.destroy();
+    const bare = hover(el, {});
+    assert.equal(live(), 1, 'the default marks and tooltip do not bind without a callback');
+    bare.destroy();
     assert.equal(live(), 0);
 
     const undef = hover(el, undefined);
-    assert.equal(live(), 0, 'undefined options still bind');
+    assert.equal(live(), 1, 'undefined options do not bind the defaults');
     undef.destroy();
     assert.equal(live(), 0);
   } finally {

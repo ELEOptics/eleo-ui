@@ -16,4 +16,4 @@
   const svg = $derived(curve({ ...props, width: w }));
 </script>
 
-<div class="eleo-svg" use:hover={{ onhover, onselect }} bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
+<div class="eleo-svg" use:hover={{ onhover, onselect, axes: { x: /** @type {any} */ (props).x, y: /** @type {any} */ (props).y } }} bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>

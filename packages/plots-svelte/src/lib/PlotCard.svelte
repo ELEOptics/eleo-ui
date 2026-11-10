@@ -2,8 +2,8 @@
 <script>
   /** @type {{ title: string, meta?: string, colorKey?: string, paper?: boolean, compact?: boolean, selected?: boolean,
    *   state?: 'ready' | 'loading' | 'empty' | 'error' | 'stale', message?: string,
-   *   readout?: string, actions?: import('svelte').Snippet, footer?: import('svelte').Snippet, children?: import('svelte').Snippet }} */
-  let { title, meta, colorKey, paper = false, compact = false, selected = false, state = 'ready', message, readout, actions, footer, children } = $props();
+   *   actions?: import('svelte').Snippet, footer?: import('svelte').Snippet, children?: import('svelte').Snippet }} */
+  let { title, meta, colorKey, paper = false, compact = false, selected = false, state = 'ready', message, actions, footer, children } = $props();
 </script>
 
 <section class="eleo-plot" class:eleo-plot--compact={compact} class:eleo-plot--selected={selected}
@@ -19,6 +19,5 @@
   {:else}
     <div class="eleo-plot__msg" role={state === 'error' ? 'alert' : 'status'}>{#if message}<span>{message}</span>{/if}</div>
   {/if}
-  {#if readout !== undefined}<div class="eleo-plot__ft eleo-plot__readout" aria-live="polite">{readout || '\u00a0'}</div>{/if}
   {#if footer}<div class="eleo-plot__ft">{@render footer()}</div>{/if}
 </section>
