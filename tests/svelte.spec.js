@@ -103,7 +103,7 @@ test('Layout2D in a narrow box draws its default', async ({ page }) => {
 // Plan #804 (agent_docs/plans/804-interaction.md), outcome O3 (issue #805; #812 unskips). oracle: closed-form `readout()` of the event's fields and the caller's axis specs.
 // The harness (tests/fixtures/svelte/ReadoutHarness.svelte, #811) holds a CurvePlot in a PlotCard whose `readout` prop shows the last hover event through `readout(event, { x, y })`.
 const harness = fileURLToPath(new URL('./fixtures/svelte/ReadoutHarness.svelte', import.meta.url));
-test.skip('PlotCard hover readout', async ({ page }) => {
+test('PlotCard hover readout', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.addScriptTag({ content: await bundle(`import ReadoutHarness from ${JSON.stringify(harness)};\nwindow.WRAPPERS.ReadoutHarness = ReadoutHarness;`) });

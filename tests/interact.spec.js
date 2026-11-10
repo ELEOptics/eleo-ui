@@ -21,7 +21,7 @@ const drawnAt = (page, tile, series, index) => page.locator(`[data-tile="${tile}
     return { data: [x, y], clientX: box.left + (vx + a * x + e) * k, clientY: box.top + (vy + d * y + f) * k, k, a, d };
   }, index);
 
-test.skip('hover emits the point under the pointer', async ({ page }) => {
+test('hover emits the point under the pointer', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const tile = 'mtf';
@@ -30,6 +30,7 @@ test.skip('hover emits the point under the pointer', async ({ page }) => {
     const body = document.querySelector(`.theme[data-theme="light"] [data-tile="${tile}"] .eleo-plot__body`);
     window.STOP = window.ELEO.interact(body, { onhover: (ev) => window.HOVER.push(ev) });
   }, tile);
+  await page.locator(`.theme[data-theme="light"] [data-tile="${tile}"]`).scrollIntoViewIfNeeded(); // the MTF tile sits far below the viewport
   for (const index of [0, 3, 7]) {
     const p = await drawnAt(page.locator('.theme[data-theme="light"]'), tile, 0, index);
     await page.mouse.move(p.clientX, p.clientY);
