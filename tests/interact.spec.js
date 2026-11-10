@@ -702,7 +702,9 @@ test('map hover value', async ({ page }) => {
   const mev = await hoverAt(page, mq.x, mq.y);
   expect([mev.row, mev.column], 'masked cell hovered').toEqual([mr, mc]);
   expect(mev.value, 'a NaN cell reads null').toBeNull();
-  expect(await page.locator('.theme[data-theme="light"] [data-tile="psf-recorded"] .eleo-hover__tip').last().textContent(), 'no value in the tooltip').not.toContain(' = ');
+  const tip = await page.evaluate(() => { const t = window.HOST.querySelectorAll('.eleo-hover__tip'); return t.length ? t[t.length - 1].textContent : null; });
+  expect(tip, 'the tooltip names the cell').toMatch(/\d/);
+  expect(tip, 'no value in the tooltip').not.toContain(' = ');
   await page.evaluate(() => window.STOP());
   // without values the indices are still read and no value is claimed
   await page.evaluate(() => { window.STOP = window.ELEO.interact(window.HOST, { onhover: (ev) => window.HOVER.push(ev) }); });
