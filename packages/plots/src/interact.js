@@ -152,7 +152,7 @@ export function interact(el, opts) {
     if (!s) return leave();
     var ev = { x: s.x, y: s.y }, polar = s.ring !== undefined, v = values && (polar ? values[s.ring] && values[s.ring][s.spoke] : values[s.row] && values[s.row][s.column]);
     if (polar) { ev.ring = s.ring; ev.spoke = s.spoke; } else { ev.row = s.row; ev.column = s.column; }
-    if (values) ev.value = v;
+    if (values) ev.value = typeof v === "number" && isFinite(v) ? v : null; // a masked sample (NaN, Infinity, null, missing) has no value
     if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
     if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
     emit(ev, polar ? "r" + s.ring + "," + s.spoke : "c" + s.row + "," + s.column);

@@ -694,6 +694,16 @@ test('map hover value', async ({ page }) => {
   const q = await page.evaluate(() => window.T.image(window.HOST, 0, 0));
   expect(await hoverAt(page, q.left - 6, q.top - 6), 'outside the image reads nothing').toBeNull();
   await page.evaluate(() => window.STOP());
+  // #910: a masked (NaN) cell reads value null and the tooltip carries no " = "
+  const [mr, mc] = cells[0], masked = rec.values.map((row) => row.slice());
+  masked[mr][mc] = NaN;
+  await page.evaluate((values) => { window.STOP = window.ELEO.interact(window.HOST, { values, onhover: (ev) => window.HOVER.push(ev) }); }, masked);
+  const mq = await page.evaluate(([fx, fy]) => window.T.image(window.HOST, fx, fy), [(mc + 0.5) / cols, (mr + 0.5) / rows]);
+  const mev = await hoverAt(page, mq.x, mq.y);
+  expect([mev.row, mev.column], 'masked cell hovered').toEqual([mr, mc]);
+  expect(mev.value, 'a NaN cell reads null').toBeNull();
+  expect(await page.locator('.eleo-hover__tip').first().textContent(), 'no value in the tooltip').not.toContain(' = ');
+  await page.evaluate(() => window.STOP());
   // without values the indices are still read and no value is claimed
   await page.evaluate(() => { window.STOP = window.ELEO.interact(window.HOST, { onhover: (ev) => window.HOVER.push(ev) }); });
   const [r, c] = cells[0], m = await page.evaluate(([fx, fy]) => window.T.image(window.HOST, fx, fy), [(cells[0][1] + 0.5) / cols, (cells[0][0] + 0.5) / rows]);
