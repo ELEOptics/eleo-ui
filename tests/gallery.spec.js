@@ -957,5 +957,5 @@ test('readout units from each tile\'s recording', async ({ page }) => {
     return { x: box.left + ((+vp.getAttribute('x') || 0) + a * n[0] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * n[1] + f) * k };
   });
   await page.mouse.move(at.x, at.y);
-  await expect(page.locator(`${sel} > .eleo-plot__readout`)).toHaveText(/^(Tangential|Sagittal) · -?[\d.]+ mm, [\d.]+ ?°$/);
+  await expect(page.locator(`${sel} > .eleo-plot__readout`)).toHaveText(/^(Tangential|Sagittal) · −?[\d.]+ mm, −?[\d.]+ °$/);
 });
