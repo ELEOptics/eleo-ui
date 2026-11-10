@@ -31,7 +31,7 @@ next on the roadmap (2026-11-10): rows Q and R are done and no plan is open.
 - Core: `packages/plots/src/index.d.ts` (new props and the event types) and, if a new module is exported,
   `packages/plots/package.json`'s `exports` (not needed if it is re-exported from `index.js`).
 - ADR-0001: renderers by data shape here, app state in phos; roles, never colors. ADR-0003: text sizes from
-  the frame width (the readout is HTML in `PlotCard`, outside the SVG, so ADR-0003 doesn't bind it).
+  the frame width (the hover tooltip is HTML in `interact`'s overlay, outside the SVG, so ADR-0003 doesn't bind it; CR #863).
   ADR-0004: Observable Plot not adopted; revisit "if hover, zoom and export turn out to be most of a plan".
 - Prior art: pointer-to-data mapping is the DOM's `getScreenCTM`/`DOMPoint.matrixTransform`; nearest point
   is a linear scan (20 × 200 points, a 10 000-point spot: well under a frame). No library needed. d3-zoom
@@ -112,8 +112,8 @@ zoomed range instead of rewriting the `viewBox`.
 
 Reopened 2026-11-10 at the demo (no-go): CRs #856 and #857 (user). Was ticked at 200ef61 after 3 review rounds.
 
-Demo: `npm run gallery`, hover the MTF tile: its readout line reads e.g. `Tangential · 120 cycles/mm, 0.62`;
-on the Svelte test page a CurvePlot in a PlotCard shows the same in its readout. The tile screenshots from the
+Demo: `npm run gallery`, hover the MTF tile: a dot on the curve, thin drop lines to both axes and a tooltip near the pointer, e.g.
+`Tangential · 120 cycles/mm, 0.62` (CRs #856, #857); on the Svelte test page a CurvePlot shows the same tooltip. The tile screenshots from the
 plan's start (both themes and palettes) on the `review-assets` release, beside today's. Proves: O1 (curve), O3
 
 | Issue | Work item | Approach | Files | Test | After |
@@ -143,6 +143,9 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 | #860 | `InteractOptions` types `axes`, `marks`, `tooltip` (CR #856) | forced (Core: `index.d.ts`, listed in this plan) | `packages/plots/src/index.d.ts` | `tests/unit/types.test.js::interact types` | #859 |
 | #861 | PlotCard drops `readout`; CurvePlot passes its axes to the tooltip (CR #857) | forced (CR #857, user) | `packages/plots-svelte/src/lib/PlotCard.svelte`, `packages/plots-svelte/src/lib/CurvePlot.svelte`, `packages/plots-svelte/README.md` | `tests/svelte.spec.js::CurvePlot hover tooltip` | #860 |
 | #862 | The gallery's readout line becomes each tile's tooltip (CR #857) | forced (CR #857, user) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::tooltip on every curve tile` | #860 |
+| #864 | `interact` reference-counts the hover host class across calls | forced (review M1 round 4 finding 2) | `packages/plots/src/interact.js` | `tests/interact.spec.js::two interact calls on one host` | #862 |
+| #865 | The hover tooltip is an aria-live region | forced (review M1 round 4 finding 3: the removed readout lines were live regions) | `packages/plots/src/interact.js` | `tests/interact.spec.js::tooltip is a live region` | #864 |
+| #866 | The gallery tooltip test hovers a non-curve tile before asserting none | forced (review M1 round 4 finding 4) | `tests/gallery.spec.js` | `tests/gallery.spec.js::tooltip on every curve tile` | #862 |
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
@@ -202,7 +205,7 @@ the `PERF=1` redraw medians for every touched renderer; the changesets. Proves: 
 | #835 | `interact`: the host is focusable (`tabindex="0"` unless set); ←/→ step points, ↑/↓ series, Enter selects, Escape clears, + − 0 zoom and reset, each emitting the pointer's events; the keys in the plots README | forced (round 2 pre-mortem: keyboard access, user); the same events as the pointer so callers write one handler | `packages/plots/src/interact.js`, `packages/plots/README.md` | `tests/interact.spec.js::keyboard` | #834 |
 | #836 | Redraw medians for `spot` (10 000 points), typed `map2D` (256 × 256), `bars` and `layout2D` at U14's sizes, beside `curve`'s | forced (roadmap constraint: each row keeps U14 for the renderers it touches; U14's oracle) | `tests/perf.spec.js` | `tests/perf.spec.js::redraw (U14)` | #834 |
 | #837 | plots README: an Interaction section (`interact`, the events, `view`) | forced (`workflow.md`, Docs: the package README is its front door) | `packages/plots/README.md` | none (docs) | #835 |
-| #838 | Changesets: plots minor (`interact`, `readout`, `view`, `data-*`), plots-svelte minor (callbacks, `readout`) | forced (roadmap row H's exit: the release is planned) | `.changeset/interact.md`, `.changeset/interact-svelte.md` | `tests/unit/release.test.js::row H changesets` | #835, #836, #837 |
+| #838 | Changesets: plots minor (`interact`, `readout`, `view`, `data-*`), plots-svelte minor (callbacks, the default hover tooltip; CR #863) | forced (roadmap row H's exit: the release is planned) | `.changeset/interact.md`, `.changeset/interact-svelte.md` | `tests/unit/release.test.js::row H changesets` | #835, #836, #837 |
 | #839 | Unskip M4's acceptance tests | forced (`workflow.md`, TDD) | `tests/interact.spec.js` | the M4 tests | #834, #835, #836, #837, #838 |
 
 ## Risks and spikes
@@ -228,3 +231,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, CR #841 resolved; backlog #852, #853, #854 pulled into M1 (small, named, in files M1 changed), so round 3 reviews them before the tick.
 - 2026-11-10 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; backlog #855 (one shared test parser). M1 ticked.
 - 2026-11-10 M1 demo (user): no-go. CR #856 accepted by the user: hovering draws a dot on the point, thin drop lines from it to the x and y axes (not a full crosshair) and the readout as a tooltip near the pointer, all drawn by `interact` in an overlay, on by default. CR #857 accepted by the user: PlotCard's `readout` prop and the gallery's readout line go (unreleased). O3's text, test and oracle changed (user); the Non-goal "a readout drawn over the plot" dropped. Items #858-#862; M1 reopened.
+- 2026-11-10 review M1 round 4 (code-reviewer, claude-opus-5-5): 1 blocking, CR #863 (stale readout wording in this plan and roadmap row H) accepted and fixed in this commit; carried #856, #857 resolved; backlog #864, #865, #866 pulled into M1. Per-round count (blocking + pulled in): 9, 3, 0, 4.
