@@ -1,29 +1,46 @@
 // Pointer interaction on a drawn plot. The listeners sit on the host, not on the marks: a redraw replaces the markup, and a host listener survives it.
 import { fmt } from "./color.js";
 var TIP_GAP = 14; // px between the pointer and the tooltip
-var REACH = 24; // client px: a pointer farther than this from every point hovers nothing
+var REACH = 24; // client px: a pointer farther than this from every point and segment hovers nothing
+var SNAP = 6; // client px: within this of a point the hover is that point, not the line beside it
 
-/* The finite [x, y] pairs of a polyline's points or a path's data, in data coordinates. Path data is M/L pairs and `h0` dots, which add no point. A pair with a non-finite coordinate (a polyline's "NaN") is dropped whole, so it never shifts the pairs after it. */
-function pairs(mark) {
-  var s = mark.getAttribute("points") || mark.getAttribute("d") || "", out = [];
-  var n = s.replace(/h\s*-?[\d.]+/g, " ").replace(/[ML]/g, " ").split(/[\s,]+/).filter(Boolean).map(Number);
-  for (var i = 0; i + 1 < n.length; i += 2) if (isFinite(n[i]) && isFinite(n[i + 1])) out.push([n[i], n[i + 1]]);
-  return out;
+/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order (a pair with a non-finite coordinate, a polyline's "NaN", is dropped whole, so it never shifts the pairs after it), and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them. A path's `M` starts a new run and so does a dropped point; `h0` dots add no point. */
+function runs(mark) {
+  var p = [], join = [], pts = mark.getAttribute("points");
+  var parts = pts != null ? [["L", pts]] : (mark.getAttribute("d") || "").split(/(?=[ML])/).map(function (t) { return [t.charAt(0) === "M" ? "M" : "L", t.replace(/h\s*-?[\d.]+/g, " ").replace(/[ML]/g, " ")]; });
+  var open = false; // the previous pair was kept and ended a run still open
+  parts.forEach(function (part, k) {
+    if (part[0] === "M" || k === 0 && pts != null) open = false;
+    var n = part[1].split(/[\s,]+/).filter(Boolean).map(Number);
+    for (var i = 0; i + 1 < n.length; i += 2) {
+      if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); open = true; } else open = false;
+    }
+  });
+  return { p: p, join: join };
 }
 
-/* The nearest drawn point to the client position, through the inverse of its data group's screen matrix, or null. */
+/* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. */
 function nearest(host, cx, cy) {
-  var best = null;
+  var snap = null, best = null;
   host.querySelectorAll("[data-series]").forEach(function (mark) {
     var g = mark.parentNode, m = g.getScreenCTM && g.getScreenCTM();
     if (!m) return;
-    var at = new DOMPoint(cx, cy).matrixTransform(m.inverse());
-    pairs(mark).forEach(function (p, i) {
-      var dx = (p[0] - at.x) * m.a, dy = (p[1] - at.y) * m.d, d = Math.hypot(dx, dy);
-      if (d <= REACH && (!best || d < best.d)) best = { d: d, mark: mark, index: i, x: p[0], y: p[1] };
+    var at = new DOMPoint(cx, cy).matrixTransform(m.inverse()), r = runs(mark), p = r.p;
+    var linked = function (i) { return r.join[i] || r.join[i + 1]; };
+    p.forEach(function (q, i) {
+      var d = Math.hypot((q[0] - at.x) * m.a, (q[1] - at.y) * m.d), c = { d: d, mark: mark, index: i, x: q[0], y: q[1] };
+      if (d <= SNAP && (!snap || d < snap.d)) snap = c;
+      if (d <= REACH && !linked(i) && (!best || d < best.d)) best = c;
     });
+    for (var i = 1; i < p.length; i++) {
+      if (!r.join[i]) continue;
+      var ax = p[i - 1][0] * m.a, ay = p[i - 1][1] * m.d, vx = p[i][0] * m.a - ax, vy = p[i][1] * m.d - ay, len = vx * vx + vy * vy;
+      var t = len ? Math.max(0, Math.min(1, ((at.x * m.a - ax) * vx + (at.y * m.d - ay) * vy) / len)) : 0;
+      var d = Math.hypot(ax + t * vx - at.x * m.a, ay + t * vy - at.y * m.d);
+      if (d <= REACH && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1, x: p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), y: p[i - 1][1] + t * (p[i][1] - p[i - 1][1]), segment: [i - 1, i] };
+    }
   });
-  return best;
+  return snap || best;
 }
 
 /* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (the last child) unless `tip` is false; divs positioned in host px. The tooltip is a polite live region (`role=status`), so it is made here, empty, and kept for the life of the call: a region created together with its text is often not announced. */
@@ -65,6 +82,7 @@ function showMarks(host, layer, b) {
   var pt = new DOMPoint(b.x, b.y).matrixTransform(m), x = pt.x - ox, y = pt.y - oy;
   var left = new DOMPoint(0, 0).matrixTransform(vm).x - ox, bottom = new DOMPoint(0, vp.height.baseVal.value).matrixTransform(vm).y - oy;
   for (var i = 0; i < 3; i++) layer.children[i].hidden = false;
+  if (b.segment) layer.children[2].hidden = true; // an interpolated spot has no point to dot
   var v = layer.children[0], h = layer.children[1], dot = layer.children[2];
   v.style.cssText = "left:" + (x - 0.5) + "px;top:" + y + "px;height:" + Math.max(0, bottom - y) + "px";
   h.style.cssText = "top:" + (y - 0.5) + "px;left:" + left + "px;width:" + Math.max(0, x - left) + "px";
@@ -74,7 +92,7 @@ function showMarks(host, layer, b) {
 
 var hosts = new WeakMap(); // host -> number of live interact calls holding its `eleo-hover-host` class
 
-/* interact(el, { onhover, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer, and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
+/* interact(el, { onhover, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
 export function interact(el, opts) {
   var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, layer = (marks || tip) && overlay(marks, tip);
   if (layer) { el.appendChild(layer); hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
@@ -84,9 +102,10 @@ export function interact(el, opts) {
     if (!b) return leave();
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y, series: { index: +d.series, label: d.label, role: d.role } };
+    if (b.segment) { ev.interpolated = true; ev.segment = b.segment; }
     if (d.panel !== undefined) ev.panel = +d.panel;
     if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
-    emit(ev, [d.panel, d.series, b.index].join());
+    emit(ev, [d.panel, d.series, b.index, b.segment ? b.x + "," + b.y : ""].join());
   }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
   // a redraw replaced the markup: the empty live region is back at once (a microtask), before any text is set. Appending only when detached keeps the observer from looping on its own mutation.

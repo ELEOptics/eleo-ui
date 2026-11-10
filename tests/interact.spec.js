@@ -305,3 +305,61 @@ test('two interact calls on one host', async ({ page }) => {
   await page.evaluate(() => window.STOPS[1]());
   await expect(host).not.toHaveClass(/eleo-hover-host/);
 });
+
+// #875 (CR #874): between two points of a drawn segment the hover is the pointer projected onto the segment, its data coordinates linearly interpolated; within 6 px of a point it snaps.
+test('hover reads between data points', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  // Where data (x, y) is drawn in client px: the group's matrix attribute, the viewport's x/y and the root's client box, never getScreenCTM.
+  const setup = (points) => page.evaluate((points) => {
+    document.querySelectorAll('#seg-host').forEach((h) => h.remove());
+    const host = document.createElement('div');
+    host.id = 'seg-host';
+    host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9';
+    host.innerHTML = window.ELEO.curve({ series: [{ points, index: 0 }], x: { range: [0, 10] }, y: { range: [0, 10] }, width: 400, height: 300 });
+    document.body.append(host);
+    window.HOVER = [];
+    window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) });
+    const group = host.querySelector('[data-series]').parentNode;
+    const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+    const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
+    window.AT = (x, y) => [box.left + (vx + a * x + e) * k, box.top + (vy + d * y + f) * k];
+    return { a, d, k };
+  }, points);
+  const at = (x, y) => page.evaluate(([x, y]) => window.AT(x, y), [x, y]);
+  const last = () => page.evaluate(() => window.HOVER.at(-1));
+  const vis = (sel) => page.locator(`#seg-host ${sel}:visible`).count();
+
+  const m = await setup([[0, 0], [10, 10]]);
+  let [px, py] = await at(5, 5);
+  await page.mouse.move(px, py);
+  let ev = await last();
+  expect(ev, 'midpoint hovered').toBeTruthy();
+  expect(Math.abs(ev.x - 5) * Math.abs(m.a) * m.k, 'x within 0.5 px').toBeLessThanOrEqual(0.5);
+  expect(Math.abs(ev.y - 5) * Math.abs(m.d) * m.k, 'y within 0.5 px').toBeLessThanOrEqual(0.5);
+  expect(ev.interpolated).toBe(true);
+  expect(ev.segment).toEqual([0, 1]);
+  await expect(page.locator('#seg-host .eleo-hover__tip')).toHaveText('5, 5');
+  expect(await vis('.eleo-hover__v'), 'vertical drop line shown').toBe(1);
+  expect(await vis('.eleo-hover__h'), 'horizontal drop line shown').toBe(1);
+  expect(await vis('.eleo-hover__dot'), 'dot hidden').toBe(0);
+
+  // 3 px from (10, 10), along the line: snaps to the point.
+  [px, py] = await at(10, 10);
+  await page.mouse.move(px - 2, py + 2);
+  ev = await last();
+  expect(ev.x).toBe(10);
+  expect(ev.y).toBe(10);
+  expect(ev.interpolated, 'snapped, not interpolated').toBeUndefined();
+  expect(await vis('.eleo-hover__dot'), 'dot shown on a snap').toBe(1);
+
+  // Across a NaN gap nothing interpolates: the pointer over the middle of the dropped stretch hovers nothing.
+  await page.evaluate(() => window.STOP());
+  await setup([[0, 0], [5, NaN], [10, 10]]);
+  [px, py] = await at(5, 5);
+  await page.mouse.move(2, 2);
+  await page.mouse.move(px, py);
+  expect(await page.evaluate(() => window.HOVER.filter(Boolean)), 'no segment across the gap').toEqual([]);
+  await page.evaluate(() => window.STOP());
+});
