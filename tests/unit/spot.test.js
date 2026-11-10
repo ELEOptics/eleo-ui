@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELEO from '../../packages/plots/src/index.js';
 import { idx } from '../../packages/plots/src/common.js';
+import * as common from '../../packages/plots/src/common.js';
+import { readFileSync } from 'node:fs';
 import { frameText } from '../../packages/plots/src/scale.js';
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
@@ -677,3 +679,17 @@ test('throughFocus tick labels', async () => {
   }
 });
 function near2(a, b, m) { assert.ok(Math.abs(a - b) <= 0.02, `${m}: ${a} against ${b}`); }
+
+test('shared drawn-point rule', () => {
+  assert.equal(typeof common.drawn, 'function', 'common.js exports the drawn-point predicate');
+  assert.equal(typeof common.niceHalf, 'function', 'common.js exports the step rule');
+  const d = common.drawn;
+  assert.equal(d([1, 2]), true);
+  [null, undefined, [null, 1], [1, null], [NaN, 1], [1, Infinity]].forEach((p) => assert.equal(d(p), false, JSON.stringify(p)));
+  assert.deepEqual([0, 0.3, 1.1, 2.2, 3, 7, 11].map(common.niceHalf), [1, 0.4, 2, 2.5, 4, 10, 20]);
+  const src = (f) => readFileSync(new URL(`../../packages/plots/src/${f}`, import.meta.url), 'utf8');
+  assert.ok(!/var live = /.test(src('spot.js')) && !/function niceHalf/.test(src('spot.js')), 'spot.js keeps no copy');
+  assert.ok(!/function drawn\(/.test(src('curve.js')), 'curve.js keeps no copy');
+  const svg = ELEO.spot({ panels: [{ series: [{ points: [[1, 1], null, [null, 2], [NaN, 0], [-1, -1]] }] }] });
+  assert.equal((svg.match(/ h0/g) || []).length, 2, 'only the two drawn points become dots');
+});

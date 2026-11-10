@@ -1,4 +1,4 @@
-import { idx, svg, esc, NS } from "./common.js";
+import { idx, svg, esc, NS, drawn as live, niceHalf } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
@@ -7,12 +7,6 @@ import { frameText, frameWeight, frameOf, SPOT_LABEL_M } from "./scale.js";
 
 var r2 = function (v) { return Math.round(v * 100) / 100; };
 
-/* The smallest 1, 2, 2.5, 4, 5 or 10 times a power of ten that holds v. */
-function niceHalf(v) {
-  if (!(v > 0) || !isFinite(v)) return 1;
-  var e = Math.pow(10, Math.floor(Math.log10(v))), m = [1, 2, 2.5, 4, 5, 10].find(function (k) { return k * e >= v * (1 - 1e-12); });
-  return m * e > 0 ? m * e : 1;
-}
 /* v to p significant digits, never an exponent (a number below 1e-100 prints as 0). */
 function plain(v, p) {
   var s = v.toPrecision(p);
@@ -27,7 +21,6 @@ var tickList = function (half) { return niceTicks(-half, half, 5).ticks.filter(f
 /* The left margin (text units) a panel needs for its y labels: 0.6 per character plus 0.6, at least SPOT_LABEL_M. */
 export var labelM = function (half) { return Math.max(SPOT_LABEL_M, 0.6 * Math.max.apply(null, [0].concat(tickList(half).map(function (k) { return k.s.length; }))) + 0.6); };
 var sig3 = function (v) { return plain(v, 3); };
-var live = function (p) { return !!p && isFinite(p[0]) && isFinite(p[1]) && p[0] !== null && p[1] !== null; };
 var airyR = function (o, p) { return o.showAiry !== false && isFinite(p.airy) && p.airy > 0 ? +p.airy : 0; };
 var circleR = function (p) { return p.circle && isFinite(p.circle.radius) && p.circle.radius > 0 ? +p.circle.radius : 0; };
 /* The halves typedSpot draws with (one per panel: the common one, or each panel's own under scale "auto", where `half` is ignored) and the left margin LM (text units) they need, for o and its raw panels: the half comes from the data (about the centroid under that reference) when no `half` is given. typedSpot and minWidth both call it, so they agree. */
