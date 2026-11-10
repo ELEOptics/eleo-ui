@@ -33,7 +33,7 @@
 </script>
 
 {#if typed}
-  <div class="eleo-svg" use:hover={{ onhover, onselect, values: props.values, axes: { x: /** @type {any} */ (props).x, y: /** @type {any} */ (props).y } }} bind:this={host} bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
+  <div class="eleo-svg" use:hover={{ onhover, onselect, values: props.values, axes: { x: /** @type {any} */ (props).x, y: /** @type {any} */ (props).y, value: /** @type {any} */ (props).value } }} bind:this={host} bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
 {:else}
   <canvas bind:this={canvas} role={label ? 'img' : undefined} aria-label={label}></canvas>
 {/if}

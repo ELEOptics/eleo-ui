@@ -145,6 +145,7 @@ test('bar, map and layout callbacks', async () => {
     }
     assert.match(read('BarPlot'), /axes: \{ y: /, 'BarPlot axes are not its y spec');
     assert.match(read('Map2D'), /use:hover=\{\{[^}]*values/, 'Map2D does not pass its values to the hover action');
+    assert.match(read('Map2D'), /axes: \{.*\bvalue: .*\(props\)\.value/, 'Map2D axes do not carry its value axis');
     assert.match(read('Layout2D'), /axes: \{ x: \{ unit: 'mm' \}, y: \{ unit: 'mm' \} \}/, 'Layout2D axes are not mm');
     // the sample canvas is not hovered: the action sits on the typed div only
     assert.doesNotMatch(read('Map2D'), /<canvas[^>]*use:hover/, 'the sample canvas takes the hover action');

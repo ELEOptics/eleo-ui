@@ -126,7 +126,7 @@ function showMarks(host, layer, b) {
 
 var hosts = new WeakMap(); // host -> number of live interact calls holding its `eleo-hover-host` class
 
-/* interact(el, { onhover, onselect, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
+/* interact(el, { onhover, onselect, axes, marks, tooltip, values }): calls onhover({ x, y, series: { index, label, role }, panel? }) (`series` is absent on a layout ray hover, and on a map's) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
 export function interact(el, opts) {
   var onhover = (opts && opts.onhover) || function () {}, onselect = opts && opts.onselect, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, values = opts && opts.values, layer = (marks || tip) && overlay(marks, tip);
   if (layer) { el.appendChild(layer); hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
@@ -186,7 +186,7 @@ function value(v, spec) {
   return s.unit ? t + " " + s.unit : t;
 }
 
-/* readout(event, { x, y }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>`, from the caller's axis specs `{ unit?, digits? }`. A null event gives "". */
+/* readout(event, { x, y, value }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>[ = <value> <unit>]`, from the caller's axis specs `{ unit?, digits? }`; the ` = <value>` suffix is there when the event has a `value` (a map's sample), formatted by `axes.value`. A null event gives "". */
 export function readout(ev, axes) {
   if (!ev) return "";
   var a = axes || {}, label = ev.series && ev.series.label, xy = value(ev.x, a.x) + ", " + value(ev.y, a.y);
