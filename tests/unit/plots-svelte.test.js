@@ -16,13 +16,14 @@ test('wrappers pass width through on the server', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-'));
   try {
     const stub = (name) => `export const ${name} = (p) => '<svg data-width="' + p.width + '"></svg>';`;
-    writeFileSync(join(dir, 'plots.js'), ['curve', 'rayFan', 'bars', 'spot', 'layout2D'].map(stub).join('\n') + '\nexport const map2D = () => ({ lo: 0, hi: 1 });');
+    writeFileSync(join(dir, 'plots.js'), ['curve', 'rayFan', 'bars', 'spot', 'layout2D'].map(stub).join('\n') + '\nexport const map2D = () => ({ lo: 0, hi: 1 });\nexport const interact = () => () => {};\nexport const readout = () => \'\';');
     writeFileSync(join(dir, 'theme.js'), 'export const themeTick = () => 0;');
+    writeFileSync(join(dir, 'interact.js'), readFileSync(new URL('../../packages/plots-svelte/src/lib/interact.svelte.js', import.meta.url), 'utf8').replaceAll("'@eleoptics/plots'", '"./plots.js"'));
     const load = async (name) => {
       const src = readFileSync(new URL(`../../packages/plots-svelte/src/lib/${name}.svelte`, import.meta.url), 'utf8');
       const js = compile(src, { generate: 'server', filename: `${name}.svelte` }).js.code
         .replaceAll("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')))
-        .replaceAll("'@eleoptics/plots'", '"./plots.js"').replaceAll("'./theme.svelte.js'", '"./theme.js"');
+        .replaceAll("'@eleoptics/plots'", '"./plots.js"').replaceAll("'./theme.svelte.js'", '"./theme.js"').replaceAll("'./interact.svelte.js'", '"./interact.js"');
       writeFileSync(join(dir, `${name}.js`), js);
       return (await import(pathToFileURL(join(dir, `${name}.js`)).href)).default;
     };
@@ -40,6 +41,27 @@ test('wrappers pass width through on the server', async () => {
     }
     const Map2D = await load('Map2D');
     assert.match(render(Map2D, { props: { values: [[0, 1], [1, 0]], extent: [-1, 1, -1, 1], width: 300 } }).body, /<div class="eleo-svg"/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Plan #804 (agent_docs/plans/804-interaction.md), outcome O3 (issue #810). oracle: closed-form (the readout text a caller passes is the text in the footer line, class `eleo-plot__readout`).
+// PlotCard is compiled for the server alone; it imports nothing. The line stays when the text is empty, so the card does not change height on hover.
+test('PlotCard readout', async () => {
+  const { compile } = await import('svelte/compiler');
+  const { render } = await import('svelte/server');
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-card-'));
+  try {
+    const src = readFileSync(new URL('../../packages/plots-svelte/src/lib/PlotCard.svelte', import.meta.url), 'utf8');
+    const js = compile(src, { generate: 'server', filename: 'PlotCard.svelte' }).js.code
+      .replaceAll("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')));
+    writeFileSync(join(dir, 'PlotCard.js'), js);
+    const Card = (await import(pathToFileURL(join(dir, 'PlotCard.js')).href)).default;
+    const shown = render(Card, { props: { title: 'MTF', readout: 'Tangential · 120 cycles/mm, 0.62' } }).body;
+    assert.match(shown, /<div class="eleo-plot__ft eleo-plot__readout"[^>]*>Tangential · 120 cycles\/mm, 0\.62<\/div>/);
+    assert.match(render(Card, { props: { title: 'MTF', readout: '' } }).body, /class="eleo-plot__ft eleo-plot__readout"/, 'an empty readout drops the line');
+    assert.doesNotMatch(render(Card, { props: { title: 'MTF' } }).body, /eleo-plot__readout/, 'no readout prop still draws a line');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

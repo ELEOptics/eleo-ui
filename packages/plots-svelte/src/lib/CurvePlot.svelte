@@ -8,11 +8,12 @@
   Every role draws the same stroke: 1 px up to a 234 px frame, `sqrt(F / 234)` above it (ADR-0003); the plot area clips; ranges default to the nice range of the data. No color option. -->
 <script>
   import { curve } from '@eleoptics/plots';
-  /** @type {import('@eleoptics/plots').CurvePlotProps & { label?: string }} */
-  let { label, width, ...props } = $props();
+  import { hover } from './interact.svelte.js';
+  /** @type {import('@eleoptics/plots').CurvePlotProps & { label?: string, onhover?: (event: import('@eleoptics/plots').HoverEvent | null) => void, onselect?: (event: object | null) => void }} */
+  let { label, width, onhover, onselect, ...props } = $props();
   let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
   const w = $derived(width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined));
   const svg = $derived(curve({ ...props, width: w }));
 </script>
 
-<div class="eleo-svg" bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
+<div class="eleo-svg" use:hover={{ onhover, onselect }} bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
