@@ -17,7 +17,7 @@ const bundle = async (extra = '') => {
     setup(b) {
       b.onResolve({ filter: /^@eleoptics\/plots$/ }, () => ({ path: 'eleo', namespace: 'eleo' }));
       b.onLoad({ filter: /.*/, namespace: 'eleo' }, () => ({
-        contents: 'const E = window.ELEO; export const { curve, rayFan, bars, spot, layout2D, map2D } = E;', loader: 'js',
+        contents: 'const E = window.ELEO; export const { curve, rayFan, bars, spot, layout2D, map2D, interact, readout } = E;', loader: 'js',
       }));
       b.onLoad({ filter: /\.svelte$/ }, (a) => ({ contents: compile(readFileSync(a.path, 'utf8'), { generate: 'client', filename: a.path }).js.code, loader: 'js' }));
       b.onLoad({ filter: /\.svelte\.js$/ }, (a) => ({ contents: compileModule(readFileSync(a.path, 'utf8'), { generate: 'client', filename: a.path }).js.code, loader: 'js' }));
@@ -117,6 +117,7 @@ test.skip('PlotCard hover readout', async ({ page }) => {
   // The harness draws one series, label 'Tangential', points [[0, 1], [120, 0.62], [240, 0.3]], x 'cycles/mm', y unitless.
   const poly = page.locator('#harness polyline[data-series="0"]');
   await expect(poly).toBeVisible();
+  await poly.scrollIntoViewIfNeeded(); // the harness sits below the gallery's tiles, far under the viewport
   const g = poly.locator('xpath=..');
   const at = await g.evaluate((el) => {
     const [a, , , d, e, f] = el.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);

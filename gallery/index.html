@@ -201,10 +201,25 @@
     function tileMins(theme) {
       theme.querySelectorAll('[data-size]').forEach(function (t) { t.style.setProperty('--tile-min', (tileMin(t) + 26) + 'px'); });
     }
+    // Axis specs for the readout's units; a tile not listed reads bare numbers.
+    var READOUT_AXES = { mtf: { x: { unit: 'cycles/mm' } }, 'mtf-limits': { x: { unit: 'cycles/mm' } } };
+    // A readout line under every tile, filled by that tile's own interact: the hovered point's label and values, or a blank line (a non-breaking space keeps its height).
+    // Tiles without marks carrying data-series (everything but the curve tiles so far) stay blank.
+    function readoutLines(theme) {
+      theme.querySelectorAll('[data-tile]').forEach(function (tile) {
+        var line = document.createElement('div'), body = tile.querySelector('.eleo-plot__body');
+        line.className = 'eleo-plot__ft eleo-plot__readout';
+        line.setAttribute('aria-live', 'polite');
+        line.textContent = '\u00a0';
+        tile.appendChild(line);
+        if (body) ELEO.interact(body, { onhover: function (ev) { line.textContent = ELEO.readout(ev, READOUT_AXES[tile.dataset.tile]) || '\u00a0'; } });
+      });
+    }
     function draw() {
       document.querySelectorAll('.theme').forEach(function (theme) {
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
         tileMins(theme);
+        readoutLines(theme);
         theme.querySelectorAll('[data-svg]').forEach(function (el) {
           var tile = SVG[el.dataset.svg], need = tile.need();
           if (!need) el.innerHTML = '';

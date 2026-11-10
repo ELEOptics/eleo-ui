@@ -911,3 +911,33 @@ test('layout keys',async ({ page }) => {
     }
   }
 });
+
+// Plan #804 (agent_docs/plans/804-interaction.md), issue #811: every tile has a readout line under it, filled by its own interact + readout, per theme.
+// oracle: closed-form `readout()`: `<label> · <x> <unit>, <y>` for the series label on the hovered mark and the MTF tile's x unit.
+// The pointer is placed at a point's drawn position from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
+test('readout line under every tile', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const tiles = page.locator(`.theme[data-theme="${theme}"] [data-tile]`);
+    expect(await tiles.count()).toBe(TILES);
+    expect(await page.locator(`.theme[data-theme="${theme}"] [data-tile] > .eleo-plot__readout`).count(), `${theme} readout lines`).toBe(TILES);
+  }
+  const lineOf = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="mtf"] > .eleo-plot__readout`);
+  const mark = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="mtf"] polyline[data-series="0"], .theme[data-theme="${theme}"] [data-tile="mtf"] path[data-series="0"]`).first();
+  for (const theme of ['dark', 'light']) {
+    await mark(theme).scrollIntoViewIfNeeded();
+    const at = await mark(theme).evaluate((m) => {
+      const g = m.parentNode, [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+      const n = (m.getAttribute('points') || m.getAttribute('d')).match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+      const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      return { label: m.dataset.label, x: box.left + ((+vp.getAttribute('x') || 0) + a * n[6] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * n[7] + f) * k };
+    });
+    await page.mouse.move(at.x, at.y);
+    await expect(lineOf(theme)).toHaveText(new RegExp(`^${at.label} · [\\d.]+ cycles/mm, [\\d.]+$`));
+    const other = theme === 'dark' ? 'light' : 'dark';
+    expect((await lineOf(other).textContent()).trim(), `${other} line stays empty`).toBe('');
+    await page.mouse.move(2, 2);
+    await expect(lineOf(theme)).toHaveText('');
+  }
+});
