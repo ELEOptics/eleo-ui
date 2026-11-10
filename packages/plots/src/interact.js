@@ -60,10 +60,12 @@ function showMarks(host, layer, b) {
   if (layer.parentNode !== host) host.appendChild(layer);
 }
 
+var hosts = new WeakMap(); // host -> number of live interact calls holding its `eleo-hover-host` class
+
 /* interact(el, { onhover, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer, and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
 export function interact(el, opts) {
   var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, layer = (marks || tip) && overlay(marks, tip);
-  if (layer) el.classList.add("eleo-hover-host");
+  if (layer) { hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
     var b = nearest(el, e.clientX, e.clientY);
@@ -77,7 +79,10 @@ export function interact(el, opts) {
   function leave() { if (layer) layer.remove(); emit(null, ""); }
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
-  return function stop() { if (layer) { layer.remove(); el.classList.remove("eleo-hover-host"); } el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); };
+  var stopped = false;
+  return function stop() {
+    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave);
+  };
 }
 
 /* One value as text: `fmt` to `spec.digits` decimals, or to at most 2 with trailing zeros dropped, then a space and `spec.unit`. */

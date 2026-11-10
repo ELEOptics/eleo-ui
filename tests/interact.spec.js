@@ -174,3 +174,32 @@ test('tooltip follows the pointer', async ({ page }) => {
   await expect(tip, 'tooltip off').toHaveCount(0);
   await page.evaluate(() => window.STOP());
 });
+
+test('two interact calls on one host', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tile = 'twice', light = page.locator('body');
+  // Own host, statically positioned by CSS: only the hover-host class makes it a containing block.
+  await page.evaluate(() => {
+    const body = document.createElement('div');
+    body.dataset.tile = 'twice';
+    body.style.cssText = 'width:460px;margin:40px;background:#fff';
+    body.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 3.5], [5, 5], [6, 4], [7, 2]], index: 0, label: 'S' }], x: { range: [0, 7] }, y: { range: [0, 5] }, width: 460, height: 260 });
+    document.body.append(body);
+    window.STOPS = [window.ELEO.interact(body), window.ELEO.interact(body)];
+  });
+  const host = light.locator(`[data-tile="${tile}"]`);
+  await page.evaluate(() => window.STOPS[0]());
+  await expect(host).toHaveClass(/eleo-hover-host/);
+  await host.scrollIntoViewIfNeeded();
+  const p = await drawnAt(light, tile, 0, 3);
+  await page.mouse.move(p.clientX, p.clientY);
+  const dot = host.locator('.eleo-hover__dot');
+  await expect(dot).toHaveCount(1);
+  const at = await dot.evaluate((el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  expect(Math.abs(at.x - p.clientX), 'dot x').toBeLessThanOrEqual(0.5);
+  expect(Math.abs(at.y - p.clientY), 'dot y').toBeLessThanOrEqual(0.5);
+  await expect(host).toHaveClass(/eleo-hover-host/);
+  await page.evaluate(() => window.STOPS[1]());
+  await expect(host).not.toHaveClass(/eleo-hover-host/);
+});
