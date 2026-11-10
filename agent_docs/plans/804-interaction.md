@@ -146,6 +146,7 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 | #864 | `interact` reference-counts the hover host class across calls | forced (review M1 round 4 finding 2) | `packages/plots/src/interact.js` | `tests/interact.spec.js::two interact calls on one host` | #862 |
 | #865 | The hover tooltip is an aria-live region | forced (review M1 round 4 finding 3: the removed readout lines were live regions) | `packages/plots/src/interact.js` | `tests/interact.spec.js::tooltip is a live region` | #864 |
 | #866 | The gallery tooltip test hovers a non-curve tile before asserting none | forced (review M1 round 4 finding 4) | `tests/gallery.spec.js` | `tests/gallery.spec.js::tooltip on every curve tile` | #862 |
+| #868 | The plots README describes the hover overlay's lifetime and live region (CR #867) | forced (CR #867: stale doc since #865) | `packages/plots/README.md` | none (docs) | #865 |
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
@@ -232,3 +233,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; backlog #855 (one shared test parser). M1 ticked.
 - 2026-11-10 M1 demo (user): no-go. CR #856 accepted by the user: hovering draws a dot on the point, thin drop lines from it to the x and y axes (not a full crosshair) and the readout as a tooltip near the pointer, all drawn by `interact` in an overlay, on by default. CR #857 accepted by the user: PlotCard's `readout` prop and the gallery's readout line go (unreleased). O3's text, test and oracle changed (user); the Non-goal "a readout drawn over the plot" dropped. Items #858-#862; M1 reopened.
 - 2026-11-10 review M1 round 4 (code-reviewer, claude-opus-5-5): 1 blocking, CR #863 (stale readout wording in this plan and roadmap row H) accepted and fixed in this commit; carried #856, #857 resolved; backlog #864, #865, #866 pulled into M1. Per-round count (blocking + pulled in): 9, 3, 0, 4.
+- 2026-11-10 CR #867 (stale doc, from #865's worker) accepted (orchestrator: not Core), item #868.
