@@ -149,6 +149,7 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 | #868 | The plots README describes the hover overlay's lifetime and live region (CR #867) | forced (CR #867: stale doc since #865) | `packages/plots/README.md` | none (docs) | #865 |
 | #869 | The tooltip's live region is back before the first hover after a redraw | forced (review M1 round 5 finding 2: the gallery and CurvePlot replace the markup after `interact`) | `packages/plots/src/interact.js` | `tests/interact.spec.js::live region survives a redraw` | #868 |
 | #870 | The empty tooltip collapses through a CSS `:empty` rule | forced (review M1 round 5 finding 3) | `packages/plots/src/interact.js`, `packages/plots/src/plots.css` | `tests/interact.spec.js::tooltip is a live region` | #869 |
+| #871 | The hover overlay is re-added when a redraw happens under the pointer | forced (review M1 round 6 finding 1: #869 covers only redraw-then-enter) | `packages/plots/src/interact.js` | `tests/interact.spec.js::live region survives a redraw under the pointer` | #870 |
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
@@ -237,3 +238,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M1 round 4 (code-reviewer, claude-opus-5-5): 1 blocking, CR #863 (stale readout wording in this plan and roadmap row H) accepted and fixed in this commit; carried #856, #857 resolved; backlog #864, #865, #866 pulled into M1. Per-round count (blocking + pulled in): 9, 3, 0, 4.
 - 2026-11-10 CR #867 (stale doc, from #865's worker) accepted (orchestrator: not Core), item #868.
 - 2026-11-10 review M1 round 5 (code-reviewer, claude-opus-5-5): 1 blocking: carried CR #863 still open (M2 Demo and roadmap row H's exit still named the readout line), fixed in this commit; backlog #869, #870 pulled into M1. Per-round count: 9, 3, 0, 4, 3.
+- 2026-11-10 review M1 round 6 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved; backlog #871 pulled into M1. Per-round count: 9, 3, 0, 4, 3, 1.
