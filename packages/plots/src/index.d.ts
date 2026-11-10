@@ -401,6 +401,8 @@ interface ScaleRule {
   TEXT_MIN: typeof TEXT_MIN; TEXT_MAX: typeof TEXT_MAX; F_LO: typeof F_LO; F_HI: typeof F_HI; W_LO: typeof W_LO; W_HI: typeof W_HI;
   PLOT_SIZES: typeof PLOT_SIZES;
   minWidth: typeof minWidth;
+  interact: typeof interact;
+  readout: typeof readout;
 }
 declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
@@ -440,3 +442,30 @@ export declare const PLOT_SIZES: {
 };
 /** The narrowest drawing width of a call, in px: its plot frame `F_LO` wide and its text `TEXT_MIN` px, with the margins the renderer draws for these props (a curve's x tick labels, map2D's colorbar and x ticks) and the panel count of `columns`, `panels`, the sample's fields or defocus steps. `props` are the ones you pass the renderer; without them it is `PLOT_SIZES[name]`'s one-panel figure. Throws a `TypeError` for an unknown renderer name. */
 export declare function minWidth(name: keyof typeof PLOT_SIZES, props?: object): number;
+
+/* Pointer interaction (packages/plots/src/interact.js). */
+/** What the pointer is on: the nearest drawn point of a curve mark, in data units. */
+export interface HoverEvent {
+  /** The point's data coordinates. */
+  x: number;
+  y: number;
+  /** The mark's identity from the drawing's `data-series`, `data-label` and `data-role`; `label` and `role` are absent where the series has none. */
+  series: { index: number; label?: string; role?: string };
+  /** The panel index from `data-panel`; absent on a single-panel drawing. */
+  panel?: number;
+}
+export interface InteractOptions {
+  /** Called with the point nearest the pointer, or `null` when the pointer leaves it or the host. Repeats of the same point are not re-sent. */
+  onhover?: (event: HoverEvent | null) => void;
+}
+/** Listen for the pointer on `el`, the element holding the drawn SVG. The listeners sit on `el`, so a redraw that replaces its markup keeps them. Client-only. Returns `stop()`, which removes them. */
+export declare function interact(el: Element, opts?: InteractOptions): () => void;
+/** How `readout` writes one axis's value. */
+export interface ReadoutAxis {
+  /** Appended after the value, e.g. "mm". Default none. */
+  unit?: string;
+  /** Decimals. Default: at most 2, trailing zeros dropped. */
+  digits?: number;
+}
+/** The text of a hover event, `<label> · <x> <unit>, <y> <unit>` (no label and dot without a series label); "" for `null`. */
+export declare function readout(event: HoverEvent | null, axes?: { x?: ReadoutAxis; y?: ReadoutAxis }): string;
