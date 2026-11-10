@@ -674,6 +674,26 @@ test.skip('map hover value', async ({ page }) => {
   await page.evaluate(() => window.STOP());
 });
 
+// #817 (O1, polar map): the recorded Cooke wavefront tile. The pointer on a recorded sample reads its ring and spoke (indices into the recorded radii and angles), its value and its position; beyond the outer ring nothing.
+test('polar map hover value', async ({ page }) => {
+  const rec = fixture('cooke-wavefront'), [R, A] = [rec.radii, rec.angles], e = rec.pupilRadius * 1.05;
+  const samples = [[5, 7], [40, 30], [60, 50]].filter(([i, j]) => rec.values[i][j] != null);
+  expect(samples.length, 'unmasked samples chosen').toBe(3);
+  await bind(page, 'wavefront-recorded', rec.values);
+  for (const [i, j] of samples) {
+    const wx = R[i] * Math.cos(A[j]), wy = R[i] * Math.sin(A[j]);
+    const q = await page.evaluate(([fx, fy]) => window.T.image(window.HOST, fx, fy), [(wx + e) / (2 * e), (e - wy) / (2 * e)]);
+    const ev = await hoverAt(page, q.x, q.y);
+    expect(ev, `sample ${i},${j} hovered`).not.toBeNull();
+    expect([ev.ring, ev.spoke], 'ring and spoke').toEqual([i, j]);
+    expect(ev.value, 'recorded value').toBe(rec.values[i][j]);
+    expect(Math.hypot(ev.x - wx, ev.y - wy) * q.wpx / (2 * e), 'position of the sample within TOL_PX').toBeLessThanOrEqual(TOL_PX);
+  }
+  const q = await page.evaluate(() => window.T.image(window.HOST, 0, 0));
+  expect(await hoverAt(page, q.left + 1, q.top + 1), 'beyond the outer ring reads nothing').toBeNull();
+  await page.evaluate(() => window.STOP());
+});
+
 // #894 (O1, layout): the recorded Wandersleb layout. A ray point reads that run's field, ray and status and the point (z, y in mm); the point is also one the recording holds.
 test.skip('layout ray hover', async ({ page }) => {
   const rec = fixture('wandersleb-layout');

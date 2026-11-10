@@ -54,6 +54,26 @@ function nearest(host, cx, cy) {
   return bar || snap || best;
 }
 
+/* The sample of a typed map under the client position, or null: the map's `<image>` holds its extent and shape (`data-extent`, and `data-rows` and `data-columns` or, polar, `data-radii` and `data-angles`). A grid cell is { row, column } (rows top-down) at its centre; a polar sample is { ring, spoke } at its radius and angle, the nearest sample as map2D draws it (a ring ends midway to the next radius, the last half a step past the outer one). `x`, `y` are in the extent's data units. Nothing outside the image, or past the outer ring. */
+function mapAt(host, cx, cy) {
+  var img = host.querySelector("image[data-extent]"), m = img && img.getScreenCTM && img.getScreenCTM();
+  if (!m) return null;
+  var at = new DOMPoint(cx, cy).matrixTransform(m.inverse()), w = +img.getAttribute("width"), h = +img.getAttribute("height");
+  var fx = (at.x - +img.getAttribute("x")) / w, fy = (at.y - +img.getAttribute("y")) / h;
+  if (!(fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1)) return null;
+  var e = img.dataset.extent.split(" ").map(Number), x = e[0] + fx * (e[1] - e[0]), y = e[3] - fy * (e[3] - e[2]);
+  if (img.dataset.radii) {
+    var pr = img.dataset.radii.split(" ").map(Number), pa = img.dataset.angles.split(" ").map(Number), n = pr.length, rr = Math.hypot(x, y), TAU = 2 * Math.PI;
+    if (rr > pr[n - 1] + (n > 1 ? pr[n - 1] - pr[n - 2] : pr[0]) / 2) return null;
+    var ring = 0; while (ring < n - 1 && rr >= (pr[ring] + pr[ring + 1]) / 2) ring++;
+    var ang = Math.atan2(y, x), spoke = 0, best = Infinity;
+    pa.forEach(function (a, i) { var d = Math.abs(((ang - a) % TAU + 3 * Math.PI) % TAU - Math.PI); if (d < best) { best = d; spoke = i; } });
+    return { ring: ring, spoke: spoke, x: pr[ring] * Math.cos(pa[spoke]), y: pr[ring] * Math.sin(pa[spoke]) };
+  }
+  var nr = +img.dataset.rows, nc = +img.dataset.columns, row = Math.min(nr - 1, Math.floor(fy * nr)), col = Math.min(nc - 1, Math.floor(fx * nc));
+  return { row: row, column: col, x: e[0] + (col + 0.5) * (e[1] - e[0]) / nc, y: e[3] - (row + 0.5) * (e[3] - e[2]) / nr };
+}
+
 /* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (the last child) unless `tip` is false; divs positioned in host px. The tooltip is a polite live region (`role=status`), so it is made here, empty, and kept for the life of the call: a region created together with its text is often not announced. */
 function overlay(marks, tip) {
   var layer = document.createElement("div");
@@ -105,12 +125,12 @@ var hosts = new WeakMap(); // host -> number of live interact calls holding its 
 
 /* interact(el, { onhover, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
 export function interact(el, opts) {
-  var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, layer = (marks || tip) && overlay(marks, tip);
+  var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, values = opts && opts.values, layer = (marks || tip) && overlay(marks, tip);
   if (layer) { el.appendChild(layer); hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
     var b = nearest(el, e.clientX, e.clientY);
-    if (!b) return leave();
+    if (!b) return mapMove(e);
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y, series: { index: +d.series, label: d.label, role: d.role } };
     if (b.bar) ev.category = b.x;
@@ -118,6 +138,17 @@ export function interact(el, opts) {
     if (d.panel !== undefined) ev.panel = +d.panel;
     if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
     emit(ev, [d.panel, d.series, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
+  }
+  // a typed map: the sample under the pointer, its value from opts.values; no dot or drop lines (a cell has no point to mark)
+  function mapMove(e) {
+    var s = mapAt(el, e.clientX, e.clientY);
+    if (!s) return leave();
+    var ev = { x: s.x, y: s.y }, polar = s.ring !== undefined, v = values && (polar ? values[s.ring] && values[s.ring][s.spoke] : values[s.row] && values[s.row][s.column]);
+    if (polar) { ev.ring = s.ring; ev.spoke = s.spoke; } else { ev.row = s.row; ev.column = s.column; }
+    if (values) ev.value = v;
+    if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
+    if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
+    emit(ev, polar ? "r" + s.ring + "," + s.spoke : "c" + s.row + "," + s.column);
   }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
   // a redraw replaced the markup: the empty live region is back at once (a microtask), before any text is set. Appending only when detached keeps the observer from looping on its own mutation.
@@ -143,5 +174,6 @@ function value(v, spec) {
 export function readout(ev, axes) {
   if (!ev) return "";
   var a = axes || {}, label = ev.series && ev.series.label, xy = value(ev.x, a.x) + ", " + value(ev.y, a.y);
+  if (ev.value != null) xy += " = " + value(ev.value, a.value);
   return label ? label + " · " + xy : xy;
 }
