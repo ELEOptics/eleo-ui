@@ -57,21 +57,17 @@ export function scales(o, groups, panel) {
   var xr = axisRange(x, [].concat.apply(limitValues(lim, "x"), all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
   var yr = axisRange(y, [].concat.apply(limitValues(lim, "y"), all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
   var xt = axisTicks(x, xr), yt = axisTicks(y, yr);
-  /* The right margin: 12 px (1.2 text units), or half the rightmost shown x label's width (6 px a character, as layout2D estimates) when that is more. */
-  var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), R = 12, Rt = 1.2, n = 0;
-  if (shown.length) { n = Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length; R = Math.max(R, 3 * n); Rt = Math.max(Rt, 0.3 * n); }
-  /* R in px for the fixed-margin renderers (bars, map2D); Rt the same room in text units (0.6 em a character, halved) for curve. */
-  return { xr: xr, yr: yr, xt: xt, yt: yt, R: R, Rt: Rt };
+  /* The right margin Rt, in text units: 1.2, or half the rightmost shown x label's width (0.6 em a character) when that is more. */
+  var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), Rt = 1.2, n = 0;
+  if (shown.length) { n = Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length; Rt = Math.max(Rt, 0.3 * n); }
+  return { xr: xr, yr: yr, xt: xt, yt: yt, Rt: Rt };
 }
-/* The frame's left and bottom margins in px; bars reads them to place its category labels. */
-export var PLOT_L = 46, PLOT_B = 36, PLOT_T = 26;
 var r2 = function (v) { return +v.toFixed(2); };
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
-/* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. `grid: false` draws the tick text without the grid lines (the frame and the zero axes stay). With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
+/* `mg` is the margins in px: { L, B, R, t? }, required: each renderer passes its own. `grid: false` draws the tick text without the grid lines (the frame and the zero axes stay). With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
 export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
-  mg = mg || { L: PLOT_L, B: PLOT_B, R: sc.R };
   /* The frame is rounded to 2 decimals once, here: everything below derives from these, so the markup is small and doesn't depend on Math.cbrt's last bits. */
   T = r2(T);
   var L = r2(mg.L), Bm = mg.B, ph = r2(Math.max(1, h - T - Bm)), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;

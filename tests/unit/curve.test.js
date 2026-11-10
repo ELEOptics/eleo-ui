@@ -963,3 +963,13 @@ test('series data-label escapes once', () => {
   assert.match(out, /data-label="a&quot;b&amp;c"/);
   assert.doesNotMatch(out, /&amp;quot;/);
 });
+
+// Plan #804, issue #585. oracle: property: every renderer passes its own margins, so plotCell has no default for them, scales() returns no px right margin and the PLOT_L/B/T constants are gone.
+test('plotCell requires margins', async () => {
+  const curve = await import('../../packages/plots/src/curve.js');
+  const sc = curve.scales({ x: {}, y: {} }, [[{ points: [[0, 0], [10, 1]] }]]);
+  assert.ok(!('R' in sc), 'scales() has no px R');
+  assert.ok('Rt' in sc, 'scales() keeps Rt');
+  for (const k of ['PLOT_L', 'PLOT_B', 'PLOT_T']) assert.ok(!(k in curve), `${k} is not exported`);
+  assert.throws(() => curve.plotCell(sc, [], 300, 200, 10, false, ''), TypeError, 'no margins, no default');
+});
