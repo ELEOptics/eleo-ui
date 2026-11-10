@@ -10,8 +10,8 @@ import { draws } from '../../scripts/record-renderers.mjs';
 const baseline = JSON.parse(readFileSync(new URL('../fixtures/renderers-baseline.json', import.meta.url), 'utf8'));
 
 // Plan #804 M1 (#806, #844): the plan's data-* names are not part of the base markup; both sides are compared without them.
-// Every other data-* (data-grid) stays compared. M2 adds its names here (data-category, data-cell, data-field, data-ray, data-surface, ...).
-const PLAN_ATTRS = ['data-series', 'data-role', 'data-label', 'data-panel', 'data-cell', 'data-category', 'data-extent', 'data-rows', 'data-columns', 'data-radii', 'data-angles'];
+// Every other data-* (data-grid) stays compared. M2 adds its names here (data-category, data-cell, ...); #818 added data-field, data-ray, data-surface.
+const PLAN_ATTRS = ['data-series', 'data-role', 'data-label', 'data-panel', 'data-cell', 'data-category', 'data-extent', 'data-rows', 'data-columns', 'data-radii', 'data-angles', 'data-field', 'data-ray', 'data-surface'];
 const planAttr = new RegExp(` (?:${PLAN_ATTRS.join('|')})="[^"]*"`, 'g');
 const bare = (m) => m.replace(planAttr, '');
 

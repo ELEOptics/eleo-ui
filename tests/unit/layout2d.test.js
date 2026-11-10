@@ -1371,3 +1371,34 @@ test('a labelled stop has its bar', () => {
   const dots = [...geometry(crop).body.matchAll(/<line\b[^>]*>/g)].map((m) => attrs(m[0])).filter((a) => +a.x1 === +a.x2 && +a.y1 === +a.y2);
   assert.equal(dots.length, 0, 'no zero-length line');
 });
+
+// Plan #804 M2 (#818): a ray run names its field and ray, a surface's marks name the surface, by the recorded layout's indices.
+test('layout data attributes', () => {
+  for (const [name, L] of [['sample', sample.layout], ...RECORDINGS.map((R, j) => [`recording ${j}`, R])]) {
+    const svg = ELEO.layout2D({ data: L, rays: 'fan' }), { body } = geometry(svg); // the group draws in mm
+    const polylines = [...body.matchAll(/<polyline\b[^>]*>/g)].map((m) => attrs(m[0]));
+    assert.ok(polylines.length > 0, `${name}: ray runs drawn`);
+    const seen = new Set();
+    for (const a of polylines) {
+      assert.match(a['data-field'], /^\d+$/, `${name}: data-field`);
+      assert.match(a['data-ray'], /^\d+$/, `${name}: data-ray`);
+      const ray = L.rays[+a['data-field']]?.[+a['data-ray']];
+      assert.ok(ray, `${name}: field ${a['data-field']} ray ${a['data-ray']} exists`);
+      const end = pairs(a.points).at(-1);
+      assert.ok(ray.some((p) => near(p, end)), `${name}: the run ends on a point of its own ray`);
+      seen.add(`${a['data-field']}/${a['data-ray']}`);
+    }
+    for (const [k, fan] of L.rays.entries()) fan.forEach((_, i) => assert.ok(seen.has(`${k}/${i}`), `${name}: field ${k} ray ${i} has a run`));
+    // Surfaces: the glass polygon between surface i and i + 1, a mirror body, an obscuration or stop bar and the image line carry their surface's index.
+    const S = L.surfaces, marked = [...body.matchAll(/<(?:polygon|line)\b[^>]*data-surface="[^"]*"[^>]*>/g)].map((m) => attrs(m[0]));
+    const idx = marked.map((a) => +a['data-surface']);
+    assert.ok(idx.every((i) => Number.isInteger(i) && i >= 0 && i < S.length), `${name}: data-surface is a surface index`);
+    S.forEach((x, i) => {
+      if (x.glass && S[i + 1]) assert.ok(marked.some((a) => a['data-surface'] === String(i) && a.points), `${name}: glass polygon of surface ${i}`);
+      if (x.mirror) assert.ok(marked.some((a) => a['data-surface'] === String(i) && a.points), `${name}: mirror body of surface ${i}`);
+      if (x.stop) assert.ok(idx.includes(i), `${name}: stop bar of surface ${i}`);
+      if (x.image) assert.ok(marked.some((a) => a['data-surface'] === String(i) && a.x1 !== undefined), `${name}: image line of surface ${i}`);
+    });
+    assert.ok(!/data-surface/.test(svg.replace(body, '')), `${name}: nothing outside the mm group is a surface`);
+  }
+});

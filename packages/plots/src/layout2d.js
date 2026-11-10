@@ -241,7 +241,7 @@ export function layout2D(o) {
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
-  function line(z1, y1, z2, y2, rest) { return '<line x1="' + n(z1) + '" y1="' + n(y1) + '" x2="' + n(z2) + '" y2="' + n(y2) + '" ' + rest + " " + NS + "/>"; }
+  function line(z1, y1, z2, y2, rest, surf) { return '<line x1="' + n(z1) + '" y1="' + n(y1) + '" x2="' + n(z2) + '" y2="' + n(y2) + '" ' + rest + (surf == null ? "" : ' data-surface="' + surf + '"') + " " + NS + "/>"; }
   var M = +s.toFixed(6), g = '<g transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')">';
   g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"');
   // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
@@ -250,7 +250,7 @@ export function layout2D(o) {
   var fills = glassFill(drawnGlasses(S)), bodies = ""; // mirror bodies, drawn after the rays (CR #381)
   S.forEach(function (a, i) {
     var b = S[i + 1], obj = a.glass && typeof a.glass === "object";
-    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
+    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '" ' + NS + "/>";
     // A mirror is a --mech body with a flat back (CR #371), drawn after the ray group (CR #381), hatched at 45 degrees every 32 px (mock A); its clipPath id is a hash of its points, so it is
     // deterministic and one polygon never gets two ids. An obscuration is an opaque bar from -sd to +sd (CR #360; the image line's ink and width),
     // left out when it lies within a mirror body (its z inside, its sd from the mirror's hole up to the mirror's sd).
@@ -259,13 +259,13 @@ export function layout2D(o) {
       for (var j = 0, h = 5381; j < P.length; j++) h = (h * 33 ^ P.charCodeAt(j)) >>> 0;
       id += h.toString(36);
       for (var k = z0 - (y1 - y0); k <= Math.max.apply(null, zs); k += 32 / s) d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1);
-      bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + '/>'
+      bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '" ' + NS + '/>'
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
-    if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
-    if (a.stop) [1, -1].forEach(function (k) { var m = k * a.sd, e = stopEnd(S, i, k, B); if (e - m) g += line(a.z, m, a.z, e, 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
+    if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"', i);
+    if (a.stop) [1, -1].forEach(function (k) { var m = k * a.sd, e = stopEnd(S, i, k, B); if (e - m) g += line(a.z, m, a.z, e, 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"', i); });
   });
-  var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0];
+  var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0], imgAt = S.indexOf(img);
   // One group per opacity, so it does not darken where rays cross (a per-polyline stroke-opacity would). With `status`, Virtual and Dead runs go in a faded
   // group placed first, so live light sits on top; a layout without `status` has none and draws as it always did.
   var live = "", faded = "";
@@ -289,14 +289,14 @@ export function layout2D(o) {
       if (!L.status && r.length === 1 && st[0] === "Virtual" && show.indexOf("Virtual") >= 0) runs.push({ st: "Virtual", virt: true, q: [r[0]] });
       runs.forEach(function (u) {
         var dash = u.virt ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
-        var poly = '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + " " + NS + "/>";
+        var poly = '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + ' data-field="' + k + '" data-ray="' + i + '" ' + NS + "/>";
         if (L.status && u.st !== "Alive") faded += poly; else live += poly;
       });
     });
     ends[k] = rays[c][rays[c].length - 1];
   });
   g += (faded ? '<g opacity=".35">' + faded + "</g>" : "") + '<g opacity=".85">' + live + "</g>" + bodies;
-  if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
+  if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"', imgAt);
   g += "</g>";
   if (!tx0) return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
   var tsz = ' style="font-size:' + n(tx0) + 'px"';
