@@ -11,7 +11,7 @@ import { test, expect } from '@playwright/test';
 const lib = fileURLToPath(new URL('../packages/plots-svelte/src/lib/', import.meta.url));
 const NAMES = ['CurvePlot', 'RayFan', 'BarPlot', 'Map2D', 'SpotDiagram', 'Layout2D'];
 
-const bundle = async () => {
+const bundle = async (extra = '') => {
   const svelte = {
     name: 'svelte',
     setup(b) {
@@ -23,7 +23,7 @@ const bundle = async () => {
       b.onLoad({ filter: /\.svelte\.js$/ }, (a) => ({ contents: compileModule(readFileSync(a.path, 'utf8'), { generate: 'client', filename: a.path }).js.code, loader: 'js' }));
     },
   };
-  const entry = `import { mount } from 'svelte';\n${NAMES.map((n) => `import ${n} from './${n}.svelte';`).join('\n')}\nwindow.WRAPPERS = { mount, ${NAMES.join(', ')} };`;
+  const entry = `import { mount } from 'svelte';\n${NAMES.map((n) => `import ${n} from './${n}.svelte';`).join('\n')}\nwindow.WRAPPERS = { mount, ${NAMES.join(', ')} };\n${extra}`;
   const out = await build({ stdin: { contents: entry, resolveDir: lib, loader: 'js' }, bundle: true, write: false, format: 'iife', platform: 'browser', plugins: [svelte] });
   return out.outputFiles[0].text;
 };
@@ -98,4 +98,35 @@ test('Layout2D in a narrow box draws its default', async ({ page }) => {
   });
   expect(errors).toEqual([]);
   expect(widths).toEqual({ 3: 1000, 5: 1000, 8: 1000, 9: 9 });
+});
+
+// Plan #804 (agent_docs/plans/804-interaction.md), outcome O3 (issue #805; #812 unskips). oracle: closed-form `readout()` of the event's fields and the caller's axis specs.
+// The harness (tests/fixtures/svelte/ReadoutHarness.svelte, #811) holds a CurvePlot in a PlotCard whose `readout` prop shows the last hover event through `readout(event, { x, y })`.
+const harness = fileURLToPath(new URL('./fixtures/svelte/ReadoutHarness.svelte', import.meta.url));
+test.skip('PlotCard hover readout', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.addScriptTag({ content: await bundle(`import ReadoutHarness from ${JSON.stringify(harness)};\nwindow.WRAPPERS.ReadoutHarness = ReadoutHarness;`) });
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'harness';
+    host.style.width = '600px';
+    document.body.append(host);
+    window.WRAPPERS.mount(window.WRAPPERS.ReadoutHarness, { target: host, props: {} });
+  });
+  // The harness draws one series, label 'Tangential', points [[0, 1], [120, 0.62], [240, 0.3]], x 'cycles/mm', y unitless.
+  const poly = page.locator('#harness polyline[data-series="0"]');
+  await expect(poly).toBeVisible();
+  const g = poly.locator('xpath=..');
+  const at = await g.evaluate((el) => {
+    const [a, , , d, e, f] = el.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const vp = el.closest('svg');
+    const root = vp.ownerSVGElement || vp;
+    const box = root.getBoundingClientRect();
+    const k = box.width / root.viewBox.baseVal.width;
+    const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
+    return { x: box.left + (vx + a * 120 + e) * k, y: box.top + (vy + d * 0.62 + f) * k };
+  });
+  await page.mouse.move(at.x, at.y);
+  await expect(page.locator('#harness .eleo-plot__readout')).toHaveText('Tangential · 120 cycles/mm, 0.62');
 });
