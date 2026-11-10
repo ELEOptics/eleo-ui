@@ -750,7 +750,7 @@ test('curve keys', async ({ page }) => {
 // fixture: cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24) read "F1 0.0°", "F2 17.0°", "F3 24.0°";
 // fixture: achromat-fans.json's sources[0].wavelengths (486.133, 587.562, 656.272 nm) key the TRA fans as "486.1 nm", "587.6 nm", "656.3 nm";
 // sample.json wl (486.1327, 587.5618, 656.2725 nm) key the OPD fans the same way.
-// No key text overlaps another key or any other text of the figure (captions, axis labels), stays inside the SVG unless alone on its line, and no tile has an .eleo-plot__ft.
+// No key text overlaps another key or any other text of the figure (captions, axis labels), stays inside the SVG unless alone on its line, and no tile has an .eleo-plot__ft besides its readout line (the selector excludes `.eleo-plot__readout`).
 const FAN_FOOT_KEYS = {
   footprint: ['F1 0.0°', 'F2 17.0°', 'F3 24.0°'],
   rayFan: ['486.1 nm', '587.6 nm', '656.3 nm'],
