@@ -36,18 +36,17 @@ function overlay(marks, tip) {
   return layer;
 }
 
-/* Hides the overlay without removing it: the marks by `hidden`, the tooltip by emptying its text and collapsing its box, so it stays in the accessibility tree as an empty live region. */
+/* Hides the overlay without removing it: the marks by `hidden`, the tooltip by emptying its text (the stylesheet collapses an empty tip), so it stays in the accessibility tree as an empty live region. */
 function hide(layer, tip) {
   var kids = layer.children, n = kids.length - (tip ? 1 : 0);
   for (var i = 0; i < n; i++) kids[i].hidden = true;
-  if (tip) { var t = kids[n]; t.textContent = ""; t.style.padding = "0"; t.style.borderWidth = "0"; }
+  if (tip) { var t = kids[n]; t.textContent = ""; }
 }
 
 /* Sets the tooltip's text and puts it TIP_GAP px right of and below the pointer, flipped to the other side of the pointer where it would pass the host's edge, then clamped inside the host. The layer is re-added when a redraw replaced the host's markup. */
 function showTip(host, layer, text, cx, cy) {
   var tip = layer.lastChild, hb = host.getBoundingClientRect();
   if (layer.parentNode !== host) host.appendChild(layer);
-  tip.style.padding = tip.style.borderWidth = "";
   tip.textContent = text;
   var ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop, x = cx - ox, y = cy - oy;
   var w = tip.offsetWidth, h = tip.offsetHeight, W = host.clientWidth, H = host.clientHeight;

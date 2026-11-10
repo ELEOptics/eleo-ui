@@ -203,6 +203,7 @@ test('tooltip is a live region', async ({ page }) => {
   await expect(tip, 'hidden again on leave').toBeHidden();
   await expect(tip).toHaveText('');
   expect(await tip.evaluate((el) => el === window.TIP), 'same element').toBe(true);
+  expect(await tip.evaluate((el) => el.style.padding + el.style.borderWidth), 'hidden by CSS :empty, not inline style').toBe('');
   await page.mouse.move(p.clientX, p.clientY);
   await expect(tip).toBeVisible();
   expect(await tip.evaluate((el) => el === window.TIP), 'same element after re-hover').toBe(true);
