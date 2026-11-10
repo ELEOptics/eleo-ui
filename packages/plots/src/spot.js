@@ -37,7 +37,7 @@ export function spotLM(o, panels) {
   var halves = panels.map(function (p, i) { var h = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common; return isFinite(75 / h) ? h : 1; });
   return { halves: halves, LM: Math.max.apply(null, [SPOT_LABEL_M].concat(halves.map(labelM))) };
 }
-/* One square spot panel at (x, y), side `side`, the same scale `side / 2 / half` on both axes: the frame (stroke `frame`, default --plot-grid), the grid strictly inside ±half under the dots (`grid` not false), the centre cross, then in a nested svg (which clips) one round-cap dot path per series and a circle per positive radius in `circles`. wt is the dot weight, frameWeight(side). typedSpot and throughFocus both draw their panels with it; `o.labels` ({ x, y } flags, with `o.t` the text size in px) writes the tick labels of the same ticks outside the frame: x centred under the bottom edge, y right-aligned left of the left edge, every other one dropped until neighbours clear each other; the caller adds anything else outside the frame. */
+/* One square spot panel at (x, y), side `side`, the same scale `side / 2 / half` on both axes: the frame (stroke `frame`, default --plot-grid), the grid strictly inside ±half under the dots (`grid` not false), the centre cross, then in a nested svg (which clips) one round-cap dot path per series (data-series its position, data-role, data-label, `o.panel` as data-panel and `o.cell` as data-cell when given) and a circle per positive radius in `circles`. wt is the dot weight, frameWeight(side). typedSpot and throughFocus both draw their panels with it; `o.labels` ({ x, y } flags, with `o.t` the text size in px) writes the tick labels of the same ticks outside the frame: x centred under the bottom edge, y right-aligned left of the left edge, every other one dropped until neighbours clear each other; the caller adds anything else outside the frame. */
 function spotPanel(x, y, side, half, o) {
   var s = (side / 2) / half, cx = side / 2, g = "", fy = r2(y);
   g += '<rect x="' + r2(x + .5) + '" y="' + r2(y + .5) + '" width="' + r2(side - 1) + '" height="' + r2(side - 1) + '" rx="3" fill="none" stroke="' + (o.frame || "var(--plot-grid)") + '"/>';
@@ -58,9 +58,10 @@ function spotPanel(x, y, side, half, o) {
   }
   g += '<path d="M' + r2(x + 6) + "," + r2(y + cx) + " H" + r2(x + side - 6) + " M" + r2(x + cx) + "," + r2(y + 6) + " V" + r2(y + side - 6) + '" fill="none" stroke="var(--plot-grid)"/>';
   g += '<svg x="' + +x.toFixed(2) + '" y="' + +y.toFixed(2) + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, r2(cx), r2(cx)].join(" ") + ')">';
-  (o.series || []).forEach(function (se) {
+  (o.series || []).forEach(function (se, si) {
+    var ids = ' data-series="' + si + '"' + (se.role !== undefined ? ' data-role="' + esc(se.role) + '"' : "") + (se.label != null && String(se.label) !== "" ? ' data-label="' + esc(se.label) + '"' : "") + (o.panel !== undefined ? ' data-panel="' + o.panel + '"' : "") + (o.cell ? ' data-cell="' + o.cell + '"' : "");
     var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
-    g += '<path d="' + d + '" fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * o.wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
+    g += '<path d="' + d + '"' + ids + ' fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * o.wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
   });
   (o.circles || []).forEach(function (r) { if (r) g += '<circle cx="0" cy="0" r="' + r + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>"; });
   return g + "</g></svg>";
@@ -119,7 +120,7 @@ function typedSpot(o) {
   panels.forEach(function (p, i) {
     var half = halves[i];
     var ox = r2(lm + i * (side + lm + gap));
-    g += spotPanel(ox, top, side, half, { series: p.series || [], circles: [airyR(o, p), circleR(p)], grid: o.grid !== false, wt: wt, labels: { x: true, y: true }, t: t });
+    g += spotPanel(ox, top, side, half, { series: p.series || [], circles: [airyR(o, p), circleR(p)], panel: i, grid: o.grid !== false, wt: wt, labels: { x: true, y: true }, t: t });
     var pe = at === "below" ? [] : entsOf([p]);
     if (pe.length) g += cornerBox(pe, at, t, ox, top, side, side);
     var ty = r2(top + side + 3.3 * t);
@@ -165,7 +166,7 @@ export function throughFocus(o) {
     g += '<text class="eleo-val"' + sty + ' x="0" y="' + r2(oy + B / 2 + 0.4 * t) + '">' + fmt(D.fields[i], 1) + "°</text>";
     row.forEach(function (cell, j) {
       var ox = r2(lw + j * (B + gap));
-      g += spotPanel(ox, oy, B, half, { series: cell.pts.map(function (pts, wi) { return { points: pts, index: wi }; }), grid: o.grid !== false, wt: wt, frame: j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)", labels: { x: i === rows - 1, y: j === 0 }, t: t });
+      g += spotPanel(ox, oy, B, half, { series: cell.pts.map(function (pts, wi) { return { points: pts, index: wi }; }), grid: o.grid !== false, wt: wt, panel: i * cols + j, cell: i + "," + j, frame: j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)", labels: { x: i === rows - 1, y: j === 0 }, t: t });
       g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + (i === rows - 1 ? 2.5 : 1.3) * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + cell.rms.toFixed(1) + "</tspan></text>";
     });
   });

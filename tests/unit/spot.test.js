@@ -693,3 +693,24 @@ test('shared drawn-point rule', () => {
   const svg = ELEO.spot({ panels: [{ series: [{ points: [[1, 1], null, [null, 2], [NaN, 0], [-1, -1]] }] }] });
   assert.equal((svg.match(/ h0/g) || []).length, 2, 'only the two drawn points become dots');
 });
+
+// Plan #804 M2 (#814): each series path names its series (position in the array), its panel and, in throughFocus, its cell.
+test('series data attributes', () => {
+  const paths = (svg) => [...svg.matchAll(/<path d="(M[^"]* h0)"([^>]*)\/>/g)].map((m) => Object.fromEntries([...m[2].matchAll(/ (data-[a-z]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
+  const s = ELEO.spot({ width: 400, panels: [
+    { series: [{ index: 3, label: 'a & b', points: [[0, 0], [1, 1]] }, { index: 0, points: [[1, 0]] }] },
+    { series: [{ index: 1, points: [[0, 1]] }] }] });
+  assert.deepEqual(paths(s), [
+    { 'data-series': '0', 'data-label': 'a &amp; b', 'data-panel': '0' },
+    { 'data-series': '1', 'data-panel': '0' },
+    { 'data-series': '0', 'data-panel': '1' }], 'position, label and panel; the colour index is not the identity');
+  const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const T = sample.throughFocus, cols = T.defocus.length, rows = T.spots.length;
+  const tf = paths(ELEO.throughFocus({ data: sample }));
+  const per = T.spots[0][0].pts.length;
+  assert.equal(tf.length, rows * cols * per, 'a path per series per cell');
+  tf.forEach((a, k) => {
+    const cell = Math.floor(k / per), r = Math.floor(cell / cols), c = cell % cols;
+    assert.deepEqual(a, { 'data-series': String(k % per), 'data-panel': String(cell), 'data-cell': `${r},${c}` }, `path ${k}`);
+  });
+});
