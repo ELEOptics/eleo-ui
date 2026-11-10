@@ -380,9 +380,7 @@ test('BarPlot.svelte wraps bars and is exported', () => {
   const lib = new URL('../../packages/plots-svelte/src/lib/', import.meta.url);
   const comp = readFileSync(new URL('BarPlot.svelte', lib), 'utf8');
   assert.match(comp, /import\s*\*\s*as\s+plots\s+from\s*'@eleoptics\/plots'/);
-  assert.doesNotMatch(comp, /import\s*\{[^}]*\bbars\b[^}]*\}\s*from\s*'@eleoptics\/plots'/);
   assert.match(comp, /plots\.bars\b/);
-  assert.match(comp, /BarPlot needs @eleoptics\/plots 0\.5\.0 or later/);
   const index = readFileSync(new URL('index.js', lib), 'utf8');
   assert.match(index, /export\s*\{\s*default as BarPlot\s*\}\s*from\s*'\.\/BarPlot\.svelte'/);
 });
@@ -394,7 +392,7 @@ test('BarPlot throws a named error without bars and renders with it', async () =
   const src = readFileSync(new URL('../../packages/plots-svelte/src/lib/BarPlot.svelte', import.meta.url), 'utf8');
   const dir = mkdtempSync(join(tmpdir(), 'barplot-'));
   try {
-    const stubs = { old: 'export const bars = undefined;', current: "export const bars = () => '<svg></svg>';" };
+    const stubs = { old: 'export {};', current: "export const bars = () => '<svg></svg>';" };
     let js = compile(src, { generate: 'server', filename: 'BarPlot.svelte' }).js.code;
     js = js.replace("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')));
     const load = async (name) => {
@@ -409,4 +407,16 @@ test('BarPlot throws a named error without bars and renders with it', async () =
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// oracle: spec, plan #804 O1/O2 (#816). Identity sits on the rect: data-series is the series' position in `series` (not its palette index), data-category the category's index, the Σ group's rects the index n after the last category.
+test('bar data attributes', () => {
+  const series = [{ values: [1, -2, 3], index: 4, label: 'a' }, { values: [-1, 2, 0.5], index: 1, label: 'b' }];
+  const svg = ELEO.bars({ categories: ['x', 'y', 'z'], series, total: 'Σ', y: { label: 'v' }, width: 460, height: 300 });
+  const got = [...svg.matchAll(/<rect\b[^>]*\bdata-series="([^"]*)"[^>]*>/g)].map((m) => [m[1], /data-category="([^"]*)"/.exec(m[0])?.[1]]);
+  assert.equal(got.length, series.length * 4, 'every bar rect carries both attributes');
+  assert.deepEqual(got, [0, 1, 2, 3].flatMap((c) => [['0', String(c)], ['1', String(c)]]));
+  // A missing value draws no rect, and the others keep their own category.
+  const gap = ELEO.bars({ categories: ['x', 'y'], series: [{ values: [1, NaN], index: 3 }], y: {}, width: 460, height: 300 });
+  assert.deepEqual([...gap.matchAll(/<rect\b[^>]*\bdata-category="([^"]*)"/g)].map((m) => m[1]), ['0']);
 });

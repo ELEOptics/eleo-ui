@@ -9,7 +9,7 @@ var r2 = function (v) { return +v.toFixed(2); };
 
 /* Signed grouped bars in curve's frame (ADR-0001: roles and indexes, no colors; text, margins and the key to ADR-0003, in units of the text size t(F) of the plot frame's width F). Category k occupies x in [k, k + 1] in data units;
    bars fill 80 % of it, split among the series; `total` appends a group of per-series sums after a half-band gap.
-   Each bar is a <rect> in the data-space group with y = min(0, v) and height = |v|, so the transform inverts to the value. */
+   Each bar is a <rect> in the data-space group with y = min(0, v) and height = |v|, so the transform inverts to the value; data-series is the series' position and data-category the category's index (the total group's is n, after the last category). */
 export function bars(o) {
   o = o || {};
   var cats = o.categories || [], series = o.series || [], y = o.y || {}, W = o.width || 460, H = o.height || Math.round(W * 260 / 460), m = series.length;
@@ -39,13 +39,13 @@ export function bars(o) {
   var kl = keyLayout(keyed, t, { L: L, R: W - R, maxRow: maxRow }), row = kl.rows ? kl.rows - 1 : 0;
   var Hf = r2(H - KEY_LINE * row);
   var rects = "";
-  function bar(x0, s, j, v) {
+  function bar(x0, s, j, v, c) {
     if (!num(v)) return;
     var w = FILL / m;
-    rects += '<rect x="' + +(x0 + (1 - FILL) / 2 + j * w).toFixed(9) + '" y="' + +Math.min(0, v).toFixed(12) + '" width="' + +w.toFixed(9) + '" height="' + +Math.abs(v).toFixed(12) + '" fill="' + idx(s.index || 0) + '"/>';
+    rects += '<rect x="' + +(x0 + (1 - FILL) / 2 + j * w).toFixed(9) + '" y="' + +Math.min(0, v).toFixed(12) + '" width="' + +w.toFixed(9) + '" height="' + +Math.abs(v).toFixed(12) + '" fill="' + idx(s.index || 0) + '" data-series="' + j + '" data-category="' + c + '"/>';
   }
-  cats.forEach(function (_, c) { series.forEach(function (s, j) { bar(c, s, j, (s.values || [])[c]); }); });
-  if (hasTotal) series.forEach(function (s, j) { bar(n + GAP, s, j, sums[j]); });
+  cats.forEach(function (_, c) { series.forEach(function (s, j) { bar(c, s, j, (s.values || [])[c], c); }); });
+  if (hasTotal) series.forEach(function (s, j) { bar(n + GAP, s, j, sums[j], n); });
   /* Category labels in px at each band centre, every k-th when a band is under 1.4 text units; the total's label is always drawn. */
   var pw = r2(Math.max(1, W - L - R)), px = pw / span, ph = r2(Math.max(1, Hf - T - Bm)), step = Math.max(1, Math.ceil(MIN_BAND_PX / px));
   /* Solid dividers, frame decoration in px outside the data group, drawn before plotCell so they sit with the gridlines under the data and the limit labels: at every step-th boundary between category groups (each separates labelled groups) and mid-gap before the total. */
