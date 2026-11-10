@@ -444,23 +444,49 @@ export declare const PLOT_SIZES: {
 export declare function minWidth(name: keyof typeof PLOT_SIZES, props?: object): number;
 
 /* Pointer interaction (packages/plots/src/interact.js). */
-/** What the pointer is on: a drawn point of a curve mark, or the spot on the line between two consecutive points, in data units. */
+/** What the pointer is on: a drawn point of a mark, a bar, a map sample or the spot on the line between two consecutive points, in data units. Which keys are present depends on the plot: a curve, spot or bar has `series`; a bar adds `category`; a typed map has `row` and `column` (or `ring` and `spoke`); a layout2D ray run has `field`, `ray` and `status` and no `series`. */
 export interface HoverEvent {
   /** The data coordinates of the hovered point, or of the interpolated spot on the segment (the pointer projected onto it and clamped to it, so at a segment's end they can equal a data point). */
   x: number;
   y: number;
   /** The mark's identity from the drawing's `data-series`, `data-label` and `data-role`. `index` is the series' position in the `series` array (in its panel, with `panels`), not its `index` palette slot: two series can share a slot. `label` and `role` are absent where the series has none. */
-  series: { index: number; label?: string; role?: string };
+  series?: { index: number; label?: string; role?: string };
   /** The panel index from `data-panel`; absent on a single-panel drawing. */
   panel?: number;
+  /** A bar's category index (`data-category`; the total's group). Present only on a `bars` hover. */
+  category?: number;
+  /** A typed grid `map2D` sample: its row (top-down, as `values[row][column]`) and column. Present only on a grid map hover. */
+  row?: number;
+  column?: number;
+  /** A typed polar `map2D` sample: indices into `radii` and `angles`. Present only on a polar map hover. */
+  ring?: number;
+  spoke?: number;
+  /** The sample's value, `opts.values[row][column]` (`[ring][spoke]` for polar). Present only on a map hover given `opts.values`. */
+  value?: number;
+  /** A layout2D ray run: its field index (`data-field`), its ray index (`data-ray`) and its status (`data-status`, absent where the run has none). */
+  field?: number;
+  ray?: number;
+  status?: string;
   /** `true` when the pointer did not snap to a point (not within 6 px of one): `x` and `y` are then the pointer projected onto the straight line joining two points, clamped to it (within 24 px of it), so at a segment's end they can equal a data point. Absent when the event is a data point itself. */
   interpolated?: true;
   /** The indices `[i, i + 1]` of the two joined points among the mark's finite points, in order. Present only with `interpolated`. */
   segment?: [number, number];
 }
+/** What a click selected, named by the clicked mark's own identity: a curve, spot or bar names its `series` (with `panel`, and a bar its `category`), a layout2D surface its `surface` (the surface index, `data-surface`), a layout2D ray run its `field` only. eleo-ui does nothing else with it. */
+export interface SelectEvent {
+  series?: { index: number; label?: string; role?: string };
+  panel?: number;
+  category?: number;
+  surface?: number;
+  field?: number;
+}
 export interface InteractOptions {
   /** Called with the hovered point, or the interpolated spot on the line between two points (see `HoverEvent.interpolated`), nearest the pointer, or `null` when the pointer leaves it or the host. Repeats of the same point are not re-sent. */
   onhover?: (event: HoverEvent | null) => void;
+  /** Called once per click on a mark, with the mark's identity (see `SelectEvent`). A click on no mark sends nothing. */
+  onselect?: (event: SelectEvent) => void;
+  /** Values of a typed `map2D`, `values[row][column]` (`[ring][spoke]` for polar), read into `HoverEvent.value`. */
+  values?: number[][];
   /** How the tooltip's `readout` writes each axis (unit, digits). Default: no units, `readout`'s default digits. */
   axes?: { x?: ReadoutAxis; y?: ReadoutAxis };
   /** Draw a dot on the hovered point and drop lines to both axes in an overlay on the host. Default `true`. */

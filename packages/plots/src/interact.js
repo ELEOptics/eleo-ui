@@ -126,9 +126,9 @@ function showMarks(host, layer, b) {
 
 var hosts = new WeakMap(); // host -> number of live interact calls holding its `eleo-hover-host` class
 
-/* interact(el, { onhover, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
+/* interact(el, { onhover, onselect, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
 export function interact(el, opts) {
-  var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, values = opts && opts.values, layer = (marks || tip) && overlay(marks, tip);
+  var onhover = (opts && opts.onhover) || function () {}, onselect = opts && opts.onselect, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, values = opts && opts.values, layer = (marks || tip) && overlay(marks, tip);
   if (layer) { el.appendChild(layer); hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
@@ -155,15 +155,26 @@ export function interact(el, opts) {
     if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
     emit(ev, polar ? "r" + s.ring + "," + s.spoke : "c" + s.row + "," + s.column);
   }
+  /* A click selects the mark under it by the mark's own data-*: the target's nearest ancestor in the host that names a surface, a layout field or a series. A ray run names its field only (a ray is several runs); nothing else changes. */
+  function click(e) {
+    var m = e.target.closest && e.target.closest("[data-surface], [data-field], [data-series]");
+    if (!m || !el.contains(m) || !onselect) return;
+    var d = m.dataset, ev;
+    if (d.surface !== undefined) ev = { surface: +d.surface };
+    else if (d.field !== undefined) ev = { field: +d.field };
+    else { ev = { series: { index: +d.series, label: d.label, role: d.role } }; if (d.panel !== undefined) ev.panel = +d.panel; if (d.category !== undefined) ev.category = +d.category; }
+    onselect(ev);
+  }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
   // a redraw replaced the markup: the empty live region is back at once (a microtask), before any text is set. Appending only when detached keeps the observer from looping on its own mutation.
   var watch = layer && new MutationObserver(function () { if (layer.parentNode !== el) el.appendChild(layer); });
   if (watch) watch.observe(el, { childList: true });
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
+  el.addEventListener("click", click);
   var stopped = false;
   return function stop() {
-    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave);
+    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); el.removeEventListener("click", click);
   };
 }
 

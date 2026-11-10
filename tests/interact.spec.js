@@ -730,7 +730,7 @@ test.skip('layout ray hover reads along a run', async ({ page }) => {
 });
 
 // #819 (O2): a click on a mark emits one select event naming that mark by its own data-* identity, and changes no markup. Marks are found with the browser's own hit test, so the click lands on the mark.
-test.skip('click selects a mark', async ({ page }) => {
+test.skip('select events', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await install(page);
@@ -739,7 +739,7 @@ test.skip('click selects a mark', async ({ page }) => {
     ['spot', 'path[data-series][data-panel]', (ev, ds) => { names(ev, ds, 'spot'); }],
     ['seidel', 'rect[data-series][data-category]', (ev, ds) => { expect(ev.series.index, 'bar series').toBe(+ds.series); expect(String(ev.category), 'bar category').toBe(ds.category); }],
     ['layout2D-wandersleb', '[data-surface]', (ev, ds) => { expect(String(ev.surface), 'surface').toBe(ds.surface); }],
-    ['layout2D-wandersleb', 'polyline[data-field][data-ray]', (ev, ds) => { expect(String(ev.field), 'field').toBe(ds.field); }],
+    ['layout2D-wandersleb', 'polyline[data-field][data-ray]', (ev, ds) => { expect(String(ev.field), 'field').toBe(ds.field); expect(ev.ray, 'a run names its field only').toBeUndefined(); }],
   ];
   for (const [tile, sel, check] of cases) {
     await bind(page, tile);
