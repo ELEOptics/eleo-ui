@@ -811,7 +811,7 @@ test('foreign data-series markup is ignored', async ({ page }) => {
     window.SELECT = [];
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px;background:#fff;z-index:9999';
-    host.innerHTML = '<svg width="200" height="200" viewBox="0 0 200 200"><path data-series="0" d="M0,0 L10,10" stroke="red"/></svg>';
+    host.innerHTML = '<svg width="200" height="200" viewBox="0 0 200 200"><path data-series="0" d="M0,0 L10,10" stroke="red"/><path data-field="2" data-series="0" d="M20,20 L30,30" stroke="blue"/></svg>';
     document.body.appendChild(host);
     window.HOST = host;
     window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev), onselect: (ev) => window.SELECT.push(ev) });
@@ -822,6 +822,8 @@ test('foreign data-series markup is ignored', async ({ page }) => {
   expect(await page.evaluate(() => window.HOVER.filter((ev) => ev !== null).length), 'nothing hovered').toBe(0);
   await page.evaluate(() => window.HOST.querySelector('path').dispatchEvent(new MouseEvent('click', { bubbles: true })));
   expect(await page.evaluate(() => window.SELECT.length), 'nothing selected').toBe(0);
+  await page.evaluate(() => window.HOST.querySelectorAll('path')[1].dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  expect(await page.evaluate(() => window.SELECT), 'a field mark carrying a stray data-series still selects its field').toEqual([{ field: 2 }]);
   expect(errors, 'no page error').toEqual([]);
   await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
 });

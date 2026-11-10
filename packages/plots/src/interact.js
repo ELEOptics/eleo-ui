@@ -161,11 +161,11 @@ export function interact(el, opts) {
   function click(e) {
     var m = e.target.closest && e.target.closest("[data-surface], [data-field], [data-series]");
     if (!m || !el.contains(m) || !onselect) return;
-    if (m.dataset.series !== undefined && m.dataset.surface === undefined && m.dataset.field === undefined && !dataGroup(m)) return; // foreign markup: a series mark outside a matrix group, as hover skips it
     var d = m.dataset, ev;
     if (d.surface !== undefined) ev = { surface: +d.surface };
     else if (d.field !== undefined) ev = { field: +d.field };
-    else { ev = { series: { index: +d.series, label: d.label, role: d.role } }; if (d.panel !== undefined) ev.panel = +d.panel; if (d.category !== undefined) ev.category = +d.category; }
+    else { if (!dataGroup(m)) return; // foreign markup: a series mark outside a matrix group, as hover skips it
+      ev = { series: { index: +d.series, label: d.label, role: d.role } }; if (d.panel !== undefined) ev.panel = +d.panel; if (d.category !== undefined) ev.category = +d.category; }
     onselect(ev);
   }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
