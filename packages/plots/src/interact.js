@@ -26,18 +26,28 @@ function nearest(host, cx, cy) {
   return best;
 }
 
-/* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (the last child) unless `tip` is false; divs positioned in host px. */
+/* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (the last child) unless `tip` is false; divs positioned in host px. The tooltip is a polite live region (`role=status`), so it is made here, empty, and kept for the life of the call: a region created together with its text is often not announced. */
 function overlay(marks, tip) {
   var layer = document.createElement("div");
   layer.className = "eleo-hover";
   (marks ? ["v", "h", "dot"] : []).concat(tip ? ["tip"] : []).forEach(function (k) { var d = document.createElement("div"); d.className = "eleo-hover__" + k; layer.appendChild(d); });
+  if (tip) { var t = layer.lastChild; t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); }
+  hide(layer, tip);
   return layer;
+}
+
+/* Hides the overlay without removing it: the marks by `hidden`, the tooltip by emptying its text and collapsing its box, so it stays in the accessibility tree as an empty live region. */
+function hide(layer, tip) {
+  var kids = layer.children, n = kids.length - (tip ? 1 : 0);
+  for (var i = 0; i < n; i++) kids[i].hidden = true;
+  if (tip) { var t = kids[n]; t.textContent = ""; t.style.padding = "0"; t.style.borderWidth = "0"; }
 }
 
 /* Sets the tooltip's text and puts it TIP_GAP px right of and below the pointer, flipped to the other side of the pointer where it would pass the host's edge, then clamped inside the host. The layer is re-added when a redraw replaced the host's markup. */
 function showTip(host, layer, text, cx, cy) {
   var tip = layer.lastChild, hb = host.getBoundingClientRect();
   if (layer.parentNode !== host) host.appendChild(layer);
+  tip.style.padding = tip.style.borderWidth = "";
   tip.textContent = text;
   var ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop, x = cx - ox, y = cy - oy;
   var w = tip.offsetWidth, h = tip.offsetHeight, W = host.clientWidth, H = host.clientHeight;
@@ -53,6 +63,7 @@ function showMarks(host, layer, b) {
   var hb = host.getBoundingClientRect(), ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop;
   var pt = new DOMPoint(b.x, b.y).matrixTransform(m), x = pt.x - ox, y = pt.y - oy;
   var left = new DOMPoint(0, 0).matrixTransform(vm).x - ox, bottom = new DOMPoint(0, vp.height.baseVal.value).matrixTransform(vm).y - oy;
+  for (var i = 0; i < 3; i++) layer.children[i].hidden = false;
   var v = layer.children[0], h = layer.children[1], dot = layer.children[2];
   v.style.cssText = "left:" + (x - 0.5) + "px;top:" + y + "px;height:" + Math.max(0, bottom - y) + "px";
   h.style.cssText = "top:" + (y - 0.5) + "px;left:" + left + "px;width:" + Math.max(0, x - left) + "px";
@@ -65,7 +76,7 @@ var hosts = new WeakMap(); // host -> number of live interact calls holding its 
 /* interact(el, { onhover, axes, marks, tooltip }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer, and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
 export function interact(el, opts) {
   var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, layer = (marks || tip) && overlay(marks, tip);
-  if (layer) { hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
+  if (layer) { el.appendChild(layer); hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
     var b = nearest(el, e.clientX, e.clientY);
@@ -76,7 +87,7 @@ export function interact(el, opts) {
     if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
     emit(ev, [d.panel, d.series, b.index].join());
   }
-  function leave() { if (layer) layer.remove(); emit(null, ""); }
+  function leave() { if (layer) hide(layer, tip); emit(null, ""); }
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   var stopped = false;

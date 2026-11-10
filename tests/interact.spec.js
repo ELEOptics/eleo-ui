@@ -123,7 +123,7 @@ test('hover marks the point and its drop lines', async ({ page }) => {
   expect(Math.abs((h.top + h.bottom) / 2 - p.clientY), 'horizontal line at y').toBeLessThanOrEqual(0.5);
   expect(Math.abs(h.left - frame.left), 'horizontal line ends on the left edge').toBeLessThanOrEqual(0.5);
   await page.mouse.move(2, 2);
-  await expect(light.locator(`[data-tile="${tile}"] .eleo-hover__dot`), 'gone on leave').toHaveCount(0);
+  await expect(light.locator(`[data-tile="${tile}"] .eleo-hover__dot:visible`), 'hidden on leave').toHaveCount(0);
   await page.evaluate(() => window.STOP());
 });
 
@@ -164,7 +164,7 @@ test('tooltip follows the pointer', async ({ page }) => {
     expect(Math.hypot(dx, dy), 'near the pointer').toBeLessThanOrEqual(40);
   }
   await page.mouse.move(2, 2);
-  await expect(tip, 'gone on leave').toHaveCount(0);
+  await expect(tip, 'gone on leave').toBeHidden();
   await page.evaluate(() => window.STOP());
   // tooltip: false
   await page.evaluate(() => { window.STOP = window.ELEO.interact(document.querySelector('[data-tile="own"]'), { tooltip: false }); });
@@ -173,6 +173,41 @@ test('tooltip follows the pointer', async ({ page }) => {
   await expect(light.locator(`[data-tile="${tile}"] .eleo-hover__dot`).first()).toHaveCount(1);
   await expect(tip, 'tooltip off').toHaveCount(0);
   await page.evaluate(() => window.STOP());
+});
+
+// #865: the tooltip is a polite live region that exists before its text changes and is the same element for the life of the call; on leave it is emptied and hidden, not removed.
+test('tooltip is a live region', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const light = page.locator('body');
+  await page.evaluate(() => {
+    const body = document.createElement('div');
+    body.dataset.tile = 'live';
+    body.style.cssText = 'position:fixed;left:0;top:0;width:460px;background:#fff;z-index:9';
+    body.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 3.5], [5, 5], [6, 4], [7, 2]], index: 0, label: 'S' }], x: { range: [0, 7] }, y: { range: [0, 5] }, width: 460, height: 260 });
+    document.body.append(body);
+    window.STOP = window.ELEO.interact(body);
+  });
+  const tip = light.locator('[data-tile="live"] .eleo-hover__tip');
+  await expect(tip, 'exists before any hover').toHaveCount(1);
+  await expect(tip).toHaveAttribute('role', 'status');
+  await expect(tip).toHaveAttribute('aria-live', 'polite');
+  await expect(tip).toHaveText('');
+  await expect(tip).toBeHidden();
+  await tip.evaluate((el) => { window.TIP = el; });
+  const p = await drawnAt(light, 'live', 0, 3);
+  await page.mouse.move(p.clientX, p.clientY);
+  await expect(tip).toBeVisible();
+  await expect(tip).not.toHaveText('');
+  await page.mouse.move(2, 2);
+  await expect(tip, 'hidden again on leave').toBeHidden();
+  await expect(tip).toHaveText('');
+  expect(await tip.evaluate((el) => el === window.TIP), 'same element').toBe(true);
+  await page.mouse.move(p.clientX, p.clientY);
+  await expect(tip).toBeVisible();
+  expect(await tip.evaluate((el) => el === window.TIP), 'same element after re-hover').toBe(true);
+  await page.evaluate(() => window.STOP());
+  await expect(tip, 'removed by stop').toHaveCount(0);
 });
 
 test('two interact calls on one host', async ({ page }) => {
