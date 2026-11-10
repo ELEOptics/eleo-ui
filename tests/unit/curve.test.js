@@ -147,7 +147,7 @@ test('frame geometry has at most 2 decimals', () => {
   }
 });
 
-// Plan #284 #329 (CR from the M2 demo). oracle: property: a single plot's frame top sits at least 14 px under the y-axis title's baseline (y = 10), as bars.test.js checks for bars.
+// Plan #284 #329 (CR from the M2 demo). oracle: property: a single plot's frame top sits at least 14 px under the y-axis title's baseline (y = 10); bars.test.js checks the same room as 1.4 t.
 test('the y-axis title has room above the frame', () => {
   const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], index: 0 }], x: { label: 'Frequency', unit: 'cy/mm' }, y: { label: 'Modulus' }, width: 460, height: 260 });
   const T = Number(/<svg\b[^>]*\by="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg)[1]);
@@ -891,7 +891,7 @@ test('corner key stays in the plot', async () => {
 // Plan #677, issue #691. oracle: property: grid: false removes exactly the tick grid lines; the tick text and everything else stay, and without it the output is byte-identical.
 test('plotCell without grid', async () => {
   const { plotCell } = await import('../../packages/plots/src/curve.js');
-  const sc = { xr: [0, 10], yr: [0, 1], xt: { ticks: [0, 5, 10], decimals: 0 }, yt: { ticks: [0, 0.5, 1], decimals: 1 }, R: 10, Rt: 1 };
+  const sc = { xr: [0, 10], yr: [0, 1], xt: { ticks: [0, 5, 10], decimals: 0 }, yt: { ticks: [0, 0.5, 1], decimals: 1 }, Rt: 1 };
   const mg = { L: 40, B: 30, R: 10, t: 10 };
   const on = plotCell(sc, [], 300, 200, 10, false, '', undefined, mg);
   const off = plotCell(sc, [], 300, 200, 10, false, '', undefined, { ...mg, grid: false });

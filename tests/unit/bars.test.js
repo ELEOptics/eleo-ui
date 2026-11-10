@@ -215,7 +215,7 @@ test('seidel adapter labels by term name', async () => {
   });
 });
 
-// Plan #284 #309. oracle: property: the key row never takes the frame below TOP + PLOT_B + 1, so every height stays positive.
+// Plan #284 #309. oracle: property: the key row never takes the frame to a height of 1 or less, so every height stays positive.
 test('a small drawing keeps a positive frame', () => {
   const series = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'].map((label, index) => ({ label, index, values: [1, -2] }));
   const svg = ELEO.bars({ categories: ['1', '2'], series, total: 'Σ', y: { label: 'n' }, width: 120, height: 120 });
@@ -225,7 +225,7 @@ test('a small drawing keeps a positive frame', () => {
   assert.ok(series.every((s) => svg.includes('>' + s.label + '</text>')), 'every series is still named');
 });
 
-// Plan #284 #312 (CR from the M1 demo). oracle: property: solid dividers at band boundaries 1, 2 and the Σ gap's middle, full frame height, outside the series group; the frame sits at least 14 px under the title baseline; with thinned labels, a divider only every step boundaries.
+// Plan #284 #312 (CR from the M1 demo). oracle: property: solid dividers at band boundaries 1, 2 and the Σ gap's middle, full frame height, outside the series group; the frame sits at least 1.4 t under the title baseline; with thinned labels, a divider only every step boundaries.
 test('group dividers and title room', () => {
   const isVertical = (l) => l.match(/\bx1="([^"]+)"/)[1] === l.match(/\bx2="([^"]+)"/)[1];
   const svg = ELEO.bars({ categories: ['1', '2', '3'], series: [{ values: [1, -2, 3], index: 0 }], total: 'Σ', y: { label: 'Seidel sum', unit: 'mm' }, width: 460, height: 260 });

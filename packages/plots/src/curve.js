@@ -2,7 +2,7 @@ import { idx, svg, esc, NS, drawn } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
-import { frameText, frameWeight, frameOf } from "./scale.js";
+import { frameText, frameWeight, frameOf, CURVE_MARGINS } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
 import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
 
@@ -98,10 +98,10 @@ export function limitBody(limits, sc, inner) {
   var m = limitMarks(limits, sc.xr, sc.yr, limitStyle());
   return m.under + inner + m.over;
 }
-/* ADR-0003's margins in text units: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
+/* ADR-0003's margins in text units (scale.js CURVE_MARGINS: left, bottom, top), the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
 function curveMargins(sc, w) {
-  var F = frameOf(w, 4.6 + sc.Rt), t = frameText(F);
-  return { L: 4.6 * t, B: 3.6 * t, R: sc.Rt * t, t: t, wt: +frameWeight(F).toFixed(3) };
+  var F = frameOf(w, CURVE_MARGINS.L + sc.Rt), t = frameText(F);
+  return { L: CURVE_MARGINS.L * t, B: CURVE_MARGINS.B * t, R: sc.Rt * t, t: t, wt: +frameWeight(F).toFixed(3) };
 }
 /* The key's entries: `key` when given ({ label, role?, index? }), else one per distinct series `label` (the first use's role and index). A line swatch in the role's dash. Without either: none. */
 function keyEntries(o) {
@@ -166,8 +166,8 @@ function typedCurve(o) {
   sc = scales({ x: x, y: y, limits: lim }, [o.series]);
   var m1 = curveMargins(sc, W);
   m1.grid = o.grid;
-  if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, 2.6 * m1.t + m1.B);
-  g = cell(o.series, W, Hf, 2.6 * m1.t, false, m1) + labels(m1) + below;
+  if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, CURVE_MARGINS.T * m1.t + m1.B);
+  g = cell(o.series, W, Hf, CURVE_MARGINS.T * m1.t, false, m1) + labels(m1) + below;
   return svg(W, Hs, g, lab(y) + " against " + lab(x) + " plot");
 }
 

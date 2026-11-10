@@ -120,7 +120,7 @@ test("formulas at the band's edges", () => {
 
 // Plan #512, outcome O1 for bars, spot and throughFocus (issue #522; #528 unskips). oracle: closed-form ADR-0003.
 // bars: F is the plot frame's rect width. spot and throughFocus: the frame is a panel, F = its rect width + 1 (the rect is inset 0.5 px each side for its stroke).
-// Text only: bars draws no stroked series, and spot's and throughFocus's dots are not stroke-width attributes.
+// Text only: bars draws no stroked series, and spot's and throughFocus's dots are paths whose stroke-width the series check does not count.
 const panelFrames = (svg) => frames(svg).map((w) => w + 1);
 function checkText(name, svg, F, branches) {
   const t = sizes(svg);
@@ -275,4 +275,16 @@ test('ELEO.minWidth is exported on the module and on the classic build (#610)', 
   vm.runInNewContext(readFileSync(new URL('../../packages/plots/dist/eleo-plots.js', import.meta.url), 'utf8'), { window: win });
   assert.equal(typeof win.ELEO.minWidth, 'function', 'window.ELEO.minWidth');
   assert.equal(win.ELEO.minWidth('bars'), minWidth('bars'), 'same floor on the classic build');
+});
+
+// Plan #804, issue #586. oracle: closed-form ADR-0003 (margins in text units: 4.6 left, 3.6 bottom, 2.6 top); the one export scale.js owns, which curve draws with.
+test('curve reads the margin export', () => {
+  assert.deepEqual({ ...scale.CURVE_MARGINS }, { L: 4.6, T: 2.6, B: 3.6 }, 'ADR-0003 margins');
+  const input = { series: [{ points: [[0, 0], [1, 2]], index: 0, role: 'tangential' }], x: { label: 'x', range: [0, 2], ticks: [0, 1, 2] }, y: { label: 'y', range: [0, 2], ticks: [0, 1, 2] }, width: 300 };
+  const svg = ELEO.curve(input);
+  const [L, T, F, ph] = /<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="none" stroke="var\(--plot-grid\)"\/>/.exec(svg).slice(1).map(Number);
+  const t = fText(F), M = scale.CURVE_MARGINS;
+  near(L, M.L * t, 'left margin is CURVE_MARGINS.L text units');
+  near(T, M.T * t, 'top margin is CURVE_MARGINS.T text units');
+  near(T + ph + M.B * t, Math.round(300 * 260 / 460), 'bottom margin is CURVE_MARGINS.B text units');
 });
