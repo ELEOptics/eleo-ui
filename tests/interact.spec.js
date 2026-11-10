@@ -21,7 +21,9 @@ const drawnAt = (page, tile, series, index) => page.locator(`[data-tile="${tile}
     return { data: [x, y], clientX: box.left + (vx + a * x + e) * k, clientY: box.top + (vy + d * y + f) * k, k, a, d };
   }, index);
 
-test('hover emits the point under the pointer', async ({ page }) => {
+// The body shared by both hover tests: hover points 0, 3 and 7 of the MTF tile's first series, check each event
+// against the inverse transform, check that leaving emits null, then stop(). Returns the tile name.
+async function hoverRoundTrip(page) {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const tile = 'mtf';
@@ -45,33 +47,16 @@ test('hover emits the point under the pointer', async ({ page }) => {
   await page.mouse.move(2, 2);
   expect(await page.evaluate(() => window.HOVER.at(-1)), 'leaving emits null').toBeNull();
   await page.evaluate(() => window.STOP());
+  return tile;
+}
+
+test('hover emits the point under the pointer', async ({ page }) => {
+  await hoverRoundTrip(page);
 });
 
 // #807: the same round trip, live. The points checked are the ends and the middle of the first series of the MTF tile.
 test('curve hover round trip', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  const tile = 'mtf';
-  await page.evaluate((tile) => {
-    window.HOVER = [];
-    const body = document.querySelector(`.theme[data-theme="light"] [data-tile="${tile}"] .eleo-plot__body`);
-    window.STOP = window.ELEO.interact(body, { onhover: (ev) => window.HOVER.push(ev) });
-  }, tile);
-  await page.locator(`.theme[data-theme="light"] [data-tile="${tile}"]`).scrollIntoViewIfNeeded(); // the pointer must be inside the viewport
-  for (const index of [0, 3, 7]) {
-    const p = await drawnAt(page.locator('.theme[data-theme="light"]'), tile, 0, index);
-    await page.mouse.move(p.clientX, p.clientY);
-    const ev = await page.evaluate(() => window.HOVER.at(-1));
-    expect(ev, `point ${index} hovered`).not.toBeNull();
-    expect(ev.series.index).toBe(0);
-    expect(typeof ev.series.label).toBe('string');
-    expect(ev.series.role).toBeTruthy();
-    expect(Math.abs(ev.x - p.data[0]) * Math.abs(p.a) * p.k, 'x within TOL_PX').toBeLessThanOrEqual(TOL_PX);
-    expect(Math.abs(ev.y - p.data[1]) * Math.abs(p.d) * p.k, 'y within TOL_PX').toBeLessThanOrEqual(TOL_PX);
-  }
-  await page.mouse.move(2, 2);
-  expect(await page.evaluate(() => window.HOVER.at(-1)), 'leaving emits null').toBeNull();
-  await page.evaluate(() => window.STOP());
+  const tile = await hoverRoundTrip(page);
   const n = await page.evaluate(() => window.HOVER.length);
   const p = await drawnAt(page.locator('.theme[data-theme="light"]'), tile, 0, 3);
   await page.mouse.move(p.clientX, p.clientY);
