@@ -913,7 +913,7 @@ test('layout keys',async ({ page }) => {
 });
 
 // Where data point `index` of a series mark is drawn, in client px, from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
-// Points are parsed by the rule interact's runs() states: strip M/L and h<n>, split on commas and spaces, drop a pair with a non-finite coordinate (a path's M and a dropped pair break runs; a polyline with any non-finite pair has no points).
+// The drawn points: parse the attribute string (strip M/L and h<n>, split on commas and spaces) and drop non-finite pairs only. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
 const drawnPoint = (mark, index) => mark.evaluate((m, index) => {
   const g = m.parentNode, [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
   const n = (m.getAttribute('points') || m.getAttribute('d') || '').replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
