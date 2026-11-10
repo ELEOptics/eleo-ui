@@ -44,7 +44,7 @@ function seriesPath(pts) {
 /* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. */
 function seriesMarkup(s, panel, wt, si, pi) {
   var st = roleStyle(s, wt), pts = s.points || [];
-  var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label).replace(/"/g, "&quot;") + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
+  var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label) + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
   var attrs = ids + ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
   if (panel) return '<path d="' + seriesPath(pts) + '"' + attrs;
   return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;

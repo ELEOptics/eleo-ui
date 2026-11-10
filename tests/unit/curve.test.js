@@ -955,3 +955,11 @@ test('series data attributes', () => {
   const marks2 = many.match(/<path [^>]*data-series[^>]*>/g);
   assert.deepEqual(marks2.map((m) => [m.match(/data-panel="(\d+)"/)[1], m.match(/data-series="(\d+)"/)[1]]), [['0', '0'], ['1', '0'], ['1', '1']]);
 });
+
+// CR #841 (#851): data-label is escaped exactly once.
+// oracle: closed-form the label a"b&c escapes to a&quot;b&amp;c, never a double escape (&amp;quot;)
+test('series data-label escapes once', () => {
+  const out = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], label: 'a"b&c' }] });
+  assert.match(out, /data-label="a&quot;b&amp;c"/);
+  assert.doesNotMatch(out, /&amp;quot;/);
+});
