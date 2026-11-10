@@ -161,6 +161,7 @@ export function interact(el, opts) {
   function click(e) {
     var m = e.target.closest && e.target.closest("[data-surface], [data-field], [data-series]");
     if (!m || !el.contains(m) || !onselect) return;
+    if (m.dataset.series !== undefined && m.dataset.surface === undefined && m.dataset.field === undefined && !dataGroup(m)) return; // foreign markup: a series mark outside a matrix group, as hover skips it
     var d = m.dataset, ev;
     if (d.surface !== undefined) ev = { surface: +d.surface };
     else if (d.field !== undefined) ev = { field: +d.field };
@@ -188,7 +189,7 @@ function value(v, spec) {
   return s.unit ? t + " " + s.unit : t;
 }
 
-/* readout(event, { x, y, value }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>[ = <value> <unit>]`, from the caller's axis specs `{ unit?, digits? }`; the ` = <value>` suffix is there when the event has a `value` (a map's sample), formatted by `axes.value`. A null event gives "". */
+/* readout(event, { x, y, value }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>[ = <value> <unit>]`, from the caller's axis specs `{ unit?, digits? }`; the ` = <value>` suffix is there when the event's `value` is not null (a map's sample), formatted by `axes.value`. A null event gives "". */
 export function readout(ev, axes) {
   if (!ev) return "";
   var a = axes || {}, label = ev.series && ev.series.label, xy = value(ev.x, a.x) + ", " + value(ev.y, a.y);
