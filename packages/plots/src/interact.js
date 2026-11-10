@@ -88,11 +88,13 @@ export function interact(el, opts) {
     emit(ev, [d.panel, d.series, b.index].join());
   }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
+  function enter() { if (layer && layer.parentNode !== el) el.appendChild(layer); } // a redraw replaced the markup: the empty live region is back before the first text
+  el.addEventListener("pointerenter", enter);
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   var stopped = false;
   return function stop() {
-    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave);
+    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } el.removeEventListener("pointerenter", enter); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave);
   };
 }
 
