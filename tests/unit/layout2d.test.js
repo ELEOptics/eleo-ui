@@ -1179,7 +1179,7 @@ function arcProperties(L, svg, tag) {
     });
   });
   // Mirror bodies are drawn after the ray group, so they cover the rays.
-  const rayGroup = body.indexOf('<g opacity'), lastBody = body.lastIndexOf('var(--mech)"');
+  const rayGroup = body.indexOf('<g opacity=".85">'), lastBody = body.lastIndexOf('var(--mech)"');
   if (bodies.length) assert.ok(rayGroup >= 0 && lastBody > body.indexOf('</g>', rayGroup), `${tag}: mirror bodies come after the ray group`);
   return { c, R };
 }

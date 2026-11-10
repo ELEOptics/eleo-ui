@@ -277,18 +277,18 @@ export function layout2D(o) {
       // each run of one status is a polyline with data-status; without it adjacent solid runs (Alive and Dead) join and Virtual runs are dotted (a chief's solid runs keep their 6 4 dash).
       var r = rays[i], st = statusOf(L, k, i), end = L.status || st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead"), runs = [];
       for (var j = 1; j <= end; j++) {
-        var sj = L.status ? st[j - 1] : st[j], last = runs[runs.length - 1], virt = sj === "Virtual";
+        var sj = L.status ? st[j - 1] : st[j], last = runs[runs.length - 1];
         if (show.indexOf(sj) < 0) { runs.push(null); continue; } // a hidden segment is a gap: no run continues over it
-        if (last && (L.status ? last.st === sj : last.virt === virt)) last.q.push(r[j]);
-        else runs.push({ st: sj, virt: virt, q: [r[j - 1], r[j]] });
+        if (last && (L.status ? last.st === sj : (last.st === "Virtual") === (sj === "Virtual"))) last.q.push(r[j]);
+        else runs.push({ st: sj, q: [r[j - 1], r[j]] });
       }
       // Without `status` the legacy head stays: a lone solid point before the dots, or a ray with no segment. With it a run needs a segment.
       runs = runs.filter(Boolean);
-      if (!L.status && st[0] !== "Virtual" && show.indexOf(st[0]) >= 0 && (!runs.length || runs[0].virt)) runs.unshift({ st: st[0], virt: false, q: [r[0]] });
+      if (!L.status && st[0] !== "Virtual" && show.indexOf(st[0]) >= 0 && (!runs.length || runs[0].st === "Virtual")) runs.unshift({ st: st[0], q: [r[0]] });
       // A one-point ray with alive 0 is Virtual throughout: its lone point stays a dotted run, as before the status.
-      if (!L.status && r.length === 1 && st[0] === "Virtual" && show.indexOf("Virtual") >= 0) runs.push({ st: "Virtual", virt: true, q: [r[0]] });
+      if (!L.status && r.length === 1 && st[0] === "Virtual" && show.indexOf("Virtual") >= 0) runs.push({ st: "Virtual", q: [r[0]] });
       runs.forEach(function (u) {
-        var dash = u.virt ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
+        var dash = u.st === "Virtual" ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
         var poly = '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + ' data-field="' + k + '" data-ray="' + i + '" ' + NS + "/>";
         if (L.status && u.st !== "Alive") faded += poly; else live += poly;
       });
