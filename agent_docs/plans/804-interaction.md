@@ -110,7 +110,7 @@ zoomed range instead of rewriting the `viewBox`.
 
 ### M1: hover on a curve, end to end GitHub: `P804 M1: Curve hover`
 
-Done 2026-11-10 (second tick): demo no-go (CRs #856, #857, user) reopened it at 200ef61; reviewed again to round 7 (Review M1: 0 blocking), full gate green on 4a45f04; re-demo pending.
+Reopened again 2026-11-10 at the re-demo (no-go): CR #872 (user). Earlier: the first demo's CRs #856, #857 reopened it at 200ef61; ticked again at b45569c after round 7.
 
 Demo: `npm run gallery`, hover the MTF tile: a dot on the curve, thin drop lines to both axes and a tooltip near the pointer, e.g.
 `Tangential · 120 cycles/mm, 0.62` (CRs #856, #857); on the Svelte test page a CurvePlot shows the same tooltip. The tile screenshots from the
@@ -150,6 +150,7 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 | #869 | The tooltip's live region is back before the first hover after a redraw | forced (review M1 round 5 finding 2: the gallery and CurvePlot replace the markup after `interact`) | `packages/plots/src/interact.js` | `tests/interact.spec.js::live region survives a redraw` | #868 |
 | #870 | The empty tooltip collapses through a CSS `:empty` rule | forced (review M1 round 5 finding 3) | `packages/plots/src/interact.js`, `packages/plots/src/plots.css` | `tests/interact.spec.js::tooltip is a live region` | #869 |
 | #871 | The hover overlay is re-added when a redraw happens under the pointer | forced (review M1 round 6 finding 1: #869 covers only redraw-then-enter) | `packages/plots/src/interact.js` | `tests/interact.spec.js::live region survives a redraw under the pointer` | #870 |
+| #873 | Drop lines dashed in the grid style, ending exactly on each axis (CR #872) | forced (CR #872, user: "a dashed version of the grid lines"; the horizontal overshot the y axis, the vertical fell short of the x axis) | `packages/plots/src/interact.js`, `packages/plots/src/plots.css` | `tests/interact.spec.js::hover marks the point and its drop lines` | #871 |
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
@@ -240,3 +241,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M1 round 5 (code-reviewer, claude-opus-5-5): 1 blocking: carried CR #863 still open (M2 Demo and roadmap row H's exit still named the readout line), fixed in this commit; backlog #869, #870 pulled into M1. Per-round count: 9, 3, 0, 4, 3.
 - 2026-11-10 review M1 round 6 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved; backlog #871 pulled into M1. Per-round count: 9, 3, 0, 4, 3, 1.
 - 2026-11-10 review M1 round 7 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M1 ticked again; re-demo pending.
+- 2026-11-10 M1 re-demo (user): no-go. CR #872 accepted by the user: the drop lines are too bold; draw them as dashed grid lines, and end each exactly on its axis (the horizontal overshot the y axis, the vertical fell short of the x axis). Item #873; M1 reopened.
