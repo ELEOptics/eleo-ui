@@ -3,7 +3,7 @@ import { css, rgb, ramp, mapStops, fmt } from "./color.js";
 import { svg, esc } from "./common.js";
 import { niceTicks } from "./axis.js";
 import { scales, axisTicks, plotCell } from "./curve.js";
-import { frameText, frameOf, frameWeight } from "./scale.js";
+import { frameText, frameOf, frameWeight, CURVE_MARGINS } from "./scale.js";
 import { colormap } from "./physics.js";
 
 var r2 = function (v) { return +v.toFixed(2); };
@@ -58,7 +58,7 @@ function margins(o, W, H) {
   /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin (text units) is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. The text size follows the margin, since it follows the frame. */
   var Rt0 = scales({ x: { range: [e[0], e[1]], ticks: withMajor(x, gx, [e[0], e[1]]).ticks }, y: { range: [e[2], e[3]] } }, [[]]).Rt + CB, Rt = Rt0, F, t, L, T, Bm, R, pw, ph, dx = e[1] - e[0], dy = e[3] - e[2], xr, yr;
   for (var it = 0; it < 8; it++) {
-    F = frameOf(W, 4.6 + Rt); t = frameText(F); L = r2(4.6 * t); T = r2(2.6 * t); Bm = 3.6 * t; R = Rt * t;
+    F = frameOf(W, CURVE_MARGINS.L + Rt); t = frameText(F); L = r2(CURVE_MARGINS.L * t); T = r2(CURVE_MARGINS.T * t); Bm = CURVE_MARGINS.B * t; R = Rt * t;
     pw = r2(Math.max(1, W - L - R)); ph = r2(Math.max(1, H - T - Bm)); xr = [e[0], e[1]]; yr = [e[2], e[3]];
     if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [e[0] - (px - dx) / 2, e[1] + (px - dx) / 2]; }
     else { var py = dx * ph / pw; yr = [e[2] - (py - dy) / 2, e[3] + (py - dy) / 2]; }
@@ -66,7 +66,7 @@ function margins(o, W, H) {
     if (need <= Rt + 1e-9) break;
     Rt = need;
   }
-  return { L: 4.6, R: Rt, F: F, t: t, T: T, Bm: Bm, pw: pw, ph: ph, xr: xr, yr: yr, lo: lo, hi: hi, log: log, dec: dec, cbt: cbt, CB: CB, Rt: Rt };
+  return { L: CURVE_MARGINS.L, R: Rt, F: F, t: t, T: T, Bm: Bm, pw: pw, ph: ph, xr: xr, yr: yr, lo: lo, hi: hi, log: log, dec: dec, cbt: cbt, CB: CB, Rt: Rt };
 }
 
 export function mapMargins(o) {
@@ -74,7 +74,7 @@ export function mapMargins(o) {
   return { L: m.L, R: m.R };
 }
 
-/* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px. Text, margins and the colorbar follow ADR-0003, in units of the text size t(F) of the plot frame's width F (curve's margins: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks and the colorbar); the aperture ring grows by frameWeight(F).
+/* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px. Text, margins and the colorbar follow ADR-0003, in units of the text size t(F) of the plot frame's width F (curve's margins, scale.js CURVE_MARGINS: left, bottom, top, the right one from the ticks and the colorbar); the aperture ring grows by frameWeight(F).
    Not in plotCell's data group: that group flips y and would draw row 0 at the bottom. Masked cells are alpha 0. */
 function typedMap(o) {
   var W = o.width || 460, H = o.height || Math.round(W * 360 / 460), x = o.x || {}, y = o.y || {}, e = o.extent, rows = o.values, nr = rows && rows.length, nc = nr && rows[0] ? rows[0].length : 0;
@@ -88,10 +88,10 @@ function typedMap(o) {
     if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); }) || pa.some(function (q, i) { return i && q < pa[i - 1]; }) || pa[pa.length - 1] - pa[0] > 2 * Math.PI * (1 + 1e-12)) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite, sorted, within one turn)");
     if (nr !== pr.length || nc !== pa.length) throw new TypeError("map2D: polar values need one row per radius and one value per angle");
   }
-  var M = margins(o, W, H), vb = o.value, lo = M.lo, hi = M.hi, log = M.log, dec = M.dec, cbt = M.cbt, CB = M.CB, Rt = M.Rt, F = M.F, t = M.t, T = M.T, Bm = M.Bm, pw = M.pw, ph = M.ph, xr = M.xr, yr = M.yr, L = r2(4.6 * t), R = Rt * t;
+  var M = margins(o, W, H), vb = o.value, lo = M.lo, hi = M.hi, log = M.log, dec = M.dec, cbt = M.cbt, CB = M.CB, Rt = M.Rt, F = M.F, t = M.t, T = M.T, Bm = M.Bm, pw = M.pw, ph = M.ph, xr = M.xr, yr = M.yr, L = r2(CURVE_MARGINS.L * t), R = Rt * t;
   var ts = ' style="font-size:' + +t.toFixed(3) + 'px"', wt = +frameWeight(F).toFixed(3);
   var gx = gridOf(o.grid, "x"), gy = gridOf(o.grid, "y");
-  var sc = { xr: xr, yr: yr, xt: axisTicks(withMajor(x, gx, xr), xr), yt: axisTicks(withMajor(y, gy, yr), yr), R: R, Rt: Rt };
+  var sc = { xr: xr, yr: yr, xt: axisTicks(withMajor(x, gx, xr), xr), yt: axisTicks(withMajor(y, gy, yr), yr), Rt: Rt };
   var lut = colormap(o.map || "ember", o.el), cv = document.createElement("canvas"), span = hi - lo;
   var sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   /* The cell's color: the value's step on the scale, null for a masked value. */

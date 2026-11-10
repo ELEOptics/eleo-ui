@@ -299,3 +299,12 @@ test('bars and PLOT_SIZES read the margin export', async () => {
   const full = (await import('../../packages/plots/src/index.js')).default;
   assert.equal(full.CURVE_MARGINS, scale.CURVE_MARGINS, 'on the default object');
 });
+
+// Plan #804, issue #823. oracle: the one margin export (scale.js CURVE_MARGINS) is the only place 4.6 / 2.6 / 3.6 live; map2D reads it. spot.js has no plot margin: its 2.6 is throughFocus's row gap under a panel (a pitch, not the top margin), so only 4.6 and 3.6 are forbidden there.
+test('map2D and spot read the margin export', () => {
+  const code = (f) => readFileSync(new URL(`../../packages/plots/src/${f}`, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(code('map2d.js'), /CURVE_MARGINS/, 'map2d.js reads CURVE_MARGINS');
+  assert.doesNotMatch(code('map2d.js'), /\b(4\.6|2\.6|3\.6)\b/, 'map2d.js has no hand copy of a margin');
+  assert.doesNotMatch(code('spot.js'), /\b(4\.6|3\.6)\b/, 'spot.js has no hand copy of a margin');
+  assert.doesNotMatch(code('map2d.js'), /\bR: R, Rt: Rt\b/, 'map2d.js sc has no unread R');
+});
