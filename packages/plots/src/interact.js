@@ -194,5 +194,6 @@ export function readout(ev, axes) {
   if (!ev) return "";
   var a = axes || {}, label = ev.series && ev.series.label, xy = (ev.categoryLabel !== undefined ? ev.categoryLabel : value(ev.x, a.x)) + ", " + value(ev.y, a.y);
   if (ev.value != null) xy += " = " + value(ev.value, a.value);
+  if (ev.field !== undefined && ev.ray !== undefined && !label) return "field " + ev.field + " · ray " + ev.ray + " · " + xy; // a layout ray has no series label
   return label ? label + " · " + xy : xy;
 }

@@ -26,3 +26,8 @@ test('no negative zero', () => {
   assert.equal(readout({ x: -0.04, y: 0, series: { index: 0 } }, { x: { digits: 1 }, y: {} }), '0.0, 0');
   assert.equal(readout({ x: -0.6, y: 0, series: { index: 0 } }, { x: { digits: 1 }, y: {} }), '−0.6, 0');
 });
+
+test('ray readout', () => {
+  const mm = { x: { unit: 'mm' }, y: { unit: 'mm' } };
+  assert.equal(readout({ x: 5.33, y: 2.28, field: 0, ray: 3 }, mm), 'field 0 · ray 3 · 5.33 mm, 2.28 mm');
+});
