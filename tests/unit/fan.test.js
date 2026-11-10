@@ -55,3 +55,28 @@ test('rayFan draws each panel to the rule', async () => {
     frames.forEach((f) => assert.ok(Math.abs(f - frameOf(width / cols, 4.6 + 1.2)) <= 0.01, `${width}: frame ${f}`));
   }
 });
+
+// Plan #677, issue #685. oracle: reference sample.json `wl` (486.1327, 587.5618, 656.2725 nm), keyed to one decimal
+test('rayFan key', async () => {
+  const { rayFan } = await import('../../packages/plots/src/fan.js');
+  const labels = (svg) => [...svg.matchAll(/<text [^>]*data-key[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  for (const kind of ['tra', 'opd']) {
+    assert.deepEqual(labels(rayFan({ data: sample, kind, key: true })), ['486.1 nm', '587.6 nm', '656.3 nm'], `${kind}: one key per wavelength`);
+    assert.deepEqual(labels(rayFan({ data: sample, kind })), [], `${kind}: no key by default`);
+  }
+});
+
+// Plan #677, issue #739 (CR #738). oracle: spec curve's keyAt: a corner key is a `rect.eleo-key` box in each panel; a bad keyAt throws curve's TypeError
+test('rayFan key keyAt', async () => {
+  const { rayFan } = await import('../../packages/plots/src/fan.js');
+  const boxes = (svg) => (svg.match(/<rect class="eleo-key"/g) || []).length;
+  for (const kind of ['tra', 'opd']) {
+    const below = rayFan({ data: sample, kind, key: true });
+    const corner = rayFan({ data: sample, kind, key: true, keyAt: 'top-right' });
+    assert.equal(boxes(below), 0, `${kind}: below has no corner box`);
+    assert.equal(rayFan({ data: sample, kind, key: true, keyAt: undefined }), below, `${kind}: keyAt undefined is the same as absent`);
+    assert.equal(rayFan({ data: sample, kind, key: true, keyAt: 'below' }), below, `${kind}: keyAt 'below' is the same as absent`);
+    assert.equal(boxes(corner), 2 * sample.fields.length, `${kind}: one corner box in each panel (2 rows x fields)`);
+    assert.throws(() => rayFan({ data: sample, kind, key: true, keyAt: 'middle' }), { name: 'TypeError', message: /keyAt/ });
+  }
+});

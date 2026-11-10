@@ -512,3 +512,59 @@ test('row Q patch changeset became a plots patch',
   { skip: !rowQPatchConsumed && 'changesets not yet versioned' }, () => {
     assert.equal(entry('plots', ROW_Q_PATCH_ENTRY).kind, 'Patch');
   });
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O5 (issue #700). Row R: nine plots minors (the keys, the grids, the
+// tick labels, the throughFocus panels), six plots patches (fixes) and one tokens minor (the map grid tokens). plots-svelte has no
+// changeset: its wrappers spread their props, so the new props reach the renderers unchanged and its peer range already admits the
+// new plots. oracle: spec semver (a visible change ships as a minor, a fix as a patch); @changesets/cli's plan of the named files.
+// Once `changeset version` deleted the files, the twin below reads the CHANGELOG entries they became, as row Q's does.
+const ROW_R = {
+  '@eleoptics/plots': {
+    minor: {
+      'curve-key.md': /`curve` keys its series/,
+      'rayfan-key.md': /`rayFan` takes `key: true`/,
+      'spot-key.md': /`spot` series take a `label`/,
+      'layout2d-key.md': /`layout2D` takes a `key`/,
+      'plot-grid-off.md': /`grid: false` on `curve`/,
+      'map2d-grid.md': /`map2D` draws no grid unless asked/,
+      'spot-grid.md': /`spot` draws a grid at the nice ticks/,
+      'spot-tick-labels.md': /`spot` panels label their grid ticks/,
+      'through-focus-panels.md': /`throughFocus` draws each cell as `spot` draws a panel/,
+    },
+    patch: {
+      'sagittal-dash.md': /a sagittal curve's dash scales/,
+      'limit-labels.md': /limit labels' offsets/,
+      'layout3d-plane.md': /`layout3D` paints the image plane before the outgoing rays/,
+      'map2d-colorbar-ticks.md': /linear `map2D` colorbar draws at least 3 ticks/,
+      'layout2d-labels.md': /field labels that a cropping `box` clamps to the top/,
+      'layout2d-stop-bar.md': /draws a stop bar at every stop it labels STO/,
+    },
+  },
+  '@eleoptics/tokens': { minor: { 'map-grid-tokens.md': /New tokens `map-grid-<map>`/ } },
+};
+const rowRFiles = Object.entries(ROW_R).flatMap(([pkg, kinds]) => Object.entries(kinds).flatMap(([type, files]) =>
+  Object.entries(files).map(([file, re]) => ({ pkg, type, file, re, dir: pkg.replace('@eleoptics/', '') }))));
+const rowRConsumed = rowRFiles.every(({ file, dir, re }) => barsConsumed(file, dir, re));
+test('row R changesets', { skip: rowRConsumed && 'consumed by changeset version' }, () => {
+  const ask = {};
+  for (const { pkg, type, file, re } of rowRFiles) {
+    const c = parse(file);
+    assert.deepEqual(c.bumps, { [pkg]: type }, `${file} bumps only ${pkg}: ${type}`);
+    assert.match(c.body, re, `${file} names its change`);
+    if (type === 'minor' || !ask[pkg]) ask[pkg] = type;
+  }
+  assert.deepEqual(ask, { '@eleoptics/plots': 'minor', '@eleoptics/tokens': 'minor' });
+  withWorkspace(ask, (ws) => {
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    const planned = Object.fromEntries(releases.map((r) => [r.name, r.type]));
+    assert.deepEqual(planned, { '@eleoptics/plots': 'minor', '@eleoptics/tokens': 'minor' }, 'plots-svelte stays unplanned');
+  });
+});
+
+test('row R changesets became plots and tokens entries',
+  { skip: !rowRConsumed && 'changesets not yet versioned' }, () => {
+    for (const { type, dir, re } of rowRFiles) {
+      assert.equal(entry(dir, re).kind, type[0].toUpperCase() + type.slice(1));
+    }
+  });

@@ -1,0 +1,1 @@
+../../agent_docs/adr/0004-observable-plot-not-adopted.md

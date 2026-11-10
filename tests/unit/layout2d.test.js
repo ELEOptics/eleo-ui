@@ -168,11 +168,13 @@ function dashesArePx({ lines, polylines }) {
   assert.ok(chief.every((a) => a['stroke-dasharray'] === '6 4'), 'chief dashes 6 4 px');
 }
 
-test('triplet draws 3 polygons, no stop ticks', () => {
+test('triplet draws 3 polygons, a stop bar only at its stop', () => {
   const L = fixture('tolerance');
   const d = drawn(ELEO.layout2D({ data: L }));
   assert.equal(d.polygons.length, 3);
-  assert.equal(d.lines.filter((a) => vertical(a) && !at(+a.x1, image(L))).length, 0, 'no stop ticks');
+  // CR #729: the stop is on glass and has its bar there, two lines; no other surface draws a tick.
+  const stopZ = L.surfaces.find((x) => x.stop).z;
+  assert.equal(d.lines.filter((a) => vertical(a) && !at(+a.x1, image(L)) && !at(+a.x1, stopZ)).length, 0, 'no stop ticks off the stop');
   dashesArePx(d);
 });
 
@@ -610,6 +612,25 @@ test('labels stay inside a cropping box (#160)', () => {
     assert.ok(t, `label ${label} is drawn`);
     assert.ok(+t.y >= 10 * u - 0.01, `label ${label} baseline ${t.y} is at least 1 em below the top`);
   });
+});
+
+// Plan #677, #669: clamped field labels must not stack on one spot.
+// oracle: property (O5) with merit-before: at a box of ylo/yhi / 2.4 the 24° and 12° baselines are at least 1 em apart, and at / 4 the labels keep the drawing's top-to-bottom order (0° above 12° above 24°, as the fan ends fall)
+test('clamped labels do not stack', () => {
+  const L = fixture('merit-before'), b = layoutBounds([L]);
+  const labels = ['0°', '12°', '24°'];
+  const u = T_OF(1000) / 10;
+  const ys = (div) => {
+    const box = { ...b, ylo: b.ylo / div, yhi: b.yhi / div };
+    const svg = ELEO.layout2D({ data: L, labels, box });
+    const T = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ ...attrs(m[1]), text: m[2] }));
+    return (l) => +T.find((x) => x.text === l).y;
+  };
+  const y = ys(2.4);
+  assert.ok(Math.abs(y('24°') - y('12°')) >= 10 * u - 0.01, `12° at ${y('12°')} and 24° at ${y('24°')} are at least 1 em apart`);
+  const z = ys(4);
+  assert.ok(z('24°') < z('12°'), `24° (${z('24°')}) stays above 12° (${z('12°')}), as in the drawing`);
+  assert.ok(z('12°') < z('0°'), `12° (${z('12°')}) stays above 0° (${z('0°')})`);
 });
 
 // Plan #30, outcome O2: layouts drawn with one box share a scale, and fields are labelled at the image.
@@ -1295,4 +1316,58 @@ test('a one-point ray with alive 0 draws its dotted point (O3)', () => {
   assert.equal(pairs(got[0].points).length, 1);
   const hidden = drawn(ELEO.layout2D({ data: L, rays: 'fan', show: ['Alive', 'Dead'] })).polylines;
   assert.equal(hidden.length, 0, 'Virtual hidden draws nothing');
+});
+
+// Plan #677, issue #698: O5: layout2D({ key }) draws entries (a line swatch in idx(index)) and "glass" (the swatches glassLegend gives) in one row under the drawing, at layoutText(W), nothing below 630. oracle: spec (CR #728), glassLegend, ADR-0003.
+test('key', () => {
+  const L = fixture('analysis-glasses'), keyTexts = (svg) => [...svg.matchAll(/<text[^>]*data-key[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  const fills = [...ELEO.glassLegend(L).matchAll(/--c:([^"]*)">([^<]*)</g)].map((m) => ({ fill: m[1], name: m[2] }));
+  const base = ELEO.layout2D({ data: L, width: 1000 });
+  assert.equal(keyTexts(base).length, 0, 'no key without the option');
+  const entries = [{ label: 'F1 0.0°', index: 0 }, { label: 'F2 5.0°', index: 1 }];
+  const svg = ELEO.layout2D({ data: L, width: 1000, key: entries });
+  assert.deepEqual(keyTexts(svg), ['F1 0.0°', 'F2 5.0°']);
+  const h = (s) => +/viewBox="0 0 [\d.]+ (\d+)"/.exec(s)[1];
+  assert.ok(h(svg) > h(base), 'the SVG grows under the drawing');
+  assert.ok(Number.isInteger(h(svg)), 'a whole-px height');
+  assert.match(svg, /<line [^>]*stroke="var\(--series-1,[^"]*"[^>]*\/>.*<text[^>]*data-key/, 'a line swatch in idx(0)');
+  const t = T_OF(1000), size = [...svg.matchAll(/<text[^>]*data-key[^>]*font-size:([\d.]+)px/g)].map((m) => +m[1]);
+  assert.ok(size.length === 2 && size.every((v) => Math.abs(v - t) < 0.01), 'the key is at the layout text size');
+  const ys = [...svg.matchAll(/<text[^>]*data-key[^>]* y="([\d.]+)"/g)].map((m) => +m[1]);
+  assert.ok(ys.every((y) => y > h(base) - 8 * t / 10 * 2 && y < h(svg)), 'the key sits under the drawing, inside the SVG');
+  // "glass" and entries in one row, the glasses after the fields.
+  const both = ELEO.layout2D({ data: L, width: 1440, key: [...entries, 'glass'] });
+  assert.deepEqual(keyTexts(both), ['F1 0.0°', 'F2 5.0°', ...fills.map((f) => f.name)]);
+  assert.deepEqual(keyTexts(ELEO.layout2D({ data: L, width: 1440, key: 'glass' })), fills.map((f) => f.name));
+  for (const f of fills) assert.ok(both.includes(`style="fill:${f.fill}"`), `the ${f.name} swatch is filled as glassLegend fills it, through style`);
+  // a bad key throws curve's kind of TypeError, at any width
+  for (const bad of ['Glass', 'x', 5, true, {}, [null], ['glass', 3], [{ index: 0 }], [{ label: 'a', index: -1 }], [{ label: 'a', index: 1.5 }], [{ label: 'a', index: '1' }]]) {
+    for (const width of [1000, 600]) assert.throws(() => ELEO.layout2D({ data: L, width, key: bad }), { name: 'TypeError', message: /^layout2D: key / }, `${JSON.stringify(bad)} at ${width}`);
+  }
+  // below 630 no key and no room
+  assert.equal(ELEO.layout2D({ data: L, width: 600, key: entries }), ELEO.layout2D({ data: L, width: 600 }), 'not drawn below 630, no room kept');
+});
+
+// Plan #677 #733 (CR #729, user). oracle: property every STO label has its bar: two vertical lines at the stop's z from ±sd outward, in the viewBox, on a glass surface too.
+test('a labelled stop has its bar', () => {
+  const pinned = { zmin: -8, zmax: sample.zimg + 4, ylo: -13.5, yhi: 13.5 }; // gallery/index.html SAMPLE_BOX
+  for (const [name, o] of [['sample', {}], ['sample, pinned box', { box: pinned }]]) {
+    const svg = ELEO.layout2D({ data: sample.layout, ...o });
+    const { body } = geometry(svg); // the group draws in mm
+    const lines = [...body.matchAll(/<line\b[^>]*>/g)].map((m) => attrs(m[0])).map((a) => [[+a.x1, +a.y1], [+a.x2, +a.y2]]);
+    const stops = sample.layout.surfaces.filter((x) => x.stop);
+    assert.ok(stops.length > 0 && stops.some((x) => x.glass), `${name}: a stop on glass`);
+    for (const s of stops) {
+      for (const k of [1, -1]) {
+        const bar = lines.find(([p, q]) => at(p[0], s.z) && at(q[0], s.z) && Math.min(k * p[1], k * q[1]) > k * 0 && near([0, Math.min(k * p[1], k * q[1])], [0, s.sd]));
+        assert.ok(bar, `${name}: stop bar at z=${s.z} starts at ${k * s.sd}`);
+        assert.ok(Math.max(k * bar[0][1], k * bar[1][1]) > s.sd + 0.1, `${name}: the bar at ${k} reaches out of the aperture`);
+      }
+    }
+  }
+  // A glass stop cropped below its sd has no bar to draw: no zero-length dot outside the box.
+  const s0 = sample.layout.surfaces.find((x) => x.stop && x.glass);
+  const crop = ELEO.layout2D({ data: sample.layout, box: { zmin: -8, zmax: sample.zimg + 4, ylo: -s0.sd / 2, yhi: s0.sd / 2 } });
+  const dots = [...geometry(crop).body.matchAll(/<line\b[^>]*>/g)].map((m) => attrs(m[0])).filter((a) => +a.x1 === +a.x2 && +a.y1 === +a.y2);
+  assert.equal(dots.length, 0, 'no zero-length line');
 });

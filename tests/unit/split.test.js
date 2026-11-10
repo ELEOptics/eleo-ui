@@ -30,3 +30,14 @@ test('the recorded layout entries draw without status (O3, CR #653)', () => {
   assert.equal(seen.length, 4);
   for (const props of seen) assert.equal('status' in props.data, false, 'no status key');
 });
+
+// Plan #677 M1 (#679): bars draws the gallery's seidel tiles as main's build did before the key extraction (#680).
+// oracle: fixture SVG markup recorded from main's dist before the extraction (scripts/record-renderers.mjs)
+test('bars baseline', () => {
+  const now = draws();
+  for (const name of ['seidel', 'seidel-terms']) {
+    assert.ok(name in baseline, `${name} recorded`);
+    assert.ok(name in now, `${name} drawn`);
+    assert.equal(now[name](), baseline[name], name);
+  }
+});

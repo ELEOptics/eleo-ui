@@ -23,8 +23,6 @@
        narrower than that the body keeps that width and the tile scrolls sideways, so the page never does. */
     .theme > .eleo-plot { overflow-x: auto; }
     .theme > .eleo-plot > .eleo-plot__body { box-sizing: border-box; min-width: calc(var(--tile-min, 240px) - 2px); }
-    .map { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
-    .map .eleo-colorbar i { height: 100%; }
     .icons { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-muted); }
   </style>
 </head>
@@ -39,22 +37,19 @@
     <section class="theme" data-theme="dark"><h2>Dark</h2></section>
   </main>
   <template id="tiles">
-    <section class="eleo-plot" data-tile="layout2D" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div><div class="eleo-plot__ft eleo-legend" data-legend="field"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-fan" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div><div class="eleo-plot__ft eleo-legend" data-legend="wavelength"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-shared" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">merit singlet, before then after, one box</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="merit-before"></div><div class="eleo-plot__body" data-svg="merit-after"></div></section>
-    <section class="eleo-plot" data-tile="layout2D-glasses" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div><div class="eleo-plot__ft eleo-legend" data-legend="glass"></div></section>
+    <section class="eleo-plot" data-tile="layout2D" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">YZ, marginal and chief</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-fan" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">fan, on axis</span><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="layout2D-fan"></div></section>
+    <section class="eleo-plot" data-tile="layout2D-glasses" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-glasses"></div></section>
     <section class="eleo-plot" data-tile="layout2D-wandersleb" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Wandersleb triplet, recorded, fan with ray status</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-wandersleb"></div></section>
     <section class="eleo-plot" data-tile="layout2D-cassegrain" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cassegrain, recorded, on-axis chief obscured</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-cassegrain"></div></section>
     <section class="eleo-plot" data-tile="layout2D-cassegrain-dead-hidden" data-size="layout2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout2D</h3><span class="eleo-plot__meta">Cassegrain, recorded, Dead hidden</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="layout2D-cassegrain-dead-hidden"></div></section>
       <section class="eleo-plot" data-tile="spot" data-size="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__key">Color: wavelength</span></div><div class="eleo-plot__body" data-svg="spot"></div></section>
       <section class="eleo-plot" data-tile="throughFocus" data-size="throughFocus"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Through focus</h3></div><div class="eleo-plot__body" data-svg="throughFocus"></div></section>
-      <section class="eleo-plot" data-tile="footprint" data-size="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__meta">Beam footprint, Cooke, at the stop</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="footprint"></div><div class="eleo-plot__ft eleo-legend" data-legend="footprint"></div></section>
+      <section class="eleo-plot" data-tile="footprint" data-size="spot"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">SpotDiagram</h3><span class="eleo-plot__meta">Beam footprint, Cooke, at the stop</span><span class="eleo-plot__key">Color: field</span></div><div class="eleo-plot__body" data-svg="footprint"></div></section>
       <section class="eleo-plot" data-tile="seidel" data-size="bars"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums, mm</span></div><div class="eleo-plot__body" data-svg="seidel"></div></section>
       <section class="eleo-plot" data-tile="seidel-terms" data-size="bars"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">BarPlot</h3><span class="eleo-plot__meta">Seidel sums by term, mm</span></div><div class="eleo-plot__body" data-svg="seidel-terms"></div></section>
-      <section class="eleo-plot" data-tile="rayFan" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">Achromat, recorded, TRA from the chief ray, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div><div class="eleo-plot__ft eleo-legend" data-legend="rayFan"></div></section>
+      <section class="eleo-plot" data-tile="rayFan" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">Achromat, recorded, TRA from the chief ray, µm</span></div><div class="eleo-plot__body" data-svg="rayFan"></div></section>
       <section class="eleo-plot" data-tile="rayFan-opd" data-size="rayFan"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">RayFan</h3><span class="eleo-plot__meta">OPD, waves</span></div><div class="eleo-plot__body" data-svg="rayFan-opd"></div></section>
-      <section class="eleo-plot" data-tile="psf"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">PSF, linear</span></div><div class="eleo-plot__body map"><canvas data-canvas="psf"></canvas><div class="eleo-colorbar"><i data-bar="ember"></i><span><b>1</b><b>0</b></span></div></div></section>
-      <section class="eleo-plot" data-tile="wavefront"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">wavefront, waves</span></div><div class="eleo-plot__body map"><canvas data-canvas="wavefront"></canvas><div class="eleo-colorbar"><i data-bar="wave"></i><span><b>+</b><b>0</b><b>−</b></span></div></div></section>
     <section class="eleo-plot" data-tile="psf-recorded" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, mm</span></div><div class="eleo-plot__body" data-map="psf-recorded"></div></section>
       <section class="eleo-plot" data-tile="psf-log" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, log</span></div><div class="eleo-plot__body" data-map="psf-log"></div></section>
       <section class="eleo-plot" data-tile="wavefront-recorded" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet wavefront, recorded, waves</span></div><div class="eleo-plot__body" data-map="wavefront-recorded"></div></section>
@@ -76,9 +71,6 @@
     // The sample tiles keep their framing: a pinned box, not the rays' bounds. If eleo-plots-sample.js failed to load,
     // ELEO.sample is null, SAMPLE_BOX stays null and the sample tiles draw nothing while the rest of the page draws.
     var SAMPLE_BOX = ELEO.sample && { zmin: -8, zmax: ELEO.sample.zimg + 4, ylo: -13.5, yhi: 13.5 };
-    // The merit tile draws before and after in one box, so both share a scale. Filled by fetch() below;
-    // if either fixture fails, MERIT_BOX stays unset and the tile draws nothing while the rest of the page draws.
-    var MERIT = {}, MERIT_BOX;
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
@@ -89,21 +81,24 @@
     // Each tile names the data it needs and draws from it. draw() below calls a tile only when `need()` gives something;
     // otherwise the tile draws nothing and the rest of the page draws.
     function sampleBox() { return SAMPLE_BOX; }
-    function meritTile(k, w) {
-      try { return ELEO.layout2D({ data: MERIT[k], width: w, box: MERIT_BOX, labels: ['0°', '12°', '24°'], marks: false }); }
-      catch (e) { console.error('merit-' + k + ':', e); return ''; }
+    // Key entries from the sample's fields and wavelengths, labelled as the footer legends were ("F1 0.0°", "λ1 486.1 nm"); none without a sample.
+    function legendKey(kind) {
+      var S = ELEO.sample; if (!S) return [];
+      return (kind === 'field' ? S.fields : S.wl).map(function (v, i) {
+        return { label: kind === 'field' ? 'F' + (i + 1) + ' ' + ELEO.fmt(v, 1) + '°' : 'λ' + (i + 1) + ' ' + v.toFixed(1) + ' nm', index: i };
+      });
     }
+    // The Cooke tile keys the fields it draws rays for (F1..Fn), then its glasses, in one list.
+    function fieldKey(d) { return d.rays.map(function (_, i) { return { label: 'F' + (i + 1), index: i }; }).concat('glass'); }
     // A recorded tile: draws REC[k] (the adapter's result) through the renderer `render`; blank while REC[k] is unset.
     // draw(data, w) gets the body's content width; every framed tile passes it on as `width` (ADR-0003).
     function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d, w) { return render(d, w); } }; }
     function atWidth(d, w, more) { return Object.assign({}, d, more, { width: w }); }
-    var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50 }, { y: [0, 0.3] }];
+    var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50, label: '50 cycles/mm' }, { y: [0, 0.3] }];
     var SVG = {
-      'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box }); } },
-      'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan' }); } },
-      'merit-before': { need: function () { return MERIT_BOX; }, draw: function (_, w) { return meritTile('before', w); } },
-      'merit-after': { need: function () { return MERIT_BOX; }, draw: function (_, w) { return meritTile('after', w); } },
-      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w) { return ELEO.layout2D({ data: d, width: w, marks: false }); } },
+      'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, key: legendKey('field') }); } },
+      'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }); } },
+      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w) { return ELEO.layout2D({ data: d, width: w, marks: false, key: fieldKey(d) }); } },
       'layout2D-wandersleb': recTile('layout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
       'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
       'layout2D-cassegrain-dead-hidden': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w, { show: ['Alive', 'Virtual'] })); }),
@@ -115,12 +110,12 @@
       'throughFocus': { need: sampleBox, draw: function (_, w) { return ELEO.throughFocus({ width: w }); } },
       // The recorded achromat's fans through curve, as tall as rayFan's panels are (PLOT_SIZES.rayFan.aspect) over its columns.
       'rayFan': recTile('rayFan', function (d, w) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns })); }),
-      'rayFan-opd': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ kind: 'opd', width: w }); } },
+      'rayFan-opd': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ kind: 'opd', key: true, width: w }); } },
       'mtf': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
       'mtf-limits': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w, { limits: MTF_LIMITS })); }),
       'fieldCurvature': recTile('fieldCurvature', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
-      'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
+      'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w, { keyAt: 'top-right' })); }),
       'chromaticFocus': { need: sampleBox, draw: function (_, w) { return ELEO.curve({ kind: 'chromaticFocus', width: w }); } }
     };
     function airyTile(canvas, n) {
@@ -167,7 +162,7 @@
     function drawMaps() {
       document.querySelectorAll('.theme [data-map]').forEach(drawMap);
     }
-    // A canvas tile draws at its body's content width (set by fit as el._w, less the colorbar beside a map): CSS size w, backing size w x devicePixelRatio, so a resize redraws it and never stretches it.
+    // A canvas tile draws at its body's content width (set by fit as el._w): CSS size w, backing size w x devicePixelRatio, so a resize redraws it and never stretches it.
     // layout3D is given the logical width w and applies its own clamped ratio (2 to 3), so it stays at least 2x; a palette change redraws at the last width.
     function drawCanvas(el) {
       var w = el._w, k = el.dataset.canvas;
@@ -175,8 +170,7 @@
       var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k === 'layout3D' ? w * 320 / 560 : w;
       el.style.width = w + 'px'; el.style.height = h + 'px';
       if (k === 'airy') airyTile(el, n);
-      else if (k === 'layout3D') ELEO.layout3D(el, { width: w, height: h });
-      else ELEO.map2D(el, { kind: k, size: n });
+      else ELEO.layout3D(el, { width: w, height: h });
     }
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
@@ -189,12 +183,7 @@
     watchRatio();
     function fitCanvases(theme) {
       theme.querySelectorAll('[data-canvas]').forEach(function (el) {
-        var body = el.parentNode;
-        ELEO.fit(body, function (w) {
-          var bar = body.querySelector('.eleo-colorbar');
-          el._w = bar ? Math.max(1, w - bar.offsetWidth - 10) : w;
-          drawCanvas(el);
-        });
+        ELEO.fit(el.parentNode, function (w) { el._w = w; drawCanvas(el); });
       });
     }
     // Each tile's minimum width: its ELEO.minWidth for the call it draws, plus the tile's 26 px of border and padding around the body (ADR-0003).
@@ -223,16 +212,6 @@
         });
         theme.querySelectorAll('[data-map]').forEach(function (el) { ELEO.fit(el, function (w) { el._w = w; drawMap(el); }); });
         fitCanvases(theme);
-        // The glass, footprint and fan legends key their own recordings; empty, like the tile, if its fixture failed.
-        // The field and wavelength legends key the sample; empty, like its tiles, without it.
-        theme.querySelectorAll('[data-legend]').forEach(function (el) {
-          var k = el.dataset.legend;
-          el.innerHTML = k === 'glass' ? (GLASSES ? ELEO.glassLegend(GLASSES) : '')
-            : k === 'footprint' ? (REC.footprintAngles ? ELEO.legend('field', undefined, REC.footprintAngles) : '')
-            : k === 'rayFan' ? (REC.rayFanWavelengths ? ELEO.legend('wavelength', undefined, REC.rayFanWavelengths) : '')
-            : SAMPLE_BOX ? ELEO.legend(k) : '';
-        });
-        theme.querySelectorAll('[data-bar]').forEach(function (el) { el.style.background = ELEO.gradient(el.dataset.bar); });
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
           .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));
         theme.querySelector('[data-icons]').innerHTML = icons.join('');
@@ -250,16 +229,6 @@
       return r.json();
     }).then(function (d) { GLASSES = d; }).catch(function (e) {
       console.error('gallery: glasses tile skipped:', e);
-    });
-    var merit = Promise.all(['before', 'after'].map(function (k) {
-      return fetch('/tests/fixtures/layouts/merit-' + k + '.json').then(function (r) {
-        if (!r.ok) throw new Error('merit-' + k + '.json: ' + r.status);
-        return r.json();
-      }).then(function (d) { MERIT[k] = d; });
-    })).then(function () {
-      MERIT_BOX = ELEO.layoutBounds([MERIT.before, MERIT.after]);
-    }).catch(function (e) {
-      console.error('gallery: merit tile skipped:', e);
     });
     var adapters = new Promise(function (ok, no) {
       var el = document.createElement('script');
@@ -285,7 +254,7 @@
         ['fieldCurvature', 'field-curvature', function (d) { REC.fieldCurvature = globalThis.ELEOAdapters.fieldCurvature(d); }],
         ['distortion', 'distortion', function (d) { REC.distortion = globalThis.ELEOAdapters.distortion(d); }],
         ['spot', 'spot', function (d) { REC.spot = globalThis.ELEOAdapters.spot(d); }],
-        ['fans', 'fans', function (d) { REC.rayFan = globalThis.ELEOAdapters.fans(d); REC.rayFanWavelengths = d.sources[0].wavelengths; }],
+        ['fans', 'fans', function (d) { REC.rayFan = globalThis.ELEOAdapters.fans(d); }],
         ['seidel', 'seidel', function (d) { REC.seidel = globalThis.ELEOAdapters.seidel(d); REC.seidelTerms = globalThis.ELEOAdapters.seidel(d, { by: 'term' }); }]
       ]],
       ['wandersleb', [
@@ -294,7 +263,7 @@
       ['cooke', [
         ['psf', 'psf', function (d) { var A = globalThis.ELEOAdapters; MAPS['psf-recorded'] = A.psf(d); MAPS['psf-log'] = A.psf(d, { log: true }); }],
         ['wavefront', 'wavefront', function (d) { MAPS['wavefront-recorded'] = globalThis.ELEOAdapters.wavefront(d); }],
-        ['footprint', 'footprint', function (d) { REC.footprint = globalThis.ELEOAdapters.footprint(d); REC.footprintAngles = d.sources.map(function (src) { return src.fieldAngleDeg; }); }]
+        ['footprint', 'footprint', function (d) { REC.footprint = globalThis.ELEOAdapters.footprint(d); }]
       ]],
       ['cassegrain', [
         ['cassegrainLayout', 'layout', function (d) { REC.cassegrainLayout = globalThis.ELEOAdapters.layout(d); }]
@@ -302,7 +271,7 @@
     ].reduce(function (all, lt) {
       return all.concat(lt[1].map(function (t) { return recorded(t[0], lt[0], t[1], t[2]); }));
     }, []));
-    Promise.all([glasses, merit, phos]).then(function () {
+    Promise.all([glasses, phos]).then(function () {
       draw();
       document.body.dataset.ready = 'true';
     });

@@ -179,8 +179,8 @@ test('series round trip', () => {
         assert.ok(Math.hypot(back[0] - pt[0], back[1] - pt[1]) < 1e-6, 'the transform inverts');
       });
     });
-    // Roles map to styles: sagittal dashes 5 3, reference is ink with 1 3 dashes, tangential is solid.
-    assert.match(svg, /stroke-dasharray="5 3"/);
+    // Roles map to styles: sagittal dashes 4 and 2.5 stroke weights (CR #726), reference is ink with 1 3 dashes, tangential is solid.
+    assert.match(svg, /<polyline\b[^>]*stroke="var\(--series-1[^"]*"[^>]*stroke-dasharray="[\d.]+ [\d.]+"/, 'the sagittal polyline carries its own dash (the reference line\'s 1 3 does not count)');
     assert.match(svg, /stroke="var\(--ink\)"[^>]*stroke-dasharray="1 3"|stroke-dasharray="1 3"[^>]*stroke="var\(--ink\)"/);
     assert.match(svg, /<svg\b[^>]*>[\s\S]*<svg\b/, 'the series sit in a nested <svg>');
     assert.match(svg, /vector-effect="non-scaling-stroke"/);
@@ -310,6 +310,27 @@ test('every role draws a stroke of ADR-0003 weight', () => {
     assert.equal(widths.length, 1, String(role));
     assert.ok(Math.abs(widths[0] - w) <= 0.01, `${role} at ${width}: ${widths[0]} against ${w}`);
   }
+});
+
+// CR #726 (#730): the sagittal dash is in units of the stroke weight, so it reads as a dash at every width; the key's swatch too
+test('sagittal dash scales with the stroke', () => {
+  const pts = [[0, 0], [1, 1]], ratios = (svg, re) => [...svg.matchAll(re)].map((m) => [+m[2] / +m[1], +m[3] / +m[1]]);
+  const draw = (width) => ELEO.curve({ series: [{ points: pts, role: 'sagittal', label: 'S' }], x: { range: [0, 1] }, y: { range: [0, 1] }, width });
+  const lines = [], keys = [];
+  for (const width of [200, 1200]) {
+    const svg = draw(width);
+    lines.push(...ratios(svg, /<polyline[^>]*\sstroke-width="([^"]*)"[^>]*stroke-dasharray="(\S+) (\S+)"/g));
+    keys.push(...ratios(svg, /<line [^>]*stroke-width="([^"]*)"[^>]*stroke-dasharray="(\S+) (\S+)"/g));
+  }
+  assert.equal(lines.length, 2); assert.equal(keys.length, 2);
+  for (const set of [lines, keys]) set.forEach(([a, b]) => { assert.ok(Math.abs(a - 4) < 0.1 && Math.abs(b - 2.5) < 0.1, `${a} ${b}`); });
+});
+
+// #737: a line swatch takes its role's cap, so the sagittal dashes look the same in the key as on the curve
+test('key swatch takes the role\'s cap', () => {
+  const draw = (role) => ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], role, label: 'S' }], x: { range: [0, 1] }, y: { range: [0, 1] } });
+  assert.match(draw('sagittal'), /<line [^>]*stroke-linecap="round"[^>]*stroke-dasharray=/);
+  assert.match(draw('limit'), /<line [^>]*stroke-linecap="butt"/);
 });
 
 // CR #212: the right margin grows to half the last x label's width (0.6 em a character, ADR-0003: half is 0.3 text units a character, at least 1.2)
@@ -466,6 +487,22 @@ test('helpers skip a path with no data', () => {
   assert.deepEqual(panelGroups(svg)[0].paths, [], 'and in a panel');
 });
 
+// Plan #677, issue #556. oracle: closed-form plotCell's t / 10 rule: the offsets 0.4 t, 0.3 t and 1 t, read against the label's own font-size at two widths.
+test('limit label offsets scale', () => {
+  const series = [{ points: [[0, 1], [400, 0]], index: 0 }];
+  const x = { label: 'f', range: [0, 400] }, y = { label: 'm', range: [0, 1] };
+  for (const width of [600, 1200]) {
+    const svg = ELEO.curve({ series, x, y, limits: [{ y: 0.3, label: 'yl' }, { x: 50, label: 'xl' }, { x: 350, label: 'xr' }], width });
+    const text = (label) => svg.match(new RegExp(`<text class="eleo-tick"([^>]*)>${label}</text>`))[1];
+    const t = +text('yl').match(/font-size:([\d.]+)px/)[1], box = panelGroups(svg)[0].box, M = seriesGroup(svg).M;
+    const num = (a, k) => +a.match(new RegExp(`${k}="([^"]*)"`))[1], tol = 0.1;
+    assert.ok(Math.abs(num(text('yl'), 'dy') + 0.3 * t) <= tol, `${width}px: y label dy is -0.3 t`);
+    assert.ok(Math.abs(num(text('xl'), 'y') - box.y - toPx(M, [0, 1])[1] - t) <= tol, `${width}px: x label sits 1 t below the top`);
+    assert.ok(Math.abs(num(text('xl'), 'x') - 0.4 * t - box.x - toPx(M, [50, 0])[0]) <= tol, `${width}px: x label 0.4 t right of its line`);
+    assert.ok(Math.abs(num(text('xr'), 'x') + 0.4 * t - box.x - toPx(M, [350, 0])[0]) <= tol, `${width}px: late x label 0.4 t left of its line`);
+  }
+});
+
 // Plan #284, issue #291. oracle: property: synthetic limits recovered through the inverse transform within 0.5 px; an auto range contains every limit; a given range clips them.
 test('limits draw single and paneled', () => {
   const series = [
@@ -477,6 +514,7 @@ test('limits draw single and paneled', () => {
   const limits = [{ y: 0.3, label: 'MTF ≥ 0.3' }, { x: 50 }, { y: [0.3, 0] }];
   const x = { label: 'f', range: [0, 400] }, y = { label: 'm', range: [0, 1] };
   const near = (M, v, w, msg) => assert.ok(Math.hypot(...toPx(M, v).map((c, i) => c - toPx(M, w)[i])) <= TOL_PX, msg);
+  const lt = (svg) => +svg.match(/<text class="eleo-tick"[^>]*font-size:([\d.]+)px[^>]*>[^<]*<\/text>/)[1];
   const check = (g, msg) => {
     const lines = marks(g, 'line').filter((l) => l.limit), rects = marks(g, 'rect').filter((r) => r.limit);
     assert.equal(lines.length, 2, `${msg}: a line per number`);
@@ -519,22 +557,22 @@ test('limits draw single and paneled', () => {
     const ty = svg.match(/<text class="eleo-tick" x="[^"]*" y="([^"]*)"[^>]*>part y<\/text>/), tx = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"[^>]*>part x<\/text>/);
     assert.ok(ty && tx, `${width}px: a partly drawn band keeps its label`);
     assert.ok(Math.abs(+ty[1] - bx.y - toPx(gp.M, [0, 1])[1]) <= TOL_PX, `${width}px: the y band's label sits at the range top`);
-    assert.ok(Math.abs(+tx[1] - 4 - bx.x - toPx(gp.M, [0, 0])[0]) <= TOL_PX, `${width}px: the x band's label sits at the range start`);
+    assert.ok(Math.abs(+tx[1] - 0.4 * lt(svg) - bx.x - toPx(gp.M, [0, 0])[0]) <= TOL_PX, `${width}px: the x band's label sits at the range start`);
     // An x limit past the plot's midpoint has its label end-anchored left of its line, inside the viewBox.
     svg = ELEO.curve({ series, x, y, limits: [{ x: 400, label: 'Nyquist 400' }, { x: 50, label: 'early' }], width, height });
     const ny = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>Nyquist 400<\/text>/), ea = svg.match(/<text class="eleo-tick"([^>]*)>early<\/text>/);
     assert.ok(ny, `${width}px: the Nyquist label is drawn`);
     assert.match(ny[2], /text-anchor="end"/, `${width}px: a label past the midpoint is end-anchored`);
     assert.ok(+ny[1] <= width, `${width}px: the label's anchor is inside the viewBox`);
-    assert.ok(Math.abs(+ny[1] + 4 - panelGroups(svg)[0].box.x - toPx(seriesGroup(svg).M, [400, 0])[0]) <= TOL_PX, `${width}px: the label sits 4 px left of its line`);
+    assert.ok(Math.abs(+ny[1] + 0.4 * lt(svg) - panelGroups(svg)[0].box.x - toPx(seriesGroup(svg).M, [400, 0])[0]) <= TOL_PX, `${width}px: the label sits 0.4 t left of its line`);
     assert.ok(!/text-anchor/.test(ea[1]), `${width}px: a label before the midpoint keeps the start anchor`);
     // A band whose left edge is past the midpoint is end-anchored inside the band, at its right edge.
     svg = ELEO.curve({ series, x, y, limits: [{ x: [280, 360], label: 'late band' }, { x: [300, 900], label: 'late clip' }], width, height });
     const lb = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>late band<\/text>/), lc = svg.match(/<text class="eleo-tick" x="([^"]*)" y="[^"]*"([^>]*)>late clip<\/text>/);
     const lx = panelGroups(svg)[0].box.x, lm = seriesGroup(svg).M;
     assert.ok(lb && lc && /text-anchor="end"/.test(lb[2]), `${width}px: a late band's label is end-anchored`);
-    assert.ok(Math.abs(+lb[1] + 4 - lx - toPx(lm, [360, 0])[0]) <= TOL_PX, `${width}px: a late band's label ends 4 px inside its right edge`);
-    assert.ok(Math.abs(+lc[1] + 4 - lx - toPx(lm, [400, 0])[0]) <= TOL_PX, `${width}px: a clipped late band's label ends at the range end`);
+    assert.ok(Math.abs(+lb[1] + 0.4 * lt(svg) - lx - toPx(lm, [360, 0])[0]) <= TOL_PX, `${width}px: a late band's label ends 0.4 t inside its right edge`);
+    assert.ok(Math.abs(+lc[1] + 0.4 * lt(svg) - lx - toPx(lm, [400, 0])[0]) <= TOL_PX, `${width}px: a clipped late band's label ends at the range end`);
     // A band wholly outside the range has none.
     svg = ELEO.curve({ series, x, y, limits: [{ y: [2, 9], label: 'gone' }, { x: [500, 600], label: 'gone' }], width, height });
     assert.ok(!svg.includes('gone'), 'no label for a band outside the range');
@@ -761,4 +799,141 @@ test('recorded ray fans round trip (U6)', async () => {
     }
   }
   assert.ok(dead > 0, 'some dead sample was drawn as a gap (the clone guarantees one)');
+});
+
+// Plan #677 M1 (#681): curve draws a key from series labels or `key`.
+// oracle: closed-form ADR-0003 (t(F), rows of 1.4 t); the unkeyed SVG is the renderer baseline
+test('key', async () => {
+  const { frameText, frameOf } = await import('../../packages/plots/src/scale.js');
+  const dims = (svg) => svg.match(/viewBox="0 0 (\S+) (\S+)"/).slice(1).map(Number);
+  const texts = (svg) => [...svg.matchAll(/<text class="eleo-tick"( data-key)? [^>]*>([^<]*)<\/text>/g)].map((m) => ({ key: !!m[1], text: m[2] }));
+  const x = { label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400], ticks: [0, 200, 400] }, y = { label: 'Modulus', range: [0, 1] };
+  const pts = [[0, 1], [400, 0]];
+  const plain = ELEO.curve({ series: [{ points: pts, role: 'tangential' }], x, y });
+  const keyed = ELEO.curve({ series: [{ points: pts, index: 0, role: 'tangential', label: '0.0° T' }, { points: pts, index: 0, role: 'sagittal', label: '0.0° S' }, { points: pts, index: 1, role: 'tangential', label: '0.0° T' }], x, y });
+  // One entry per distinct label, a line swatch each, the label under the x label.
+  assert.deepEqual(texts(keyed).filter((t) => t.key).map((t) => t.text), ['0.0° T', '0.0° S']);
+  assert.equal((keyed.match(/stroke-dasharray="[\d.]+ [\d.]+" fill="none"\/>/g) || []).length, 1, 'the sagittal entry is dashed');
+  assert.ok(texts(keyed).some((t) => t.text === 'Spatial frequency, cycles/mm'));
+  // Default height grows by the key's rows: round(H + 1.4 t rows + 0.2 t).
+  const t = frameText(frameOf(460, 4.6 + 0.3 * 3));
+  assert.equal(dims(plain)[1], 300 - 300 + Math.round(460 * 260 / 460));
+  assert.equal(dims(keyed)[1], Math.round(260 + 1.4 * t + 0.2 * t), 'one row and the gap');
+  // With a height the SVG keeps it and the frame gives up the rows.
+  assert.equal(dims(ELEO.curve({ series: [{ points: pts, label: 'a' }], x, y, height: 300 }))[1], 300);
+  // `key` replaces the labels; an empty one draws none; no label, no key: unchanged.
+  const own = ELEO.curve({ series: [{ points: pts, label: 'ignored' }], key: [{ label: 'T', role: 'tangential' }, { label: 'S', role: 'sagittal', index: 2 }], x, y });
+  assert.deepEqual(texts(own).filter((t) => t.key).map((t) => t.text), ['T', 'S']);
+  assert.equal(texts(ELEO.curve({ series: [{ points: pts, label: 'a' }], key: [], x, y })).filter((t) => t.key).length, 0);
+  // A corner key sits on --surface inside the plot and leaves the size alone.
+  const corner = ELEO.curve({ series: [{ points: pts, label: 'a' }], keyAt: 'top-right', x, y });
+  assert.deepEqual(dims(corner), dims(plain));
+  assert.match(corner, /<rect class="eleo-key"[^>]*fill="var\(--surface\)"\/>/);
+  assert.doesNotMatch(corner.match(/<rect class="eleo-key"[^>]*>/)[0], /stroke/);
+  // Panels key once below.
+  const pan = ELEO.curve({ panels: [{ series: [{ points: pts, label: 'a' }] }, { series: [{ points: pts, label: 'a' }] }], x, y });
+  assert.equal(texts(pan).filter((t) => t.key).length, 1);
+  assert.throws(() => ELEO.curve({ series: [{ points: pts, label: 'a' }], keyAt: 'middle' }), /keyAt/);
+});
+
+// Plan #677 M1 (#704): a below key's first baseline is one key line (1.4 t) under the x label's baseline.
+// oracle: closed-form ADR-0003 (t(F) from the cell width, rows of 1.4 t)
+test('key clears the x label', async () => {
+  const x = { label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400], ticks: [0, 200, 400] }, y = { label: 'Modulus', range: [0, 1] };
+  const pts = [[0, 1], [400, 0]];
+  const base = (svg, pred) => [...svg.matchAll(/<text class="eleo-tick"( data-key)? x="[^"]*" y="([^"]*)"[^>]*font-size:([\d.]+)px">([^<]*)<\/text>/g)].filter(pred).map((m) => [+m[2], +m[3]])[0];
+  const series = [{ points: pts, label: 'a' }];
+  for (const width of [460, 900]) {
+    for (const height of [undefined, 300]) {
+      for (const panels of [false, true]) {
+        const o = panels ? { panels: [{ series }, { series }], x, y, width, height } : { series, x, y, width, height };
+        const svg = ELEO.curve(o);
+        const xl = base(svg, (m) => !m[1] && m[4] === 'Spatial frequency, cycles/mm'), k = base(svg, (m) => m[1]);
+        assert.ok(Math.abs(k[0] - xl[0] - 1.4 * xl[1]) < 0.02, `width ${width} height ${height} panels ${panels}: ${k[0] - xl[0]} against ${1.4 * xl[1]}`);
+      }
+    }
+  }
+});
+
+// Plan #677 M1 (#714): a key swatch takes the role's colour, as its curve does.
+// oracle: ADR-0001, the reference role is drawn in --ink
+test('key swatch follows the role', () => {
+  const pts = [[0, 1], [400, 0]];
+  const x = { label: 'Spatial frequency', unit: 'cycles/mm', range: [0, 400], ticks: [0, 200, 400] }, y = { label: 'Modulus', range: [0, 1] };
+  const svg = ELEO.curve({ series: [{ points: pts, role: 'tangential' }], key: [{ label: 'Ref', role: 'reference' }], x, y });
+  const sw = svg.match(/<line [^>]*stroke="([^"]*)"[^>]*stroke-dasharray="1 3" fill="none"\/><text class="eleo-tick" data-key/);
+  assert.ok(sw, 'a reference swatch line is drawn');
+  assert.equal(sw[1], 'var(--ink)');
+});
+
+// Plan #677 M1 (#709): a corner key on a short plot wraps at the plot's width and stays inside the plot frame (a larger box starts inside it on both axes).
+// oracle: property a key box that fits lies within the plot frame; a larger one starts inside it on both axes (CR #716)
+test('corner key stays in the plot', async () => {
+  const pts = [[0, 1], [400, 0]];
+  const mk = (n, label) => Array.from({ length: n }, (_, i) => ({ points: pts, index: i, label: label || 'series number ' + i }));
+  const nums = (m) => m.slice(1).map(Number);
+  const box = (s) => nums(s.match(/<rect class="eleo-key" x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/));
+  const plot = (s) => nums(s.match(/<rect x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)" fill="none" stroke="var\(--plot-grid\)"/));
+  for (const keyAt of ['top-left', 'top-right', 'bottom-left', 'bottom-right']) {
+    const o = { keyAt, width: 300, height: 120, x: { range: [0, 400] }, y: { range: [0, 1] } };
+    const e = 1e-6;
+    let svg = ELEO.curve({ ...o, series: mk(3, 's') });
+    let [fx, fy, fw, fh] = plot(svg), [x, y, w, h] = box(svg);
+    assert.ok(x >= fx - e && x + w <= fx + fw + e && y >= fy - e && y + h <= fy + fh + e, keyAt + ': 3 short labels lie inside the plot frame, box ' + [x, y, w, h] + ' frame ' + [fx, fy, fw, fh]);
+    for (const [name, series] of [['8 labels', mk(8)], ['80-character label', mk(1, 'x'.repeat(80))]]) {
+      svg = ELEO.curve({ ...o, series });
+      [fx, fy] = plot(svg); [x, y] = box(svg);
+      assert.ok(x >= fx - e && y >= fy - e, keyAt + ': ' + name + ' starts inside the plot frame, box ' + [x, y] + ' frame ' + [fx, fy]);
+    }
+  }
+});
+
+// Plan #677, issue #691. oracle: property: grid: false removes exactly the tick grid lines; the tick text and everything else stay, and without it the output is byte-identical.
+test('plotCell without grid', async () => {
+  const { plotCell } = await import('../../packages/plots/src/curve.js');
+  const sc = { xr: [0, 10], yr: [0, 1], xt: { ticks: [0, 5, 10], decimals: 0 }, yt: { ticks: [0, 0.5, 1], decimals: 1 }, R: 10, Rt: 1 };
+  const mg = { L: 40, B: 30, R: 10, t: 10 };
+  const on = plotCell(sc, [], 300, 200, 10, false, '', undefined, mg);
+  const off = plotCell(sc, [], 300, 200, 10, false, '', undefined, { ...mg, grid: false });
+  assert.equal(plotCell(sc, [], 300, 200, 10, false, '', undefined, { ...mg, grid: true }), on, 'grid: true is the default');
+  const lines = (s) => (s.match(/<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g) || []).length;
+  const texts = (s) => s.match(/<text [^>]*>[^<]*<\/text>/g);
+  assert.equal(lines(on), 6, 'three x and three y grid lines by default');
+  assert.equal(lines(off), 0, 'no grid lines with grid: false');
+  assert.deepEqual(texts(off), texts(on), 'tick text unchanged');
+  assert.equal(on.replace(/<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g, ''), off, 'nothing else differs');
+});
+
+// Plan #677, issue #759 (CR #757). oracle: property: grid: false on curve (single, panels), rayFan and bars removes exactly the grid lines; without it the SVG is unchanged.
+test('grid false', async () => {
+  const { curve } = await import('../../packages/plots/src/curve.js');
+  const { bars } = await import('../../packages/plots/src/bars.js');
+  const { rayFan } = await import('../../packages/plots/src/fan.js');
+  const gridLine = /<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g;
+  const count = (s) => (s.match(gridLine) || []).length;
+  const texts = (s) => s.match(/<text [^>]*>[^<]*<\/text>/g);
+  const s = [{ points: [[0, 0], [1, 1], [2, 0.5]], index: 0 }];
+  const cases = {
+    single: [curve, { series: s }, 0],
+    panels: [curve, { panels: [{ series: s }, { series: s }], columns: 2 }, 0],
+    bars: [bars, { categories: ['a', 'b', 'c'], series: [{ values: [1, -1, 2] }], total: 'S' }, 3],
+  };
+  for (const [name, [fn, props, dividers]] of Object.entries(cases)) {
+    const on = fn(props), off = fn({ ...props, grid: false });
+    assert.equal(fn({ ...props, grid: true }), on, name + ': grid: true is the default');
+    assert.ok(count(on) > dividers, name + ': grid lines by default');
+    assert.equal(count(off), dividers, name + ': only the dividers remain with grid: false');
+    assert.deepEqual(texts(off), texts(on), name + ': tick text unchanged');
+    assert.ok(off.includes('<rect') && off.length < on.length, name + ': frame stays');
+  }
+  await import('../../packages/plots/src/sample.js');
+  for (const kind of ['mtf', 'fieldCurvature', 'distortion', 'chromaticFocus']) {
+    const on = curve({ kind }), off = curve({ kind, grid: false });
+    assert.equal(curve({ kind, grid: true }), on, kind + ': grid: true is the default');
+    assert.ok(count(on) > 0 && count(off) === 0, kind + ': no grid lines with grid: false');
+    assert.deepEqual(texts(off), texts(on), kind + ': tick text unchanged');
+  }
+  const fan = rayFan({ grid: false }), fanOn = rayFan({});
+  assert.ok(count(fanOn) > 0 && count(fan) === 0, 'rayFan: no grid lines with grid: false');
+  assert.deepEqual(texts(fan), texts(fanOn), 'rayFan: tick text unchanged');
 });

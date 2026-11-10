@@ -185,9 +185,9 @@ test("table matches each renderer's floor width", () => {
   const L = fixture('analysis'), lay = (width) => sizes(ELEO.layout2D({ data: L, labels: ['a', 'b', 'c'], width }));
   assert.ok(lay(at('layout2D')).length > 0 && lay(at('layout2D') - 1).length === 0, 'layout2D labels start at minWidth');
   lay(at('layout2D')).forEach((s) => near(s, 9, 'layout2D text at the floor'));
-  // ADR-0003's figures: spot 530, throughFocus about 894 (the renderer's own floor is within 1 %).
-  near(at('spot', 3), 530, 'spot, three panels');
-  assert.ok(Math.abs(at('throughFocus', 5) / 894 - 1) <= 0.01, `throughFocus, five columns: ${at('throughFocus', 5)} against about 894`);
+  // ADR-0003's figures (spot's now carry the y labels' 2.4 text units per panel): throughFocus about 894 plus the y labels' 2.4 text units, 919 (the renderer's own floor is within 1 %).
+  near(at('spot', 3), 3 * (162 + 9 * 2.4) + 2 * 22, 'spot, three panels: a frame, 2.4 text units for the y labels, 22 between');
+  assert.ok(Math.abs(at('throughFocus', 5) / (894 + 2.4 * 9) - 1) <= 0.01, `throughFocus, five columns: ${at('throughFocus', 5)} against about 916`);
   // The defaults: each renderer's own default width, and the aspect it draws at.
   assert.deepEqual([T.curve.width, T.bars.width, T.map2D.width, T.layout2D.width, T.rayFan.width, T.spot.width], [460, 460, 460, 1000, 228, 150]);
   near(T.curve.aspect, 260 / 460, 'curve aspect'); near(T.map2D.aspect, 360 / 460, 'map2D aspect');
@@ -236,6 +236,31 @@ test('minWidth gives the floor frame (#587)', async () => {
   near(minWidth('rayFan', {}), T.minWidth + 2 * T.panelStep, 'rayFan with the sample loaded counts its three fields');
   ELEO.useSample(null);
   try { near(minWidth('rayFan', {}), T.minWidth, 'rayFan with no sample is one panel'); } finally { ELEO.useSample(sample); }
+});
+
+// Plan #677 M3 (#790, finding 3): spot and throughFocus margins follow labelM(half), so a small half's longer y labels still leave an F_LO frame.
+// oracle: closed-form ADR-0003 (frameOf at the returned width and labelM's margin is at least F_LO); half 0.05 labels "\u22120.04" (five characters, 3.6 text units)
+test('minWidth for spot and throughFocus holds an F_LO frame for any half (#790)', async () => {
+  const { minWidth } = await import('../../packages/plots/src/sizes.js');
+  const { labelM } = await import('../../packages/plots/src/spot.js');
+  for (const half of [40, 0.5, 0.05]) {
+    const m = labelM(half);
+    assert.ok(frameOf(minWidth('spot', { half, panels: [{}] }), m) >= scale.F_LO - TOL, `spot half ${half}: frame at least F_LO`);
+    assert.ok(frameOf(minWidth('spot', { half, panels: [{}] }) - 1, m) < scale.F_LO, `spot half ${half}: 1 px less is under F_LO`);
+    near(minWidth('throughFocus', { half }) - minWidth('throughFocus', {}), scale.TEXT_MIN * (m - 2.4), `throughFocus half ${half}: the margin is labelM`);
+  }
+  // An empty panel draws half 1 (no data to size by), so its margin is labelM(1), not the 2.4 default.
+  near(minWidth('spot', { panels: [{}] }), scale.PLOT_SIZES.spot.minWidth + scale.TEXT_MIN * (labelM(1) - scale.SPOT_LABEL_M), 'an empty panel draws half 1');
+  // #791: the margin is the one spot draws: the half from the data without `half`, the per-panel halves under scale auto.
+  near(labelM(0.05), 3.6, 'half 0.05 labels "\u22120.04", five characters');
+  const small = { panels: [{ series: [{ points: [[0.03, 0.01], [-0.02, 0.03]] }] }] };
+  const cases = { 'data half, no half': small, 'half 40, scale auto': { ...small, half: 40, scale: 'auto' }, 'wide data, half 0.05, scale auto': { panels: [{ series: [{ points: [[30, 10]] }] }], half: 0.05, scale: 'auto' } };
+  for (const [what, props] of Object.entries(cases)) {
+    const w = minWidth('spot', props), f = panelFrames(ELEO.spot({ ...props, width: w }))[0];
+    assert.ok(f >= scale.F_LO - TOL, `${what}: spot at minWidth draws a frame of at least F_LO (${f})`);
+    assert.ok(panelFrames(ELEO.spot({ ...props, width: w - 1 }))[0] < scale.F_LO, `${what}: 1 px less draws a frame under F_LO`);
+    if (what.startsWith('wide')) near(w, scale.PLOT_SIZES.spot.minWidth, `${what}: no extra margin`);
+  }
 });
 
 // Plan #603, issue #610: minWidth is public, on the module and on the classic build's window.ELEO, the one function of sizes.js.

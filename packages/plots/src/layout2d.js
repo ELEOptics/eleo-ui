@@ -4,6 +4,7 @@
 import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
 import { layoutText, layoutWeight } from './scale.js';
+import { keyLayout, keyMarkup } from './key.js';
 
 // plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
 // The size is an inline style on each text (ADR-0003), since the class's size would beat an attribute.
@@ -31,6 +32,8 @@ function badProfile(s) {
 }
 // A stop with no glass on either side is drawn as two ticks, reaching sd + 2.5.
 function standalone(S, i) { return S[i].stop && !S[i].glass && !(S[i - 1] && S[i - 1].glass); }
+// A stop's bar runs from ±sd out to ±(sd + 2.5); on a glass surface it stops at the box (the glass already reaches sd), so it stays in view.
+function stopEnd(S, i, k, B) { var e = S[i].sd + 2.5; return standalone(S, i) ? k * e : k > 0 ? Math.min(e, Math.max(B.yhi, S[i].sd)) : Math.max(-e, Math.min(B.ylo, -S[i].sd)); }
 // A lens stop reaches its profile edge, |profile[0][1]| (layoutBounds' rule), so its label clears the glass.
 function reach(S, i) { return standalone(S, i) ? S[i].sd + 2.5 : Math.abs(S[i].profile[0][1]); }
 
@@ -215,7 +218,26 @@ export function layout2D(o) {
   if (!(W - 2 * PAD - room > 0)) throw new Error("layout2D: width too narrow for the 4 px pad and the labels");
   // Room above the geometry for the labels, 1.5 em whatever the stops reach, so one box gives one transform; the pad alone when the text is hidden. The scale bar's room below is 2.7 em.
   var top = tx0 ? 15 * u : PAD;
-  var H = Math.round((B.yhi - B.ylo) * s + top + (tx0 ? 27 * u : PAD)), tx = PAD - B.zmin * s, ty = top + B.yhi * s;
+  var Hg = (B.yhi - B.ylo) * s + top + (tx0 ? 27 * u : PAD), tx = PAD - B.zmin * s, ty = top + B.yhi * s;
+  // `key`: entries ({ label, index }: a line swatch in idx(index)) and "glass" (one swatch per distinct drawn glass, filled as glassLegend fills it), in one row that wraps at the pad, under the scale bar at the layout text size; not drawn below W = 630, with no room kept.
+  var KP = 8 * u, kents = [], kl = null;
+  if (o.key != null) {
+    if (o.key !== "glass" && !Array.isArray(o.key)) throw new TypeError('layout2D: key must be "glass" or an array of entries');
+    if (o.key !== "glass") o.key.forEach(function (e) {
+      if (e === "glass") return;
+      if (e === null || typeof e !== "object") throw new TypeError('layout2D: key entries are "glass" or objects');
+      if (typeof e.label !== "string") throw new TypeError("layout2D: key entries need a string label");
+      if (e.index !== undefined && (!Number.isInteger(e.index) || e.index < 0)) throw new TypeError("layout2D: key index must be a non-negative integer");
+    });
+  }
+  if (o.key != null && tx0) {
+    (o.key === "glass" ? ["glass"] : o.key).forEach(function (e) {
+      if (e === "glass") { var gs = drawnGlasses(S), gf = glassFill(gs); new Set(gs.map(function (x) { return x.name; })).forEach(function (name) { kents.push({ label: name, col: gf.get(name) }); }); }
+      else kents.push({ label: e.label, index: e.index, kind: "line" });
+    });
+    kl = keyLayout(kents, tx0, { L: KP, R: W - KP, maxRow: 1000 });
+  }
+  var H = Math.round(Math.round(Hg) + (kl && kl.rows ? tx0 * (1.4 * kl.rows - 0.4) + 0.6 * tx0 : 0));
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
@@ -241,7 +263,7 @@ export function layout2D(o) {
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
     if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
-    if (standalone(S, i)) [1, -1].forEach(function (k) { g += line(a.z, k * a.sd, a.z, k * (a.sd + 2.5), 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
+    if (a.stop) [1, -1].forEach(function (k) { var m = k * a.sd, e = stopEnd(S, i, k, B); if (e - m) g += line(a.z, m, a.z, e, 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
   });
   var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0];
   // One group per opacity, so it does not darken where rays cross (a per-polyline stroke-opacity would). With `status`, Virtual and Dead runs go in a faded
@@ -284,9 +306,11 @@ export function layout2D(o) {
   // Each field's label starts 6 px past the image plane (its own chief end's z with no image surface), its baseline 4 px
   // below its chief's end, never above 1 em from the top (a cropping box, #160); the room kept on the right keeps its text inside the pad. An empty fan or a null label draws none.
   var tags = [];
-  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, py: Math.max(10 * u, +Y(ends[k][1]) + 4 * u), t: esc(t) }); });
+  (o.labels || []).forEach(function (t, k) { if (ends[k] && t != null) tags.push({ x: +X(img ? img.z : ends[k][0]) + 6 * u, q: +Y(ends[k][1]) + 4 * u, t: esc(t) }); });
+  // Labels keep the drawing's top-to-bottom order (their unclamped baselines) and clear each other: top to bottom, a label within 1 em of a clamped or pushed one above (its baseline below the unclamped one) sits 1 em below it (#669, #798). With no clamped label nothing moves.
+  tags.slice().sort(function (a, b) { return a.q - b.q; }).forEach(function (a, j, v) { var p = v[j - 1]; a.py = Math.max(10 * u, a.q, p && p.py > p.q ? p.py + 10 * u : 0); });
   if (o.marks !== false) {
-    S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(reach(S, i)), "STO"); });
+    S.forEach(function (x, i) { if (x.stop) g += label(x.z, above(Math.max(reach(S, i), stopEnd(S, i, 1, B))), "STO"); });
     if (img) {
       // With labels, IMA goes below the image line's lower end and a 12 px line below the lowest label.
       // Its baseline drops the text's height (0.9 em: the ascent of plots.css `.eleo-tick`'s font) plus the 0.5 em gap `above` leaves.
@@ -295,7 +319,8 @@ export function layout2D(o) {
     }
   }
   tags.forEach(function (a) { g += label(a.x, a.py, a.t, "start"); });
-  var by = H - 8 * u;
+  var Hd = Math.round(Hg), by = Hd - 8 * u;
   g += '<path d="M' + n(8 * u) + "," + n(by - 4 * u) + "v" + n(8 * u) + "m0," + n(-4 * u) + "h" + n(10 * s) + "m0," + n(-4 * u) + "v" + n(8 * u) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + n(10 * s + 16 * u) + '" y="' + n(by + 3 * u) + '"' + tsz + '>10 mm</text>';
+  if (kl && kl.rows) g += keyMarkup(kl.places, kents, tx0, Hd, { mark: true });
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
 }

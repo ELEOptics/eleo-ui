@@ -3,6 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELEO from '../../packages/plots/src/index.js';
+import { idx } from '../../packages/plots/src/common.js';
+import { frameText } from '../../packages/plots/src/scale.js';
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -114,10 +116,10 @@ test('typed points round trip, common and auto scale', () => {
       if (scale === 'common') groups.forEach((g, p) => assert.ok(Math.abs(Math.abs(g.M[0]) - Math.abs(groups[0].M[0])) <= 1e-9 * Math.abs(groups[0].M[0]), `${label} panel ${p}: one common scale`));
       else assert.ok(Math.abs(groups[0].M[0]) > Math.abs(groups[1].M[0]), `${label}: auto fits each panel, the tight one larger`);
       assert.ok(svg.includes('M0.4,-1.2 h0'), `${label}: dots are M x y h0`);
-      assert.ok(svg.includes('±') && svg.includes('µm') && svg.includes('100 % 6.53 µm') && svg.includes('1.0°'), `${label}: half, unit, title and notes drawn`);
+      assert.ok(!svg.includes('±') && svg.includes('x, y in µm') && svg.includes('100 % 6.53 µm') && svg.includes('1.0°'), `${label}: unit, title and notes drawn, no ±half`);
     }
   }
-  assert.ok(ELEO.spot({ panels: [panels[2]], scale: 'common', half: 7 }).includes('±7'), 'half overrides the common size');
+  assert.ok(ELEO.spot({ panels: [panels[2]], scale: 'common', half: 7 }).includes('>−5<'), 'half overrides the common size: the ticks run to ±5');
 });
 
 // #240: spot() on the sample is the adapter spotPanels(sample, o) and then the typed path.
@@ -254,7 +256,7 @@ test('labelled circle', () => {
   assert.ok(r, 'the circle is drawn');
   assert.ok(Math.abs(Math.abs(g.M[0]) * (+r[1] - 1.5)) <= TOL_PX, 'its radius maps to 1.5');
   assert.ok(texts(on).includes('Semi-diameter 1.50 mm'), 'caption: ' + texts(on));
-  assert.ok(texts(on).some((t) => /^±2 mm$/.test(t)), 'the half covers the circle: ' + texts(on));
+  assert.ok(texts(on).includes('1') && texts(on).includes('−1') && !texts(on).includes('2'), 'the half (2) covers the circle, its ticks stop at ±1: ' + texts(on));
   const plain = ELEO.spot({ panels: [{ series }], ...base });
   assert.equal(ELEO.spot({ panels: [{ series, circle: undefined }], ...base }), plain, 'undefined circle: same markup');
   const two = ELEO.spot({ panels: [{ series, circle: { radius: 1, label: 'Stop' } }, { series, circle: { radius: 2, label: 'Stop' } }], unit: 'mm' });
@@ -312,7 +314,7 @@ test('caption lines and stats labels', async () => {
   assert.ok(edge.includes('Airy radius 1000 µm'), '999.6 prints 1000: ' + edge);
   const tiny = texts(ELEO.spot({ panels: [{ series: [{ points: [[4e-7, 0], [-4e-7, 0]] }], airy: 4e-7 }], unit: 'mm' }));
   assert.ok(!tiny.some((t) => /\de[+-]?\d/.test(t)), 'no exponent below 1e-6: ' + tiny);
-  assert.ok(tiny.includes('±0.0000004 mm'), 'the half label has no exponent: ' + tiny);
+  assert.ok(tiny.includes('0') && tiny.includes('x, y in mm'), 'the tick labels are kept apart, the caption names the unit: ' + tiny);
   const radii = texts(ELEO.spot({ panels: [{ series: pts, airy: 1231, circle: { radius: 1231, label: 'X' } }, { series: pts, airy: 1234, circle: { radius: 1234, label: 'X' } }], unit: 'µm' }));
   assert.ok(radii.includes('Airy circle') && !radii.some((t) => /^Airy radius/.test(t)), '1231 and 1234 differ as printed: ' + radii);
   assert.ok(radii.includes('X') && !radii.some((t) => /^X \d/.test(t)), 'nor does the circle line share them: ' + radii);
@@ -392,41 +394,42 @@ test('circle caption rule stated alike in index.d.ts and README', async () => {
 });
 
 // ADR-0003 (plan #512, #525): spot's text is frameText(F) for F = one panel's side, times textScale; the layout around it is in text units
-// (1.8 under a panel, 1.5 a line, a foot of 2.8 + 1.5 a line); dots weigh 2.2 * frameWeight(F). throughFocus takes `width` the same way.
+// (1.5 for the x labels and 1.8 more to the title, 1.5 a line, a foot of 4.3 + 1.5 a line, a left margin of 2.4 for the y labels); dots weigh 2.2 * frameWeight(F). throughFocus takes `width` the same way.
 // oracle: closed-form ADR-0003
 test('text follows ADR-0003 per panel', async () => {
   const { frameText, frameWeight, frameOf } = await import('../../packages/plots/src/scale.js');
   const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
   const near = (a, b, m) => assert.ok(Math.abs(a - b) <= 0.01, `${m}: ${a} against ${b}`);
   const base = { panels: [{ title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], airy: 2.87, notes: ['n1'] }], unit: 'µm', reference: 'centroid' };
-  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ y: +/\by="(-?[\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
+  const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ anchor: /text-anchor="(\w+)"/.exec(t[1]), y: +/\by="(-?[\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
   const hOf = (m) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(m)[1];
   const dots = (m) => [...m.matchAll(/<path d="M[^"]*h0[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
   const seen = new Set();
   // One panel: F is the width. 100 is under the band, 200 inside it, 1200 above.
   for (const width of [100, 200, 1200]) {
-    const F = width, t = frameText(F);
-    seen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
+    seen.add(frameOf(width, 2.4) < 162 ? 'below' : frameOf(width, 2.4) <= 234 ? 'inside' : 'above');
     for (const ts of [1, 0.5, 2]) {
-      const m = ELEO.spot({ ...base, width, textScale: ts }), tx = texts(m);
+      const F = frameOf(width, 2.4 * ts), t = frameText(F);
+      const m = ELEO.spot({ ...base, width, textScale: ts }), tx = texts(m), body = tx.filter((x) => !x.anchor);
+      assert.ok(tx.length > body.length, `${width} x${ts}: tick labels drawn`);
       assert.ok(tx.length > 0, `${width}: text drawn`);
       tx.forEach((x, i) => { assert.ok(x.size, `${width}: text ${i} has an inline size`); near(+x.size[1], t * ts, `${width} x${ts} text ${i} size`); });
-      // 3 lines under the panel (±half, RMS, GEO) and a note: first text is the title at 1.8 t under the panel; lines 1.5 t apart.
-      const plotBottom = tx[0].y - 1.8 * t * ts;
-      near(plotBottom, 4 + width, `${width} x${ts} the panel ends at its side`);
-      near(tx[2].y - tx[1].y, 1.5 * t * ts, `${width} x${ts} line pitch`);
-      // 3 notes + 3 caption lines: the foot is (2.8 + 1.5 * 6) t + 1.
-      near(hOf(m), width + 8 + (2.8 + 1.5 * 6) * t * ts + 1, `${width} x${ts} height`);
+      // the title is the first text that is not a tick label, 3.3 t under the panel; lines 1.5 t apart.
+      const plotBottom = body[0].y - 3.3 * t * ts;
+      near(plotBottom, 4 + Math.floor(F * 100) / 100, `${width} x${ts} the panel ends at its side`);
+      near(body[2].y - body[1].y, 1.5 * t * ts, `${width} x${ts} line pitch`);
+      // 3 notes + 4 caption lines: the foot is (4.3 + 1.5 * 7) t + 1.
+      near(hOf(m), Math.floor(F * 100) / 100 + 8 + (4.3 + 1.5 * 7) * t * ts + 1, `${width} x${ts} height`);
       dots(m).forEach((w) => near(w, 2.2 * frameWeight(F), `${width} dot width`));
       assert.ok(dots(m).length > 0, 'dots drawn');
     }
   }
   assert.deepEqual([...seen].sort(), ['above', 'below', 'inside']);
   // Three panels: F is one panel's side, (width - 2 gaps) / 3, not the figure's width.
-  const m3 = ELEO.spot({ data: sample, width: 1500 }), F3 = (1500 - 44) / 3;
+  const m3 = ELEO.spot({ data: sample, width: 1500 }), F3 = frameOf((1500 - 44) / 3, 2.4);
   texts(m3).forEach((x, i) => near(+x.size[1], frameText(F3), `three panels text ${i}`));
   // A height that bites shrinks the panel; the text follows the smaller side.
-  const mh = ELEO.spot({ ...base, width: 600, height: 300 }), side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(mh)[1];
+  const mh = ELEO.spot({ ...base, width: 600, height: 300 }), side = +/<svg x="[\d.]+" y="4" width="([\d.]+)"/.exec(mh)[1];
   assert.ok(side < 300, 'the height shrank the panel');
   texts(mh).forEach((x, i) => near(+x.size[1], frameText(side), `height-bound text ${i}`));
   assert.ok(hOf(mh) <= 300 + 0.011, 'it fits the height');
@@ -438,7 +441,7 @@ test('text follows ADR-0003 per panel', async () => {
   const wOf = (m) => +/viewBox="0 0 ([\d.]+) /.exec(m)[1];
   assert.ok(wOf(ELEO.spot({ ...nar, textScale: 0.5 })) < wOf(ELEO.spot(nar)), 'the caption width estimate shrinks');
 
-  // throughFocus: width gives the row label and the panels (3 columns here); F is a panel's side, rect width + 1.
+  // throughFocus: width gives the row label, the y labels' room and the panels (5 columns here); F is a panel's side, rect width + 1.
   const tfSeen = new Set(), tfRects = (m) => [...m.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1);
   const cols = 5; // the sample's defocus steps
   for (const width of [500, 1100, 3000]) {
@@ -447,10 +450,10 @@ test('text follows ADR-0003 per panel', async () => {
     assert.ok(F > 1, `${width}: panels drawn`);
     texts(m).forEach((x, i) => { assert.ok(x.size, `${width}: text ${i} inline`); near(+x.size[1], t, `${width} text ${i}`); });
     near(+/viewBox="0 0 ([\d.]+) /.exec(m)[1], width, `${width}: the figure is as wide as asked`);
-    const radii = [...m.matchAll(/<circle\b[^>]*r="([\d.]+)"/g)].map((c) => +c[1]);
-    assert.ok(radii.length > 0);
-    radii.forEach((r) => near(r, 0.9 * frameWeight(F), `${width} dot radius`));
-    near(F, frameOf((width - cols * 10) / cols, 4.2 / cols), `${width}: F solves the row label's room`);
+    const widths = dots(m);
+    assert.ok(widths.length > 0);
+    widths.forEach((w) => near(w, 2.2 * frameWeight(F), `${width} dot width`));
+    near(F, frameOf((width - cols * 10) / cols, (4.2 + 2.4) / cols), `${width}: F solves the row label's room and the y labels' 2.4 text units`);
   }
   assert.deepEqual([...tfSeen].sort(), ['above', 'below', 'inside']);
 });
@@ -466,10 +469,10 @@ test('height fit solves frameOf', async () => {
     for (const ts of [1, 2]) {
       // Two stats notes plus `extra` given ones; two caption lines (Reference, RMS/GEO).
       const notes = Array.from({ length: extra }, (_, i) => `note ${i}`);
-      const m = (2.8 + 1.5 * (2 + extra + 2)) * ts;
+      const m = (4.3 + 1.5 * (2 + extra + 2)) * ts;
       for (const height of [300, 330, 380, 500, 900]) {
         const svg = ELEO.spot({ panels: [{ series: [{ points: pts }], notes }], width: 2000, height, textScale: ts });
-        const side = +/<svg x="0" y="4" width="([\d.]+)"/.exec(svg)[1], F = frameOf(height - 9, m);
+        const side = +/<svg x="[\d.]+" y="4" width="([\d.]+)"/.exec(svg)[1], F = frameOf(height - 9, m);
         seen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
         assert.equal(side, Math.max(floor2(F), 1), `${height} x${ts} +${extra}: side is floor2(frameOf(height - 9, m))`);
         const H = +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1];
@@ -481,7 +484,7 @@ test('height fit solves frameOf', async () => {
 });
 
 // #590: the height fit and the drawn foot are one quantity: a fitted figure's bottom is the height, and sits 5 + t below the last caption baseline.
-// oracle: closed-form ADR-0003 (foot = (2.8 + 1.5 lines) t + 1; last baseline = side + 4 + (1.8 + 1.5 lines) t)
+// oracle: closed-form ADR-0003 (foot = (4.3 + 1.5 lines) t + 1; last baseline = side + 4 + (3.3 + 1.5 lines) t)
 test('height fit margin is the drawn foot', async () => {
   const pts = [[1, 2], [-2, 1], [0.5, -1]];
   for (const extra of [0, 3]) {
@@ -498,3 +501,179 @@ test('height fit margin is the drawn foot', async () => {
     }
   }
 });
+
+// Plan #677, issue #686. oracle: ADR-0003 foot layout in text units (a key row is 1.4 t after 0.7 t); the height-fit keeps the figure inside `height`
+test('key', () => {
+  const pts = [[1, 1], [-1, 0.5]];
+  const mk = (extra) => ({ panels: [{ series: [{ points: pts, index: 0, label: 'F1 0.0°', ...extra }, { points: pts, index: 1, label: 'F2 17.0°' }] }, { series: [{ points: pts, index: 0, label: 'F1 0.0°' }] }], unit: 'mm', width: 400, height: 260 });
+  const svg = ELEO.spot(mk());
+  const keys = [...svg.matchAll(/<text [^>]*data-key[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+  assert.deepEqual(keys, ['F1 0.0°', 'F2 17.0°'], 'each distinct label keyed once');
+  const keyDots = (sv) => [...sv.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)" fill="([^"]+)"\/>/g)].map((m) => ({ cy: +m[2], fill: m[4] }));
+  const keyTexts = (sv) => [...sv.matchAll(/<text [^>]*data-key[^>]*y="([\d.]+)"[^>]*>([^<]*)<\/text>/g)].map((m) => ({ y: +m[1], text: m[2] }));
+  const kd = keyDots(svg), kt = keyTexts(svg);
+  assert.equal(kd.length, 2, 'one dot per key entry');
+  kd.forEach((d, i) => { assert.equal(d.fill, idx(i), `dot ${i} in idx(${i})`); assert.ok(Math.abs(d.cy - (kt[i].y - 0.4 * 9)) < 1.5, `dot ${i} on its key row`); });
+  const H = +svg.match(/viewBox="0 0 [\d.]+ ([\d.]+)"/)[1];
+  const ys = [...svg.matchAll(/<text [^>]*y="([\d.]+)"/g)].map((m) => +m[1]);
+  assert.ok(Math.max(...ys) < H, 'every text inside the height');
+  const plain = ELEO.spot({ panels: [{ series: [{ points: pts, index: 0 }] }], unit: 'mm', width: 400, height: 260 });
+  assert.ok(!/data-key/.test(plain), 'no label, no key');
+  const empty = ELEO.spot({ panels: [{ series: [{ points: pts, index: 0, label: '' }] }], unit: 'mm', width: 400, height: 260 });
+  assert.ok(!/data-key/.test(empty), 'an empty label is not keyed');
+  assert.equal(empty, plain, 'and reserves no row');
+  // a corner: one box per panel inside it, with that panel's labels, and no foot rows
+  const corner = ELEO.spot({ ...mk(), keyAt: 'top-right' });
+  assert.equal([...corner.matchAll(/class="eleo-key"/g)].length, 2, 'a box per panel');
+  assert.deepEqual(keyTexts(corner).map((k) => k.text), ['F1 0.0°', 'F2 17.0°', 'F1 0.0°'], 'each panel its own labels');
+  assert.throws(() => ELEO.spot({ ...mk(), keyAt: 'middle' }), TypeError);
+  // height, no width, labels that wrap: every key baseline + 0.3 t inside H
+  const many = Array.from({ length: 9 }, (_, i) => ({ points: pts, index: i % 8, label: `Field ${i} ${i * 3.5}°` }));
+  for (const height of [140, 200, 320]) {
+    const sv = ELEO.spot({ panels: [{ series: many }, { series: many }], unit: 'mm', height });
+    const Hh = +sv.match(/viewBox="0 0 [\d.]+ ([\d.]+)"/)[1];
+    const tt = [...sv.matchAll(/<text [^>]*data-key[^>]*y="([\d.]+)"[^>]*font-size:([\d.]+)px/g)].map((m) => [+m[2], +m[1]]);
+    assert.equal(tt.length, 9);
+    tt.forEach(([t, y]) => assert.ok(y + 0.3 * t <= Hh + 1e-6, `height ${height}: baseline ${y} + 0.3 * ${t} within ${Hh}`));
+  }
+});
+
+// #770 (CR #768), #774: a grid at the 1-2-5 ticks strictly inside (-half, half), under the series; the frame draws the edges; grid: false draws none.
+// oracle: closed-form the 1-2-5 rule by hand: half 5 steps by 2 (-4 -2 0 2 4), half 10 steps by 5 (-5 0 5); a line sits at side / 2 + t * side / (2 * half)
+test('grid', () => {
+  const panels = [{ series: [{ points: [[1, 2], [-3, 4]], index: 0 }, { points: [[0, 1]], index: 1 }] }];
+  const xs = (svg) => [...svg.matchAll(/<path d="M([\d.]+),([\d.]+) V([\d.]+)" [^>]*data-grid="x"[^>]*\/>/g)];
+  const svg = ELEO.spot({ panels, unit: 'µm', width: 300, half: 5 });
+  const lines = xs(svg);
+  const side = +/<svg x="[\d.]+" y="4" width="([\d.]+)"/.exec(svg)[1], left = +/<svg x="([\d.]+)" y="4"/.exec(svg)[1];
+  const at = (ticks, half) => ticks.map((t) => +(left + side / 2 + (t * side) / (2 * half)).toFixed(2));
+  assert.deepEqual(lines.map((m) => +(+m[1]).toFixed(2)), at([-4, -2, 0, 2, 4], 5), 'half 5: x positions are -4 -2 0 2 4');
+  const big = ELEO.spot({ panels, unit: 'µm', width: 300, half: 10 });
+  assert.deepEqual(xs(big).map((m) => +(+m[1]).toFixed(2)), at([-5, 0, 5], 10), 'half 10: -5 0 5, none on the frame edge');
+  assert.ok(/stroke="var\(--plot-grid\)"/.test(lines[0][0]), 'the first x grid line has stroke var(--plot-grid)');
+  const first = svg.indexOf('stroke-linecap="round"'), last = svg.lastIndexOf('data-grid=');
+  assert.ok(last > -1 && first > last, 'every grid line before the first series path');
+  assert.ok(/data-grid="y"/.test(svg), 'the SVG has horizontal grid lines too');
+  const off = ELEO.spot({ panels, unit: 'µm', width: 300, half: 5, grid: false });
+  assert.ok(!/data-grid/.test(off), 'grid: false draws none');
+  // every <rect>/<path> that carries var(--plot-grid) (frames, grid lines, crosses) has no number with 3 or more decimals, as the panel's <svg x> has none (width 200.74, 3 panels: origin 74.24000000000001 unrounded)
+  const three = ELEO.spot({ panels: [panels[0], panels[0], panels[0]], unit: 'µm', width: 200.74, half: 5 });
+  const drawn = [...three.matchAll(/<(?:rect|path)[^>]*var\(--plot-grid\)[^>]*>/g)].map((m) => m[0]);
+  assert.ok(drawn.length > 9, 'more than 9 elements carry var(--plot-grid)');
+  drawn.forEach((el) => assert.ok(!/\d\.\d{3,}/.test(el), `no number with 3 or more decimals: ${el}`));
+  // #776: in every start tag of the whole SVG (titles, captions, notes, the tick labels, the key below and in a corner), for 1, 2 and 3 panels:
+  // no number with 3 or more decimals, except in font-size (toFixed(3) by the repo's convention: key.js, plotCell) and in three kinds of element left out of the check: any with matrix(, a path 'M... h0', a circle at cx=0 cy=0.
+  const lab = [{ title: 'T', notes: ['n'], airy: 1.2345, circle: { radius: 2.3456, label: 'c' }, series: [{ points: [[1, 2], [-3, 4]], index: 0, label: 'a' }, { points: [[0, 1]], index: 1, label: 'b' }] }];
+  for (const n of [1, 2, 3]) for (const keyAt of [undefined, 'top-left', 'bottom-right']) {
+    const whole = ELEO.spot({ panels: Array(n).fill(lab[0]), unit: 'µm', width: 200.74, half: 5, keyAt });
+    const bad = [...whole.matchAll(/<[a-z][^>]*>/g)].map((m) => m[0]).filter((el) => /\d\.\d{3,}/.test(el.replace(/font-size:[\d.]+px/g, '')) && !/matrix\(|<path d="M[^"]* h0|<circle cx="0" cy="0"/.test(el));
+    assert.deepEqual(bad, [], `${n} panels, keyAt ${keyAt}: every start tag but the three left out has no number with 3 or more decimals outside font-size`);
+  }
+});
+
+// Plan #677 M3 (#783, CR #780): throughFocus draws each cell with spot's panel function: grid under spot's dots, a centre cross, round-cap dots, a clipping nested svg.
+// oracle: spec CR #780 (user): every cell drawn by spot's panel function
+test('throughFocus panels', async () => {
+  const { frameWeight } = await import('../../packages/plots/src/scale.js');
+  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const tf = ELEO.throughFocus({ data: sample, width: 1100 });
+  const rects = [...tf.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)];
+  assert.ok(rects.length > 0, 'cells drawn');
+  const F = +/\bwidth="([\d.]+)"/.exec(rects[0][0])[1] + 1;
+  // Every cell: a nested svg, one grid, round-cap dot paths (no circle dots), and the in-focus column alone in --ink-subtle.
+  const nested = [...tf.matchAll(/<svg x=/g)].length;
+  assert.equal(nested, rects.length, 'one clipping svg per cell');
+  assert.ok([...tf.matchAll(/data-grid="x"/g)].length > 0 && [...tf.matchAll(/data-grid="y"/g)].length > 0, 'grid lines drawn');
+  assert.equal([...tf.matchAll(/data-grid="x"/g)].length, [...tf.matchAll(/data-grid="y"/g)].length, 'as many vertical as horizontal');
+  assert.ok(/<path d="M[^"]*h0[^"]*"[^>]*stroke-linecap="round"/.test(tf), 'dots are round-cap paths');
+  assert.ok(!/<circle\b/.test(tf), 'no circle dots');
+  const w = [...tf.matchAll(/<path d="M[^"]*h0[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
+  assert.ok(w.length > 0);
+  w.forEach((x) => assert.ok(Math.abs(x - 2.2 * frameWeight(F)) <= 0.001, `dot width ${x}`));
+  assert.equal([...tf.matchAll(/stroke="var\(--ink-subtle\)"/g)].length, sample.throughFocus.spots.length, 'only the in-focus column (one cell per row) is --ink-subtle');
+  // The grid sits strictly inside the frame and under the dots.
+  assert.ok(tf.indexOf('data-grid') < tf.indexOf('stroke-linecap="round"'), 'grid before dots');
+  [...tf.matchAll(/<path d="M([\d.]+),[\d.]+ V[\d.]+" [^>]*data-grid="x"/g)].forEach((m) => {
+    const ox = Math.max(...[...rects].map((r) => +/\bx="([\d.]+)"/.exec(r[0])[1] - .5).filter((x) => x <= +m[1]));
+    assert.ok(+m[1] > ox && +m[1] < ox + F, 'a grid line is strictly inside its frame');
+  });
+  // grid: false draws none and nothing else changes.
+  const off = ELEO.throughFocus({ data: sample, width: 1100, grid: false });
+  assert.ok(!/data-grid/.test(off), 'grid: false draws none');
+  assert.equal(off.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), tf.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), 'grid: false removes the grid lines only');
+});
+
+// Plan #677 M3 (#784, CR #781): each spot panel labels its grid ticks (x under the bottom edge, y right-aligned left of the left edge), also with grid: false; the ±half label is gone and the caption says "x, y in <unit>".
+// oracle: spec CR #781 (user): half 40 steps by 20 (−20 0 20); a label sits at side / 2 + t * side / (2 * half), the text at the panel's text size
+test('tick labels', () => {
+  const panels = [{ series: [{ points: [[1, 2], [-3, 4]], index: 0 }] }];
+  const tx = (svg) => [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({ a: m[1], t: m[2] }));
+  const svg = ELEO.spot({ panels, half: 40, unit: 'µm', width: 300 });
+  const all = tx(svg), ticks = all.filter((x) => /^(−20|0|20)$/.test(x.t));
+  assert.equal(ticks.length, 6, 'three x labels and three y labels');
+  assert.ok(ticks.every((x) => /class="eleo-tick"/.test(x.a)), 'tick text is eleo-tick');
+  assert.ok(!all.some((x) => /±/.test(x.t)), 'no ±half label');
+  assert.ok(all.some((x) => x.t === 'x, y in µm'), 'the caption names the unit');
+  const side = +/<svg x="([\d.]+)" y="4" width="([\d.]+)"/.exec(svg)[2], left = +/<svg x="([\d.]+)" y="4"/.exec(svg)[1];
+  const size = +/font-size:([\d.]+)px/.exec(ticks[0].a)[1];
+  const X = ticks.filter((x) => /text-anchor="middle"/.test(x.a)), Y = ticks.filter((x) => /text-anchor="end"/.test(x.a));
+  assert.equal(X.length, 3); assert.equal(Y.length, 3);
+  X.forEach((x, i) => {
+    assert.ok(Math.abs(+/\bx="([\d.]+)"/.exec(x.a)[1] - (left + side / 2 + ([-20, 0, 20][i] * side) / 80)) < 0.02, 'x label centred on its tick');
+    assert.ok(+/\by="([\d.]+)"/.exec(x.a)[1] > 4 + side, 'x labels sit under the frame');
+  });
+  Y.forEach((y) => assert.ok(+/\bx="([\d.]+)"/.exec(y.a)[1] < left, 'y labels sit left of the frame'));
+  Y.forEach((y, i) => assert.ok(Math.abs(+/\by="([\d.]+)"/.exec(y.a)[1] - (4 + side / 2 - ([-20, 0, 20][i] * side) / 80 + 0.35 * size)) < 0.02, 'y label beside its tick, −20 lowest'));
+  assert.ok(Math.abs(size - frameText(side)) < 0.01, 'text at the panel size');
+  const capX = /<text\b[^>]*\bx="([\d.]+)"[^>]*>x, y in µm<\/text>/.exec(svg);
+  assert.ok(capX && Math.abs(+capX[1] - left) < 0.02, 'caption lines start at the first frame\'s left edge');
+  const off = ELEO.spot({ panels, half: 40, unit: 'µm', width: 300, grid: false });
+  assert.equal(tx(off).filter((x) => /^(−20|0|20)$/.test(x.t)).length, 6, 'grid: false keeps the labels');
+  const vb = /viewBox="0 0 ([\d.]+)/.exec(svg)[1];
+  assert.ok(Math.abs(+vb - 300) < 0.02, 'the figure still fits width');
+  assert.ok(!/±/.test(ELEO.spot({ panels, half: 40, width: 300 })), 'no ± without a unit either');
+});
+
+// Plan #677 M3 (#785, CR #781): throughFocus labels its outer edges only: x under the bottom row, y left of the left column, with a caption "x, y in µm" under the figure.
+// oracle: spec CR #781 (user): half 40 steps by 20 (−20 0 20); the room is 4.2 text units of row label plus labelM (2.4) of y labels, in ADR-0003 text units; a label never touches the RMS lines, the column heads or the field labels
+test('throughFocus tick labels', async () => {
+  const { frameOf, frameText } = await import('../../packages/plots/src/scale.js');
+  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const rows = sample.throughFocus.spots.length, cols = sample.throughFocus.defocus.length;
+  const tx = (svg) => [...svg.matchAll(/<text\b([^>]*)>(.*?)<\/text>/g)].map((m) => ({ a: m[1], t: m[2].replace(/<[^>]*>/g, ''), x: +/\bx="(-?[\d.]+)"/.exec(m[1])[1], y: +/\by="(-?[\d.]+)"/.exec(m[1])[1] }));
+  for (const grid of [true, false]) {
+    const width = 1100, svg = ELEO.throughFocus({ data: sample, width, grid }), all = tx(svg);
+    const rects = [...svg.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => ({ x: +/\bx="([\d.]+)"/.exec(r[0])[1] - .5, y: +/\by="([\d.]+)"/.exec(r[0])[1] - .5, w: +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1 }));
+    const F = rects[0].w, t = frameText(F), left = rects[0].x, bottom = Math.max(...rects.map((r) => r.y));
+    near2(F, frameOf((width - cols * 10) / cols, (4.2 + 2.4) / cols), 'F solves the row label and the y labels');
+    near2(left, 6.6 * t, 'the first panel starts after 4.2 + 2.4 text units');
+    const ticks = all.filter((x) => /^(−20|0|20)$/.test(x.t)), X = ticks.filter((x) => /text-anchor="middle"/.test(x.a)), Y = ticks.filter((x) => /text-anchor="end"/.test(x.a));
+    assert.equal(X.length, 3 * cols, `grid ${grid}: three x labels under each column of the bottom row only`);
+    assert.equal(Y.length, 3 * rows, `grid ${grid}: three y labels left of each row's first panel only`);
+    assert.equal(ticks.length, X.length + Y.length);
+    X.forEach((x) => near2(x.y, bottom + F + 1.2 * t, 'x labels one line under the bottom row'));
+    Y.forEach((y) => near2(y.x, left - 0.4 * t, 'y labels right-aligned in front of the left column'));
+    // x labels are centred on the grid lines of their cell.
+    const cell0 = X.filter((x) => x.x > left && x.x < left + F).map((x) => x.x).sort((a, b) => a - b);
+    near2(cell0[1] - left, F / 2, 'zero is centred'); near2(cell0[2] - cell0[1], 20 * F / 80, 'twenty is a quarter of the side along');
+    // Nothing collides: the y labels clear the field labels, the x labels clear the RMS lines of the bottom row, the caption clears both.
+    const fields = all.filter((x) => /eleo-val/.test(x.a) && x.x === 0);
+    assert.equal(fields.length, rows, 'one field label per row');
+    fields.forEach((f) => assert.ok(f.x + 0.6 * t * f.t.length < left - 0.4 * t - 0.6 * t * 3, `field label "${f.t}" ends before the y labels begin`));
+    const rms = all.filter((x) => /^RMS/.test(x.t)), lastRms = rms.filter((x) => x.y > bottom);
+    assert.equal(rms.length, rows * cols);
+    rects.forEach((r, k) => near2(rms[k].y, r.y + F + (r.y === bottom ? 2.5 : 1.3) * t, 'RMS at B + 1.3t, the bottom row\'s at B + 2.5t'));
+    assert.equal(lastRms.length, cols, 'one bottom row of RMS lines');
+    assert.ok(lastRms.every((r) => r.y - X[0].y >= 1.2 * t - 0.01), 'the bottom row\'s RMS lines sit a text line under the x labels');
+    rms.forEach((r) => assert.ok(!X.some((x) => Math.abs(x.y - r.y) < t), 'no x label shares a line with an RMS line'));
+    const pitch = [...new Set(rects.map((r) => r.y))].sort((a, b) => a - b); near2(pitch[1] - pitch[0], F + 2.6 * t, 'row pitch is B + 2.6t');
+    const cap = all.filter((x) => x.t === 'x, y in µm');
+    assert.equal(cap.length, 1, 'one caption');
+    near2(cap[0].x, left, 'the caption starts at the first panel\'s left edge');
+    assert.ok(cap[0].y - Math.max(...rms.map((r) => r.y)) >= 1.2 * t - 0.01, 'the caption is under the RMS lines');
+    const H = +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1];
+    assert.ok(cap[0].y < H, 'the caption is inside the figure');
+    all.filter((x) => /text-anchor="middle"/.test(x.a) && !/^(−20|0|20)$/.test(x.t)).forEach((h) => assert.ok(h.y < t * 2.2, 'column heads stay on top'));
+  }
+});
+function near2(a, b, m) { assert.ok(Math.abs(a - b) <= 0.02, `${m}: ${a} against ${b}`); }

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // The gallery's tile count.
-const TILES = 28;
+const TILES = 25;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -29,25 +29,6 @@ test('gallery renders every tile in both themes', async ({ page }) => {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
     for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
-  }
-});
-
-// #69: a missing merit fixture fails its one tile, not the page. oracle: property, one broken tile doesn't
-// blank the others. The 404 and the gallery's own report of it are the expected console errors.
-test('a missing merit fixture blanks only its tile', async ({ page }) => {
-  const thrown = [];
-  page.on('pageerror', (e) => thrown.push(e.message));
-  await page.route('**/merit-before.json', (route) => route.fulfill({ status: 404, body: '' }));
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  expect(thrown).toEqual([]);
-  for (const theme of ['light', 'dark']) {
-    const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(TILES);
-    for (const t of tiles) {
-      if (t.tile === 'layout2D-shared') expect(t.svgMarks + t.inked, `${theme} merit tile drew`).toBe(0);
-      else expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
-    }
   }
 });
 
@@ -121,79 +102,23 @@ test('the Cassegrain Dead-hidden tile draws no Dead run (U17)', async ({ page })
 // A layout tile whose W / 70 is under 9 draws no text.
 const frameText = (F) => (F < 162 ? 9 : F <= 234 ? F / 18 : 13 * Math.cbrt(F / 234));
 const layoutText = (W) => (W / 70 < 9 ? null : W <= 910 ? W / 70 : 13 * Math.sqrt(W / 910));
-// Plan #464, CR #483, #485: the footprint tile's footer legend keys its series by the recording's field angles.
-// oracle: fixture tests/fixtures/phos-core/cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24).
-test('the footprint tile has a field legend from the recording', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const keys = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"] .eleo-legend .eleo-key`);
-    await expect(keys, `${theme} footprint legend`).toHaveText(['F1 0.0\u00b0', 'F2 17.0\u00b0', 'F3 24.0\u00b0']);
-  }
-});
-
-// Missing fixture: the legend is empty, like the tile. The 404 is the expected console error.
-test('a missing footprint fixture leaves its legend empty', async ({ page }) => {
-  await page.route('**/cooke-footprint.json', (route) => route.fulfill({ status: 404, body: '' }));
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="footprint"] .eleo-legend`);
-    await expect(el, `${theme} footprint legend element`).toHaveCount(1);
-    await expect(el).toBeEmpty();
-  }
-});
-
-// Plan #642 M2, #616: the recorded fan tile's footer keys the recording's wavelengths, empty if the fixture failed.
-// oracle: fixture tests/fixtures/phos-core/achromat-fans.json's sources[0].wavelengths (486.133, 587.562, 656.272 nm).
-test('the recorded fan footer keys its wavelengths (#616)', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const keys = page.locator(`.theme[data-theme="${theme}"] [data-tile="rayFan"] .eleo-legend .eleo-key`);
-    await expect(keys, `${theme} rayFan legend`).toHaveText(['\u03bb1 486.1 nm', '\u03bb2 587.6 nm', '\u03bb3 656.3 nm']);
-  }
-});
-
-test('a missing fans fixture leaves the fan footer empty (#616)', async ({ page }) => {
-  await page.route('**/achromat-fans.json', (route) => route.fulfill({ status: 404, body: '' }));
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="rayFan"] .eleo-legend`);
-    await expect(el, `${theme} rayFan legend element`).toHaveCount(1);
-    await expect(el).toBeEmpty();
-  }
-});
-
-// Plan #90, O3, #76: a merit fixture that layoutBounds accepts but layout2D rejects (2 fans against the tile's 3
-// labels) fails its one drawing, not the page. oracle: property, one rejected drawing doesn't blank the other tiles
-// or the merit tile's other drawing. The gallery's own report of it is the expected console error.
-test('a rejected merit fixture blanks only its tile', async ({ page }) => {
-  const thrown = [], logged = [];
-  page.on('pageerror', (e) => thrown.push(e.message));
-  page.on('console', (m) => m.type() === 'error' && logged.push(m.text()));
-  await page.route('**/merit-before.json', async (route) => {
-    const L = await (await route.fetch()).json();
-    await route.fulfill({ json: { ...L, rays: L.rays.slice(0, 2) } });
+// Plan #677 M2, #688: a missing recording leaves its tile blank, with no key. The 404 is the expected console error.
+// The keys of the present recordings are checked by 'fan and footprint keys'.
+for (const [tile, fixture] of [['footprint', 'cooke-footprint.json'], ['rayFan', 'achromat-fans.json']]) {
+  test(`a missing ${tile} fixture leaves its tile without keys`, async ({ page }) => {
+    await page.route(`**/${fixture}`, (route) => route.fulfill({ status: 404, body: '' }));
+    await page.goto('/gallery/');
+    await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+    for (const theme of ['light', 'dark']) {
+      const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="${tile}"]`);
+      await expect(el.locator('.eleo-plot__ft'), `${theme} ${tile} footer`).toHaveCount(0);
+      await expect(el.locator('text[data-key]'), `${theme} ${tile} keys`).toHaveCount(0);
+    }
   });
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  expect(thrown).toEqual([]);
-  expect(logged.length, 'the gallery logs the rejected drawing').toBeGreaterThan(0);
-  for (const theme of ['light', 'dark']) {
-    const tiles = await inkByTile(page, theme);
-    expect(tiles.length).toBe(TILES);
-    for (const t of tiles) expect(t.svgMarks + t.inked, `${theme} ${t.tile} drew nothing`).toBeGreaterThan(0);
-    const merit = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout2D-shared"] [data-svg]`).evaluateAll((els) =>
-      Object.fromEntries(els.map((el) => [el.dataset.svg, el.querySelectorAll('svg *').length])));
-    expect(merit['merit-before'], `${theme}: the rejected drawing is blank`).toBe(0);
-    expect(merit['merit-after'], `${theme}: the merit tile's other drawing still draws`).toBeGreaterThan(0);
-  }
-});
+}
 
 // Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
-// the tiles that bring their own data (merit, glasses, the recorded curves and spot) or need none (airy, icons) still draw. The 404 is the expected
+// the tiles that bring their own data (glasses, the recorded curves and spot) or need none (airy, icons) still draw. The 404 is the expected
 // console error.
 test('a missing sample script blanks only the sample tiles', async ({ page }) => {
   const thrown = [];
@@ -206,7 +131,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   const mins = await page.$$eval('[data-tile][data-size]', (ts) => ts.map((t) => ({ tile: t.dataset.tile, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 })));
   expect(mins.length).toBeGreaterThan(0);
   for (const m of mins) expect(m.min, `${m.tile} --tile-min`).toBeGreaterThanOrEqual(m.floor - 0.5);
-  const ownData = ['layout2D-shared', 'layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
+  const ownData = ['layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
@@ -275,18 +200,18 @@ test('standalone layout entry', async ({ page }) => {
 });
 
 // Plan #389, #395: the recorded Cooke PSF tile draws the typed map from tests/fixtures/phos-core/cooke-psf.json.
-// oracle: fixture, 192 x 192 grid, one <image> of that size in the tile.
+// oracle: fixture, 192 x 192 grid, an <image> of that size and the colorbar's in the tile (#694).
 test('recorded PSF tile draws', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
     const got = await page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-recorded"]`).evaluate(async (el) => {
       const svg = el.querySelector('svg'), imgs = svg ? svg.querySelectorAll('image') : [];
-      if (imgs.length !== 1) return { n: imgs.length };
+      if (imgs.length !== 2) return { n: imgs.length };
       const bitmap = await createImageBitmap(await (await fetch(imgs[0].getAttribute('href'))).blob());
-      return { n: 1, w: bitmap.width, h: bitmap.height };
+      return { n: 2, w: bitmap.width, h: bitmap.height };
     });
-    expect(got, `${theme} recorded PSF image`).toEqual({ n: 1, w: 192, h: 192 });
+    expect(got, `${theme} recorded PSF image`).toEqual({ n: 2, w: 192, h: 192 });
   }
 });
 
@@ -380,22 +305,19 @@ test('gaussian irradiance tile draws', async ({ page }) => {
   }
 });
 
-// Maps take their colors from the theme column: stop 0 of the ember map is the plot ground, near white in light, near black in dark.
+// The typed map takes its colors from the theme column: stop 0 of the ember map is the plot ground, near white in light, near black in dark.
 // oracle: spec tokens.css --plot-ground per theme, through ELEO.colormap; the recorded PSF's corner is 1e-5 of its peak, so step 0.
 test('maps follow their theme', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  const canvas = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-canvas="psf"]`).evaluate((c) => [...c.getContext('2d').getImageData(1, 1, 1, 1).data.slice(0, 3)]);
-  const typed = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-recorded"] image`).evaluate(async (img) => {
+  const typed = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="psf-recorded"] image`).first().evaluate(async (img) => {
     const bitmap = await createImageBitmap(await (await fetch(img.getAttribute('href'))).blob());
     const c = new OffscreenCanvas(bitmap.width, bitmap.height), g = c.getContext('2d');
     g.drawImage(bitmap, 0, 0);
     return [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)];
   });
-  for (const read of [canvas, typed]) {
-    expect((await read('light')).every((v) => v > 230)).toBe(true);
-    expect((await read('dark')).every((v) => v < 40)).toBe(true);
-  }
+  expect((await typed('light')).every((v) => v > 230)).toBe(true);
+  expect((await typed('dark')).every((v) => v < 40)).toBe(true);
 });
 
 // O2 (plan #4): the selected segment is marked in glass, not amber. oracle: user ELEO design system, one amber accent per view.
@@ -721,7 +643,7 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const wide = await at(1440), narrow = await at(700, wide);
-  expect(wide.length).toBeGreaterThanOrEqual(8);
+  expect(wide.length, 'airy and layout3D, in two themes').toBe(4);
   wide.forEach((c, i) => {
     expect(c.backing, `${c.id} redrawn`).not.toBe(narrow[i].backing);
     if (!c.id.startsWith('layout3D')) expect(Math.abs(c.renderedH - c.rendered), `${c.id} square`).toBeLessThanOrEqual(1);
@@ -757,5 +679,235 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   for (const [k, r] of Object.entries(sym)) {
     expect(r.bad, `${k} airy mirror-symmetric`).toBe(0);
     expect(r.unwritten, `${k} airy has no unwritten pixel`).toBe(0);
+  }
+});
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O1 (issue #678; #683 unskips). The curve tiles key each curve in the SVG.
+// Contract for the key items (#680, #681): every key entry's label is a <text data-key> in the figure's SVG.
+// oracle: closed-form ADR-0003 (frameText above) for the key text size, within 1%, at 1440, 1100, 700 px and at each tile's --tile-min (as 'every tile at its minimum has the floor frame');
+// fixture: the recorded achromat's three fields give the mtf tiles six keys (a tangential and a sagittal curve per field), field curvature two (tangential, sagittal), distortion one.
+// Each key text is distinct, overlaps no other key text and no other text of the figure (axis labels, ticks), and stays inside the SVG unless it is alone on its line (bars' rule: a lone over-long entry may overrun).
+// mtf-limits' vertical limit reads "50 cycles/mm".
+const CURVE_KEYS = { mtf: 6, 'mtf-limits': 6, fieldCurvature: 2, distortion: 1 };
+test('curve keys', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
+    const tile = document.querySelector(`.theme[data-theme="${th}"] [data-tile="${name}"]`);
+    const svg = tile.querySelector('.eleo-plot__body svg');
+    const frame = svg.querySelector('rect[stroke="var(--plot-grid)"]');
+    const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    const keys = [...svg.querySelectorAll('text[data-key]')];
+    return {
+      tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg), frame: box(frame),
+      keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
+      others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x) })),
+    };
+  }), [theme, Object.keys(CURVE_KEYS)]);
+  const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
+  const check = (rows, at) => {
+    for (const r of rows) {
+      const w = `${at} ${r.tile}`;
+      expect(r.keys.length, `${w} keys`).toBe(CURVE_KEYS[r.tile]);
+      expect(new Set(r.keys.map((k) => k.text)).size, `${w} each label once`).toBe(r.keys.length);
+      for (const k of r.keys) expect(Math.abs(k.size / frameText(r.F) - 1), `${w} key "${k.text}" ${k.size}px against ${frameText(r.F)}px`).toBeLessThanOrEqual(0.01);
+      if (r.tile === 'distortion') for (const k of r.keys) {
+        expect(k.l, `${w} corner key "${k.text}" inside the plot frame on the left`).toBeGreaterThanOrEqual(r.frame.l - 0.5);
+        expect(k.r, `${w} corner key "${k.text}" inside the plot frame on the right`).toBeLessThanOrEqual(r.frame.r + 0.5);
+        expect(k.t, `${w} corner key "${k.text}" inside the plot frame at the top`).toBeGreaterThanOrEqual(r.frame.t - 0.5);
+        expect(k.b, `${w} corner key "${k.text}" inside the plot frame at the bottom`).toBeLessThanOrEqual(r.frame.b + 0.5);
+      }
+      r.keys.forEach((k, i) => {
+        for (const o of [...r.keys.slice(i + 1), ...r.others]) expect(overlap(k, o), `${w} key "${k.text}" overlaps "${o.text}"`).toBe(false);
+        const alone = r.keys.filter((o) => o !== k && Math.abs(o.t - k.t) < 1).length === 0;
+        if (!alone) expect(k.r, `${w} key "${k.text}" inside the SVG`).toBeLessThanOrEqual(r.svg.r + 0.5);
+        expect(k.l, `${w} key "${k.text}" inside the SVG on the left`).toBeGreaterThanOrEqual(r.svg.l - 0.5);
+      });
+    }
+  };
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      await settle(page);
+      check(await measure(theme), `${theme} ${width}`);
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate((names) => document.querySelectorAll('.theme > [data-tile][data-size]').forEach((el) => {
+    if (names.includes(el.dataset.tile)) el.style.maxWidth = `${parseFloat(el.style.getPropertyValue('--tile-min')) || 240}px`;
+  }), Object.keys(CURVE_KEYS));
+  await settle(page);
+  for (const theme of ['light', 'dark']) check(await measure(theme), `${theme} at minWidth`);
+  for (const theme of ['light', 'dark']) {
+    const texts = await page.locator(`.theme[data-theme="${theme}"] [data-tile="mtf-limits"] .eleo-plot__body svg text`).allTextContents();
+    expect(texts, `${theme} mtf-limits x limit label`).toContain('50 cycles/mm');
+  }
+});
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O2 (issue #684; #689 unskips). The footprint, recorded TRA and OPD tiles key in the SVG, with no HTML footer.
+// Contract: every key entry's label is a <text data-key> in the figure's SVG (as in 'curve keys').
+// oracle: closed-form ADR-0003 (frameText above) for the key text size, within 1%, at 1440, 1100, 700 px and at each tile's --tile-min;
+// fixture: cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24) read "F1 0.0°", "F2 17.0°", "F3 24.0°";
+// fixture: achromat-fans.json's sources[0].wavelengths (486.133, 587.562, 656.272 nm) key the TRA fans as "486.1 nm", "587.6 nm", "656.3 nm";
+// sample.json wl (486.1327, 587.5618, 656.2725 nm) key the OPD fans the same way.
+// No key text overlaps another key or any other text of the figure (captions, axis labels), stays inside the SVG unless alone on its line, and no tile has an .eleo-plot__ft.
+const FAN_FOOT_KEYS = {
+  footprint: ['F1 0.0°', 'F2 17.0°', 'F3 24.0°'],
+  rayFan: ['486.1 nm', '587.6 nm', '656.3 nm'],
+  'rayFan-opd': ['486.1 nm', '587.6 nm', '656.3 nm'],
+};
+test('fan and footprint keys', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
+    const tile = document.querySelector(`.theme[data-theme="${th}"] [data-tile="${name}"]`);
+    const svg = tile.querySelector('.eleo-plot__body svg');
+    const frame = svg.querySelector('rect[stroke="var(--plot-grid)"]');
+    const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    const keys = [...svg.querySelectorAll('text[data-key]')];
+    return {
+      tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg),
+      footers: tile.querySelectorAll('.eleo-plot__ft').length,
+      keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
+      others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x) })),
+    };
+  }), [theme, Object.keys(FAN_FOOT_KEYS)]);
+  const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
+  const check = (rows, at) => {
+    for (const r of rows) {
+      const w = `${at} ${r.tile}`;
+      expect(r.footers, `${w} has no footer`).toBe(0);
+      expect(r.keys.map((k) => k.text), `${w} keys`).toEqual(FAN_FOOT_KEYS[r.tile]);
+      for (const k of r.keys) expect(Math.abs(k.size / frameText(r.F) - 1), `${w} key "${k.text}" ${k.size}px against ${frameText(r.F)}px`).toBeLessThanOrEqual(0.01);
+      r.keys.forEach((k, i) => {
+        for (const o of [...r.keys.slice(i + 1), ...r.others]) expect(overlap(k, o), `${w} key "${k.text}" overlaps "${o.text}"`).toBe(false);
+        const alone = r.keys.filter((o) => o !== k && Math.abs(o.t - k.t) < 1).length === 0;
+        if (!alone) expect(k.r, `${w} key "${k.text}" inside the SVG`).toBeLessThanOrEqual(r.svg.r + 0.5);
+        expect(k.l, `${w} key "${k.text}" inside the SVG on the left`).toBeGreaterThanOrEqual(r.svg.l - 0.5);
+      });
+    }
+  };
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      await settle(page);
+      check(await measure(theme), `${theme} ${width}`);
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate((names) => document.querySelectorAll('.theme > [data-tile][data-size]').forEach((el) => {
+    if (names.includes(el.dataset.tile)) el.style.maxWidth = `${parseFloat(el.style.getPropertyValue('--tile-min')) || 240}px`;
+  }), Object.keys(FAN_FOOT_KEYS));
+  await settle(page);
+  for (const theme of ['light', 'dark']) check(await measure(theme), `${theme} at minWidth`);
+  // #774 (CR #768): every spot and footprint panel draws [data-grid] paths before its first series path.
+  for (const theme of ['light', 'dark']) {
+    const rows = await page.evaluate(([th, names]) => names.map((name) => {
+      const svg = document.querySelector(`.theme[data-theme="${th}"] [data-tile="${name}"] .eleo-plot__body svg`);
+      const panels = [...svg.querySelectorAll('svg')].filter((p) => p.querySelector('path[stroke^="var(--series-"]'));
+      return {
+        tile: name, panels: panels.length,
+        // a panel's horizontal grid lines start at its x and sit before it in the parent
+        gridFirst: panels.map((p) => {
+          const before = [];
+          for (let e = p.previousElementSibling; e; e = e.previousElementSibling) before.push(e);
+          return before.some((e) => e.hasAttribute('data-grid') && e.getAttribute('d').startsWith(`M${+p.getAttribute('x')},`) && / H/.test(e.getAttribute('d')));
+        }),
+      };
+    }), [theme, ['spot', 'footprint']]);
+    for (const r of rows) {
+      expect(r.panels, `${theme} ${r.tile} has panels`).toBeGreaterThan(0);
+      expect(r.gridFirst, `${theme} ${r.tile} grid before the series, per panel`).toEqual(r.gridFirst.map(() => true));
+    }
+  }
+});
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips). layout3D paints the rays over the image plane they end on.
+// oracle: user request 9 (rays over the plane they end on); property: the --mech pixels with rays are a strict subset of those without (rays: false), in both themes, in the default iso view.
+test('layout3D rays over the image plane', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout3D"] .eleo-plot__body`).evaluate((body) => {
+      const mech = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(body, 'mech'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
+      const planePixels = (o) => {
+        const c = document.createElement('canvas');
+        body.appendChild(c);
+        window.ELEO.layout3D(c, o);
+        const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height), on = new Set();
+        for (let i = 0; i < data.length; i += 4) if (data[i] === mech[0] && data[i + 1] === mech[1] && data[i + 2] === mech[2]) on.add(i / 4);
+        c.remove();
+        return on;
+      };
+      const bare = planePixels({ rays: false }), withRays = planePixels({});
+      return { bare: bare.size, withRays: withRays.size, outside: [...withRays].filter((p) => !bare.has(p)).length };
+    });
+    expect(r.bare, `${theme} the plane is drawn`).toBeGreaterThan(0);
+    expect(r.outside, `${theme} --mech pixels with rays that the bare plane lacks`).toBe(0);
+    expect(r.withRays, `${theme} rays cover part of the plane`).toBeLessThan(r.bare);
+  }
+});
+
+// Plan #677 M3, #694: the sample canvas psf and wavefront tiles are gone; the linear recorded PSF has a colorbar labelled "Intensity, relative"; no map tile draws a grid (CR #779).
+// oracle: spec (user, round 1: drop the two tiles; the log tile's colorbar is the model for the linear one); a tile that asks for no grid draws no line in a map grid token, minors included (CR #767, #779).
+test('map tiles', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const col = page.locator(`.theme[data-theme="${theme}"]`);
+    await expect(col.locator('[data-tile="psf"], [data-tile="wavefront"], [data-canvas="psf"], [data-canvas="wavefront"]'), `${theme} sample canvas map tiles`).toHaveCount(0);
+    const tile = (name) => col.locator(`[data-tile="${name}"]`).evaluate((el) => {
+      const svg = el.querySelector('svg');
+      return { images: svg.querySelectorAll('image').length, text: svg.textContent, lines: svg.querySelectorAll('line[stroke^="var(--map-grid-"]').length };
+    });
+    const lin = await tile('psf-recorded');
+    expect(lin.images, `${theme} linear PSF image and colorbar`).toBe(2);
+    expect(lin.text, `${theme} linear PSF colorbar label`).toContain('Intensity, relative');
+    for (const name of ['psf-recorded', 'psf-log', 'wavefront-recorded', 'irradiance-gaussian']) expect((await tile(name)).lines, `${theme} ${name} asks for no grid (CR #779)`).toBe(0);
+  }
+});
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O5 (issue #697; #701 unskips). layout2D keys its fans or glasses in the SVG, with no HTML footer.
+// Contract: every key entry's label is a <text data-key> in the figure's SVG (as in 'curve keys'), in the order of the `key` list; CR #728: the glass key joins the field key in one row.
+// oracle: closed-form ADR-0003 (layoutText above) for the key text size, within 1%, at 1440, 1100, 700 px; at a width where layoutText is null (the labels are hidden below 630 px) the tile has no key text;
+// reference: the key texts equal the text of legend('field' | 'wavelength') and glassLegend(fixture), in order (the glasses tile: exactly the field entries, then the glass entries, all in one row at 1440).
+// The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
+const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
+test('layout keys',async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const expected = await page.evaluate(async (kinds) => {
+    const text = (html) => [...new DOMParser().parseFromString(html, 'text/html').body.children].map((e) => e.textContent);
+    const glasses = await fetch('/tests/fixtures/layouts/analysis-glasses.json').then((r) => r.json());
+    const out = {};
+    for (const [tile, kind] of Object.entries(kinds)) out[tile] = kind === 'field+glass' ? { field: glasses.rays.map((_, i) => `F${i + 1}`), glass: text(window.ELEO.glassLegend(glasses)) } : { all: text(window.ELEO.legend(kind)) };
+    return out;
+  }, LAYOUT_KEYS);
+  const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
+    const tile = document.querySelector(`.theme[data-theme="${th}"] [data-tile="${name}"]`);
+    const svg = tile.querySelector('.eleo-plot__body svg');
+    const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    return {
+      tile: name, W: svg.getBoundingClientRect().width, footers: tile.querySelectorAll('.eleo-plot__ft').length,
+      keys: [...svg.querySelectorAll('text[data-key]')].map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
+    };
+  }), [theme, Object.keys(LAYOUT_KEYS)]);
+  for (const theme of ['light', 'dark']) {
+    for (const width of [1440, 1100, 700]) {
+      await page.setViewportSize({ width, height: 900 });
+      await settle(page);
+      for (const r of await measure(theme)) {
+        const w = `${theme} ${width} ${r.tile}`, want = layoutText(r.W), e = expected[r.tile];
+        expect(r.footers, `${w} has no footer`).toBe(0);
+        if (want === null) { expect(r.keys.map((k) => k.text), `${w} (W ${r.W}) key hidden`).toEqual([]); continue; }
+        const texts = r.keys.map((k) => k.text);
+        if (e.all) expect(texts, `${w} keys`).toEqual(e.all);
+        else {
+          expect(texts, `${w} field keys, then glass keys`).toEqual([...e.field, ...e.glass]);
+          if (width === 1440) expect(r.keys.every((k) => Math.abs(k.t - r.keys[0].t) < 1), `${w} field and glass keys share one row`).toBe(true);
+        }
+        for (const k of r.keys) expect(Math.abs(k.size / want - 1), `${w} key "${k.text}" ${k.size}px against ${want}px`).toBeLessThanOrEqual(0.01);
+      }
+    }
   }
 });

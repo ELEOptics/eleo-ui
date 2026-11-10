@@ -4,15 +4,16 @@ import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
 import { frameText, frameWeight, frameOf } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
+import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
 
-/* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). */
+/* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). A sagittal dash is in units of `wt` (4 wt, 2.5 wt; CR #726). */
 function roleStyle(s, wt) {
   var r = s.role, i = s.index === undefined ? 0 : s.index;
   if (r !== undefined && r !== "tangential" && r !== "sagittal" && r !== "reference" && r !== "limit") throw new TypeError('curve: unknown role "' + r + '"');
   if (typeof i !== "number" || !isFinite(i) || Math.floor(i) !== i || i < 0) throw new TypeError("curve: index must be a non-negative integer");
   if (r === "reference") return { col: "var(--ink)", dash: "1 3", w: wt, cap: "round" };
   if (r === "limit") return { col: "var(--ink)", dash: "6 3 1 3", w: wt, cap: "butt", fill: "var(--ink)", fillOpacity: 0.06 };
-  return { col: idx(i), dash: r === "sagittal" ? "5 3" : "", w: wt, cap: "round" };
+  return { col: idx(i), dash: r === "sagittal" ? +(4 * wt).toFixed(3) + " " + +(2.5 * wt).toFixed(3) : "", w: wt, cap: "round" };
 }
 var inside = function (v, r) { return v >= r[0] && v <= r[1]; };
 /* An axis range: the given one, else the nice range of the data; never empty or reversed. */
@@ -68,19 +69,19 @@ var r2 = function (v) { return +v.toFixed(2); };
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
-/* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
+/* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. `grid: false` draws the tick text without the grid lines (the frame and the zero axes stay). With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
 export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   mg = mg || { L: PLOT_L, B: PLOT_B, R: sc.R };
   /* The frame is rounded to 2 decimals once, here: everything below derives from these, so the markup is small and doesn't depend on Math.cbrt's last bits. */
   T = r2(T);
   var L = r2(mg.L), Bm = mg.B, ph = r2(Math.max(1, h - T - Bm)), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
-  var u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
+  var grid = mg.grid !== false, u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
   var pw = r2(Math.max(1, w - L - mg.R)), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
   var fr = 'x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"', Bt = r2(T + ph), Rt = r2(L + pw);
   g += '<rect ' + fr + ' fill="none" stroke="var(--plot-grid)"/>';
-  xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + Bt + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + X(v) + '" y="' + r2(T + ph + o(13)) + '" text-anchor="middle"' + ts + '>' + fmt(v, xt.decimals) + "</text>"; });
-  yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + Rt + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/><text class="eleo-tick" x="' + r2(L - o(6)) + '" y="' + Y(v) + '" dy="' + o(3) + '" text-anchor="end"' + ts + '>' + fmt(v, yt.decimals) + "</text>"; });
+  xt.ticks.filter(function (v) { return inside(v, xr); }).forEach(function (v) { g += (grid ? '<line x1="' + X(v) + '" y1="' + T + '" x2="' + X(v) + '" y2="' + Bt + '" stroke="var(--plot-grid)"/>' : "") + '<text class="eleo-tick" x="' + X(v) + '" y="' + r2(T + ph + o(13)) + '" text-anchor="middle"' + ts + '>' + fmt(v, xt.decimals) + "</text>"; });
+  yt.ticks.filter(function (v) { return inside(v, yr); }).forEach(function (v) { g += (grid ? '<line x1="' + L + '" y1="' + Y(v) + '" x2="' + Rt + '" y2="' + Y(v) + '" stroke="var(--plot-grid)"/>' : "") + '<text class="eleo-tick" x="' + r2(L - o(6)) + '" y="' + Y(v) + '" dy="' + o(3) + '" text-anchor="end"' + ts + '>' + fmt(v, yt.decimals) + "</text>"; });
   if (xr[0] < 0 && xr[1] > 0) g += '<line x1="' + X(0) + '" y1="' + T + '" x2="' + X(0) + '" y2="' + Bt + '" stroke="var(--plot-axis)"/>';
   if (yr[0] < 0 && yr[1] > 0) g += '<line x1="' + L + '" y1="' + Y(0) + '" x2="' + Rt + '" y2="' + Y(0) + '" stroke="var(--plot-axis)"/>';
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
@@ -88,7 +89,7 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   g += '<svg ' + fr + '><g transform="matrix(' + M.join(" ") + ')">';
   if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
   g += "</g></svg>";
-  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }).replace(/<text [^>]*/g, function (m) { return m + ts; });
+  if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }, mg.t).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
 }
 /* The `limit` role's style, as attributes for a line and for a band; the `limits` option's marks stay 1 px. */
@@ -106,28 +107,72 @@ function curveMargins(sc, w) {
   var F = frameOf(w, 4.6 + sc.Rt), t = frameText(F);
   return { L: 4.6 * t, B: 3.6 * t, R: sc.Rt * t, t: t, wt: +frameWeight(F).toFixed(3) };
 }
+/* The key's entries: `key` when given ({ label, role?, index? }), else one per distinct series `label` (the first use's role and index). A line swatch in the role's dash. Without either: none. */
+function keyEntries(o) {
+  var src = o.key;
+  if (src !== undefined && !Array.isArray(src)) throw new TypeError("curve: key must be an array of entries");
+  if (!src) {
+    var seen = {};
+    src = [];
+    (o.panels ? [].concat.apply([], o.panels.map(function (p) { return p.series || []; })) : o.series).forEach(function (s) {
+      if (s.label && !Object.prototype.hasOwnProperty.call(seen, s.label)) { seen[s.label] = 1; src.push(s); }
+    });
+  }
+  return src.map(function (e) {
+    if (e === null || typeof e !== "object" || e.label === undefined || e.label === null) throw new TypeError("curve: a key entry needs a label");
+    var st = roleStyle(e, 1);
+    return { label: String(e.label), index: e.index === undefined ? 0 : e.index, col: st.col, kind: "line", dash: st.dash, cap: st.cap, src: e };
+  });
+}
+/* The entries (cap kept) with each swatch's dash in units of the swatch's own stroke, 0.15 t (as keyMarkup draws it). */
+function keyDrawn(ents, t) {
+  return ents.map(function (e) { return { label: e.label, index: e.index, col: e.col, kind: e.kind, dash: roleStyle(e.src, r2(0.15 * t)).dash, cap: e.cap }; });
+}
+/* A corner key over the plot area of the cell, which it never resizes (cornerBox). */
+function cornerKey(ents, at, t, w, h, T, mg) {
+  var L = r2(mg.L);
+  return cornerBox(keyDrawn(ents, t), at, t, L, T, r2(Math.max(1, w - L - mg.R)), r2(Math.max(1, h - T - mg.B)));
+}
 function typedCurve(o) {
-  var W = o.width || 460, H = o.height || Math.round(W * 260 / 460), x = o.x || {}, y = o.y || {};
+  var W = o.width || 460, H0 = o.height || Math.round(W * 260 / 460), x = o.x || {}, y = o.y || {};
+  var ents = keyEntries(o), at = o.keyAt === undefined ? "below" : o.keyAt;
+  if (KEY_AT.indexOf(at) < 0) throw new TypeError('curve: unknown keyAt "' + at + '"');
+  var corner = ents.length > 0 && at !== "below";
+  var Hf = H0, Hs = H0, below = "";
+  /* The key under the x label, from the margins' text size t: rows of 1.4 t after a 0.2 t gap. With a `height` the frame gives up the rows and the gap; without, the SVG grows by them, rounded to a whole px. `fixed` is what the frame and margins take above the key. */
+  function placeBelow(t, L, R, fixed) {
+    var line = 1.4 * t, gap = 0.2 * t, maxRow = o.height ? Math.max(0, Math.floor((H0 - fixed - gap - 1) / line) - 1) : 1000;
+    var kl = keyLayout(ents, t, { L: L, R: R, maxRow: maxRow });
+    Hf = o.height ? r2(H0 - line * kl.rows - gap) : H0;
+    Hs = o.height ? H0 : Math.round(H0 + line * kl.rows + gap);
+    /* The key's top is 0.2 t under the frame, so its first baseline (0.8 t down) is 1.4 t under the x label's (0.4 t above the frame). */
+    below = keyMarkup(kl.places, keyDrawn(ents, t), t, Hf + gap, { mark: true });
+  }
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
-  var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(H - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
+  var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(Hf - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
   var sc, g = "", lim = checkLimits(o.limits, "curve");
-  var cell = function (series, w, h, T, panel, mg) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel, mg.wt); }).join("")), lim, mg); };
+  var cell = function (series, w, h, T, panel, mg) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel, mg.wt); }).join("")), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
     var cw = W / cols;
     sc = scales({ x: x, y: y, limits: lim }, panels.map(function (p) { return p.series || []; }), true);
-    var mg = curveMargins(sc, cw), top = 1.4 * mg.t, ch = (H - top) / rows, T = 2.2 * mg.t;
+    var mg = curveMargins(sc, cw), top = 1.4 * mg.t, T = 2.2 * mg.t;
+    mg.grid = o.grid;
+    if (ents.length && !corner) placeBelow(mg.t, mg.L, W - mg.R, top + T + mg.B);
+    var ch = (Hf - top) / rows;
     panels.forEach(function (p, i) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
       g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="' + r2(mg.L) + '" y="' + r2(T - 0.6 * mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true, mg) + "</g>";
     });
-    return svg(W, H, g + labels(mg), lab(y) + " against " + lab(x) + " plot");
+    return svg(W, Hs, g + labels(mg) + below, lab(y) + " against " + lab(x) + " plot");
   }
   sc = scales({ x: x, y: y, limits: lim }, [o.series]);
   var m1 = curveMargins(sc, W);
-  g = cell(o.series, W, H, 2.6 * m1.t, false, m1) + labels(m1);
-  return svg(W, H, g, lab(y) + " against " + lab(x) + " plot");
+  m1.grid = o.grid;
+  if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, 2.6 * m1.t + m1.B);
+  g = cell(o.series, W, Hf, 2.6 * m1.t, false, m1) + labels(m1) + below;
+  return svg(W, Hs, g, lab(y) + " against " + lab(x) + " plot");
 }
 
 /* Each analysis kind is an adapter: the sample in, { series, x, y } out, drawn by the typed path. */
@@ -156,5 +201,5 @@ export function curve(o) {
   if (o.series || o.panels) return typedCurve(o);
   if (o.limits != null) throw new TypeError("curve: limits need series or panels");
   var a = curveAdapters[Object.prototype.hasOwnProperty.call(curveAdapters, o.kind || "mtf") ? o.kind || "mtf" : "chromaticFocus"](data(o));
-  return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height });
+  return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height, grid: o.grid });
 }

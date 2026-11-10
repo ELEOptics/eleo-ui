@@ -2,6 +2,7 @@ import { idx, svg, esc } from "./common.js";
 import { scales, plotCell, limitBody } from "./curve.js";
 import { frameText, frameOf } from "./scale.js";
 import { checkLimits } from "./limits.js";
+import { keyLayout, keyMarkup } from "./key.js";
 
 var GAP = 0.5, FILL = 0.8;
 var r2 = function (v) { return +v.toFixed(2); };
@@ -34,13 +35,8 @@ export function bars(o) {
   var ts = ' style="font-size:' + +t.toFixed(3) + 'px"';
   /* The key row starts a new line when an entry would pass the frame's right edge; each extra line takes KEY_LINE from the frame, down to a frame 1 px tall; past that the row runs on. */
   var maxRow = Math.max(0, Math.floor((H - T - Bm - 1) / KEY_LINE));
-  var keyed = series.filter(function (s) { return s.label; }), kx = L, row = 0, place = [];
-  keyed.forEach(function (s) {
-    var wd = 1.2 * t + 0.6 * t * Array.from(String(s.label)).length;
-    if (row < maxRow && kx > L && kx + wd > W - R) { row++; kx = L; }
-    place.push([kx, row]);
-    kx += wd + t;
-  });
+  var keyed = series.filter(function (s) { return s.label; }).map(function (s) { return { label: s.label, index: s.index || 0 }; });
+  var kl = keyLayout(keyed, t, { L: L, R: W - R, maxRow: maxRow }), row = kl.rows ? kl.rows - 1 : 0;
   var Hf = r2(H - KEY_LINE * row);
   var rects = "";
   function bar(x0, s, j, v) {
@@ -60,16 +56,13 @@ export function bars(o) {
     var dx = (L + k * px).toFixed(1);
     g += '<line x1="' + dx + '" y1="' + T + '" x2="' + dx + '" y2="' + r2(T + ph) + '" stroke="var(--plot-grid)"/>';
   });
-  g += plotCell(sc, [], W, Hf, T, false, limitBody(lim, sc, rects), lim, { L: L, B: Bm, R: R, t: t });
+  g += plotCell(sc, [], W, Hf, T, false, limitBody(lim, sc, rects), lim, { L: L, B: Bm, R: R, t: t, grid: o.grid });
   var label = function (k, txt) { return '<text class="eleo-tick" x="' + (L + (k + 0.5) * px).toFixed(1) + '" y="' + r2(T + ph + 1.3 * t) + '" text-anchor="middle"' + ts + '>' + esc(txt) + "</text>"; };
   cats.forEach(function (txt, c) { if (c % step === 0) g += label(c, txt); });
   if (hasTotal) g += label(n + GAP, o.total);
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   g += '<text class="eleo-tick" x="' + r2(0.4 * t) + '" y="' + r2(t) + '"' + ts + '>' + lab(y) + "</text>";
   /* The key row: a swatch and the label of each series that has one, on lines from the frame's bottom edge down. */
-  keyed.forEach(function (s, k) {
-    var kxk = r2(place[k][0]), ky = r2(Hf - 1.2 * t + KEY_LINE * place[k][1]);
-    g += '<rect x="' + kxk + '" y="' + ky + '" width="' + r2(0.8 * t) + '" height="' + r2(0.8 * t) + '" fill="' + idx(s.index || 0) + '"/><text class="eleo-tick" x="' + r2(place[k][0] + 1.2 * t) + '" y="' + r2(ky + 0.8 * t) + '"' + ts + '>' + esc(s.label) + "</text>";
-  });
+  g += keyMarkup(kl.places, keyed, t, Hf - 1.2 * t);
   return svg(W, H, g, lab(y) + " by category bar plot");
 }
