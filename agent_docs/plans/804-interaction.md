@@ -111,6 +111,8 @@ zoomed range instead of rewriting the `viewBox`.
 
 ### M1: hover on a curve, end to end GitHub: `P804 M1: Curve hover`
 
+Done 2026-11-10: reviewed in 3 rounds (Review M1: 0 blocking, round 3), full gate green on a5fa57d; demo pending.
+
 Demo: `npm run gallery`, hover the MTF tile: its readout line reads e.g. `Tangential · 120 cycles/mm, 0.62`;
 on the Svelte test page a CurvePlot in a PlotCard shows the same in its readout. The tile screenshots from the
 plan's start (both themes and palettes) on the `review-assets` release, beside today's. Proves: O1 (curve), O3
@@ -220,3 +222,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 approved (user); published: plan issue #804, milestones P804 M1-M4, work items #805-#839 plus reused #263, #585, #586, #803, #659, #448, #450, #554.
 - 2026-11-10 review M1 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, CR #841 accepted (orchestrator: keeps every invariant), item #851; backlog #842-#849 pulled into M1 (small, named, in files M1 changed); #850 (parse cache) stays a plain issue until M2 #815 times hover. Earlier: the M1 wave's full gate went red on four gallery footer counts that #811's readout line matched; fixed by #811's second commit (cdf79ae), the counts skip `.eleo-plot__readout`.
 - 2026-11-10 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, CR #841 resolved; backlog #852, #853, #854 pulled into M1 (small, named, in files M1 changed), so round 3 reviews them before the tick.
+- 2026-11-10 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; backlog #855 (one shared test parser). M1 ticked.
