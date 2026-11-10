@@ -110,7 +110,7 @@ zoomed range instead of rewriting the `viewBox`.
 
 ### M1: hover on a curve, end to end GitHub: `P804 M1: Curve hover`
 
-Done 2026-11-10 (third tick): the re-demo (CRs #872, #874, user) reopened it at b45569c; reviewed again to round 11 (Review M1: 0 blocking), full gate green on f7c95f8; re-demo pending. Earlier: the first demo's CRs #856, #857 reopened it at 200ef61.
+Reopened 2026-11-10 at re-demo 2 (no-go): CR #890 (user). Was ticked a third time at 3d03c1e after round 11; the re-demo (CRs #872, #874) reopened it at b45569c, the first demo (CRs #856, #857) at 200ef61. Earlier: the first demo's CRs #856, #857 reopened it at 200ef61.
 
 Demo: `npm run gallery`, hover the MTF tile: a dot on the curve, thin drop lines to both axes and a tooltip near the pointer, e.g.
 `Tangential · 120 cycles/mm, 0.62` (CRs #856, #857); on the Svelte test page a CurvePlot shows the same tooltip. The tile screenshots from the
@@ -162,6 +162,7 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 | #886 | Test helper comments describe what the helpers do | forced (review M1 round 9 finding 2) | `tests/interact.spec.js`, `tests/gallery.spec.js` | none (comments) | #885 |
 | #887 | The plots-svelte README puts the tooltip example after the tooltip | forced (review M1 round 9 finding 3) | `packages/plots-svelte/README.md` | none (docs) | #882 |
 | #888 | NaN-polyline test comments name Chromium, not every browser | forced (review M1 round 10 finding 2) | `tests/interact.spec.js` | none (comments) | #887 |
+| #891 | Dashed drop lines in `--line-strong` (CR #890) | forced (CR #890, user: "too faint ... keep the dash, but go back to a light grey") | `packages/plots/src/plots.css` | `tests/interact.spec.js::hover marks the point and its drop lines` | #888 |
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
@@ -258,3 +259,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M1 round 9 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved (#877 too); backlog #885, #886, #887 pulled into M1. Per-round count: 9, 3, 0, 4, 3, 1, 0, 6, 3.
 - 2026-11-10 review M1 round 10 (code-reviewer, claude-opus-5-5): 0 blocking; backlog #888 pulled into M1; #889 (the polyline isFinite guard, optional) waits for row cross-browser. Per-round count: 9, 3, 0, 4, 3, 1, 0, 6, 3, 1.
 - 2026-11-10 review M1 round 11 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M1 ticked again; re-demo pending.
+- 2026-11-10 M1 re-demo 2 (user): no-go. CR #890 accepted by the user: the dashed drop lines are too faint in `--plot-grid`; keep the dash, back to the light grey `--line-strong`. Item #891; M1 reopened.
