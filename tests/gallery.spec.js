@@ -912,6 +912,17 @@ test('layout keys',async ({ page }) => {
   }
 });
 
+// Where data point `index` of a series mark is drawn, in client px, from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
+// Points are parsed by the rule interact's pairs() states: strip M/L and h<n>, split on commas and spaces, drop a pair with a non-finite coordinate.
+const drawnPoint = (mark, index) => mark.evaluate((m, index) => {
+  const g = m.parentNode, [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+  const n = (m.getAttribute('points') || m.getAttribute('d') || '').replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
+  const pts = [];
+  for (let i = 0; i + 1 < n.length; i += 2) if (Number.isFinite(n[i]) && Number.isFinite(n[i + 1])) pts.push([n[i], n[i + 1]]);
+  const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+  return { label: m.dataset.label, x: box.left + ((+vp.getAttribute('x') || 0) + a * pts[index][0] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * pts[index][1] + f) * k };
+}, index);
+
 // Plan #804 (agent_docs/plans/804-interaction.md), issue #811: every tile has a readout line under it, filled by its own interact + readout, per theme.
 // oracle: closed-form `readout()`: `<label> · <x> <unit>, <y>` for the series label on the hovered mark and the MTF tile's x unit.
 // The pointer is placed at a point's drawn position from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
@@ -927,12 +938,7 @@ test('readout line under every tile', async ({ page }) => {
   const mark = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="mtf"] polyline[data-series="0"], .theme[data-theme="${theme}"] [data-tile="mtf"] path[data-series="0"]`).first();
   for (const theme of ['dark', 'light']) {
     await mark(theme).scrollIntoViewIfNeeded();
-    const at = await mark(theme).evaluate((m) => {
-      const g = m.parentNode, [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
-      const n = (m.getAttribute('points') || m.getAttribute('d')).match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
-      const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
-      return { label: m.dataset.label, x: box.left + ((+vp.getAttribute('x') || 0) + a * n[6] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * n[7] + f) * k };
-    });
+    const at = await drawnPoint(mark(theme), 3);
     await page.mouse.move(at.x, at.y);
     await expect(lineOf(theme)).toHaveText(new RegExp(`^${at.label} · [\\d.]+ cycles/mm, [\\d.]+$`));
     const other = theme === 'dark' ? 'light' : 'dark';
@@ -950,12 +956,7 @@ test('readout units from each tile\'s recording', async ({ page }) => {
   const sel = '.theme[data-theme="light"] [data-tile="fieldCurvature"]';
   const mark = page.locator(`${sel} polyline[data-series], ${sel} path[data-series]`).first();
   await mark.scrollIntoViewIfNeeded();
-  const at = await mark.evaluate((m) => {
-    const g = m.parentNode, [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
-    const n = (m.getAttribute('points') || m.getAttribute('d')).match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
-    const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
-    return { x: box.left + ((+vp.getAttribute('x') || 0) + a * n[0] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * n[1] + f) * k };
-  });
+  const at = await drawnPoint(mark, 0);
   await page.mouse.move(at.x, at.y);
   await expect(page.locator(`${sel} > .eleo-plot__readout`)).toHaveText(/^(Tangential|Sagittal) · −?[\d.]+ mm, −?[\d.]+ °$/);
 });
