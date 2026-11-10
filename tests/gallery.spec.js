@@ -924,7 +924,7 @@ const drawnPoint = (mark, index) => mark.evaluate((m, index) => {
 }, index);
 
 // Plan #804 (agent_docs/plans/804-interaction.md), issue #811, CR #857: every curve tile shows a tooltip near the pointer from its own interact + readout, per theme.
-// oracle: closed-form `readout()`: `<label> · <x> <unit>, <y>` for the series label on the hovered mark; non-curve tiles (no marks with data-series) show nothing until M2.
+// oracle: closed-form `readout()`: `<label> · <x> <unit>, <y>` for the series label on the hovered mark; a tile with none of a series mark, a typed map's `image[data-extent]` or a layout ray run shows nothing (a map's readout is the next test's).
 // The pointer is placed at a point's drawn position from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
 test('tooltip on every curve tile', async ({ page }) => {
   await page.goto('/gallery/');
@@ -972,4 +972,47 @@ test('readout units from each tile\'s recording', async ({ page }) => {
   const at = await drawnPoint(mark, 0);
   await page.mouse.move(at.x, at.y);
   await expect(page.locator(`${sel} .eleo-hover__tip`)).toHaveText(/^(Tangential|Sagittal) · −?[\d.]+ mm, −?[\d.]+ °$/);
+});
+
+// Plan #804, issue #903, CR #898: a typed map tile's tooltip shows the hovered sample's recorded value, with units, from the same values the tile draws.
+// oracle: fixtures tests/fixtures/phos-core/cooke-psf.json (the gallery draws it divided by its peak, in `relative`) and cooke-wavefront.json (polar, in `waves`): `<x> mm, <y> mm = <value> <unit>`.
+// The pointer is placed from the <image>'s data-extent and data-rows/data-columns (or data-radii/data-angles) and its drawn box (never getScreenCTM).
+test('map tiles show their value', async ({ page }) => {
+  const psf = JSON.parse(readFileSync(new URL('./fixtures/phos-core/cooke-psf.json', import.meta.url), 'utf8'));
+  const wf = JSON.parse(readFileSync(new URL('./fixtures/phos-core/cooke-wavefront.json', import.meta.url), 'utf8'));
+  const peak = Math.max(...psf.values.flat());
+  const [row, col] = [70, 100], [ring, spoke] = [40, 10];
+  const cases = [
+    ['psf-recorded', psf.values[row][col] / peak, 'relative'],
+    ['wavefront-recorded', wf.values[ring][spoke], 'waves'],
+  ];
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['dark', 'light']) {
+    for (const [tile, want, unit] of cases) {
+      const sel = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
+      const img = page.locator(`${sel} image[data-extent]`);
+      await img.scrollIntoViewIfNeeded();
+      const at = await img.evaluate((im, [row, col, ring, spoke]) => {
+        const e = im.dataset.extent.split(' ').map(Number), b = im.getBoundingClientRect();
+        let x, y;
+        if (im.dataset.radii) {
+          const r = im.dataset.radii.split(' ').map(Number)[ring], a = im.dataset.angles.split(' ').map(Number)[spoke];
+          x = r * Math.cos(a); y = r * Math.sin(a);
+        } else {
+          x = e[0] + (col + 0.5) / +im.dataset.columns * (e[1] - e[0]); y = e[3] - (row + 0.5) / +im.dataset.rows * (e[3] - e[2]);
+        }
+        return { x: b.left + (x - e[0]) / (e[1] - e[0]) * b.width, y: b.top + (e[3] - y) / (e[3] - e[2]) * b.height };
+      }, [row, col, ring, spoke]);
+      await page.mouse.move(at.x, at.y);
+      const tip = page.locator(`${sel} .eleo-hover__tip`);
+      await expect(tip, `${theme} ${tile} tooltip`).toContainText(' = ');
+      const text = (await tip.textContent()).replace(/\u2212/g, '-');
+      const m = text.match(/^(-?[\d.]+) mm, (-?[\d.]+) mm = (-?[\d.]+) (\S+)$/);
+      expect(m, `${theme} ${tile} reads "${text}"`).not.toBeNull();
+      expect(m[4], `${theme} ${tile} unit`).toBe(unit);
+      expect(Math.abs(+m[3] - want), `${theme} ${tile} value ${m[3]} vs ${want}`).toBeLessThan(1e-3);
+      await page.mouse.move(2, 2);
+    }
+  }
 });

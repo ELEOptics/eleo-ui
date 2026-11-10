@@ -203,11 +203,19 @@
     }
     // Axis specs for the tooltip's units: the tile's own recording (REC's x and y; the limits tile draws the MTF recording). A tile with no recording reads bare numbers.
     function tileAxes(tile) { return REC[tile === 'mtf-limits' ? 'mtf' : tile]; }
-    // One interact per tile body: the hover dot, drop lines and tooltip, with the units from the tile's recording. Tiles without marks carrying data-series (everything but the curve tiles so far) show nothing.
+    // A typed map tile's interact options: the values the tile draws and its own axis specs (x, y, value), each with enough digits to tell neighbouring samples apart (the PSF's extent is hundredths of a mm, so its x and y read to 4 decimals; the rest to 2, the value to 3).
+    function mapInteract(props) {
+      var e = props.extent, small = Math.min(e[1] - e[0], e[3] - e[2]) < 1, d = small ? 4 : 2;
+      return {
+        values: props.values,
+        axes: { x: Object.assign({ digits: d }, props.x), y: Object.assign({ digits: d }, props.y), value: Object.assign({ digits: 3 }, props.value) }
+      };
+    }
+    // One interact per tile body: the hover dot, drop lines and tooltip, with the units from the tile's recording. A curve tile hovers by its marks, a typed map tile by its sample (` = <value>` from its own values), a layout tile by its ray runs; a tile with none of those shows nothing.
     function tileInteract(theme) {
       theme.querySelectorAll('[data-tile]').forEach(function (tile) {
-        var body = tile.querySelector('.eleo-plot__body');
-        if (body) ELEO.interact(body, { axes: tileAxes(tile.dataset.tile) });
+        var body = tile.querySelector('.eleo-plot__body'), map = body && body.dataset.map && MAPS[body.dataset.map];
+        if (body) ELEO.interact(body, map ? mapInteract(map) : { axes: tileAxes(tile.dataset.tile) });
       });
     }
     function draw() {
