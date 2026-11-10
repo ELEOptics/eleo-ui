@@ -21,7 +21,7 @@ next on the roadmap (2026-11-10): rows Q and R are done and no plan is open.
   identity of each mark (series index, role, label, panel).
 - Marks today: `curve` a `<polyline>` (single plot) or `<path>` (panels) per series; `spot` one `<path>` of
   `M x,y h0` dots per series; `bars` one `<rect>` per value; typed `map2D` one pixelated `<image>` (its
-  values are not in the markup); `layout2D` polylines per ray run (`data-status`), surfaces as paths.
+  values are not in the markup); `layout2D` polylines per ray run (`data-status`), surfaces as polygons and lines (corrected at #818).
   Existing `data-*`: `data-status` (layout runs), `data-key` (key labels), `data-grid` (spot grid).
 - `fit(el, draw)` (`fit.js`) redraws at the element's width; a hover layer must survive a redraw
   (`innerHTML` replaced).
