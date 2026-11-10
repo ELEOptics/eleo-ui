@@ -65,3 +65,10 @@ const badSurface: SelectEvent = { surface: 'glass' };
 interact(host, { onselect: 1 });
 // @ts-expect-error the pointer target is an element
 interact('#plot', opts);
+// The value axis (#901): the readout appends ` = <value>` using axes.value; a masked sample sends value null.
+interact(host, { axes: { x: { unit: 'mm' }, y: {}, value: { unit: 'W', digits: 1 } } });
+const withValue: string = readout(gridHover, { x: { unit: 'mm' }, y: { unit: 'mm' }, value: { unit: 'W', digits: 1 } });
+const maskedHover: HoverEvent = { x: 1, y: 2, row: 0, column: 3, value: null };
+const maskedValue: number | null | undefined = maskedHover.value;
+// @ts-expect-error value is a number or null
+const badValue: HoverEvent = { x: 1, y: 2, value: 'high' };

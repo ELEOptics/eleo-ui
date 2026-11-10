@@ -453,7 +453,7 @@ export interface HoverEvent {
   y: number;
   /** The mark's identity from the drawing's `data-series`, `data-label` and `data-role`. `index` is the series' position in the `series` array (in its panel, with `panels`), not its `index` palette slot: two series can share a slot. `label` and `role` are absent where the series has none. */
   series?: { index: number; label?: string; role?: string };
-  /** The panel index from `data-panel`; absent on a single-panel drawing. */
+  /** The panel index from `data-panel`. Absent on a single curve plot (no `panels`); a spot drawing always sends it. */
   panel?: number;
   /** A bar's category index (`data-category`; the total's group). Present only on a `bars` hover. */
   category?: number;
@@ -463,8 +463,8 @@ export interface HoverEvent {
   /** A typed polar `map2D` sample: indices into `radii` and `angles`. Present only on a polar map hover. */
   ring?: number;
   spoke?: number;
-  /** The sample's value, `opts.values[row][column]` (`[ring][spoke]` for polar). Present only on a map hover given `opts.values`. */
-  value?: number;
+  /** The sample's value, `opts.values[row][column]` (`[ring][spoke]` for polar). Present only on a map hover given `opts.values`; `null` for a masked sample (a cell that is not a finite number). */
+  value?: number | null;
   /** A layout2D ray run: its field index (`data-field`), its ray index (`data-ray`) and its status (`data-status`, absent where the run has none). */
   field?: number;
   ray?: number;
@@ -490,7 +490,7 @@ export interface InteractOptions {
   /** Values of a typed `map2D`, `values[row][column]` (`[ring][spoke]` for polar), read into `HoverEvent.value`. */
   values?: number[][];
   /** How the tooltip's `readout` writes each axis (unit, digits). Default: no units, `readout`'s default digits. */
-  axes?: { x?: ReadoutAxis; y?: ReadoutAxis };
+  axes?: { x?: ReadoutAxis; y?: ReadoutAxis; value?: ReadoutAxis };
   /** Draw a dot on the hovered point and drop lines to both axes in an overlay on the host. Default `true`. */
   marks?: boolean;
   /** Show the readout in a tooltip near the pointer. Default `true`. While marks or the tooltip are on, the host carries the class `eleo-hover-host`. */
@@ -505,5 +505,5 @@ export interface ReadoutAxis {
   /** Decimals. Default: at most 2, trailing zeros dropped. */
   digits?: number;
 }
-/** The text of a hover event, `<label> · <x> <unit>, <y> <unit>` (no label and dot without a series label); "" for `null`. */
-export declare function readout(event: HoverEvent | null, axes?: { x?: ReadoutAxis; y?: ReadoutAxis }): string;
+/** The text of a hover event, `<label> · <x>, <y>[ = <value>]`, each number followed by its axis's unit (no label and dot without a series label; ` = <value>` only when the event's `value` is not null, written with `axes.value`); "" for `null`. */
+export declare function readout(event: HoverEvent | null, axes?: { x?: ReadoutAxis; y?: ReadoutAxis; value?: ReadoutAxis }): string;
