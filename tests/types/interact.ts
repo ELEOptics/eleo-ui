@@ -15,6 +15,14 @@ const ev: HoverEvent = { x: 1, y: 2, series: { index: 0, label: 'T', role: 'tang
 // series.index is the series' position in its `series` array (or panel), not its palette slot (#842).
 const position: number = ev.series.index;
 const bare: HoverEvent = { x: 1, y: 2, series: { index: 0 } };
+// A reading between two points carries interpolated and the pair of point indices; a snapped point carries neither (#876).
+const between: HoverEvent = { x: 1.5, y: 2, series: { index: 0 }, interpolated: true, segment: [3, 4] };
+const flag: true | undefined = ev.interpolated;
+const pair: [number, number] | undefined = between.segment;
+// @ts-expect-error interpolated is only ever true
+const notInterp: HoverEvent = { x: 1, y: 2, series: { index: 0 }, interpolated: false };
+// @ts-expect-error segment is a pair
+const triple: HoverEvent = { x: 1, y: 2, series: { index: 0 }, segment: [1, 2, 3] };
 const ax: ReadoutAxis = { unit: 'mm', digits: 2 };
 const a: string = readout(ev, { x: ax, y: { unit: 'um' } });
 const b: string = readout(bare);

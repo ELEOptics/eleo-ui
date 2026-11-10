@@ -453,6 +453,10 @@ export interface HoverEvent {
   series: { index: number; label?: string; role?: string };
   /** The panel index from `data-panel`; absent on a single-panel drawing. */
   panel?: number;
+  /** `true` only on a reading between two data points, where `x` and `y` lie on the straight line joining them; absent when the event is a data point itself. */
+  interpolated?: true;
+  /** The indices `[i, i + 1]` of the two joined points among the mark's finite points, in order. Present only with `interpolated`. */
+  segment?: [number, number];
 }
 export interface InteractOptions {
   /** Called with the point nearest the pointer, or `null` when the pointer leaves it or the host. Repeats of the same point are not re-sent. */
