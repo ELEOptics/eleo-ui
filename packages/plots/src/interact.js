@@ -34,9 +34,10 @@ function nearest(host, cx, cy) {
     var g = dataGroup(mark), m = g.getScreenCTM && g.getScreenCTM();
     if (!m) return;
     var at = new DOMPoint(cx, cy).matrixTransform(m.inverse());
-    if (mark.localName === "rect") { // a bar is hovered only with the pointer inside its box; its value is its y when below zero, else its height
+    if (mark.localName === "rect") { // a bar is hovered with the pointer inside its box or within SNAP client px of its value end inside its x span (so a bar under a pixel tall, or of zero height, can be); its value is its y when below zero, else its height, and the bar whose value end is nearest wins
       var rx = +mark.getAttribute("x"), ry = +mark.getAttribute("y"), rw = +mark.getAttribute("width"), rh = +mark.getAttribute("height");
-      if (at.x >= rx && at.x <= rx + rw && at.y >= ry && at.y <= ry + rh && rh > 0) bar = { d: 0, mark: mark, index: 0, bar: true, x: +mark.dataset.category, y: ry < 0 ? ry : rh, px: rx + rw / 2 };
+      var v = ry < 0 ? ry : rh, dv = Math.abs(at.y - v) * Math.abs(m.d);
+      if (at.x >= rx && at.x <= rx + rw && ((at.y >= ry && at.y <= ry + rh) || dv <= SNAP) && (!bar || dv < bar.d)) bar = { d: dv, mark: mark, index: 0, bar: true, x: +mark.dataset.category, y: v, px: rx + rw / 2 };
       return;
     }
     var r = runs(mark), p = r.p;

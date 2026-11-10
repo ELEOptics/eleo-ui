@@ -642,7 +642,7 @@ test('bar hover', async ({ page }) => {
   expect(Math.abs(ev.y - best.v) * Math.abs(p.d) * p.k, 'value within TOL_PX').toBeLessThanOrEqual(TOL_PX);
   // Nothing between bars: the gap after this category's group (data x = category + 1, at half the bar's height), and just past the bar's value end.
   const q = await page.evaluate(({ s, c, v }) => {
-    const m = window.HOST.querySelectorAll(`rect[data-series="${s}"]`)[c], to = window.T.proj(m), dy = 4 / (Math.abs(to.d) * to.k);
+    const m = window.HOST.querySelectorAll(`rect[data-series="${s}"]`)[c], to = window.T.proj(m), dy = 9 / (Math.abs(to.d) * to.k);
     return { gap: to([+m.dataset.category + 1, v / 2]), past: to([+m.getAttribute('x') + +m.getAttribute('width') / 2, v + Math.sign(v) * dy]) };
   }, best);
   expect(await hoverAt(page, q.gap[0], q.gap[1]), 'the gap between bars hovers nothing').toBeNull();
@@ -650,6 +650,26 @@ test('bar hover', async ({ page }) => {
   await page.mouse.move(p.x, p.y);
   await page.mouse.move(2, 2);
   expect(await page.evaluate(() => window.HOVER.at(-1)), 'leaving emits null').toBeNull();
+  // A bar under a pixel tall (the light Seidel tile has them) is hovered within SNAP of its value end, 3 px past it; 9 px past it nothing.
+  const tiny = await page.evaluate(({ terms, n }) => {
+    let best = null;
+    for (let s = 0; s < terms; s++) window.HOST.querySelectorAll(`rect[data-series="${s}"]`).forEach((m, c) => {
+      const to = window.T.proj(m), h = +m.getAttribute('height') * Math.abs(to.d) * to.k;
+      if (h < 1 && (!best || h < best.h)) best = { s, c, h };
+    });
+    if (!best) return null;
+    const m = window.HOST.querySelectorAll(`rect[data-series="${best.s}"]`)[best.c];
+    m.scrollIntoView({ block: 'center' });
+    const to = window.T.proj(m);
+    const ry = +m.getAttribute('y'), rh = +m.getAttribute('height'), v = ry < 0 ? ry : rh, sg = v < 0 ? -1 : 1, px = +m.getAttribute('x') + +m.getAttribute('width') / 2;
+    const at = (k) => to([px, v + sg * k / (Math.abs(to.d) * to.k)]);
+    return { s: best.s, h: best.h, v, near: at(3), far: at(9) };
+  }, { terms: terms.length, n: 0 });
+  expect(tiny, 'a sub-pixel bar exists on the tile').not.toBeNull();
+  const tev = await hoverAt(page, tiny.near[0], tiny.near[1]);
+  expect(tev, 'sub-pixel bar hovered 3 px past its value end').not.toBeNull();
+  expect(tev.series.index).toBe(tiny.s);
+  expect(await hoverAt(page, tiny.far[0], tiny.far[1]), '9 px past a sub-pixel bar hovers nothing').toBeNull();
   await page.evaluate(() => window.STOP());
 });
 
