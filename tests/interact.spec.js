@@ -135,12 +135,17 @@ test('hover marks the point and its drop lines', async ({ page }) => {
   await page.mouse.move(p.clientX, p.clientY);
   const rect = (sel) => light.locator(`[data-tile="${tile}"] ${sel}`).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
   const dot = await rect('.eleo-hover__dot'), v = await rect('.eleo-hover__v'), h = await rect('.eleo-hover__h');
-  // The lines are the grid's colour and dashed: their painted colour is a drawn grid line's resolved stroke, and the paint is a repeating gradient, not a solid fill.
-  const grid = await light.locator(`[data-tile="${tile}"] line[stroke="var(--plot-grid)"]`).first().evaluate((el) => getComputedStyle(el).stroke);
+  // The lines are --line-strong and dashed: their painted colour is the resolved --line-strong (read off a probe in the same themed tile), not --plot-grid's, and the paint is a repeating gradient, not a solid fill.
+  const colours = await light.locator(`[data-tile="${tile}"]`).evaluate((tileEl) => {
+    const resolve = (v) => { const probe = document.createElement('i'); probe.style.color = `var(${v})`; tileEl.appendChild(probe); const c = getComputedStyle(probe).color; probe.remove(); return c; };
+    return { strong: resolve('--line-strong'), grid: resolve('--plot-grid') };
+  });
+  expect(colours.strong, '--line-strong differs from --plot-grid').not.toBe(colours.grid);
   for (const k of ['v', 'h']) {
     const css = await light.locator(`[data-tile="${tile}"] .eleo-hover__${k}`).first().evaluate((el) => { const c = getComputedStyle(el); return { img: c.backgroundImage, bg: c.backgroundColor }; });
     expect(css.img, `${k} line is dashed`).toContain('repeating-linear-gradient');
-    expect(css.img, `${k} line in the grid colour`).toContain(grid);
+    expect(css.img, `${k} line in --line-strong`).toContain(colours.strong);
+    expect(css.img, `${k} line not in the grid colour`).not.toContain(colours.grid);
     expect(css.bg, `${k} line has no solid fill`).toBe('rgba(0, 0, 0, 0)');
   }
   expect(v.right - v.left, 'vertical line is 1 px').toBeCloseTo(1, 1);
