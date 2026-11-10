@@ -102,6 +102,9 @@ test('hover marks the point and its drop lines', async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const tile = 'mtf', light = page.locator('.theme[data-theme="light"]');
   await page.evaluate((tile) => {
+    // Firefox and Safari report a nested <svg>'s own screen matrix without its x/y (Chromium includes them): emulate that, so the lines must not take the frame edges from it.
+    const own = SVGSVGElement.prototype.getScreenCTM;
+    SVGSVGElement.prototype.getScreenCTM = function () { const m = own.call(this); return this.ownerSVGElement ? m.translate(-(+this.getAttribute('x') || 0), -(+this.getAttribute('y') || 0)) : m; };
     const body = document.querySelector(`.theme[data-theme="light"] [data-tile="${tile}"] .eleo-plot__body`);
     window.STOP = window.ELEO.interact(body, { onhover: () => {} });
   }, tile);
@@ -116,6 +119,16 @@ test('hover marks the point and its drop lines', async ({ page }) => {
   await page.mouse.move(p.clientX, p.clientY);
   const rect = (sel) => light.locator(`[data-tile="${tile}"] ${sel}`).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
   const dot = await rect('.eleo-hover__dot'), v = await rect('.eleo-hover__v'), h = await rect('.eleo-hover__h');
+  // The lines are the grid's colour and dashed: their painted colour is a drawn grid line's resolved stroke, and the paint is a repeating gradient, not a solid fill.
+  const grid = await light.locator(`[data-tile="${tile}"] line[stroke="var(--plot-grid)"]`).first().evaluate((el) => getComputedStyle(el).stroke);
+  for (const k of ['v', 'h']) {
+    const css = await light.locator(`[data-tile="${tile}"] .eleo-hover__${k}`).first().evaluate((el) => { const c = getComputedStyle(el); return { img: c.backgroundImage, bg: c.backgroundColor }; });
+    expect(css.img, `${k} line is dashed`).toContain('repeating-linear-gradient');
+    expect(css.img, `${k} line in the grid colour`).toContain(grid);
+    expect(css.bg, `${k} line has no solid fill`).toBe('rgba(0, 0, 0, 0)');
+  }
+  expect(v.right - v.left, 'vertical line is 1 px').toBeCloseTo(1, 1);
+  expect(h.bottom - h.top, 'horizontal line is 1 px').toBeCloseTo(1, 1);
   expect(Math.abs((dot.left + dot.right) / 2 - p.clientX), 'dot x').toBeLessThanOrEqual(0.5);
   expect(Math.abs((dot.top + dot.bottom) / 2 - p.clientY), 'dot y').toBeLessThanOrEqual(0.5);
   expect(Math.abs((v.left + v.right) / 2 - p.clientX), 'vertical line at x').toBeLessThanOrEqual(0.5);

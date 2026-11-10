@@ -57,8 +57,10 @@ function showTip(host, layer, text, cx, cy) {
 
 /* Puts the dot on the hovered point and the drop lines from it to the plot frame's bottom and left edges (the nested viewport's box). The layer is re-added when a redraw replaced the host's markup. */
 function showMarks(host, layer, b) {
-  var g = b.mark.parentNode, m = g.getScreenCTM(), vp = g.closest("svg"), vm = vp && vp.getScreenCTM();
-  if (!m || !vm) return;
+  var g = b.mark.parentNode, m = g.getScreenCTM(), vp = g.closest("svg"), t = g.transform.baseVal.consolidate();
+  if (!m || !vp) return;
+  /* The viewport's own matrix is taken from the data group's, undoing the group's transform: an <svg>'s getScreenCTM leaves out its x/y in Firefox and Safari. */
+  var vm = t ? m.multiply(t.matrix.inverse()) : m;
   var hb = host.getBoundingClientRect(), ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop;
   var pt = new DOMPoint(b.x, b.y).matrixTransform(m), x = pt.x - ox, y = pt.y - oy;
   var left = new DOMPoint(0, 0).matrixTransform(vm).x - ox, bottom = new DOMPoint(0, vp.height.baseVal.value).matrixTransform(vm).y - oy;
