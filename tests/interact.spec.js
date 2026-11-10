@@ -67,6 +67,15 @@ test('curve hover round trip', async ({ page }) => {
   expect(await page.evaluate(() => window.HOVER.length), 'stop() detaches').toBe(n);
 });
 
+// #904: a series mark's matrix group, found by closest(), is its parentNode on a curve tile.
+test('a series mark sits directly in its matrix data group', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const same = await page.locator('.theme[data-theme="light"] [data-tile="mtf"] [data-series]').first()
+    .evaluate((mark) => mark.closest('g[transform^="matrix("]') === mark.parentNode);
+  expect(same).toBe(true);
+});
+
 // #845: a non-finite coordinate drops its point; it never shifts x and y of the points after it.
 test('non-finite points are skipped', async ({ page }) => {
   await page.goto('/gallery/');

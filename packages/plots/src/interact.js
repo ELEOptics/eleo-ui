@@ -24,8 +24,8 @@ function runs(mark) {
   return { p: p, join: join };
 }
 
-/* The mm data group a hoverable mark is drawn in: a series mark's parent, a layout2D ray run's nearest matrix group (the run sits in an opacity group below it). */
-function dataGroup(mark) { return (mark.dataset.ray !== undefined && mark.closest('g[transform^="matrix("]')) || mark.parentNode; }
+/* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
+function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
 /* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. */
 function nearest(host, cx, cy) {
