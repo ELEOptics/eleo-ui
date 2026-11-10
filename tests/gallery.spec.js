@@ -946,8 +946,8 @@ test('tooltip on every curve tile', async ({ page }) => {
   // The pointer sits over each non-curve tile's centre in turn (the loop above ends with it at (2, 2), over nothing), so a tile that showed a tooltip would show it here.
   // The overlay and its tip exist from interact() to stop() and are hidden when nothing is hovered, so "none" means no visible, non-empty tip in the tile.
   for (const theme of ['dark', 'light']) {
-    // Tiles with neither a `[data-series]` mark nor a typed map's `image[data-extent]` have no hover yet; any tile with a series mark (every curve, rayFan, chromaticFocus) hovers by where its curve passes, and a map tile by its sample (#817).
-    const tiles = await page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.filter((e) => !e.querySelector('[data-series], image[data-extent]')).map((e) => e.dataset.tile));
+    // Tiles with neither a `[data-series]` mark nor a typed map's `image[data-extent]` nor a layout2D ray run's `[data-ray]` have no hover yet; any tile with a series mark (every curve, rayFan, chromaticFocus) hovers by where its curve passes, a map tile by its sample (#817) and a layout tile by its ray runs (#894).
+    const tiles = await page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.filter((e) => !e.querySelector('[data-series], image[data-extent], [data-ray]')).map((e) => e.dataset.tile));
     expect(tiles.length, `${theme} tiles without a series mark`).toBeGreaterThan(0);
     for (const tile of tiles) {
       const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="${tile}"]`);

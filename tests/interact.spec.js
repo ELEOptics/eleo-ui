@@ -700,7 +700,7 @@ test.skip('layout ray hover', async ({ page }) => {
   await bind(page, 'layout2D-wandersleb');
   const sel = 'polyline[data-field="0"][data-ray="0"]';
   const p = await page.evaluate((sel) => {
-    for (const m of window.HOST.querySelectorAll(sel)) { const p = window.T.pick(window.HOST, m, 8, 1, 1); if (p) return p; }
+    for (const m of window.HOST.querySelectorAll(sel)) { const p = window.T.pick(window.HOST, m, 2, 1, 1); if (p) return p; }
     return null;
   }, sel);
   expect(p, 'an isolated interior point on field 0, ray 0').not.toBeNull();

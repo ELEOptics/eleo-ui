@@ -24,11 +24,14 @@ function runs(mark) {
   return { p: p, join: join };
 }
 
+/* The mm data group a hoverable mark is drawn in: a series mark's parent, a layout2D ray run's nearest matrix group (the run sits in an opacity group below it). */
+function dataGroup(mark) { return (mark.dataset.ray !== undefined && mark.closest('g[transform^="matrix("]')) || mark.parentNode; }
+
 /* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. */
 function nearest(host, cx, cy) {
   var snap = null, best = null, bar = null;
-  host.querySelectorAll("[data-series]").forEach(function (mark) {
-    var g = mark.parentNode, m = g.getScreenCTM && g.getScreenCTM();
+  host.querySelectorAll("[data-series], polyline[data-ray]").forEach(function (mark) {
+    var g = dataGroup(mark), m = g.getScreenCTM && g.getScreenCTM();
     if (!m) return;
     var at = new DOMPoint(cx, cy).matrixTransform(m.inverse());
     if (mark.localName === "rect") { // a bar is hovered only with the pointer inside its box; its value is its y when below zero, else its height
@@ -105,7 +108,7 @@ function showTip(host, layer, text, cx, cy) {
 
 /* Puts the dot on the hovered point and the drop lines from it to the plot frame's bottom and left edges (the nested viewport's box). The layer is re-added when a redraw replaced the host's markup. */
 function showMarks(host, layer, b) {
-  var g = b.mark.parentNode, m = g.getScreenCTM(), vp = g.closest("svg"), t = g.transform.baseVal.consolidate();
+  var g = dataGroup(b.mark), m = g.getScreenCTM(), vp = g.closest("svg"), t = g.transform.baseVal.consolidate();
   if (!m || !vp) return;
   /* The viewport's own matrix is taken from the data group's, undoing the group's transform: an <svg>'s getScreenCTM leaves out its x/y in Firefox and Safari. */
   var vm = t ? m.multiply(t.matrix.inverse()) : m;
@@ -132,12 +135,14 @@ export function interact(el, opts) {
     var b = nearest(el, e.clientX, e.clientY);
     if (!b) return mapMove(e);
     if (marks) showMarks(el, layer, b);
-    var d = b.mark.dataset, ev = { x: b.x, y: b.y, series: { index: +d.series, label: d.label, role: d.role } };
+    var d = b.mark.dataset, ev = { x: b.x, y: b.y };
+    if (d.ray !== undefined) { ev.field = +d.field; ev.ray = +d.ray; if (d.status !== undefined) ev.status = d.status; } // a layout2D ray run: z, y in mm
+    else ev.series = { index: +d.series, label: d.label, role: d.role };
     if (b.bar) ev.category = b.x;
     if (b.segment) { ev.interpolated = true; ev.segment = b.segment; }
     if (d.panel !== undefined) ev.panel = +d.panel;
     if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
-    emit(ev, [d.panel, d.series, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
+    emit(ev, [d.panel, d.series, d.field, d.ray, d.status, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
   }
   // a typed map: the sample under the pointer, its value from opts.values; no dot or drop lines (a cell has no point to mark)
   function mapMove(e) {
