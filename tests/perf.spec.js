@@ -182,3 +182,57 @@ if (process.env.PERF === '1') test('map2D redraw (U14)', async ({ page }) => {
   console.log(`map2D redraw median: ${median.toFixed(2)} ms`);
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });
+
+// U14 for hover (plan #804, O7, issue #813; #824 unskips): one pointer move on a 10 000-point spot and on a 256 x 256 typed map resolves in under 16 ms.
+// oracle: measurement roadmap U14: median of 20 pointer moves, each a synthetic `pointermove` dispatched on the interact host and timed with performance.now() around the dispatch (the handler is synchronous, so the dispatch returns once the hover is resolved, the tooltip placed and the dot drawn), in headless Chromium; each move lands on a different dot or cell, so no move is a repeat that interact skips. Unlike the redraw tests above, it asserts: over 16 ms fails (kill criterion D-J), which is how #815 chooses a bucketed scan early.
+// The pointers are placed from the data group's `matrix(...)` attribute (spot) or the <image>'s x/y/width/height (map) and the root's getBoundingClientRect, never getScreenCTM.
+if (process.env.PERF === '1') test.skip('hover (U14)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  const medians = await page.evaluate(() => {
+    const median = (times) => { times.sort((a, b) => a - b); return (times[9] + times[10]) / 2; };
+    const move = (host, [x, y]) => { host.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true })); };
+    const timed = (host, at) => at.map((q) => { const t0 = performance.now(); move(host, q); return performance.now() - t0; });
+    const mount = (html) => {
+      const host = document.createElement('div');
+      host.style.cssText = 'position:fixed;left:0;top:0;width:600px;background:#fff;z-index:9';
+      host.innerHTML = html;
+      document.body.appendChild(host);
+      return host;
+    };
+    // spot: the U14 spot reference (3 panels, 10 000 points in all); 20 dots of the first panel's series, spread along it
+    const panels = Array.from({ length: 3 }, (_, p) => ({ title: `${p}.0°`, airy: 2.5, series: [{ index: 0, points: [] }] }));
+    for (let i = 0; i < 10000; i++) {
+      const a = i * 2.399963, r = 3 * Math.sqrt((i % 3334) / 3334);
+      panels[i % 3].series[0].points.push([r * Math.cos(a), r * Math.sin(a)]);
+    }
+    const spotHost = mount(window.ELEO.spot({ panels, unit: 'µm', width: 600, height: 300 }));
+    const stopSpot = window.ELEO.interact(spotHost, { onhover: () => {} });
+    const mark = spotHost.querySelector('path[data-series]');
+    if (!mark) throw new Error('spot marks carry no data-series');
+    const group = mark.closest('g[transform^="matrix("]'), [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+    const n = mark.getAttribute('d').replace(/h\s*-?[\d.]+/g, ' ').replace(/M/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
+    const dots = Array.from({ length: 20 }, (_, j) => { const i = 100 + j * 150; return [box.left + (+vp.getAttribute('x') + a * n[2 * i] + e) * k, box.top + (+vp.getAttribute('y') + d * n[2 * i + 1] + f) * k]; });
+    const spot = median(timed(spotHost, dots));
+    stopSpot(); spotHost.remove();
+    // map: the U14 map reference (256 x 256 Gaussian); 20 cells down the diagonal, values given so the value lookup is timed too
+    const N = 256, values = Array.from({ length: N }, (_, r) => Array.from({ length: N }, (_, c) => {
+      const x = (c / (N - 1) - 0.5) * 2, y = (r / (N - 1) - 0.5) * 2;
+      return Math.exp(-2 * (x * x + y * y) / 0.25);
+    }));
+    const mapHost = mount('');
+    mapHost.innerHTML = window.ELEO.map2D({ values, extent: [-1, 1, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', el: mapHost, width: 460, height: 360 });
+    const stopMap = window.ELEO.interact(mapHost, { values, onhover: () => {} });
+    const img = mapHost.querySelector('svg image'), mroot = img.ownerSVGElement, mbox = mroot.getBoundingClientRect(), mk = mbox.width / mroot.viewBox.baseVal.width;
+    const [ix, iy, iw, ih] = ['x', 'y', 'width', 'height'].map((q) => +img.getAttribute(q));
+    const cells = Array.from({ length: 20 }, (_, j) => { const c = 10 + j * 11; return [mbox.left + (ix + (c + 0.5) / N * iw) * mk, mbox.top + (iy + (c + 0.5) / N * ih) * mk]; });
+    const map = median(timed(mapHost, cells));
+    stopMap(); mapHost.remove();
+    return { spot, map };
+  });
+  console.log(`hover median: spot ${medians.spot.toFixed(2)} ms, map ${medians.map.toFixed(2)} ms`);
+  test.info().annotations.push({ type: 'median-ms', description: `spot ${medians.spot.toFixed(2)}, map ${medians.map.toFixed(2)}` });
+  expect(medians.spot, '10 000-point spot hover under 16 ms').toBeLessThan(16);
+  expect(medians.map, '256 x 256 map hover under 16 ms').toBeLessThan(16);
+});

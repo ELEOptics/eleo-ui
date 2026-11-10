@@ -4,6 +4,7 @@
 // data group's `matrix(...)` attribute, the nested viewport's x/y and the SVG's getBoundingClientRect, never from getScreenCTM, which `interact` uses;
 // the hover event must carry that point's data coordinates within TOL_PX (tests/unit/helpers/svg.js).
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { TOL_PX } from './unit/helpers/svg.js';
 
 // The data group of a tile's first series, and where data point (dx, dy) is drawn in client px.
@@ -416,4 +417,312 @@ test('hover reads between data points', async ({ page }) => {
   await page.mouse.move(px, py);
   expect(await page.evaluate(() => window.HOVER.filter(Boolean)), 'no segment across the gap').toEqual([]);
   await page.evaluate(() => window.STOP());
+});
+
+// ---- Plan #804 M2 (issue #813; #824 unskips): O1 for the rest of the 2D plots and O2. Each test is skipped until its item lands (#814 spot, #893 bars, #817 map, #818 and #894 layout, #819 select).
+// oracle: property round trip through the inverse transform (roadmap U13), as above: the pointer is placed from the data group's `matrix(...)` attribute (the nearest `g[transform^="matrix("]` of the mark, since layout2D nests its runs in opacity groups),
+// the nested viewport's x/y, any `translate(...)` between it and the root, and the root's getBoundingClientRect, never getScreenCTM. The expected values come from the recorded fixtures (tests/fixtures/phos-core/) for the recorded tiles;
+// throughFocus and the synthetic hosts are checked against the drawn point itself.
+// Contract these tests fix for the M2 items (index.d.ts is written by #819): the event names a mark by the same keys as its data-* attributes: `series` ({ index, label?, role? }), `panel`, `category` (the bar's data-category, compared as text),
+// `field`, `ray`, `status` (layout runs), `surface` (select only); a bar's `y` is its value; a map's hover carries `row` and `column` (rows top-down as `values[row][column]`) and, given `opts.values`, `value`.
+
+const LIGHT = '.theme[data-theme="light"]';
+const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/phos-core/${name}.json`, import.meta.url), 'utf8'));
+// The reference-wavelength result of a Seidel recording and the recorded wavelength nearest the reference, as adapters.js reads them.
+const nearestTo = (list, ref) => list.reduce((best, v, i) => (Math.abs(v - ref) < Math.abs(list[best] - ref) ? i : best), 0);
+
+// Page-side helpers on window.T, installed once per page after the gallery is ready. All geometry comes from attributes, never getScreenCTM.
+const install = (page) => page.evaluate(() => {
+  const nums = (s) => s.replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
+  // A mark's drawn points in its data units: the finite pairs of a polyline, polygon or path (a dot's `h0` adds none), the centre of a rect, a line's ends.
+  const pts = (m) => {
+    if (m.tagName === 'rect') { const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((k) => +m.getAttribute(k)); return [[x + w / 2, y + h / 2]]; }
+    if (m.tagName === 'line') return [[+m.getAttribute('x1'), +m.getAttribute('y1')], [+m.getAttribute('x2'), +m.getAttribute('y2')]];
+    const n = nums(m.getAttribute('points') || m.getAttribute('d') || ''), out = [];
+    for (let i = 0; i + 1 < n.length; i += 2) if (Number.isFinite(n[i]) && Number.isFinite(n[i + 1])) out.push([n[i], n[i + 1]]);
+    return out;
+  };
+  // data -> client px for a mark: its data group's matrix, the viewport's x/y, the translate of a panel wrapper, the root's client box.
+  const proj = (m) => {
+    const group = m.closest('g[transform^="matrix("]');
+    const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+    let tx = 0, ty = 0;
+    if (vp !== root) for (let g = vp.parentNode; g && g !== root; g = g.parentNode) {
+      const t = (g.getAttribute('transform') || '').match(/translate\(([^)]*)\)/);
+      if (t) { const [u, v] = t[1].split(/[\s,]+/).map(Number); tx += u; ty += v || 0; }
+    }
+    const vx = vp === root ? 0 : +(vp.getAttribute('x') || 0), vy = vp === root ? 0 : +(vp.getAttribute('y') || 0);
+    const to = (p) => [box.left + (tx + vx + a * p[0] + e) * k, box.top + (ty + vy + d * p[1] + f) * k];
+    return Object.assign(to, { a, d, k });
+  };
+  const MARKS = '[data-series],[data-field],[data-surface]';
+  // Every identified mark of the host with its points in client px.
+  const all = (host) => [...host.querySelectorAll(MARKS)].map((m) => { const to = proj(m); return { m, to, c: pts(m).map((p) => to(p)) }; });
+  // True when no drawn point of any mark but (skip, i) lies within px client px of (x, y).
+  const clear = (list, x, y, px, skip, i) => list.every((o) => o.c.every((c, j) => (o.m === skip && j === i) || Math.hypot(c[0] - x, c[1] - y) >= px));
+  window.T = {
+    pts, proj,
+    // The first point of mark m (searching from its middle) that no other drawn point lies within px of, with its client position and the scales; null when none.
+    pick(host, m, px, lo, hi) {
+      m.scrollIntoView({ block: 'center' });
+      const list = all(host), me = list.find((o) => o.m === m), n = me.c.length, start = Math.floor(n / 2);
+      for (let s = 0; s < n; s++) {
+        const i = (start + s) % n;
+        if (i < (lo || 0) || i > n - 1 - (hi || 0)) continue;
+        if (clear(list, me.c[i][0], me.c[i][1], px, m, i)) return { i, data: pts(m)[i], x: me.c[i][0], y: me.c[i][1], a: me.to.a, d: me.to.d, k: me.to.k, ds: { ...m.dataset } };
+      }
+      return null;
+    },
+    // A long segment of one of the marks matching sel whose middle is at least px from every drawn point: where to read along a line.
+    midpoint(host, sel, px, minLen) {
+      for (const m of host.querySelectorAll(sel)) {
+        m.scrollIntoView({ block: 'center' });
+        const list = all(host), me = list.find((o) => o.m === m), p = pts(m);
+        for (let i = 1; i < p.length; i++) {
+          const [x0, y0] = me.c[i - 1], [x1, y1] = me.c[i], mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+          if (Math.hypot(x1 - x0, y1 - y0) >= minLen && clear(list, mx, my, px)) {
+            return { segment: [i - 1, i], data: [(p[i - 1][0] + p[i][0]) / 2, (p[i - 1][1] + p[i][1]) / 2], x: mx, y: my, a: me.to.a, d: me.to.d, k: me.to.k, ds: { ...m.dataset } };
+          }
+        }
+      }
+      return null;
+    },
+    // The first point (vertex, segment middle or fill centre) of a mark matching sel at which the browser's own hit test finds that mark: where a click lands on it.
+    hit(host, sel) {
+      for (const m of host.querySelectorAll(sel)) {
+        m.scrollIntoView({ block: 'center' });
+        const to = proj(m), p = pts(m), probes = p.slice();
+        for (let i = 1; i < p.length; i++) probes.push([(p[i - 1][0] + p[i][0]) / 2, (p[i - 1][1] + p[i][1]) / 2]);
+        if (p.length > 2) probes.push([p.reduce((s, q) => s + q[0], 0) / p.length, p.reduce((s, q) => s + q[1], 0) / p.length]);
+        for (const q of probes) { const [x, y] = to(q); if (document.elementFromPoint(x, y) === m) return { x, y, ds: { ...m.dataset } }; }
+      }
+      return null;
+    },
+    // Where fraction (fx, fy) of the first (map) <image> lies in client px, and its box, from its x/y/width/height attributes and the root's client box.
+    image(host, fx, fy) {
+      const img = host.querySelector('svg image'), root = img.ownerSVGElement, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((q) => +img.getAttribute(q));
+      img.scrollIntoView({ block: 'center' });
+      const b2 = root.getBoundingClientRect();
+      return { x: b2.left + (x + fx * w) * k, y: b2.top + (y + fy * h) * k, wpx: w * k, hpx: h * k, left: b2.left + x * k, top: b2.top + y * k };
+    },
+  };
+});
+
+// Opens the gallery with the helpers, binds interact on a light tile's body and returns once the tile is in view. `values` is a map's recorded values.
+async function bind(page, tile, values) {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await install(page);
+  await page.evaluate(({ tile, values }) => {
+    window.HOVER = []; window.SELECT = [];
+    window.HOST = document.querySelector(`.theme[data-theme="light"] [data-tile="${tile}"] .eleo-plot__body`);
+    window.STOP = window.ELEO.interact(window.HOST, { values, onhover: (ev) => window.HOVER.push(ev), onselect: (ev) => window.SELECT.push(ev) });
+  }, { tile, values });
+  await page.locator(`${LIGHT} [data-tile="${tile}"]`).scrollIntoViewIfNeeded();
+}
+// The hover event after the pointer arrives at (x, y) from outside the host (null when nothing is hovered).
+async function hoverAt(page, x, y) {
+  await page.mouse.move(2, 2);
+  await page.evaluate(() => { window.HOVER = []; });
+  await page.mouse.move(x, y);
+  return page.evaluate(() => window.HOVER.at(-1) ?? null);
+}
+// The event's (x, y) against the wanted data point, in client px along each axis, using the scales of the mark it was placed on.
+const within = (ev, want, p, what) => {
+  expect(Math.abs(ev.x - want[0]) * Math.abs(p.a) * p.k, `${what} x within TOL_PX`).toBeLessThanOrEqual(TOL_PX);
+  expect(Math.abs(ev.y - want[1]) * Math.abs(p.d) * p.k, `${what} y within TOL_PX`).toBeLessThanOrEqual(TOL_PX);
+};
+// The event names the mark's own data-* identity.
+const names = (ev, ds, what) => {
+  expect(ev.series.index, `${what} series`).toBe(+ds.series);
+  if (ds.panel !== undefined) expect(ev.panel, `${what} panel`).toBe(+ds.panel);
+  else expect(ev.panel, `${what} has no panel`).toBeUndefined();
+};
+
+// #814 (O1, spot): the recorded achromat spot tile. A dot under the pointer reads that dot, with its panel (field) and series (wavelength); the recorded point is the oracle, in µm as the adapter draws it.
+test.skip('spot hover emits the dot under the pointer', async ({ page }) => {
+  const rec = fixture('achromat-spot');
+  await bind(page, 'spot');
+  const panel = rec.sources.length - 1, series = 1;
+  const p = await page.evaluate(({ panel, series }) => window.T.pick(window.HOST, window.HOST.querySelector(`path[data-panel="${panel}"][data-series="${series}"]`), 8), { panel, series });
+  expect(p, 'an isolated dot on the largest field').not.toBeNull();
+  const ev = await hoverAt(page, p.x, p.y);
+  expect(ev, 'dot hovered').not.toBeNull();
+  names(ev, p.ds, 'spot');
+  expect(ev.series.index).toBe(series);
+  expect(ev.panel).toBe(panel);
+  expect(ev.interpolated, 'dots snap only').toBeUndefined();
+  within(ev, rec.sources[panel].points[series][p.i].map((v) => v * 1000), p, 'recorded point');
+  await page.mouse.move(2, 2);
+  expect(await page.evaluate(() => window.HOVER.at(-1)), 'leaving emits null').toBeNull();
+  await page.evaluate(() => window.STOP());
+});
+
+// #814 (O1, footprint): the recorded Cooke beam footprint at the stop, in mm, one series per field at the reference wavelength.
+test.skip('footprint hover emits the point under the pointer', async ({ page }) => {
+  const rec = fixture('cooke-footprint');
+  await bind(page, 'footprint');
+  const series = 1, w = nearestTo(rec.sources[series].wavelengths, rec.referenceWavelengthNm);
+  const p = await page.evaluate((series) => window.T.pick(window.HOST, window.HOST.querySelector(`path[data-series="${series}"]`), 8), series);
+  expect(p, 'an isolated point on field 1').not.toBeNull();
+  const ev = await hoverAt(page, p.x, p.y);
+  expect(ev, 'point hovered').not.toBeNull();
+  names(ev, p.ds, 'footprint');
+  expect(ev.series.index).toBe(series);
+  within(ev, rec.sources[series].points[w][p.i], p, 'recorded point');
+  await page.evaluate(() => window.STOP());
+});
+
+// #814 (O1, throughFocus): the synthetic through-focus tile has no recording; the drawn dot is the oracle, with the series and panel its mark carries.
+test.skip('throughFocus hover emits the dot under the pointer', async ({ page }) => {
+  await bind(page, 'throughFocus');
+  const p = await page.evaluate(() => window.T.pick(window.HOST, window.HOST.querySelector('path[data-series][data-panel]'), 8));
+  expect(p, 'an isolated dot').not.toBeNull();
+  const ev = await hoverAt(page, p.x, p.y);
+  expect(ev, 'dot hovered').not.toBeNull();
+  names(ev, p.ds, 'throughFocus');
+  expect(ev.interpolated, 'dots snap only').toBeUndefined();
+  within(ev, p.data, p, 'drawn dot');
+  await page.evaluate(() => window.STOP());
+});
+
+// #814: dots are not joined. Own host, three far-apart dots: 12 px off a dot (outside the 6 px snap, inside the 24 px reach) still reads that dot, never an interpolation; the middle of the gap between two dots reads nothing.
+test.skip('spot dots are never interpolated', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await install(page);
+  const p = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9';
+    host.innerHTML = window.ELEO.spot({ panels: [{ title: 'a', series: [{ index: 0, points: [[0, 0], [1, 1], [-1, 0.5]] }] }], width: 400 });
+    document.body.append(host);
+    window.HOST = host; window.HOVER = [];
+    window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) });
+    const m = host.querySelector('path[data-series]'), to = window.T.proj(m), pts = window.T.pts(m);
+    return { dot: to(pts[0]), other: to(pts[1]), a: to.a, d: to.d, k: to.k };
+  });
+  const ev = await hoverAt(page, p.dot[0] + 12, p.dot[1]);
+  expect(ev, 'a dot 12 px away still reads').not.toBeNull();
+  within(ev, [0, 0], p, 'the dot');
+  expect(ev.interpolated, 'a dot is not a line').toBeUndefined();
+  expect(ev.segment).toBeUndefined();
+  expect(await hoverAt(page, (p.dot[0] + p.other[0]) / 2, (p.dot[1] + p.other[1]) / 2), 'between two dots reads nothing').toBeNull();
+  await page.evaluate(() => window.STOP());
+});
+
+// #893 (O1, bars): the recorded achromat Seidel tile. The pointer in the middle of the bar with the largest recorded value reads that bar: its series, its category and its value (the rect's height through the transform).
+test.skip('bar hover', async ({ page }) => {
+  const rec = fixture('achromat-seidel');
+  const res = rec.results[nearestTo(rec.results.map((r) => r.wavelengthNm), rec.referenceWavelengthNm)];
+  const terms = ['spherical', 'coma', 'astigmatism', 'fieldCurvature', 'distortion', 'axialColor', 'lateralColor'];
+  let best = { v: 0 };
+  terms.forEach((t, s) => res.terms[t].slice(0, -1).forEach((v, c) => { if (Math.abs(v) > Math.abs(best.v)) best = { v, s, c }; }));
+  await bind(page, 'seidel');
+  const p = await page.evaluate(({ s, c }) => {
+    const m = window.HOST.querySelectorAll(`rect[data-series="${s}"]`)[c];
+    m.scrollIntoView({ block: 'center' });
+    const to = window.T.proj(m), [x, y] = to(window.T.pts(m)[0]);
+    return { x, y, a: to.a, d: to.d, k: to.k, ds: { ...m.dataset } };
+  }, best);
+  const ev = await hoverAt(page, p.x, p.y);
+  expect(ev, `bar of series ${best.s}, category ${best.c} hovered`).not.toBeNull();
+  expect(ev.series.index).toBe(best.s);
+  expect(String(ev.category), 'the rect\'s own category').toBe(p.ds.category);
+  expect(Math.abs(ev.y - best.v) * Math.abs(p.d) * p.k, 'value within TOL_PX').toBeLessThanOrEqual(TOL_PX);
+  await page.mouse.move(2, 2);
+  expect(await page.evaluate(() => window.HOVER.at(-1)), 'leaving emits null').toBeNull();
+  await page.evaluate(() => window.STOP());
+});
+
+// #817 (O1, typed map): the recorded Cooke PSF tile. The pointer at the centre of cell (row, column) reads the cell's indices, the data coordinates of its centre and, given the recorded values, its value (the recording is the oracle, cells chosen to differ).
+test.skip('map hover value', async ({ page }) => {
+  const rec = fixture('cooke-psf');
+  const rows = rec.values.length, cols = rec.values[0].length, [x0, x1, y0, y1] = rec.extent;
+  const cells = [[Math.floor(rows / 2), Math.floor(cols / 2)], [10, 150], [170, 20]];
+  expect(new Set(cells.map(([r, c]) => rec.values[r][c])).size, 'the chosen cells hold different values').toBe(3);
+  await bind(page, 'psf-recorded', rec.values);
+  for (const [r, c] of cells) {
+    const q = await page.evaluate(([fx, fy]) => window.T.image(window.HOST, fx, fy), [(c + 0.5) / cols, (r + 0.5) / rows]);
+    const ev = await hoverAt(page, q.x, q.y);
+    expect(ev, `cell ${r},${c} hovered`).not.toBeNull();
+    expect(ev.row, 'row').toBe(r);
+    expect(ev.column, 'column').toBe(c);
+    expect(ev.value, 'recorded value').toBe(rec.values[r][c]);
+    expect(Math.abs(ev.x - (x0 + (c + 0.5) * (x1 - x0) / cols)) * q.wpx / (x1 - x0), 'x of the cell centre within TOL_PX').toBeLessThanOrEqual(TOL_PX);
+    expect(Math.abs(ev.y - (y1 - (r + 0.5) * (y1 - y0) / rows)) * q.hpx / (y1 - y0), 'y of the cell centre within TOL_PX').toBeLessThanOrEqual(TOL_PX);
+  }
+  // beyond the image, inside the host: nothing
+  const q = await page.evaluate(() => window.T.image(window.HOST, 0, 0));
+  expect(await hoverAt(page, q.left - 6, q.top - 6), 'outside the image reads nothing').toBeNull();
+  await page.evaluate(() => window.STOP());
+  // without values the indices are still read and no value is claimed
+  await page.evaluate(() => { window.STOP = window.ELEO.interact(window.HOST, { onhover: (ev) => window.HOVER.push(ev) }); });
+  const [r, c] = cells[0], m = await page.evaluate(([fx, fy]) => window.T.image(window.HOST, fx, fy), [(cells[0][1] + 0.5) / cols, (cells[0][0] + 0.5) / rows]);
+  const ev = await hoverAt(page, m.x, m.y);
+  expect([ev.row, ev.column], 'indices without values').toEqual([r, c]);
+  expect(ev.value, 'no value without opts.values').toBeUndefined();
+  await page.evaluate(() => window.STOP());
+});
+
+// #894 (O1, layout): the recorded Wandersleb layout. A ray point reads that run's field, ray and status and the point (z, y in mm); the point is also one the recording holds.
+test.skip('layout ray hover', async ({ page }) => {
+  const rec = fixture('wandersleb-layout');
+  await bind(page, 'layout2D-wandersleb');
+  const sel = 'polyline[data-field="0"][data-ray="0"]';
+  const p = await page.evaluate((sel) => {
+    for (const m of window.HOST.querySelectorAll(sel)) { const p = window.T.pick(window.HOST, m, 8, 1, 1); if (p) return p; }
+    return null;
+  }, sel);
+  expect(p, 'an isolated interior point on field 0, ray 0').not.toBeNull();
+  const ev = await hoverAt(page, p.x, p.y);
+  expect(ev, 'ray point hovered').not.toBeNull();
+  expect(ev.field, 'field').toBe(+p.ds.field);
+  expect(ev.ray, 'ray').toBe(+p.ds.ray);
+  expect(ev.status, 'status of the run').toBe(p.ds.status);
+  expect(ev.interpolated, 'snapped, not interpolated').toBeUndefined();
+  within(ev, p.data, p, 'drawn point');
+  expect(rec.rays[0][0].some((q) => Math.hypot(q[0] - ev.x, q[1] - ev.y) <= 0.01), 'the point is one the recording holds').toBe(true);
+  await page.evaluate(() => window.STOP());
+});
+
+// #894: between two points of a run the reading is along the run, flagged interpolated, with the run's field and ray.
+test.skip('layout ray hover reads along a run', async ({ page }) => {
+  await bind(page, 'layout2D-wandersleb');
+  const p = await page.evaluate(() => window.T.midpoint(window.HOST, 'polyline[data-field][data-ray]', 8, 40));
+  expect(p, 'a long segment whose middle is clear of every drawn point').not.toBeNull();
+  const ev = await hoverAt(page, p.x, p.y);
+  expect(ev, 'segment middle hovered').not.toBeNull();
+  expect(ev.interpolated).toBe(true);
+  expect(ev.field).toBe(+p.ds.field);
+  expect(ev.ray).toBe(+p.ds.ray);
+  within(ev, p.data, p, 'segment middle');
+  await page.evaluate(() => window.STOP());
+});
+
+// #819 (O2): a click on a mark emits one select event naming that mark by its own data-* identity, and changes no markup. Marks are found with the browser's own hit test, so the click lands on the mark.
+test.skip('click selects a mark', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await install(page);
+  const cases = [
+    ['mtf', 'polyline[data-series], path[data-series]', (ev, ds) => { names(ev, ds, 'curve'); }],
+    ['spot', 'path[data-series][data-panel]', (ev, ds) => { names(ev, ds, 'spot'); }],
+    ['seidel', 'rect[data-series][data-category]', (ev, ds) => { expect(ev.series.index, 'bar series').toBe(+ds.series); expect(String(ev.category), 'bar category').toBe(ds.category); }],
+    ['layout2D-wandersleb', '[data-surface]', (ev, ds) => { expect(String(ev.surface), 'surface').toBe(ds.surface); }],
+    ['layout2D-wandersleb', 'polyline[data-field][data-ray]', (ev, ds) => { expect(String(ev.field), 'field').toBe(ds.field); }],
+  ];
+  for (const [tile, sel, check] of cases) {
+    await bind(page, tile);
+    const before = await page.evaluate(() => window.HOST.querySelector('svg').outerHTML);
+    const p = await page.evaluate((sel) => window.T.hit(window.HOST, sel), sel);
+    expect(p, `${tile}: a mark matching ${sel} the hit test finds`).not.toBeNull();
+    await page.mouse.click(p.x, p.y);
+    const got = await page.evaluate(() => window.SELECT);
+    expect(got, `${tile}: one select event`).toHaveLength(1);
+    check(got[0], p.ds);
+    expect(await page.evaluate(() => window.HOST.querySelector('svg').outerHTML), `${tile}: markup unchanged`).toBe(before);
+    await page.evaluate(() => window.STOP());
+  }
 });
