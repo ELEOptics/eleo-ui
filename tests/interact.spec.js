@@ -631,6 +631,14 @@ test.skip('bar hover', async ({ page }) => {
   expect(ev.series.index).toBe(best.s);
   expect(String(ev.category), 'the rect\'s own category').toBe(p.ds.category);
   expect(Math.abs(ev.y - best.v) * Math.abs(p.d) * p.k, 'value within TOL_PX').toBeLessThanOrEqual(TOL_PX);
+  // Nothing between bars: the gap after this category's group (data x = category + 1, at half the bar's height), and just past the bar's value end.
+  const q = await page.evaluate(({ s, c, v }) => {
+    const m = window.HOST.querySelectorAll(`rect[data-series="${s}"]`)[c], to = window.T.proj(m), dy = 4 / (Math.abs(to.d) * to.k);
+    return { gap: to([+m.dataset.category + 1, v / 2]), past: to([+m.getAttribute('x') + +m.getAttribute('width') / 2, v + Math.sign(v) * dy]) };
+  }, best);
+  expect(await hoverAt(page, q.gap[0], q.gap[1]), 'the gap between bars hovers nothing').toBeNull();
+  expect(await hoverAt(page, q.past[0], q.past[1]), 'above the bar\'s value end hovers nothing').toBeNull();
+  await page.mouse.move(p.x, p.y);
   await page.mouse.move(2, 2);
   expect(await page.evaluate(() => window.HOVER.at(-1)), 'leaving emits null').toBeNull();
   await page.evaluate(() => window.STOP());

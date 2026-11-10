@@ -26,11 +26,17 @@ function runs(mark) {
 
 /* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. */
 function nearest(host, cx, cy) {
-  var snap = null, best = null;
+  var snap = null, best = null, bar = null;
   host.querySelectorAll("[data-series]").forEach(function (mark) {
     var g = mark.parentNode, m = g.getScreenCTM && g.getScreenCTM();
     if (!m) return;
-    var at = new DOMPoint(cx, cy).matrixTransform(m.inverse()), r = runs(mark), p = r.p;
+    var at = new DOMPoint(cx, cy).matrixTransform(m.inverse());
+    if (mark.localName === "rect") { // a bar is hovered only with the pointer inside its box; its value is its y when below zero, else its height
+      var rx = +mark.getAttribute("x"), ry = +mark.getAttribute("y"), rw = +mark.getAttribute("width"), rh = +mark.getAttribute("height");
+      if (at.x >= rx && at.x <= rx + rw && at.y >= ry && at.y <= ry + rh && rh > 0) bar = { d: 0, mark: mark, index: 0, bar: true, x: +mark.dataset.category, y: ry < 0 ? ry : rh, px: rx + rw / 2 };
+      return;
+    }
+    var r = runs(mark), p = r.p;
     var linked = function (i) { return r.join[i] || r.join[i + 1]; };
     p.forEach(function (q, i) {
       var d = Math.hypot((q[0] - at.x) * m.a, (q[1] - at.y) * m.d), c = { d: d, mark: mark, index: i, x: q[0], y: q[1] };
@@ -45,7 +51,7 @@ function nearest(host, cx, cy) {
       if (d <= REACH && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1, x: p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), y: p[i - 1][1] + t * (p[i][1] - p[i - 1][1]), segment: [i - 1, i] };
     }
   });
-  return snap || best;
+  return bar || snap || best;
 }
 
 /* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (the last child) unless `tip` is false; divs positioned in host px. The tooltip is a polite live region (`role=status`), so it is made here, empty, and kept for the life of the call: a region created together with its text is often not announced. */
@@ -84,7 +90,7 @@ function showMarks(host, layer, b) {
   /* The viewport's own matrix is taken from the data group's, undoing the group's transform: an <svg>'s getScreenCTM leaves out its x/y in Firefox and Safari. */
   var vm = t ? m.multiply(t.matrix.inverse()) : m;
   var hb = host.getBoundingClientRect(), ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop;
-  var pt = new DOMPoint(b.x, b.y).matrixTransform(m), x = pt.x - ox, y = pt.y - oy;
+  var pt = new DOMPoint(b.bar ? b.px : b.x, b.y).matrixTransform(m), x = pt.x - ox, y = pt.y - oy;
   var left = new DOMPoint(0, 0).matrixTransform(vm).x - ox, bottom = new DOMPoint(0, vp.height.baseVal.value).matrixTransform(vm).y - oy;
   for (var i = 0; i < 3; i++) layer.children[i].hidden = false;
   if (b.segment) layer.children[2].hidden = true; // an interpolated spot has no point to dot
@@ -107,10 +113,11 @@ export function interact(el, opts) {
     if (!b) return leave();
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y, series: { index: +d.series, label: d.label, role: d.role } };
+    if (b.bar) ev.category = b.x;
     if (b.segment) { ev.interpolated = true; ev.segment = b.segment; }
     if (d.panel !== undefined) ev.panel = +d.panel;
     if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
-    emit(ev, [d.panel, d.series, b.index, b.segment ? b.x + "," + b.y : ""].join());
+    emit(ev, [d.panel, d.series, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
   }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
   // a redraw replaced the markup: the empty live region is back at once (a microtask), before any text is set. Appending only when detached keeps the observer from looping on its own mutation.
