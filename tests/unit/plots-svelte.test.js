@@ -66,3 +66,44 @@ test('PlotCard readout', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Plan #804, outcome O4 (issue #843). oracle: closed-form (binds minus stops is the number of live listeners: one with a callback, none without).
+// The hover action is imported against a stub `interact` that counts binds and stops.
+test('hover binds only with a callback', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-hover-'));
+  try {
+    const count = { binds: 0, stops: 0 };
+    globalThis.__hoverCount = count;
+    writeFileSync(join(dir, 'plots.js'), 'export const interact = () => { globalThis.__hoverCount.binds++; return () => { globalThis.__hoverCount.stops++; }; };');
+    writeFileSync(join(dir, 'interact.js'), readFileSync(new URL('../../packages/plots-svelte/src/lib/interact.svelte.js', import.meta.url), 'utf8').replaceAll("'@eleoptics/plots'", '"./plots.js"'));
+    const { hover } = await import(pathToFileURL(join(dir, 'interact.js')).href);
+    const live = () => count.binds - count.stops;
+    const el = {};
+
+    const none = hover(el, {});
+    assert.equal(live(), 0, 'no callback still binds a pointer listener');
+    none.update({ onhover() {} });
+    assert.equal(live(), 1, 'a callback added later does not bind');
+    none.update({});
+    assert.equal(live(), 0, 'a callback removed later does not stop');
+    none.update({ onselect() {} });
+    assert.equal(live(), 1, 'onselect added later does not bind');
+    none.update({ onselect() {}, onhover() {} });
+    assert.equal(live(), 1, 'a changed callback leaks or drops the listener');
+    none.destroy();
+    assert.equal(live(), 0, 'destroy leaves a listener');
+
+    const given = hover(el, { onhover() {} });
+    assert.equal(live(), 1, 'a callback at mount does not bind');
+    given.destroy();
+    assert.equal(live(), 0);
+
+    const undef = hover(el, undefined);
+    assert.equal(live(), 0, 'undefined options still bind');
+    undef.destroy();
+    assert.equal(live(), 0);
+  } finally {
+    delete globalThis.__hoverCount;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
