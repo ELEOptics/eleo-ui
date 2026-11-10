@@ -17,6 +17,8 @@ const position: number = ev.series.index;
 const bare: HoverEvent = { x: 1, y: 2, series: { index: 0 } };
 // A reading between two points carries interpolated and the pair of point indices; a snapped point carries neither (#876).
 const between: HoverEvent = { x: 1.5, y: 2, series: { index: 0 }, interpolated: true, segment: [3, 4] };
+// At a segment's end the clamped projection can equal a data point and still be an interpolated reading.
+const clampedEnd: HoverEvent = { x: 5, y: 5, series: { index: 0 }, interpolated: true, segment: [0, 1] };
 const flag: true | undefined = ev.interpolated;
 const pair: [number, number] | undefined = between.segment;
 // @ts-expect-error interpolated is only ever true

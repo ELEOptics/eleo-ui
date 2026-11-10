@@ -444,22 +444,22 @@ export declare const PLOT_SIZES: {
 export declare function minWidth(name: keyof typeof PLOT_SIZES, props?: object): number;
 
 /* Pointer interaction (packages/plots/src/interact.js). */
-/** What the pointer is on: the nearest drawn point of a curve mark, in data units. */
+/** What the pointer is on: a drawn point of a curve mark, or the spot on the line between two consecutive points, in data units. */
 export interface HoverEvent {
-  /** The point's data coordinates. */
+  /** The data coordinates of the hovered point, or of the interpolated spot on the segment (the pointer projected onto it and clamped to it, so at a segment's end they can equal a data point). */
   x: number;
   y: number;
   /** The mark's identity from the drawing's `data-series`, `data-label` and `data-role`. `index` is the series' position in the `series` array (in its panel, with `panels`), not its `index` palette slot: two series can share a slot. `label` and `role` are absent where the series has none. */
   series: { index: number; label?: string; role?: string };
   /** The panel index from `data-panel`; absent on a single-panel drawing. */
   panel?: number;
-  /** `true` only on a reading between two data points, where `x` and `y` lie on the straight line joining them; absent when the event is a data point itself. */
+  /** `true` when the pointer did not snap to a point (not within 6 px of one): `x` and `y` are then the pointer projected onto the straight line joining two points, clamped to it (within 24 px of it), so at a segment's end they can equal a data point. Absent when the event is a data point itself. */
   interpolated?: true;
   /** The indices `[i, i + 1]` of the two joined points among the mark's finite points, in order. Present only with `interpolated`. */
   segment?: [number, number];
 }
 export interface InteractOptions {
-  /** Called with the point nearest the pointer, or `null` when the pointer leaves it or the host. Repeats of the same point are not re-sent. */
+  /** Called with the hovered point, or the interpolated spot on the line between two points (see `HoverEvent.interpolated`), nearest the pointer, or `null` when the pointer leaves it or the host. Repeats of the same point are not re-sent. */
   onhover?: (event: HoverEvent | null) => void;
   /** How the tooltip's `readout` writes each axis (unit, digits). Default: no units, `readout`'s default digits. */
   axes?: { x?: ReadoutAxis; y?: ReadoutAxis };
