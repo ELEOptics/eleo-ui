@@ -110,7 +110,7 @@ zoomed range instead of rewriting the `viewBox`.
 
 ### M1: hover on a curve, end to end GitHub: `P804 M1: Curve hover`
 
-Reopened 2026-11-10 at the demo (no-go): CRs #856 and #857 (user). Was ticked at 200ef61 after 3 review rounds.
+Done 2026-11-10 (second tick): demo no-go (CRs #856, #857, user) reopened it at 200ef61; reviewed again to round 7 (Review M1: 0 blocking), full gate green on 4a45f04; re-demo pending.
 
 Demo: `npm run gallery`, hover the MTF tile: a dot on the curve, thin drop lines to both axes and a tooltip near the pointer, e.g.
 `Tangential · 120 cycles/mm, 0.62` (CRs #856, #857); on the Svelte test page a CurvePlot shows the same tooltip. The tile screenshots from the
@@ -239,3 +239,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 CR #867 (stale doc, from #865's worker) accepted (orchestrator: not Core), item #868.
 - 2026-11-10 review M1 round 5 (code-reviewer, claude-opus-5-5): 1 blocking: carried CR #863 still open (M2 Demo and roadmap row H's exit still named the readout line), fixed in this commit; backlog #869, #870 pulled into M1. Per-round count: 9, 3, 0, 4, 3.
 - 2026-11-10 review M1 round 6 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved; backlog #871 pulled into M1. Per-round count: 9, 3, 0, 4, 3, 1.
+- 2026-11-10 review M1 round 7 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M1 ticked again; re-demo pending.
