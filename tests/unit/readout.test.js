@@ -18,3 +18,11 @@ test('readout digits and units', () => {
   assert.equal(readout({ x: -1.5, y: 0, series: { index: 1 } }, { x: {}, y: {} }), '−1.5, 0');
   assert.equal(readout(null, { x: {}, y: {} }), '');
 });
+
+test('no negative zero', () => {
+  const e = { x: -0.004, y: 0.0012, series: { index: 0 } };
+  assert.equal(readout(e, { x: {}, y: {} }), '0, 0');
+  assert.equal(readout(e, { x: { digits: 1, unit: 'mm' }, y: { digits: 2 } }), '0.0 mm, 0.00');
+  assert.equal(readout({ x: -0.04, y: 0, series: { index: 0 } }, { x: { digits: 1 }, y: {} }), '0.0, 0');
+  assert.equal(readout({ x: -0.6, y: 0, series: { index: 0 } }, { x: { digits: 1 }, y: {} }), '−0.6, 0');
+});

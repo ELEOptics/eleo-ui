@@ -46,6 +46,7 @@ export function interact(el, opts) {
 function value(v, spec) {
   var s = spec || {}, t = fmt(v, s.digits);
   if (s.digits == null && t.indexOf(".") >= 0) t = t.replace(/\.?0+$/, "");
+  if (!/[1-9]/.test(t)) t = t.replace(/^[−-]/, "");
   return s.unit ? t + " " + s.unit : t;
 }
 
