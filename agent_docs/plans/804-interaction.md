@@ -110,7 +110,7 @@ zoomed range instead of rewriting the `viewBox`.
 
 ### M1: hover on a curve, end to end GitHub: `P804 M1: Curve hover`
 
-Reopened again 2026-11-10 at the re-demo (no-go): CR #872 (user). Earlier: the first demo's CRs #856, #857 reopened it at 200ef61; ticked again at b45569c after round 7.
+Done 2026-11-10 (third tick): the re-demo (CRs #872, #874, user) reopened it at b45569c; reviewed again to round 11 (Review M1: 0 blocking), full gate green on f7c95f8; re-demo pending. Earlier: the first demo's CRs #856, #857 reopened it at 200ef61.
 
 Demo: `npm run gallery`, hover the MTF tile: a dot on the curve, thin drop lines to both axes and a tooltip near the pointer, e.g.
 `Tangential · 120 cycles/mm, 0.62` (CRs #856, #857); on the Svelte test page a CurvePlot shows the same tooltip. The tile screenshots from the
@@ -257,3 +257,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M1 round 8 (code-reviewer, claude-opus-5-5): 3 blocking, one CR #877 (the hover docs in index.d.ts and the plots-svelte README still described nearest-point only) accepted (orchestrator: wording, Core path already approved), items #878, #879; backlog #880, #881, #882 pulled into M1; #883 (live-region announcement rate) waits for M4's keyboard item. Carried #872 and #874 resolved. Per-round count: 9, 3, 0, 4, 3, 1, 0, 6.
 - 2026-11-10 review M1 round 9 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved (#877 too); backlog #885, #886, #887 pulled into M1. Per-round count: 9, 3, 0, 4, 3, 1, 0, 6, 3.
 - 2026-11-10 review M1 round 10 (code-reviewer, claude-opus-5-5): 0 blocking; backlog #888 pulled into M1; #889 (the polyline isFinite guard, optional) waits for row cross-browser. Per-round count: 9, 3, 0, 4, 3, 1, 0, 6, 3, 1.
+- 2026-11-10 review M1 round 11 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M1 ticked again; re-demo pending.
