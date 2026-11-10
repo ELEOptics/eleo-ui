@@ -1,7 +1,7 @@
 # Plan #804: Hover, click, zoom and pan on every 2D plot
 
 Status: approved 2026-11-10
-Branch: `plan/804-interaction` PR: #<pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row H
+Branch: `plan/804-interaction` PR: #840 Depends on: none Roadmap: `agent_docs/roadmap.md`, row H
 
 ## Problem
 
