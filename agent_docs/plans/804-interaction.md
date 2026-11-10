@@ -161,6 +161,7 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 | #885 | `interact` reads a polyline's points from the browser's own parse | forced (review M1 round 9 finding 1: browsers differ on a points list with NaN) | `packages/plots/src/interact.js`, `packages/plots/README.md` | `tests/interact.spec.js::non-finite points are skipped` | #882 |
 | #886 | Test helper comments describe what the helpers do | forced (review M1 round 9 finding 2) | `tests/interact.spec.js`, `tests/gallery.spec.js` | none (comments) | #885 |
 | #887 | The plots-svelte README puts the tooltip example after the tooltip | forced (review M1 round 9 finding 3) | `packages/plots-svelte/README.md` | none (docs) | #882 |
+| #888 | NaN-polyline test comments name Chromium, not every browser | forced (review M1 round 10 finding 2) | `tests/interact.spec.js` | none (comments) | #887 |
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
@@ -255,3 +256,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 M1 re-demo (user): CR #874 accepted by the user: hover reads the line between data points by linear interpolation; within 6 px of a point it snaps (dot shown); between points the tooltip and dashed drop lines show the interpolated reading, no dot; the event says `interpolated` with its `segment`. O1's text extended. Items #875, #876, after #873.
 - 2026-11-10 review M1 round 8 (code-reviewer, claude-opus-5-5): 3 blocking, one CR #877 (the hover docs in index.d.ts and the plots-svelte README still described nearest-point only) accepted (orchestrator: wording, Core path already approved), items #878, #879; backlog #880, #881, #882 pulled into M1; #883 (live-region announcement rate) waits for M4's keyboard item. Carried #872 and #874 resolved. Per-round count: 9, 3, 0, 4, 3, 1, 0, 6.
 - 2026-11-10 review M1 round 9 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved (#877 too); backlog #885, #886, #887 pulled into M1. Per-round count: 9, 3, 0, 4, 3, 1, 0, 6, 3.
+- 2026-11-10 review M1 round 10 (code-reviewer, claude-opus-5-5): 0 blocking; backlog #888 pulled into M1; #889 (the polyline isFinite guard, optional) waits for row cross-browser. Per-round count: 9, 3, 0, 4, 3, 1, 0, 6, 3, 1.
