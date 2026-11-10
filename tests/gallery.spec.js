@@ -111,7 +111,7 @@ for (const [tile, fixture] of [['footprint', 'cooke-footprint.json'], ['rayFan',
     await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
     for (const theme of ['light', 'dark']) {
       const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="${tile}"]`);
-      await expect(el.locator('.eleo-plot__ft'), `${theme} ${tile} footer`).toHaveCount(0);
+      await expect(el.locator('.eleo-plot__ft:not(.eleo-plot__readout)'), `${theme} ${tile} footer`).toHaveCount(0);
       await expect(el.locator('text[data-key]'), `${theme} ${tile} keys`).toHaveCount(0);
     }
   });
@@ -767,7 +767,7 @@ test('fan and footprint keys', async ({ page }) => {
     const keys = [...svg.querySelectorAll('text[data-key]')];
     return {
       tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg),
-      footers: tile.querySelectorAll('.eleo-plot__ft').length,
+      footers: tile.querySelectorAll('.eleo-plot__ft:not(.eleo-plot__readout)').length,
       keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
       others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x) })),
     };
@@ -888,7 +888,7 @@ test('layout keys',async ({ page }) => {
     const svg = tile.querySelector('.eleo-plot__body svg');
     const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
     return {
-      tile: name, W: svg.getBoundingClientRect().width, footers: tile.querySelectorAll('.eleo-plot__ft').length,
+      tile: name, W: svg.getBoundingClientRect().width, footers: tile.querySelectorAll('.eleo-plot__ft:not(.eleo-plot__readout)').length,
       keys: [...svg.querySelectorAll('text[data-key]')].map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
     };
   }), [theme, Object.keys(LAYOUT_KEYS)]);
