@@ -741,6 +741,11 @@ test('layout ray hover', async ({ page }) => {
   expect(ev.interpolated, 'snapped, not interpolated').toBeUndefined();
   within(ev, p.data, p, 'drawn point');
   expect(rec.rays[0][0].some((q) => Math.hypot(q[0] - ev.x, q[1] - ev.y) <= 0.01), 'the point is one the recording holds').toBe(true);
+  // #907: a layout has no axes frame, so the hover draws the dot and the tooltip but no drop lines.
+  const vis = (sel) => page.evaluate((sel) => [...window.HOST.querySelectorAll(sel)].filter((e) => !e.hidden).length, sel);
+  expect(await vis('.eleo-hover__dot'), 'dot shown').toBeGreaterThan(0);
+  expect(await vis('.eleo-hover__v'), 'no vertical drop line').toBe(0);
+  expect(await vis('.eleo-hover__h'), 'no horizontal drop line').toBe(0);
   await page.evaluate(() => window.STOP());
 });
 

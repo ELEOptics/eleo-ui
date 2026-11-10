@@ -27,7 +27,7 @@ function runs(mark) {
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
 function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
-/* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. */
+/* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. A bar is hovered inside its rect, or within SNAP client px of its value end inside its x span (a zero-height bar too), the nearest end winning, and it beats a point or a segment. */
 function nearest(host, cx, cy) {
   var snap = null, best = null, bar = null;
   host.querySelectorAll("[data-series], polyline[data-ray]").forEach(function (mark) {
@@ -118,6 +118,7 @@ function showMarks(host, layer, b) {
   var left = new DOMPoint(0, 0).matrixTransform(vm).x - ox, bottom = new DOMPoint(0, vp.height.baseVal.value).matrixTransform(vm).y - oy;
   for (var i = 0; i < 3; i++) layer.children[i].hidden = false;
   if (b.segment) layer.children[2].hidden = true; // an interpolated spot has no point to dot
+  if (b.mark.dataset.ray !== undefined) layer.children[0].hidden = layer.children[1].hidden = true; // a layout has no axes frame: its ray hover has no drop lines
   var v = layer.children[0], h = layer.children[1], dot = layer.children[2];
   v.style.cssText = "left:" + (x - 0.5) + "px;top:" + y + "px;height:" + Math.max(0, bottom - y) + "px";
   h.style.cssText = "top:" + (y - 0.5) + "px;left:" + left + "px;width:" + Math.max(0, x - left) + "px";
