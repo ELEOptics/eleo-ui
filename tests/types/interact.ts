@@ -6,6 +6,8 @@ import ELEO, { interact, readout } from '../../packages/plots/src/index';
 declare const host: HTMLElement;
 const seen: (HoverEvent | null)[] = [];
 const opts: InteractOptions = { onhover: (e) => { seen.push(e); } };
+const full: InteractOptions = { axes: { x: { unit: 'mm' }, y: { digits: 3 } }, marks: false, tooltip: false };
+const partial: InteractOptions = { axes: { y: {} } };
 const stop: () => void = interact(host, opts);
 interact(host);
 interact(host, {});
@@ -21,6 +23,12 @@ const d: string = ELEO.readout(ev);
 const e: () => void = ELEO.interact(host, opts);
 // @ts-expect-error onhover takes a hover event or null, not a string
 interact(host, { onhover: (e: string) => {} });
+// @ts-expect-error marks is a boolean
+interact(host, { marks: 'yes' });
+// @ts-expect-error tooltip is a boolean
+interact(host, { tooltip: 1 });
+// @ts-expect-error an axis spec is an object, not a unit string
+interact(host, { axes: { x: 'mm' } });
 // @ts-expect-error digits is a number
 readout(ev, { x: { digits: '2' } });
 // @ts-expect-error a hover event needs its series

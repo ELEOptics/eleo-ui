@@ -457,6 +457,12 @@ export interface HoverEvent {
 export interface InteractOptions {
   /** Called with the point nearest the pointer, or `null` when the pointer leaves it or the host. Repeats of the same point are not re-sent. */
   onhover?: (event: HoverEvent | null) => void;
+  /** How the tooltip's `readout` writes each axis (unit, digits). Default: no units, `readout`'s default digits. */
+  axes?: { x?: ReadoutAxis; y?: ReadoutAxis };
+  /** Draw a dot on the hovered point and drop lines to both axes in an overlay on the host. Default `true`. */
+  marks?: boolean;
+  /** Show the readout in a tooltip near the pointer. Default `true`. While marks or the tooltip are on, the host carries the class `eleo-hover-host`. */
+  tooltip?: boolean;
 }
 /** Listen for the pointer on `el`, the element holding the drawn SVG. The listeners sit on `el`, so a redraw that replaces its markup keeps them. Client-only. Returns `stop()`, which removes them. */
 export declare function interact(el: Element, opts?: InteractOptions): () => void;
