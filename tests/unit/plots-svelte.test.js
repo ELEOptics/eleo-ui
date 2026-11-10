@@ -118,3 +118,37 @@ test('spot and fan callbacks', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Plan #804 M2 (issue #821). oracle: closed-form (as 'spot and fan callbacks': a callback goes to the hover action, never to the renderer; the action runs in the browser, tests/svelte.spec.js).
+// BarPlot's axes are its y spec; Map2D's typed div gets the hover action with its `values` and x/y specs, and its sample canvas none; Layout2D's are mm on both axes.
+test('bar, map and layout callbacks', async () => {
+  const { compile } = await import('svelte/compiler');
+  const { render } = await import('svelte/server');
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-cb2-'));
+  try {
+    const stub = (name) => `export const ${name} = (p) => '<svg data-keys="' + Object.keys(p).join(',') + '"></svg>';`;
+    writeFileSync(join(dir, 'plots.js'), ['bars', 'layout2D', 'map2D'].map(stub).join('\n') + '\nexport const interact = () => () => {};');
+    writeFileSync(join(dir, 'interact.js'), 'export const hover = () => ({});');
+    writeFileSync(join(dir, 'theme.js'), 'export const themeTick = () => 0;');
+    const read = (name) => readFileSync(new URL(`../../packages/plots-svelte/src/lib/${name}.svelte`, import.meta.url), 'utf8');
+    for (const name of ['BarPlot', 'Map2D', 'Layout2D']) {
+      const src = read(name);
+      assert.match(src, /use:hover=\{\{[^}]*onhover,\s*onselect/, `${name} does not pass its callbacks to the hover action`);
+      const js = compile(src, { generate: 'server', filename: `${name}.svelte` }).js.code
+        .replaceAll("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')))
+        .replaceAll("'@eleoptics/plots'", '"./plots.js"').replaceAll("'./interact.svelte.js'", '"./interact.js"').replaceAll("'./theme.svelte.js'", '"./theme.js"');
+      writeFileSync(join(dir, `${name}.js`), js);
+      const Wrapper = (await import(pathToFileURL(join(dir, `${name}.js`)).href)).default;
+      const props = { onhover() {}, onselect() {}, ...(name === 'Map2D' ? { values: [[0, 1], [1, 0]], extent: [-1, 1, -1, 1] } : {}) };
+      const body = render(Wrapper, { props }).body;
+      assert.doesNotMatch(body, /onhover|onselect/, `${name} hands a callback to the renderer`);
+    }
+    assert.match(read('BarPlot'), /axes: \{ y: /, 'BarPlot axes are not its y spec');
+    assert.match(read('Map2D'), /use:hover=\{\{[^}]*values/, 'Map2D does not pass its values to the hover action');
+    assert.match(read('Layout2D'), /axes: \{ x: \{ unit: 'mm' \}, y: \{ unit: 'mm' \} \}/, 'Layout2D axes are not mm');
+    // the sample canvas is not hovered: the action sits on the typed div only
+    assert.doesNotMatch(read('Map2D'), /<canvas[^>]*use:hover/, 'the sample canvas takes the hover action');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

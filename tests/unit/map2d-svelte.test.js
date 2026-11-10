@@ -15,11 +15,12 @@ test('Map2D renders a div.eleo-svg for a typed grid and a canvas for the sample'
   const src = readFileSync(new URL('../../packages/plots-svelte/src/lib/Map2D.svelte', import.meta.url), 'utf8');
   const dir = mkdtempSync(join(tmpdir(), 'map2d-'));
   try {
-    writeFileSync(join(dir, 'plots.js'), 'export const map2D = () => ({ lo: 0, hi: 1 });');
+    writeFileSync(join(dir, 'plots.js'), 'export const map2D = () => ({ lo: 0, hi: 1 });\nexport const interact = () => () => {};');
     writeFileSync(join(dir, 'theme.js'), 'export const themeTick = () => 0;');
+    writeFileSync(join(dir, 'interact.js'), 'export const hover = () => ({});');
     let js = compile(src, { generate: 'server', filename: 'Map2D.svelte' }).js.code;
     js = js.replace("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')))
-      .replace("'@eleoptics/plots'", '"./plots.js"').replace("'./theme.svelte.js'", '"./theme.js"');
+      .replace("'@eleoptics/plots'", '"./plots.js"').replace("'./theme.svelte.js'", '"./theme.js"').replace("'./interact.svelte.js'", '"./interact.js"');
     writeFileSync(join(dir, 'Map2D.js'), js);
     const { default: Map2D } = await import(pathToFileURL(join(dir, 'Map2D.js')).href);
     const typed = render(Map2D, { props: { values: [[0, 1], [1, 0]], extent: [-1, 1, -1, 1], label: 'Wavefront' } }).body;

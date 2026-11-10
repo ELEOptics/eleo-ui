@@ -394,7 +394,8 @@ test('BarPlot throws a named error without bars and renders with it', async () =
   try {
     const stubs = { old: 'export {};', current: "export const bars = () => '<svg></svg>';" };
     let js = compile(src, { generate: 'server', filename: 'BarPlot.svelte' }).js.code;
-    js = js.replace("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')));
+    js = js.replace("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server'))).replace("'./interact.svelte.js'", '"./interact.js"');
+    writeFileSync(join(dir, 'interact.js'), 'export const hover = () => ({});');
     const load = async (name) => {
       writeFileSync(join(dir, `${name}.js`), stubs[name]);
       writeFileSync(join(dir, `BarPlot-${name}.js`), js.replace("'@eleoptics/plots'", JSON.stringify(`./${name}.js`)));
