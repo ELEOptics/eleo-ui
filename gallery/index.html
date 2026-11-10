@@ -202,7 +202,7 @@
       theme.querySelectorAll('[data-size]').forEach(function (t) { t.style.setProperty('--tile-min', (tileMin(t) + 26) + 'px'); });
     }
     // Axis specs for the readout's units: the tile's own recording (REC's x and y; the limits tile draws the MTF recording). A tile with no recording reads bare numbers.
-    function readoutAxes(tile) { var r = REC[tile === 'mtf-limits' ? 'mtf' : tile]; return r && { x: r.x, y: r.y }; }
+    function readoutAxes(tile) { return REC[tile === 'mtf-limits' ? 'mtf' : tile]; }
     // A readout line under every tile, filled by that tile's own interact: the hovered point's label and values, or a blank line (a non-breaking space keeps its height).
     // Tiles without marks carrying data-series (everything but the curve tiles so far) stay blank.
     function readoutLines(theme) {
