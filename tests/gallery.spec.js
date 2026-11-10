@@ -111,7 +111,7 @@ for (const [tile, fixture] of [['footprint', 'cooke-footprint.json'], ['rayFan',
     await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
     for (const theme of ['light', 'dark']) {
       const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="${tile}"]`);
-      await expect(el.locator('.eleo-plot__ft:not(.eleo-plot__readout)'), `${theme} ${tile} footer`).toHaveCount(0);
+      await expect(el.locator('.eleo-plot__ft'), `${theme} ${tile} footer`).toHaveCount(0);
       await expect(el.locator('text[data-key]'), `${theme} ${tile} keys`).toHaveCount(0);
     }
   });
@@ -750,7 +750,7 @@ test('curve keys', async ({ page }) => {
 // fixture: cooke-footprint.json's sources[].fieldAngleDeg (0, 17, 24) read "F1 0.0°", "F2 17.0°", "F3 24.0°";
 // fixture: achromat-fans.json's sources[0].wavelengths (486.133, 587.562, 656.272 nm) key the TRA fans as "486.1 nm", "587.6 nm", "656.3 nm";
 // sample.json wl (486.1327, 587.5618, 656.2725 nm) key the OPD fans the same way.
-// No key text overlaps another key or any other text of the figure (captions, axis labels), stays inside the SVG unless alone on its line, and no tile has an .eleo-plot__ft besides its readout line (the selector excludes `.eleo-plot__readout`).
+// No key text overlaps another key or any other text of the figure (captions, axis labels), stays inside the SVG unless alone on its line, and no tile has an .eleo-plot__ft.
 const FAN_FOOT_KEYS = {
   footprint: ['F1 0.0°', 'F2 17.0°', 'F3 24.0°'],
   rayFan: ['486.1 nm', '587.6 nm', '656.3 nm'],
@@ -767,7 +767,7 @@ test('fan and footprint keys', async ({ page }) => {
     const keys = [...svg.querySelectorAll('text[data-key]')];
     return {
       tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg),
-      footers: tile.querySelectorAll('.eleo-plot__ft:not(.eleo-plot__readout)').length,
+      footers: tile.querySelectorAll('.eleo-plot__ft').length,
       keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
       others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x) })),
     };
@@ -888,7 +888,7 @@ test('layout keys',async ({ page }) => {
     const svg = tile.querySelector('.eleo-plot__body svg');
     const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
     return {
-      tile: name, W: svg.getBoundingClientRect().width, footers: tile.querySelectorAll('.eleo-plot__ft:not(.eleo-plot__readout)').length,
+      tile: name, W: svg.getBoundingClientRect().width, footers: tile.querySelectorAll('.eleo-plot__ft').length,
       keys: [...svg.querySelectorAll('text[data-key]')].map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
     };
   }), [theme, Object.keys(LAYOUT_KEYS)]);
@@ -923,32 +923,30 @@ const drawnPoint = (mark, index) => mark.evaluate((m, index) => {
   return { label: m.dataset.label, x: box.left + ((+vp.getAttribute('x') || 0) + a * pts[index][0] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * pts[index][1] + f) * k };
 }, index);
 
-// Plan #804 (agent_docs/plans/804-interaction.md), issue #811: every tile has a readout line under it, filled by its own interact + readout, per theme.
-// oracle: closed-form `readout()`: `<label> · <x> <unit>, <y>` for the series label on the hovered mark and the MTF tile's x unit.
+// Plan #804 (agent_docs/plans/804-interaction.md), issue #811, CR #857: every curve tile shows a tooltip near the pointer from its own interact + readout, per theme.
+// oracle: closed-form `readout()`: `<label> · <x> <unit>, <y>` for the series label on the hovered mark; non-curve tiles (no marks with data-series) show nothing until M2.
 // The pointer is placed at a point's drawn position from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
-test('readout line under every tile', async ({ page }) => {
+test('tooltip on every curve tile', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const tiles = page.locator(`.theme[data-theme="${theme}"] [data-tile]`);
-    expect(await tiles.count()).toBe(TILES);
-    expect(await page.locator(`.theme[data-theme="${theme}"] [data-tile] > .eleo-plot__readout`).count(), `${theme} readout lines`).toBe(TILES);
-  }
-  const lineOf = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="mtf"] > .eleo-plot__readout`);
-  const mark = (theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile="mtf"] polyline[data-series="0"], .theme[data-theme="${theme}"] [data-tile="mtf"] path[data-series="0"]`).first();
   for (const theme of ['dark', 'light']) {
-    await mark(theme).scrollIntoViewIfNeeded();
-    const at = await drawnPoint(mark(theme), 3);
-    await page.mouse.move(at.x, at.y);
-    await expect(lineOf(theme)).toHaveText(new RegExp(`^${at.label} · [\\d.]+ cycles/mm, [\\d.]+$`));
-    const other = theme === 'dark' ? 'light' : 'dark';
-    expect((await lineOf(other).textContent()).trim(), `${other} line stays empty`).toBe('');
-    await page.mouse.move(2, 2);
-    await expect(lineOf(theme)).toHaveText('');
+    for (const tile of ['mtf', 'mtf-limits', 'fieldCurvature', 'distortion']) {
+      const sel = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
+      const mark = page.locator(`${sel} polyline[data-series], ${sel} path[data-series]`).first();
+      await mark.scrollIntoViewIfNeeded();
+      const at = await drawnPoint(mark, 0);
+      const tip = page.locator(`${sel} .eleo-hover__tip`);
+      await page.mouse.move(at.x, at.y);
+      await expect(tip, `${theme} ${tile} tooltip`).toHaveText(new RegExp(`^${at.label} · `));
+      await expect(tip).toBeVisible();
+      await page.mouse.move(2, 2);
+      await expect(tip, `${theme} ${tile} tooltip hides on leave`).toBeHidden();
+    }
   }
+  await expect(page.locator('.theme [data-tile]:not([data-tile="mtf"]):not([data-tile="mtf-limits"]):not([data-tile="fieldCurvature"]):not([data-tile="distortion"]) .eleo-hover__tip:visible')).toHaveCount(0);
 });
 
-// Plan #804, issue #847: the readout takes its units from the tile's own recording (REC's x and y specs), not a hand-kept table.
+// Plan #804, issue #847, CR #857: the tooltip takes its units from the tile's own recording (REC's x and y specs), not a hand-kept table.
 // oracle: the field curvature adapter's axes (x unit `mm`, y unit `°`) and closed-form `readout()`: `<label> · <x> mm, <y> °`.
 test('readout units from each tile\'s recording', async ({ page }) => {
   await page.goto('/gallery/');
@@ -958,5 +956,5 @@ test('readout units from each tile\'s recording', async ({ page }) => {
   await mark.scrollIntoViewIfNeeded();
   const at = await drawnPoint(mark, 0);
   await page.mouse.move(at.x, at.y);
-  await expect(page.locator(`${sel} > .eleo-plot__readout`)).toHaveText(/^(Tangential|Sagittal) · −?[\d.]+ mm, −?[\d.]+ °$/);
+  await expect(page.locator(`${sel} .eleo-hover__tip`)).toHaveText(/^(Tangential|Sagittal) · −?[\d.]+ mm, −?[\d.]+ °$/);
 });
