@@ -982,14 +982,18 @@ test('map tiles show their value', async ({ page }) => {
   const wf = JSON.parse(readFileSync(new URL('./fixtures/phos-core/cooke-wavefront.json', import.meta.url), 'utf8'));
   const peak = Math.max(...psf.values.flat());
   const [row, col] = [70, 100], [ring, spoke] = [40, 10];
+  // The log tile spans 4 decades, so most of its cells are below 5e-4 of the peak: one of them (first in 1e-4..4e-4) reads its value to 5 decimals, not 0.000.
+  const faint = psf.values.flatMap((r, i) => r.map((v, j) => [i, j, v / peak])).find(([, , v]) => v > 1e-4 && v < 4e-4);
+  expect(faint, 'the fixture has a faint cell').toBeTruthy();
   const cases = [
-    ['psf-recorded', psf.values[row][col] / peak, 'relative'],
-    ['wavefront-recorded', wf.values[ring][spoke], 'waves'],
+    ['psf-recorded', psf.values[row][col] / peak, 'relative', row, col, 1e-3],
+    ['wavefront-recorded', wf.values[ring][spoke], 'waves', row, col, 1e-3],
+    ['psf-log', faint[2], 'relative', faint[0], faint[1], 1e-5],
   ];
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['dark', 'light']) {
-    for (const [tile, want, unit] of cases) {
+    for (const [tile, want, unit, row, col, tol] of cases) {
       const sel = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
       const img = page.locator(`${sel} image[data-extent]`);
       await img.scrollIntoViewIfNeeded();
@@ -1011,7 +1015,7 @@ test('map tiles show their value', async ({ page }) => {
       const m = text.match(/^(-?[\d.]+) mm, (-?[\d.]+) mm = (-?[\d.]+) (\S+)$/);
       expect(m, `${theme} ${tile} reads "${text}"`).not.toBeNull();
       expect(m[4], `${theme} ${tile} unit`).toBe(unit);
-      expect(Math.abs(+m[3] - want), `${theme} ${tile} value ${m[3]} vs ${want}`).toBeLessThan(1e-3);
+      expect(Math.abs(+m[3] - want), `${theme} ${tile} value ${m[3]} vs ${want}`).toBeLessThan(tol);
       await page.mouse.move(2, 2);
     }
   }
