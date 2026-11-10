@@ -166,6 +166,8 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
+Done 2026-11-10: reviewed in 5 rounds (Review M2: 0 blocking, round 5), full gate green on 79baa00; demo pending.
+
 Demo: every gallery tile's hover dot and tooltip follow the pointer (spot dots, bars, map samples with their value, layout
 rays with field and status); clicking a series, bar, surface or field fan logs its select event in the browser console (`ELEO.interact(el, { onselect: console.log })`; CR #863); the
 `PERF=1` hover medians. Proves: O1, O2, O4, O7
@@ -288,3 +290,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M2 round 2 (code-reviewer, claude-opus-5-5): 1 blocking, CR #909 (a NaN-masked map sample sent NaN, not the documented null) accepted; backlog findings 2-5 pulled in. Items #910, #911, #912, #913. Carried #892, #895-#899 resolved. Per-round count: 11, 5.
 - 2026-11-10 review M2 round 3 (code-reviewer, claude-opus-5-5): 1 blocking, CR #914 (plots README predates #910's null) accepted; backlog #916, #917 pulled in. Carried CRs all resolved. Per-round count: 11, 5, 3.
 - 2026-11-10 review M2 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved; backlog #918, #919 pulled in. Per-round count: 11, 5, 3, 2.
+- 2026-11-10 review M2 round 5 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M2 ticked; demo pending.
