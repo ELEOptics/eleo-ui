@@ -411,7 +411,7 @@ test('BarPlot throws a named error without bars and renders with it', async () =
 });
 
 // oracle: spec, plan #804 O1/O2 (#816). Identity sits on the rect: data-series is the series' position in `series` (not its palette index), data-category the category's index, the Σ group's rects the index n after the last category.
-test('bar data attributes', () => {
+test('bar data attributes', async () => {
   const series = [{ values: [1, -2, 3], index: 4, label: 'a' }, { values: [-1, 2, 0.5], index: 1, label: 'b' }];
   const svg = ELEO.bars({ categories: ['x', 'y', 'z'], series, total: 'Σ', y: { label: 'v' }, width: 460, height: 300 });
   const got = [...svg.matchAll(/<rect\b[^>]*\bdata-series="([^"]*)"[^>]*>/g)].map((m) => [m[1], /data-category="([^"]*)"/.exec(m[0])?.[1]]);
@@ -420,4 +420,19 @@ test('bar data attributes', () => {
   // A missing value draws no rect, and the others keep their own category.
   const gap = ELEO.bars({ categories: ['x', 'y'], series: [{ values: [1, NaN], index: 3 }], y: {}, width: 460, height: 300 });
   assert.deepEqual([...gap.matchAll(/<rect\b[^>]*\bdata-category="([^"]*)"/g)].map((m) => m[1]), ['0']);
+  // Labels: the series' label (escaped, absent when it has none) and the category text as drawn; the Σ group's is the total's label.
+  const lab = ELEO.bars({ categories: ['x<', 'y'], series: [{ values: [1, 2], index: 0, label: 'a&b' }, { values: [3, 4], index: 1 }], total: 'Σ', y: {}, width: 460, height: 300 });
+  const rs = [...lab.matchAll(/<rect\b[^>]*\bdata-series="[^"]*"[^>]*>/g)].map((m) => [/data-label="([^"]*)"/.exec(m[0])?.[1], /data-category-label="([^"]*)"/.exec(m[0])?.[1]]);
+  assert.deepEqual(rs, [['a&amp;b', 'x&lt;'], [undefined, 'x&lt;'], ['a&amp;b', 'y'], [undefined, 'y'], ['a&amp;b', 'Σ'], [undefined, 'Σ']]);
+  // The Seidel bars: SI at surface 2 reads "SI", "2".
+  globalThis.ELEO = ELEO;
+  await import('../fixtures/phos-core/adapters.js');
+  const sei = globalThis.ELEOAdapters.seidel(fixture('achromat-seidel'));
+  const sv = ELEO.bars({ ...sei, width: 460, height: 300 });
+  const sr = [...sv.matchAll(/<rect\b[^>]*\bdata-series="([^"]*)"[^>]*>/g)].map((m) => [m[1], /data-label="([^"]*)"/.exec(m[0])?.[1], /data-category="([^"]*)"/.exec(m[0])?.[1], /data-category-label="([^"]*)"/.exec(m[0])?.[1]]);
+  assert.equal(sr.length, 7 * (sei.categories.length + 1));
+  sr.forEach(([j, l, c, cl]) => {
+    assert.equal(l, sei.series[+j].label);
+    assert.equal(cl, +c === sei.categories.length ? 'Σ' : sei.categories[+c]);
+  });
 });
