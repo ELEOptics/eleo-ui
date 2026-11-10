@@ -115,7 +115,7 @@ function keyEntries(o) {
     });
   }
   return src.map(function (e) {
-    if (e === null || typeof e !== "object" || e.label === undefined || e.label === null) throw new TypeError("curve: a key entry needs a label");
+    if (e === null || typeof e !== "object" || typeof e.label !== "string") throw new TypeError("curve: a key entry needs a string label");
     var st = roleStyle(e, 1);
     return { label: String(e.label), index: e.index === undefined ? 0 : e.index, col: st.col, kind: "line", dash: st.dash, cap: st.cap, src: e };
   });

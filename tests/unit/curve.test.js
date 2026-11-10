@@ -973,3 +973,12 @@ test('plotCell requires margins', async () => {
   for (const k of ['PLOT_L', 'PLOT_B', 'PLOT_T']) assert.ok(!(k in curve), `${k} is not exported`);
   assert.throws(() => curve.plotCell(sc, [], 300, 200, 10, false, ''), TypeError, 'no margins, no default');
 });
+
+// Plan #804, issue #803. oracle: property: a key entry's label must be a string, as layout2D's is; a number, null or missing label throws.
+test('key label must be a string', () => {
+  const series = [{ points: [[0, 0], [1, 1]], index: 0 }];
+  for (const label of [5, null, undefined, {}, true]) {
+    assert.throws(() => ELEO.curve({ series, key: [{ label }] }), { name: 'TypeError', message: 'curve: a key entry needs a string label' }, String(label));
+  }
+  assert.ok(ELEO.curve({ series, key: [{ label: 'S' }] }).includes('>S<'), 'a string label still draws');
+});
