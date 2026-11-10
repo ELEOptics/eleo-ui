@@ -183,10 +183,10 @@ if (process.env.PERF === '1') test('map2D redraw (U14)', async ({ page }) => {
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });
 
-// U14 for hover (plan #804, O7, issue #813; #824 unskips): one pointer move on a 10 000-point spot and on a 256 x 256 typed map resolves in under 16 ms.
+// U14 for hover (plan #804, O7, issue #813): one pointer move on a 10 000-point spot and on a 256 x 256 typed map resolves in under 16 ms.
 // oracle: measurement roadmap U14: median of 20 pointer moves, each a synthetic `pointermove` dispatched on the interact host and timed with performance.now() around the dispatch (the handler is synchronous, so the dispatch returns once the hover is resolved, the tooltip placed and the dot drawn), in headless Chromium; each move lands on a different dot or cell, so no move is a repeat that interact skips. Unlike the redraw tests above, it asserts: over 16 ms fails (kill criterion D-J), which is how #815 chooses a bucketed scan early.
 // The pointers are placed from the data group's `matrix(...)` attribute (spot) or the <image>'s x/y/width/height (map) and the root's getBoundingClientRect, never getScreenCTM.
-if (process.env.PERF === '1') test.skip('hover (U14)', async ({ page }) => {
+if (process.env.PERF === '1') test('hover (U14)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body[data-ready]')).toHaveCount(1);
   const medians = await page.evaluate(() => {

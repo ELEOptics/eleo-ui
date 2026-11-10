@@ -419,7 +419,7 @@ test('hover reads between data points', async ({ page }) => {
   await page.evaluate(() => window.STOP());
 });
 
-// ---- Plan #804 M2 (issue #813; #824 unskips): O1 for the rest of the 2D plots and O2. Each test is skipped until its item lands (#814 spot, #893 bars, #817 map, #818 and #894 layout, #819 select).
+// ---- Plan #804 M2 (issue #813): O1 for the rest of the 2D plots and O2.
 // oracle: property round trip through the inverse transform (roadmap U13), as above: the pointer is placed from the data group's `matrix(...)` attribute (the nearest `g[transform^="matrix("]` of the mark, since layout2D nests its runs in opacity groups),
 // the nested viewport's x/y, any `translate(...)` between it and the root, and the root's getBoundingClientRect, never getScreenCTM. The expected values come from the recorded fixtures (tests/fixtures/phos-core/) for the recorded tiles;
 // throughFocus and the synthetic hosts are checked against the drawn point itself.
@@ -542,7 +542,7 @@ const names = (ev, ds, what) => {
 };
 
 // #814 (O1, spot): the recorded achromat spot tile. A dot under the pointer reads that dot, with its panel (field) and series (wavelength); the recorded point is the oracle, in µm as the adapter draws it.
-test.skip('spot hover emits the dot under the pointer', async ({ page }) => {
+test('spot hover emits the dot under the pointer', async ({ page }) => {
   const rec = fixture('achromat-spot');
   await bind(page, 'spot');
   const panel = rec.sources.length - 1, series = 1;
@@ -561,7 +561,7 @@ test.skip('spot hover emits the dot under the pointer', async ({ page }) => {
 });
 
 // #814 (O1, footprint): the recorded Cooke beam footprint at the stop, in mm, one series per field at the reference wavelength.
-test.skip('footprint hover emits the point under the pointer', async ({ page }) => {
+test('footprint hover emits the point under the pointer', async ({ page }) => {
   const rec = fixture('cooke-footprint');
   await bind(page, 'footprint');
   const series = 1, w = nearestTo(rec.sources[series].wavelengths, rec.referenceWavelengthNm);
@@ -576,9 +576,9 @@ test.skip('footprint hover emits the point under the pointer', async ({ page }) 
 });
 
 // #814 (O1, throughFocus): the synthetic through-focus tile has no recording; the drawn dot is the oracle, with the series and panel its mark carries.
-test.skip('throughFocus hover emits the dot under the pointer', async ({ page }) => {
+test('throughFocus hover emits the dot under the pointer', async ({ page }) => {
   await bind(page, 'throughFocus');
-  const p = await page.evaluate(() => window.T.pick(window.HOST, window.HOST.querySelector('path[data-series][data-panel]'), 8));
+  const p = await page.evaluate(() => { for (const m of window.HOST.querySelectorAll('path[data-series][data-panel]')) { const q = window.T.pick(window.HOST, m, 8); if (q) return q; } return null; });
   expect(p, 'an isolated dot').not.toBeNull();
   const ev = await hoverAt(page, p.x, p.y);
   expect(ev, 'dot hovered').not.toBeNull();
@@ -589,7 +589,7 @@ test.skip('throughFocus hover emits the dot under the pointer', async ({ page })
 });
 
 // #814: dots are not joined. Own host, three far-apart dots: 12 px off a dot (outside the 6 px snap, inside the 24 px reach) still reads that dot, never an interpolation; the middle of the gap between two dots reads nothing.
-test.skip('spot dots are never interpolated', async ({ page }) => {
+test('spot dots are never interpolated', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await install(page);
@@ -613,7 +613,7 @@ test.skip('spot dots are never interpolated', async ({ page }) => {
 });
 
 // #893 (O1, bars): the recorded achromat Seidel tile. The pointer in the middle of the bar with the largest recorded value reads that bar: its series, its category and its value (the rect's height through the transform).
-test.skip('bar hover', async ({ page }) => {
+test('bar hover', async ({ page }) => {
   const rec = fixture('achromat-seidel');
   const res = rec.results[nearestTo(rec.results.map((r) => r.wavelengthNm), rec.referenceWavelengthNm)];
   const terms = ['spherical', 'coma', 'astigmatism', 'fieldCurvature', 'distortion', 'axialColor', 'lateralColor'];
@@ -645,7 +645,7 @@ test.skip('bar hover', async ({ page }) => {
 });
 
 // #817 (O1, typed map): the recorded Cooke PSF tile. The pointer at the centre of cell (row, column) reads the cell's indices, the data coordinates of its centre and, given the recorded values, its value (the recording is the oracle, cells chosen to differ).
-test.skip('map hover value', async ({ page }) => {
+test('map hover value', async ({ page }) => {
   const rec = fixture('cooke-psf');
   const rows = rec.values.length, cols = rec.values[0].length, [x0, x1, y0, y1] = rec.extent;
   const cells = [[Math.floor(rows / 2), Math.floor(cols / 2)], [10, 150], [170, 20]];
@@ -695,7 +695,7 @@ test('polar map hover value', async ({ page }) => {
 });
 
 // #894 (O1, layout): the recorded Wandersleb layout. A ray point reads that run's field, ray and status and the point (z, y in mm); the point is also one the recording holds.
-test.skip('layout ray hover', async ({ page }) => {
+test('layout ray hover', async ({ page }) => {
   const rec = fixture('wandersleb-layout');
   await bind(page, 'layout2D-wandersleb');
   const sel = 'polyline[data-field="0"][data-ray="0"]';
@@ -716,7 +716,7 @@ test.skip('layout ray hover', async ({ page }) => {
 });
 
 // #894: between two points of a run the reading is along the run, flagged interpolated, with the run's field and ray.
-test.skip('layout ray hover reads along a run', async ({ page }) => {
+test('layout ray hover reads along a run', async ({ page }) => {
   await bind(page, 'layout2D-wandersleb');
   const p = await page.evaluate(() => window.T.midpoint(window.HOST, 'polyline[data-field][data-ray]', 8, 40));
   expect(p, 'a long segment whose middle is clear of every drawn point').not.toBeNull();
@@ -730,7 +730,7 @@ test.skip('layout ray hover reads along a run', async ({ page }) => {
 });
 
 // #819 (O2): a click on a mark emits one select event naming that mark by its own data-* identity, and changes no markup. Marks are found with the browser's own hit test, so the click lands on the mark.
-test.skip('select events', async ({ page }) => {
+test('select events', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await install(page);
