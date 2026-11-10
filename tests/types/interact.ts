@@ -44,11 +44,12 @@ readout(ev, { x: { digits: '2' } });
 // @ts-expect-error a hover event needs its position
 const noPosition: HoverEvent = { y: 2 };
 // The M2 hover keys (#819): a bar, a grid and a polar map sample, and a layout2D ray run (no series).
-const barHover: HoverEvent = { x: 2, y: 0.4, series: { index: 0 }, category: 2 };
+const barHover: HoverEvent = { x: 2, y: 0.4, series: { index: 0, label: 'SI' }, category: 1, categoryLabel: '2' };
 const gridHover: HoverEvent = { x: 1, y: 2, row: 0, column: 3, value: 0.5 };
 const polarHover: HoverEvent = { x: 1, y: 2, ring: 1, spoke: 4 };
 const runHover: HoverEvent = { x: 10, y: 1, field: 0, ray: 3, status: 'ok', interpolated: true, segment: [0, 1] };
 const cat: number | undefined = barHover.category;
+const catLabel: string | undefined = barHover.categoryLabel;
 // @ts-expect-error row is a number
 const badRow: HoverEvent = { x: 1, y: 2, row: '0' };
 // Select events (#819): a click names the mark's series, bar, surface or field.

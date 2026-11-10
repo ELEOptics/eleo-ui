@@ -457,6 +457,8 @@ export interface HoverEvent {
   panel?: number;
   /** A bar's category index (`data-category`; the total's group). Present only on a `bars` hover. */
   category?: number;
+  /** A bar's category text as drawn on the axis (`data-category-label`; the total's label for the total's group). Present only on a `bars` hover, and `readout` prints it in place of `x`. */
+  categoryLabel?: string;
   /** A typed grid `map2D` sample: its row (top-down, as `values[row][column]`) and column. Present only on a grid map hover. */
   row?: number;
   column?: number;

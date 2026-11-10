@@ -670,6 +670,25 @@ test('bar hover', async ({ page }) => {
   expect(tev, 'sub-pixel bar hovered 3 px past its value end').not.toBeNull();
   expect(tev.series.index).toBe(tiny.s);
   expect(await hoverAt(page, tiny.far[0], tiny.far[1]), '9 px past a sub-pixel bar hovers nothing').toBeNull();
+  // CR #920: the tooltip reads `<series label> · <category label as drawn>, <value> <unit>`; the first surface is labelled 1, so category index c reads c + 1. The event carries both labels.
+  await page.evaluate(() => window.STOP());
+  await page.evaluate(() => {
+    window.HOVER = [];
+    window.STOP = window.ELEO.interact(window.HOST, { axes: { y: { unit: 'mm' } }, onhover: (ev) => window.HOVER.push(ev) });
+  });
+  const lab = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'][best.s], cat = String(best.c + 1);
+  const p2 = await page.evaluate(({ s, c }) => {
+    const m = window.HOST.querySelectorAll(`rect[data-series="${s}"]`)[c];
+    m.scrollIntoView({ block: 'center' });
+    const [x, y] = window.T.proj(m)(window.T.pts(m)[0]);
+    return { x, y };
+  }, best);
+  const lev = await hoverAt(page, p2.x, p2.y);
+  expect(lev, 'the bar is hovered again').not.toBeNull();
+  expect(lev.series.label, 'the event carries the series label').toBe(lab);
+  expect(lev.categoryLabel, 'the event carries the category label as drawn').toBe(cat);
+  const v2 = Math.abs(best.v).toFixed(2).replace(/\.?0+$/, '');
+  expect(await page.locator(`${LIGHT} [data-tile="seidel"] .eleo-hover__tip`).last().textContent()).toBe(`${lab} · ${cat}, ${best.v < 0 ? '\u2212' : ''}${v2} mm`);
   await page.evaluate(() => window.STOP());
 });
 
