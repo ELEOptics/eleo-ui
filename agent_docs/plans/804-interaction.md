@@ -191,6 +191,15 @@ rays with field and status); clicking a series, bar, surface or field fan logs i
 | #803 reuse | `curve` rejects a non-string key label, as `layout2D` does; a patch changeset | forced ([#803], absorbed) | `packages/plots/src/curve.js`, `.changeset/curve-key-label.md` | `tests/unit/curve.test.js::key label must be a string` | #585 |
 | #659 reuse | `layout2D` runs drop the redundant `virt` field; the mirror-bodies test anchors on the `.85` group and the unused `under` locator goes ([#662]) | forced ([#659], [#662], absorbed); the anchor fix is the red-first test | `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js` | `tests/unit/layout2d.test.js::mirror bodies come after the ray group` | #818 |
 | #824 | Unskip M2's acceptance tests | forced (`workflow.md`, TDD) | `tests/interact.spec.js`, `tests/perf.spec.js` | the M2 tests | #813, #263, #814, #815, #816, #817, #818, #819, #820, #821, #585, #586, #822, #823, #803, #659 |
+| #900 | plots-svelte README covers select and every hover wrapper (CR #896) | forced (CR #896) | `packages/plots-svelte/README.md` | none (docs) | #824 |
+| #901 | `index.d.ts` types readout's value axis; panel and value docs match the code (CR #897) | forced (CR #897, finding 9) | `packages/plots/src/index.d.ts` | `tests/unit/types.test.js::interact types` | #824 |
+| #902 | Readout docs give the value suffix; Map2D passes its value axis (CR #897) | forced (CR #897, finding 10) | `packages/plots/src/interact.js`, `packages/plots-svelte/src/lib/Map2D.svelte`, `packages/plots/README.md` | `tests/unit/plots-svelte.test.js::bar, map and layout callbacks` | #901 |
+| #903 | Gallery map tiles show their value in the tooltip (CR #898) | forced (CR #898, findings 10, 12: M2's demo shows map values) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::map tiles show their value` | #902 |
+| #904 | `dataGroup` is `closest()` alone (CR #899) | forced (CR #899) | `packages/plots/src/interact.js` | `tests/interact.spec.js` | #902 |
+| #905 | The curve label changeset names series labels | forced (finding 5) | `.changeset/curve-key-label.md` | none | #824 |
+| #906 | Tiny bars hover within 6 px of their value end | forced (finding 6: 7 of 28 Seidel bars are under 1 px) | `packages/plots/src/interact.js` | `tests/interact.spec.js::bar hover` | #904 |
+| #907 | Layout ray hover draws no drop lines | forced (finding 7: a layout has no axes frame) | `packages/plots/src/interact.js`, `packages/plots/README.md` | `tests/interact.spec.js::layout ray hover` | #906 |
+| #908 | Wrappers type `onselect` without null | forced (finding 8) | `packages/plots-svelte/src/lib/interact.svelte.js`, the six wrappers' JSDoc | `tests/unit/plots-svelte.test.js` | #902 |
 
 ### M3: zoom, pan and reset GitHub: `P804 M3: Zoom and pan`
 
@@ -266,3 +275,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 M1 accepted (user: go at re-demo 3). No ADR was exercised.
 - 2026-11-10 CR #892 (orchestrator): M2 had no item making `interact` read bars or layout rays (O1); items #893, #894 added before #819.
 - 2026-11-10 #815 (measurement, U14/O7): hover, median of 20 pointer moves in headless Chromium on the developer's machine, 3 runs: spot of 10 000 points 6.30, 6.40, 6.35 ms; 256 x 256 map 0.10, 0.05, 0.05 ms. Both under 16 ms, so #850 (parse cache) is not needed now; spot at 40% of the budget is the one to watch.
+- 2026-11-10 review M2 round 1 (code-reviewer, claude-opus-5-5): 4 blocking, CRs #896 (plots-svelte README), #897 (readout's value axis untyped), #898 (gallery maps show no value: M2's demo), #899 (dataGroup) accepted (orchestrator); backlog findings 5-10 and 12 pulled into M2; finding 11 (plots-svelte's peer range) goes to #838. Items #900-#908. Carried #892, #895 resolved.
