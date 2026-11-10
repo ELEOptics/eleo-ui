@@ -9,8 +9,11 @@ import { draws } from '../../scripts/record-renderers.mjs';
 // The fixture is recorded by scripts/record-renderers.mjs from that build, never from the code under test; the layout2D entries were re-recorded at plan #337 #382 by the user's choice (CR #381).
 const baseline = JSON.parse(readFileSync(new URL('../fixtures/renderers-baseline.json', import.meta.url), 'utf8'));
 
-// Plan #804 M1 (#806): data-* attributes are not part of the base markup; both sides are compared without them.
-const bare = (m) => m.replace(/ data-[a-z-]+="[^"]*"/g, '');
+// Plan #804 M1 (#806, #844): the plan's data-* names are not part of the base markup; both sides are compared without them.
+// Every other data-* (data-grid) stays compared. M2 adds its names here (data-category, data-cell, data-field, data-ray, data-surface, ...).
+const PLAN_ATTRS = ['data-series', 'data-role', 'data-label', 'data-panel'];
+const planAttr = new RegExp(` (?:${PLAN_ATTRS.join('|')})="[^"]*"`, 'g');
+const bare = (m) => m.replace(planAttr, '');
 
 test('SVG renderers draw the base markup', () => {
   const now = draws();
