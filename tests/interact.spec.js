@@ -77,3 +77,33 @@ test('curve hover round trip', async ({ page }) => {
   await page.mouse.move(p.clientX, p.clientY);
   expect(await page.evaluate(() => window.HOVER.length), 'stop() detaches').toBe(n);
 });
+
+// #845: a non-finite coordinate drops its point; it never shifts x and y of the points after it.
+test('non-finite points are skipped', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const p = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'nan-host';
+    host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9';
+    host.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 1], [1, NaN], [2, 3], [3, 4]], index: 0 }], x: { range: [0, 3] }, y: { range: [0, 5] }, width: 400, height: 300 });
+    document.body.append(host);
+    window.HOVER = [];
+    window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) });
+    const mark = host.querySelector('[data-series]');
+    const group = mark.parentNode;
+    const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const vp = group.closest('svg');
+    const root = vp.ownerSVGElement || vp;
+    const box = root.getBoundingClientRect();
+    const k = box.width / root.viewBox.baseVal.width;
+    const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
+    return { clientX: box.left + (vx + a * 2 + e) * k, clientY: box.top + (vy + d * 3 + f) * k, a, d, k };
+  });
+  await page.mouse.move(p.clientX, p.clientY);
+  const ev = await page.evaluate(() => window.HOVER.at(-1));
+  expect(ev, 'point [2,3] hovered').toBeTruthy();
+  expect(Math.abs(ev.x - 2) * Math.abs(p.a) * p.k, 'x within TOL_PX').toBeLessThanOrEqual(TOL_PX);
+  expect(Math.abs(ev.y - 3) * Math.abs(p.d) * p.k, 'y within TOL_PX').toBeLessThanOrEqual(TOL_PX);
+  await page.evaluate(() => window.STOP());
+});

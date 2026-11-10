@@ -2,11 +2,11 @@
 import { fmt } from "./color.js";
 var REACH = 24; // client px: a pointer farther than this from every point hovers nothing
 
-/* The numbers of a polyline's points or a path's data as [x, y] pairs, in data coordinates. Path data is M/L pairs and `h0` dots, which add no point. */
+/* The finite [x, y] pairs of a polyline's points or a path's data, in data coordinates. Path data is M/L pairs and `h0` dots, which add no point. A pair with a non-finite coordinate (a polyline's "NaN") is dropped whole, so it never shifts the pairs after it. */
 function pairs(mark) {
   var s = mark.getAttribute("points") || mark.getAttribute("d") || "", out = [];
-  var n = s.replace(/h\s*-?[\d.]+/g, "").match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || [];
-  for (var i = 0; i + 1 < n.length; i += 2) out.push([+n[i], +n[i + 1]]);
+  var n = s.replace(/h\s*-?[\d.]+/g, " ").replace(/[ML]/g, " ").split(/[\s,]+/).filter(Boolean).map(Number);
+  for (var i = 0; i + 1 < n.length; i += 2) if (isFinite(n[i]) && isFinite(n[i + 1])) out.push([n[i], n[i + 1]]);
   return out;
 }
 
