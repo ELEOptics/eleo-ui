@@ -25,21 +25,45 @@ function nearest(host, cx, cy) {
   return best;
 }
 
-/* interact(el, { onhover }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer, and onhover(null) when the pointer leaves it or the host. Returns stop(). */
+/* The overlay layer's three parts: a dot and two 1 px drop lines, as divs positioned in host px. */
+function overlay() {
+  var layer = document.createElement("div");
+  layer.className = "eleo-hover";
+  ["v", "h", "dot"].forEach(function (k) { var d = document.createElement("div"); d.className = "eleo-hover__" + k; layer.appendChild(d); });
+  return layer;
+}
+
+/* Puts the dot on the hovered point and the drop lines from it to the plot frame's bottom and left edges (the nested viewport's box). The layer is re-added when a redraw replaced the host's markup. */
+function showMarks(host, layer, b) {
+  var g = b.mark.parentNode, m = g.getScreenCTM(), vp = g.closest("svg"), vm = vp && vp.getScreenCTM();
+  if (!m || !vm) return;
+  var hb = host.getBoundingClientRect(), ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop;
+  var pt = new DOMPoint(b.x, b.y).matrixTransform(m), x = pt.x - ox, y = pt.y - oy;
+  var left = new DOMPoint(0, 0).matrixTransform(vm).x - ox, bottom = new DOMPoint(0, vp.height.baseVal.value).matrixTransform(vm).y - oy;
+  var v = layer.children[0], h = layer.children[1], dot = layer.children[2];
+  v.style.cssText = "left:" + (x - 0.5) + "px;top:" + y + "px;height:" + Math.max(0, bottom - y) + "px";
+  h.style.cssText = "top:" + (y - 0.5) + "px;left:" + left + "px;width:" + Math.max(0, x - left) + "px";
+  dot.style.cssText = "left:" + x + "px;top:" + y + "px;background:" + (b.mark.getAttribute("stroke") || "var(--ink)");
+  if (layer.parentNode !== host) host.appendChild(layer);
+}
+
+/* interact(el, { onhover }): calls onhover({ x, y, series: { index, label, role }, panel? }) for the point nearest the pointer, and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false. Returns stop(). */
 export function interact(el, opts) {
-  var onhover = (opts && opts.onhover) || function () {}, last = "";
+  var onhover = (opts && opts.onhover) || function () {}, last = "", marks = !(opts && opts.marks === false), layer = marks && overlay();
+  if (marks) el.classList.add("eleo-hover-host");
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
     var b = nearest(el, e.clientX, e.clientY);
-    if (!b) return emit(null, "");
+    if (!b) return leave();
+    if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y, series: { index: +d.series, label: d.label, role: d.role } };
     if (d.panel !== undefined) ev.panel = +d.panel;
     emit(ev, [d.panel, d.series, b.index].join());
   }
-  function leave() { emit(null, ""); }
+  function leave() { if (marks) layer.remove(); emit(null, ""); }
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
-  return function stop() { el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); };
+  return function stop() { if (marks) { layer.remove(); el.classList.remove("eleo-hover-host"); } el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); };
 }
 
 /* One value as text: `fmt` to `spec.digits` decimals, or to at most 2 with trailing zeros dropped, then a space and `spec.unit`. */

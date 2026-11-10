@@ -141,3 +141,11 @@
 .eleo-colorbar--h { grid-template-columns: 1fr; }
 .eleo-colorbar--h i { width: 100%; height: 8px; }
 .eleo-colorbar--h span { flex-direction: row; }
+
+/* ---------- Hover marks (interact) ---------- */
+.eleo-hover-host { position: relative; }
+.eleo-hover { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.eleo-hover__v, .eleo-hover__h { position: absolute; background: var(--line-strong); }
+.eleo-hover__v { width: 1px; }
+.eleo-hover__h { height: 1px; }
+.eleo-hover__dot { position: absolute; box-sizing: border-box; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; border: 1px solid var(--surface); }

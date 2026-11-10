@@ -95,3 +95,34 @@ test('non-finite points are skipped', async ({ page }) => {
   expect(Math.abs(ev.y - 3) * Math.abs(p.d) * p.k, 'y within TOL_PX').toBeLessThanOrEqual(TOL_PX);
   await page.evaluate(() => window.STOP());
 });
+
+// #858: hovering draws a dot on the point and drop lines to the frame's bottom (x axis) and left (y axis) edges, in an overlay on the host.
+test('hover marks the point and its drop lines', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tile = 'mtf', light = page.locator('.theme[data-theme="light"]');
+  await page.evaluate((tile) => {
+    const body = document.querySelector(`.theme[data-theme="light"] [data-tile="${tile}"] .eleo-plot__body`);
+    window.STOP = window.ELEO.interact(body, { onhover: () => {} });
+  }, tile);
+  await light.locator(`[data-tile="${tile}"]`).scrollIntoViewIfNeeded();
+  const p = await drawnAt(light, tile, 0, 3);
+  // The frame: the nested viewport's box from its x/y/width/height attributes and the root's client box, no getScreenCTM.
+  const frame = await light.locator(`[data-tile="${tile}"] polyline[data-series="0"], [data-tile="${tile}"] path[data-series="0"]`).first().evaluate((mark) => {
+    const vp = mark.parentNode.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+    const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
+    return { left: box.left + vx * k, bottom: box.top + (vy + +vp.getAttribute('height')) * k };
+  });
+  await page.mouse.move(p.clientX, p.clientY);
+  const rect = (sel) => light.locator(`[data-tile="${tile}"] ${sel}`).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+  const dot = await rect('.eleo-hover__dot'), v = await rect('.eleo-hover__v'), h = await rect('.eleo-hover__h');
+  expect(Math.abs((dot.left + dot.right) / 2 - p.clientX), 'dot x').toBeLessThanOrEqual(0.5);
+  expect(Math.abs((dot.top + dot.bottom) / 2 - p.clientY), 'dot y').toBeLessThanOrEqual(0.5);
+  expect(Math.abs((v.left + v.right) / 2 - p.clientX), 'vertical line at x').toBeLessThanOrEqual(0.5);
+  expect(Math.abs(v.bottom - frame.bottom), 'vertical line ends on the bottom edge').toBeLessThanOrEqual(0.5);
+  expect(Math.abs((h.top + h.bottom) / 2 - p.clientY), 'horizontal line at y').toBeLessThanOrEqual(0.5);
+  expect(Math.abs(h.left - frame.left), 'horizontal line ends on the left edge').toBeLessThanOrEqual(0.5);
+  await page.mouse.move(2, 2);
+  await expect(light.locator(`[data-tile="${tile}"] .eleo-hover__dot`), 'gone on leave').toHaveCount(0);
+  await page.evaluate(() => window.STOP());
+});
