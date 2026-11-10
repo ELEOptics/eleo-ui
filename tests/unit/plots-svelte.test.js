@@ -91,3 +91,30 @@ test('hover binds unless marks and tooltip are off', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Plan #804 M2 (issue #820). oracle: closed-form (a callback goes to the hover action, never to the renderer: the renderer's props hold no onhover or onselect;
+// the action itself runs in the browser, tests/svelte.spec.js). SpotDiagram's axes are its unit on both x and y; RayFan's are the x and y specs it passes to curve.
+test('spot and fan callbacks', async () => {
+  const { compile } = await import('svelte/compiler');
+  const { render } = await import('svelte/server');
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-cb-'));
+  try {
+    const stub = (name) => `export const ${name} = (p) => '<svg data-keys="' + Object.keys(p).join(',') + '"></svg>';`;
+    writeFileSync(join(dir, 'plots.js'), ['rayFan', 'spot'].map(stub).join('\n') + '\nexport const interact = () => () => {};');
+    writeFileSync(join(dir, 'interact.js'), 'export const hover = () => ({});');
+    for (const name of ['SpotDiagram', 'RayFan']) {
+      const src = readFileSync(new URL(`../../packages/plots-svelte/src/lib/${name}.svelte`, import.meta.url), 'utf8');
+      assert.match(src, /use:hover=\{\{[^}]*onhover,\s*onselect/, `${name} does not pass its callbacks to the hover action`);
+      const js = compile(src, { generate: 'server', filename: `${name}.svelte` }).js.code
+        .replaceAll("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')))
+        .replaceAll("'@eleoptics/plots'", '"./plots.js"').replaceAll("'./interact.svelte.js'", '"./interact.js"');
+      writeFileSync(join(dir, `${name}.js`), js);
+      const Wrapper = (await import(pathToFileURL(join(dir, `${name}.js`)).href)).default;
+      const body = render(Wrapper, { props: { onhover() {}, onselect() {} } }).body;
+      assert.doesNotMatch(body, /onhover|onselect/, `${name} hands a callback to the renderer`);
+    }
+    assert.match(readFileSync(new URL('../../packages/plots-svelte/src/lib/SpotDiagram.svelte', import.meta.url), 'utf8'), /axes: \{ x: \{ unit \}, y: \{ unit \} \}/, 'SpotDiagram axes are not its unit');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

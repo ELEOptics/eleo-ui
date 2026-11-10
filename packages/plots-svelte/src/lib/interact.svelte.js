@@ -4,7 +4,10 @@ import { interact } from '@eleoptics/plots';
 
 const bind = (el, opts) => (opts?.onhover || opts?.onselect || opts?.marks !== false || opts?.tooltip !== false ? interact(el, opts ?? {}) : null);
 
-/** @param {HTMLElement} el @param import('@eleoptics/plots').InteractOptions opts */
+/**
+ * @param {HTMLElement} el
+ * @param {Omit<import('@eleoptics/plots').InteractOptions, 'onselect'> & { onselect?: (event: import('@eleoptics/plots').SelectEvent | null) => void }} [opts]
+ */
 export function hover(el, opts) {
   let stop = bind(el, opts);
   return {

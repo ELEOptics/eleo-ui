@@ -98,7 +98,7 @@ test('curve keys type-check under --strict', () => {
 
 // Plan #804 M1 (issue #809). tests/types/interact.ts: interact with and without onhover, a HoverEvent with and without label, role and panel,
 // readout with axis specs and a null event, on the default object too, and @ts-expect-error on a string handler, a string digits,
-// an event without series and a selector in place of an element.
+// a selector in place of an element.
 // oracle: spec packages/plots/src/interact.js (interact, readout)
 test('interact types', () => {
   const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck', '--lib', 'es2022,dom',
