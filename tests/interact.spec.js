@@ -211,7 +211,7 @@ test('tooltip is a live region', async ({ page }) => {
   await expect(tip, 'removed by stop').toHaveCount(0);
 });
 
-// #869: a redraw after interact replaces the host's markup; the empty live region is back in the host as the pointer enters, before any move sets its text.
+// #869, #871: a redraw after interact replaces the host's markup; the observer puts the empty live region back at once.
 test('live region survives a redraw', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -224,10 +224,9 @@ test('live region survives a redraw', async ({ page }) => {
     body.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 1], [1, 2], [2, 3]], index: 0, label: 'S' }], x: { range: [0, 7] }, y: { range: [0, 5] }, width: 460, height: 260 });
   });
   const tip = page.locator('[data-tile="redraw"] .eleo-hover__tip');
-  await expect(tip, 'replaced by the redraw').toHaveCount(0);
   await page.mouse.move(700, 500);
   await page.mouse.move(440, 4); // onto the host, far from every point
-  await expect(tip, 'back on enter').toHaveCount(1);
+  await expect(tip, 'back after the redraw').toHaveCount(1);
   await expect(tip).toHaveAttribute('role', 'status');
   await expect(tip).toHaveText('');
   await page.evaluate(() => window.STOP());
@@ -235,6 +234,34 @@ test('live region survives a redraw', async ({ page }) => {
   await page.mouse.move(700, 500);
   await page.mouse.move(440, 4);
   await expect(tip, 'no listener after stop').toHaveCount(0);
+});
+
+// #871: a redraw under a pointer already inside the host re-adds the empty live region at once, with no move.
+test('live region survives a redraw under the pointer', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(() => {
+    const body = document.createElement('div');
+    body.dataset.tile = 'under';
+    body.style.cssText = 'position:fixed;left:0;top:0;width:460px;height:260px;background:#fff;z-index:9';
+    document.body.append(body);
+    window.DRAW = () => { body.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 1], [1, 2], [2, 3]], index: 0, label: 'S' }], x: { range: [0, 7] }, y: { range: [0, 5] }, width: 460, height: 260 }); };
+    window.DRAW();
+    window.STOP = window.ELEO.interact(body);
+  });
+  const tip = page.locator('[data-tile="under"] .eleo-hover__tip');
+  await page.mouse.move(700, 500);
+  await page.mouse.move(440, 4); // inside the host, far from every point
+  await expect(tip).toHaveCount(1);
+  await page.evaluate(() => window.DRAW());
+  await expect(tip, 'back with no move').toHaveCount(1);
+  await expect(tip).toHaveAttribute('role', 'status');
+  await expect(tip).toHaveText('');
+  await page.evaluate(() => window.STOP());
+  await expect(tip, 'removed by stop').toHaveCount(0);
+  await page.evaluate(() => window.DRAW());
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 50)));
+  await expect(tip, 'nothing re-added after stop').toHaveCount(0);
 });
 
 test('two interact calls on one host', async ({ page }) => {

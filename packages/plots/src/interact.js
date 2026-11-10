@@ -87,13 +87,14 @@ export function interact(el, opts) {
     emit(ev, [d.panel, d.series, b.index].join());
   }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
-  function enter() { if (layer && layer.parentNode !== el) el.appendChild(layer); } // a redraw replaced the markup: the empty live region is back before the first text
-  el.addEventListener("pointerenter", enter);
+  // a redraw replaced the markup: the empty live region is back at once (a microtask), before any text is set. Appending only when detached keeps the observer from looping on its own mutation.
+  var watch = layer && new MutationObserver(function () { if (layer.parentNode !== el) el.appendChild(layer); });
+  if (watch) watch.observe(el, { childList: true });
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   var stopped = false;
   return function stop() {
-    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } el.removeEventListener("pointerenter", enter); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave);
+    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave);
   };
 }
 
