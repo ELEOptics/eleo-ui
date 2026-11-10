@@ -449,7 +449,7 @@ export interface HoverEvent {
   /** The point's data coordinates. */
   x: number;
   y: number;
-  /** The mark's identity from the drawing's `data-series`, `data-label` and `data-role`; `label` and `role` are absent where the series has none. */
+  /** The mark's identity from the drawing's `data-series`, `data-label` and `data-role`. `index` is the series' position in the `series` array (in its panel, with `panels`), not its `index` palette slot: two series can share a slot. `label` and `role` are absent where the series has none. */
   series: { index: number; label?: string; role?: string };
   /** The panel index from `data-panel`; absent on a single-panel drawing. */
   panel?: number;

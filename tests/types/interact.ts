@@ -10,6 +10,8 @@ const stop: () => void = interact(host, opts);
 interact(host);
 interact(host, {});
 const ev: HoverEvent = { x: 1, y: 2, series: { index: 0, label: 'T', role: 'tangential' }, panel: 1 };
+// series.index is the series' position in its `series` array (or panel), not its palette slot (#842).
+const position: number = ev.series.index;
 const bare: HoverEvent = { x: 1, y: 2, series: { index: 0 } };
 const ax: ReadoutAxis = { unit: 'mm', digits: 2 };
 const a: string = readout(ev, { x: ax, y: { unit: 'um' } });

@@ -75,7 +75,7 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 />
 ```
 
-`CurvePlot` takes `onhover` and `onselect`: `onhover({ x, y, series: { index, label?, role? }, panel? })` fires for the curve point nearest the pointer and `onhover(null)` when it leaves; `onselect` is accepted and does nothing yet. `PlotCard` takes `readout`, a string shown in a footer line (empty text keeps the line, so the card does not change height); format a hover event with `readout(event, { x, y })` from `@eleoptics/plots`:
+`CurvePlot` takes `onhover` and `onselect`: `onhover({ x, y, series: { index, label?, role? }, panel? })` fires for the curve point nearest the pointer and `onhover(null)` when it leaves (`series.index` is the series' position in `series`, or in its panel, not its `index` palette slot); `onselect` is accepted and does nothing yet. `PlotCard` takes `readout`, a string shown in a footer line (empty text keeps the line, so the card does not change height); format a hover event with `readout(event, { x, y })` from `@eleoptics/plots`:
 
 ```svelte
 <script>
