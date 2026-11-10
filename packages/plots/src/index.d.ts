@@ -399,7 +399,7 @@ export * from './physics.js';
 interface ScaleRule {
   frameText: typeof frameText; frameWeight: typeof frameWeight; frameOf: typeof frameOf; layoutText: typeof layoutText; layoutWeight: typeof layoutWeight;
   TEXT_MIN: typeof TEXT_MIN; TEXT_MAX: typeof TEXT_MAX; F_LO: typeof F_LO; F_HI: typeof F_HI; W_LO: typeof W_LO; W_HI: typeof W_HI;
-  PLOT_SIZES: typeof PLOT_SIZES;
+  PLOT_SIZES: typeof PLOT_SIZES; CURVE_MARGINS: typeof CURVE_MARGINS;
   minWidth: typeof minWidth;
   interact: typeof interact;
   readout: typeof readout;
@@ -425,6 +425,8 @@ export declare function layoutText(W: number): number | null;
 export declare function layoutWeight(W: number): number;
 /** The rule's breakpoints and text limits, in px. */
 export declare const TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910;
+/** ADR-0003's margins of the curve family (curve, rayFan, bars, map2D), in text units: `L` left, `T` top, `B` bottom (the right one follows the ticks). Multiply by `frameText(F)` for px. */
+export declare const CURVE_MARGINS: Readonly<{ L: 4.6; T: 2.6; B: 3.6 }>;
 /** One renderer's row of PLOT_SIZES, in px. */
 export interface PlotSize {
   /** The default drawing width of one panel (what the renderer draws without `width`). */

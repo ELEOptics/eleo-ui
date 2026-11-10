@@ -288,3 +288,14 @@ test('curve reads the margin export', () => {
   near(T, M.T * t, 'top margin is CURVE_MARGINS.T text units');
   near(T + ph + M.B * t, Math.round(300 * 260 / 460), 'bottom margin is CURVE_MARGINS.B text units');
 });
+
+// Plan #804, issue #822. oracle: the one margin export (scale.js CURVE_MARGINS) is the only place 4.6 / 2.6 / 3.6 live; bars and the size table read it.
+test('bars and PLOT_SIZES read the margin export', async () => {
+  for (const f of ['bars.js', 'sizes.js']) {
+    const src = readFileSync(new URL(`../../packages/plots/src/${f}`, import.meta.url), 'utf8');
+    assert.match(src, /CURVE_MARGINS/, `${f} reads CURVE_MARGINS`);
+    assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\//g, ''), /\b(4\.6|2\.6|3\.6)\b/, `${f} has no hand copy of a margin`);
+  }
+  const full = (await import('../../packages/plots/src/index.js')).default;
+  assert.equal(full.CURVE_MARGINS, scale.CURVE_MARGINS, 'on the default object');
+});

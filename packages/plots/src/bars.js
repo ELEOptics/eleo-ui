@@ -1,6 +1,6 @@
 import { idx, svg, esc } from "./common.js";
 import { scales, plotCell, limitBody } from "./curve.js";
-import { frameText, frameOf } from "./scale.js";
+import { frameText, frameOf, CURVE_MARGINS } from "./scale.js";
 import { checkLimits } from "./limits.js";
 import { keyLayout, keyMarkup } from "./key.js";
 
@@ -30,8 +30,8 @@ export function bars(o) {
   var all = [0].concat(hasTotal ? sums : []);
   series.forEach(function (s) { cats.forEach(function (_, c) { all.push(val((s.values || [])[c])); }); });
   var sc = scales({ x: { range: [0, span], ticks: [] }, y: y, limits: lim }, [[{ points: all.map(function (v) { return [0, v]; }) }]], false);
-  /* ADR-0003's margins in text units, as curve's: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks (none here). */
-  var F = frameOf(W, 4.6 + sc.Rt), t = frameText(F), L = r2(4.6 * t), T = r2(2.6 * t), Bm = 3.6 * t, R = sc.Rt * t, KEY_LINE = 1.4 * t, MIN_BAND_PX = 1.4 * t;
+  /* ADR-0003's margins in text units, as curve's (CURVE_MARGINS): left, bottom and top, the right one from the ticks (none here). */
+  var F = frameOf(W, CURVE_MARGINS.L + sc.Rt), t = frameText(F), L = r2(CURVE_MARGINS.L * t), T = r2(CURVE_MARGINS.T * t), Bm = CURVE_MARGINS.B * t, R = sc.Rt * t, KEY_LINE = 1.4 * t, MIN_BAND_PX = 1.4 * t;
   var ts = ' style="font-size:' + +t.toFixed(3) + 'px"';
   /* The key row starts a new line when an entry would pass the frame's right edge; each extra line takes KEY_LINE from the frame, down to a frame 1 px tall; past that the row runs on. */
   var maxRow = Math.max(0, Math.floor((H - T - Bm - 1) / KEY_LINE));
