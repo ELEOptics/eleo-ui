@@ -110,7 +110,7 @@ zoomed range instead of rewriting the `viewBox`.
 
 ### M1: hover on a curve, end to end GitHub: `P804 M1: Curve hover`
 
-Done 2026-11-10 (fourth tick): re-demo 2 (CR #890, user) reopened it at 3d03c1e; reviewed again to round 12 (Review M1: 0 blocking), full gate green on 76a85bc; re-demo pending. Before that the re-demo (CRs #872, #874) reopened it at b45569c, the first demo (CRs #856, #857) at 200ef61. Earlier: the first demo's CRs #856, #857 reopened it at 200ef61.
+Done 2026-11-10 (fourth tick): re-demo 2 (CR #890, user) reopened it at 3d03c1e; reviewed again to round 12 (Review M1: 0 blocking), full gate green on 76a85bc; accepted at re-demo 3 (user: go). Before that the re-demo (CRs #872, #874) reopened it at b45569c, the first demo (CRs #856, #857) at 200ef61. Earlier: the first demo's CRs #856, #857 reopened it at 200ef61.
 
 Demo: `npm run gallery`, hover the MTF tile: a dot on the curve, thin drop lines to both axes and a tooltip near the pointer, e.g.
 `Tangential · 120 cycles/mm, 0.62` (CRs #856, #857); on the Svelte test page a CurvePlot shows the same tooltip. The tile screenshots from the
@@ -261,3 +261,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M1 round 11 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M1 ticked again; re-demo pending.
 - 2026-11-10 M1 re-demo 2 (user): no-go. CR #890 accepted by the user: the dashed drop lines are too faint in `--plot-grid`; keep the dash, back to the light grey `--line-strong`. Item #891; M1 reopened.
 - 2026-11-10 review M1 round 12 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M1 ticked again; re-demo pending.
+- 2026-11-10 M1 accepted (user: go at re-demo 3). No ADR was exercised.
