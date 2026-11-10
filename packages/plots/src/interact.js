@@ -1,4 +1,5 @@
 // Pointer interaction on a drawn plot. The listeners sit on the host, not on the marks: a redraw replaces the markup, and a host listener survives it.
+import { fmt } from "./color.js";
 var REACH = 24; // client px: a pointer farther than this from every point hovers nothing
 
 /* The numbers of a polyline's points or a path's data as [x, y] pairs, in data coordinates. Path data is M/L pairs and `h0` dots, which add no point. */
@@ -39,4 +40,18 @@ export function interact(el, opts) {
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   return function stop() { el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); };
+}
+
+/* One value as text: `fmt` to `spec.digits` decimals, or to at most 2 with trailing zeros dropped, then a space and `spec.unit`. */
+function value(v, spec) {
+  var s = spec || {}, t = fmt(v, s.digits);
+  if (s.digits == null && t.indexOf(".") >= 0) t = t.replace(/\.?0+$/, "");
+  return s.unit ? t + " " + s.unit : t;
+}
+
+/* readout(event, { x, y }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>`, from the caller's axis specs `{ unit?, digits? }`. A null event gives "". */
+export function readout(ev, axes) {
+  if (!ev) return "";
+  var a = axes || {}, label = ev.series && ev.series.label, xy = value(ev.x, a.x) + ", " + value(ev.y, a.y);
+  return label ? label + " · " + xy : xy;
 }
