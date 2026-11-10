@@ -200,6 +200,10 @@ rays with field and status); clicking a series, bar, surface or field fan logs i
 | #906 | Tiny bars hover within 6 px of their value end | forced (finding 6: 7 of 28 Seidel bars are under 1 px) | `packages/plots/src/interact.js` | `tests/interact.spec.js::bar hover` | #904 |
 | #907 | Layout ray hover draws no drop lines | forced (finding 7: a layout has no axes frame) | `packages/plots/src/interact.js`, `packages/plots/README.md` | `tests/interact.spec.js::layout ray hover` | #906 |
 | #908 | Wrappers type `onselect` without null | forced (finding 8) | `packages/plots-svelte/src/lib/interact.svelte.js`, the six wrappers' JSDoc | `tests/unit/plots-svelte.test.js` | #902 |
+| #910 | A masked map sample's value is null (CR #909) | forced (CR #909: the type says null, the code sent NaN) | `packages/plots/src/interact.js` | `tests/interact.spec.js::map hover value` | #908 |
+| #911 | `interact` ignores data-series marks outside a matrix group | forced (review M2 round 2 finding 3) | `packages/plots/src/interact.js` | `tests/interact.spec.js::foreign data-series markup is ignored` | #910 |
+| #912 | The gallery's log map tooltip reads faint cells | forced (finding 2: 6151 cells read 0.000) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::map tiles show their value` | #908 |
+| #913 | plots-svelte README names the value spec; changeset says non-empty labels | forced (findings 4, 5) | `packages/plots-svelte/README.md`, `.changeset/curve-key-label.md` | none (docs) | #908 |
 
 ### M3: zoom, pan and reset GitHub: `P804 M3: Zoom and pan`
 
@@ -276,3 +280,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 CR #892 (orchestrator): M2 had no item making `interact` read bars or layout rays (O1); items #893, #894 added before #819.
 - 2026-11-10 #815 (measurement, U14/O7): hover, median of 20 pointer moves in headless Chromium on the developer's machine, 3 runs: spot of 10 000 points 6.30, 6.40, 6.35 ms; 256 x 256 map 0.10, 0.05, 0.05 ms. Both under 16 ms, so #850 (parse cache) is not needed now; spot at 40% of the budget is the one to watch.
 - 2026-11-10 review M2 round 1 (code-reviewer, claude-opus-5-5): 4 blocking, CRs #896 (plots-svelte README), #897 (readout's value axis untyped), #898 (gallery maps show no value: M2's demo), #899 (dataGroup) accepted (orchestrator); backlog findings 5-10 and 12 pulled into M2; finding 11 (plots-svelte's peer range) goes to #838. Items #900-#908. Carried #892, #895 resolved.
+- 2026-11-10 review M2 round 2 (code-reviewer, claude-opus-5-5): 1 blocking, CR #909 (a NaN-masked map sample sent NaN, not the documented null) accepted; backlog findings 2-5 pulled in. Items #910, #911, #912, #913. Carried #892, #895-#899 resolved. Per-round count: 11, 5.
