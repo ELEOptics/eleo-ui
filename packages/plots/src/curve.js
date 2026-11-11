@@ -55,7 +55,7 @@ function cutPieces(run, z) {
     return { from: c.from, cut: c.cut, points: c.points.map(function (q) { return at.get(q) || [xr[0] + q[0] / sx, yr[0] + (z.ph - q[1]) / sy]; }) };
   });
 }
-/* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. `z` (zoomed only, see cutPieces) cuts the series: one mark per piece, each carrying `data-from` (the piece's first uncut index in the mark, omitted when 0) and otherwise the same attributes; a series wholly outside draws nothing. The exception: a single plot's series holding a null, NaN or infinite coordinate is drawn uncut, as without a `z`. */
+/* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. `z` (zoomed only, see cutPieces) cuts the series: one mark per piece, each carrying `data-from` (the piece's first uncut index in the mark, omitted when 0) and otherwise the same attributes; a series wholly outside draws nothing. The exception: a single plot's series holding a NaN or infinite coordinate is drawn uncut, as without a `z` (a null coordinate is written as 0, so it is cut like any point). */
 function seriesMarkup(s, panel, wt, si, pi, z) {
   var st = roleStyle(s, wt), pts = s.points || [];
   var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label) + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");

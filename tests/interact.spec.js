@@ -1707,8 +1707,6 @@ test('a cut run hovers at its data index', async ({ page }) => {
   const hover = async (x, y) => { await page.mouse.move(1, 199); await page.mouse.move(x, y); return page.evaluate(() => window.HOVER.at(-1)); };
   expect((await hover(40, 20)).segment, 'polyline piece: drawn segment [0, 1] is data segment [5, 6]').toEqual([5, 6]);
   expect((await hover(80, 20)).segment, 'second drawn segment of the piece').toEqual([6, 7]);
-  const s1 = (await hover(40, 20)).segment[0] - 0, s2 = (await hover(80, 20)).segment[0] - 1;
-  expect(s2, 'a polyline with data-from: both segments carry the same offset number').toBe(s1);
   expect((await hover(40, 100)).segment, 'a path without data-from, offset 0').toEqual([0, 1]);
   expect((await hover(40, 150)).segment, 'a path piece: one offset for the whole mark').toEqual([12, 13]);
   expect((await hover(80, 150)).segment, 'its second segment').toEqual([13, 14]);
