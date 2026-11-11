@@ -184,17 +184,20 @@ for (const [name, { props, patch, at }] of Object.entries(ZOOMABLE)) {
 }
 
 // Plan #804, outcome O5 (issue #946, CR #941). oracle: the axis text after `view = null` equals the default view's axis text.
-test('a controlled view resets with null', async ({ page }) => {
-  const host = await mountHarness(page, 'vc', 'CurvePlot', ZOOMABLE.CurvePlot.props, true);
-  const ticks = () => host.evaluate((el) => el.querySelector('svg').innerHTML);
-  const first = await ticks();
-  const box = await host.boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.wheel(0, -300);
-  await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
-  await page.evaluate(() => window.setView(null));
-  await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
-});
+for (const [name, { props, at }] of Object.entries(ZOOMABLE)) {
+  test(`a controlled view resets with null (${name})`, async ({ page }) => {
+    const host = await mountHarness(page, 'vc', name, props, true);
+    const ticks = () => host.evaluate((el) => el.querySelector('svg').innerHTML);
+    const first = await ticks();
+    const box = await host.boundingBox();
+    const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
+    await page.mouse.move(px, py);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
+    await page.evaluate(() => window.setView(null));
+    await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
+  });
+}
 
 // Plan #804, outcome O5 (issue #955). oracle: the tooltip reads the unit and value the props hold at event time, so a data change shows in the next hover.
 test('a data change updates the tooltip', async ({ page }) => {
