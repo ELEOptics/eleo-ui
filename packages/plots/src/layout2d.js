@@ -296,7 +296,9 @@ export function layout2D(o) {
         ka = Math.max(kb, vzlo - (Math.min(y1, vyhi) - y0)); kmax = Math.min(kmax, vzhi - (Math.max(y0, vylo) - y0));
         j0 = Math.ceil((ka - kb) / step - 1e-9);
       }
-      for (var jk = j0, j1 = Math.floor((kmax - kb) / step + 1e-9); jk <= j1; jk++) { var k = kb + jk * step; d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1); }
+      // The counter runs from 0 so it still advances when j0 is past 2^53, and a body with 1e4 or more lines (or a NaN count) draws no hatch: no drawable window needs that many (#981).
+      var j1 = Math.floor((kmax - kb) / step + 1e-9), nl = j1 - j0;
+      if (nl < 1e4) for (var c = 0; c <= nl; c++) { var k = kb + (j0 + c) * step; d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1); }
       bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '" ' + NS + '/>'
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
