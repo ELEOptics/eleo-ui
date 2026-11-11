@@ -166,7 +166,7 @@ plan's start (both themes and palettes) on the `review-assets` release, beside t
 
 ### M2: hover and click on every 2D plot GitHub: `P804 M2: Every plot`
 
-Done 2026-11-10: reviewed in 5 rounds (Review M2: 0 blocking, round 5), full gate green on 79baa00; demo: go with tooltip fixes (user, CRs #920, #921), reviewed before the tick.
+Done 2026-11-10: accepted (user: go at the demo, with the tooltip fixes CRs #920, #921 added before the tick); reviewed in 10 rounds (Review M2: 0 blocking, round 10), full gate green on a6c97a7.
 
 Demo: every gallery tile's hover dot and tooltip follow the pointer (spot dots, bars, map samples with their value, layout
 rays with field and status); clicking a series, bar, surface or field fan logs its select event in the browser console (`ELEO.interact(el, { onselect: console.log })`; CR #863); the
@@ -307,3 +307,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M2 round 7 (code-reviewer, claude-opus-5-5): 1 blocking, CR #931 (readout docs miss #930's fallback) accepted; backlog findings 2, 3 pulled in. Items #932, #933. Carried #926, #927 resolved. Per-round count since the demo: 5, 3.
 - 2026-11-10 review M2 round 8 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved (#931 too); backlog findings 1 and 3 pulled in as #934; finding 2 (two plan Tests cells named the test before #933's rename) fixed in this commit. Per-round count since the demo: 5, 3, 1.
 - 2026-11-10 review M2 round 9 (code-reviewer, claude-opus-5-5): 0 blocking; backlog #935 pulled in. Per-round count since the demo: 5, 3, 1, 1.
+- 2026-11-10 review M2 round 10 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M2 ticked and accepted (the user's go at the demo, conditional on the tooltip fixes, now done and reviewed).
