@@ -1743,7 +1743,8 @@ test('a click focuses the interact host', async ({ page }) => {
 // The contract these tests fix for #835:
 //  - `interact(el, opts)` makes the host focusable: it sets tabindex="0" unless the host already has a tabindex attribute (any value stays).
 //  - Keys act on the focused host (keydown on it), for a curve (the MTF-like plot of mountZoom). The keyboard has a current point
-//    (series position s, drawn point i), none until the first arrow. The first arrow of any direction lands on series 0, point 0.
+//    (series position s, drawn point i), none until the first arrow. The first arrow of any direction lands on series 0, point 0
+//    (on a zoomed plot: the first in-frame point, and only in-frame points are stepped, as the pointer can hover only those; #1003).
 //      ArrowRight / ArrowLeft  the next / previous point of the current series, clamped at the ends (no wrap, so no event at an end).
 //      ArrowDown / ArrowUp     the next / previous series in document order, at the same point index (clamped to that series' length), clamped.
 //    Each step sends onhover with the event the pointer sends at that point's drawn position (same series, panel, x, y, no `interpolated`),
@@ -1751,7 +1752,8 @@ test('a click focuses the interact host', async ({ page }) => {
 //  - Enter sends onselect with the event a click on the current point's mark sends (SelectEvent); with no current point it sends nothing.
 //  - Escape clears the current point: onhover(null), the overlay hidden, and the next arrow starts again at series 0, point 0.
 //  - `+` zooms in, `-` zooms out, `0` resets (onview(null)); zoom needs `onview`. A key zooms by the wheel's notch factor k (in by k, out by 1 / k)
-//    about the current point, or the frame's centre when there is none. The current point survives the redraw it causes.
+//    about the current point, or the frame's centre when there is none. The current point survives the redraw it causes,
+//    and its dot and tooltip are shown again on it after + - 0 (#1003).
 //  - A key it acts on is preventDefault'ed (arrows and + - do scroll or zoom the page otherwise). A key it does not act on is not: Tab leaves the host
 //    (no keyboard trap), and any key with ctrl, meta or alt is the browser's.
 //  - stop() removes the key listeners.
@@ -1808,7 +1810,7 @@ const sameHover = (kb, ptr, f, what) => {
   closeTo(kb.y, ptr.y, TOL_PX / (Math.abs(f.d) * f.k), `${what}: y`);
 };
 
-test.describe.skip('keyboard', () => { // #834: unskipped by #839
+test.describe('keyboard', () => { // #834: unskipped by #839
   test('the host is focusable unless it sets tabindex', async ({ page }) => {
     await mountZoom(page, 'curve');
     const got = await page.evaluate(() => {
