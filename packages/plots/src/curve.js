@@ -24,6 +24,11 @@ function axisRange(a, vals) {
   if (!r) { var lo = Infinity, hi = -Infinity; vals.forEach(function (v) { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); r = lo <= hi ? [lo, hi] : [0, 1]; if (lo < hi) { var nr = niceRange(lo, hi, 6); r = [nr.lo, nr.hi]; } }
   return r[0] < r[1] ? [r[0], r[1]] : [r[0] - 1, r[0] + 1];
 }
+/* A view range (`view.x`, `view.y`): two finite increasing numbers, else null and the axis keeps its own range. */
+function viewRange(v) {
+  var r = Array.isArray(v) ? v.map(Number) : null;
+  return r && r.length >= 2 && isFinite(r[0]) && isFinite(r[1]) && r[0] < r[1] ? [r[0], r[1]] : null;
+}
 export function axisTicks(a, r) {
   if (!a.ticks) return niceTicks(r[0], r[1], 6);
   /* The fewest decimals at which every tick prints exactly (within float noise). */
@@ -56,7 +61,11 @@ export function scales(o, groups, panel) {
   var lim = o.limits || [];
   var xr = axisRange(x, [].concat.apply(limitValues(lim, "x"), all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
   var yr = axisRange(y, [].concat.apply(limitValues(lim, "y"), all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
-  var xt = axisTicks(x, xr), yt = axisTicks(y, yr);
+  /* `o.view` overrides the ranges (every panel shares it); the ticks of an overridden axis are the nice ticks of the view, not the caller's `ticks`. */
+  var vw = o.view || {}, vx = viewRange(vw.x), vy = viewRange(vw.y);
+  if (vx) xr = vx;
+  if (vy) yr = vy;
+  var xt = axisTicks(vx ? {} : x, xr), yt = axisTicks(vy ? {} : y, yr);
   /* The right margin Rt, in text units: 1.2, or half the rightmost shown x label's width (0.6 em a character) when that is more. */
   var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), Rt = 1.2, n = 0;
   if (shown.length) { n = Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length; Rt = Math.max(Rt, 0.3 * n); }
@@ -152,7 +161,7 @@ function typedCurve(o) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
     var cw = W / cols;
-    sc = scales({ x: x, y: y, limits: lim }, panels.map(function (p) { return p.series || []; }), true);
+    sc = scales({ x: x, y: y, limits: lim, view: o.view }, panels.map(function (p) { return p.series || []; }), true);
     var mg = curveMargins(sc, cw), top = 1.4 * mg.t, T = 2.2 * mg.t;
     mg.grid = o.grid;
     if (ents.length && !corner) placeBelow(mg.t, mg.L, W - mg.R, top + T + mg.B);
@@ -163,7 +172,7 @@ function typedCurve(o) {
     });
     return svg(W, Hs, g + labels(mg) + below, lab(y) + " against " + lab(x) + " plot");
   }
-  sc = scales({ x: x, y: y, limits: lim }, [o.series]);
+  sc = scales({ x: x, y: y, limits: lim, view: o.view }, [o.series]);
   var m1 = curveMargins(sc, W);
   m1.grid = o.grid;
   if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, CURVE_MARGINS.T * m1.t + m1.B);
@@ -197,5 +206,5 @@ export function curve(o) {
   if (o.series || o.panels) return typedCurve(o);
   if (o.limits != null) throw new TypeError("curve: limits need series or panels");
   var a = curveAdapters[Object.prototype.hasOwnProperty.call(curveAdapters, o.kind || "mtf") ? o.kind || "mtf" : "chromaticFocus"](data(o));
-  return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height, grid: o.grid });
+  return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height, grid: o.grid, view: o.view });
 }

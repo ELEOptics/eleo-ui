@@ -982,3 +982,35 @@ test('key label must be a string', () => {
   }
   assert.ok(ELEO.curve({ series, key: [{ label: 'S' }] }).includes('>S<'), 'a string label still draws');
 });
+
+// Plan #804, M3 (#826): `view` overrides the drawn ranges; without it the markup is unchanged.
+// oracle: closed-form: the view's ends map to the frame's edges (px = M * data), and every drawn tick lies inside the view.
+test('view overrides the range', () => {
+  const series = [{ points: [[0, 0], [1, 2], [2, 1], [3, 5], [4, 3], [5, 4]], index: 0 }];
+  const base = ELEO.curve({ series, width: 460, height: 300 });
+  assert.equal(ELEO.curve({ series, width: 460, height: 300, view: undefined }), base, 'no view: the markup is unchanged');
+  assert.equal(ELEO.curve({ series, width: 460, height: 300, view: {} }), base, 'an empty view: the markup is unchanged');
+  const view = { x: [2, 4], y: [1, 3] };
+  for (const [name, spec] of [['series', { series }], ['panels', { panels: [{ series }, { series }], columns: 2 }]]) {
+    const svg = ELEO.curve({ ...spec, x: { range: [0, 5], ticks: [0, 1, 2, 3, 4, 5] }, width: 460, height: 300, view });
+    const groups = name === 'series' ? [{ ...seriesGroup(svg), box: null }] : panelGroups(svg);
+    assert.equal(groups.length, name === 'series' ? 1 : 2);
+    for (const g of groups) {
+      const { ph, pw } = name === 'series' ? frame(svg) : { ph: g.box.ph, pw: g.box.pw };
+      const [x0, y0] = toPx(g.M, [2, 1]), [x1, y1] = toPx(g.M, [4, 3]);
+      assert.ok(Math.hypot(x0, y0 - ph) <= TOL_PX && Math.hypot(x1 - pw, y1) <= TOL_PX, `${name}: view ends map to the frame corners, got [${x0}, ${y0}] [${x1}, ${y1}]`);
+    }
+    const xs = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle"[^>]*>([^<]*)<\/text>/g)].map((m) => Number(m[1].replace(/−/g, '-')));
+    assert.ok(xs.length >= 2 && xs.every((v) => v >= 2 && v <= 4), `${name}: x ticks inside [2, 4], got ${xs}`);
+  }
+  // One key alone overrides one axis; the other keeps the caller's range.
+  const half = ELEO.curve({ series, x: { range: [0, 5] }, y: { range: [0, 5] }, width: 460, height: 300, view: { x: [2, 4] } });
+  const M = seriesGroup(half).M, { ph } = frame(half);
+  assert.ok(Math.abs(toPx(M, [0, 0])[1] - ph) <= TOL_PX && Math.abs(toPx(M, [0, 5])[1]) <= TOL_PX, 'y keeps its range');
+  // A view that is not two finite increasing numbers is dropped.
+  assert.equal(ELEO.curve({ series, width: 460, height: 300, view: { x: [4, 2], y: [NaN, 1] } }), base, 'a bad view is ignored');
+  // rayFan passes it through.
+  const fan = ELEO.rayFan({ width: 600, view: { x: [-0.5, 0.5], y: [-10, 10] } });
+  const first = panelGroups(fan)[0];
+  assert.ok(Math.hypot(...toPx(first.M, [-0.5, -10]).map((v, i) => v - [0, first.box.ph][i])) <= TOL_PX, 'rayFan: view reaches the panels');
+});
