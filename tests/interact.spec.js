@@ -1233,3 +1233,25 @@ test('zoomed plots hover only inside the frame', async ({ page }) => {
     await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
   }
 });
+
+// #949 (review M3 r1 finding 8): a double-click is click(detail 1), click(detail 2), dblclick. It resets the view and selects once, for the first click.
+test('a double-click selects once', async ({ page }) => {
+  await mountZoom(page, 'curve');
+  await page.evaluate(() => {
+    window.STOP();
+    window.SELECT = [];
+    window.STOP = window.ELEO.interact(window.HOST, { onselect: (ev) => window.SELECT.push(ev), onview(v) { window.VIEWS.push(v); window.LAST = v; window.HOST.innerHTML = window.DRAW(v); } });
+  });
+  const c = await toClient(page, 0, [2, Math.sin(2)]);
+  await page.mouse.move(c[0], c[1]);
+  await page.mouse.wheel(0, -100);
+  expect(await page.evaluate(() => window.LAST), 'zoomed first').not.toBeNull();
+  const fire = (page2) => page2.evaluate(() => {
+    const m = window.HOST.querySelector('[data-series]');
+    const ev = (type, detail) => m.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, detail }));
+    ev('click', 1); ev('click', 2); ev('dblclick', 2);
+  });
+  await fire(page);
+  expect(await page.evaluate(() => window.SELECT), 'one select event, for the first click').toHaveLength(1);
+  expect(await page.evaluate(() => window.LAST), 'the double-click reset the view').toBeNull();
+});

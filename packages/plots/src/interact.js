@@ -37,7 +37,7 @@ function inFrameOf(g, m) {
   return function (x, y) { return x >= x0 - ex && x <= x1 + ex && y >= y0 - ey && y <= y1 + ey; };
 }
 
-/* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. A bar is hovered inside its rect, or within SNAP client px of its value end inside its x span (a zero-height bar too), the nearest end winning, and it beats a point or a segment. */
+/* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. A bar is hovered inside its rect, or within SNAP client px of its value end inside its x span (a zero-height bar too), the nearest end winning, and it beats a point or a segment. A pointer outside a curve's or spot's frame (a zoomed plot's clipped window) hovers nothing, and so does one outside a map's drawn window. */
 function nearest(host, cx, cy) {
   var snap = null, best = null, bar = null;
   host.querySelectorAll("[data-series], polyline[data-ray]").forEach(function (mark) {
@@ -232,6 +232,7 @@ export function interact(el, opts) {
   /* A click selects the mark under it by the mark's own data-*: the target's nearest ancestor in the host that names a surface, a layout field or a series. A ray run names its field only (a ray is several runs); nothing else changes. */
   function click(e) {
     if (dragged) { dragged = false; return; } // the mouseup of a drag is not a selection
+    if (e.detail > 1) return; // the second click of a double-click (a reset) selects nothing: the first click already did
     var m = e.target.closest && e.target.closest("[data-surface], [data-field], [data-series]");
     if (!m || !el.contains(m) || !onselect) return;
     var d = m.dataset, ev;
