@@ -46,7 +46,7 @@ function margins(o, W, H) {
     var cl = log ? hi * Math.pow(10, -dec) : lo, vt;
     if (!(log ? hi > 0 : lo < hi)) vt = { ticks: [], decimals: 0 };
     else if (vb.ticks) vt = axisTicks(vb, [cl, hi]);
-    else if (log) { vt = { ticks: [], decimals: 0 }; if (hi > 0) for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = null; }
+    else if (log) { vt = { ticks: [], decimals: 0 }; for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = null; }
     else {
       /* niceTicks rounds its step up, so a span like [0.01, 1.2] can leave two ticks inside: ask for more labels until three fall in the range (a step of a tenth of the span is within the limit). */
       var inside = function (v) { return v >= cl - 1e-9 * (hi - cl) && v <= hi + 1e-9 * (hi - cl); };

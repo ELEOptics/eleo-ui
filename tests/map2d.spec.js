@@ -500,10 +500,15 @@ test('typed map log scale and wave range', async ({ page }) => {
     const ticks = [...svg.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx && /^[\d.]+$/.test(t.textContent.trim()));
     out.barTicks = ticks.map((t) => parseFloat(t.textContent));
     out.barErr = Math.max(...ticks.map((t) => Math.abs(+t.getAttribute('y') - (by + bh - ((Math.log10(parseFloat(t.textContent)) + 3) / 3) * bh))));
+    // a log grid whose maximum is at or below 0 has no decades to label: no colorbar ticks
+    el.insertAdjacentHTML('beforeend', ELEO.map2D({ values: [[0, -1]], extent: [0, 1, 0, 1], map: 'ember', scale: 'log', value: { label: 'v' }, el }));
+    const sv0 = el.lastElementChild, bx0 = Math.max(...[...sv0.querySelectorAll('image')].map((q) => +q.getAttribute('x') + +q.getAttribute('width')));
+    out.deadBarTicks = [...sv0.querySelectorAll('text.eleo-tick')].filter((t) => +t.getAttribute('x') >= bx0 && /^[\d.]+$/.test(t.textContent.trim())).length;
     return out;
   });
   expect(r.barTicks, 'colorbar ticks of a [1e-3, 1] log range').toEqual([0.001, 0.01, 0.1, 1]);
   expect(r.barErr, 'colorbar tick off its value (px)').toBeLessThan(0.5);
+  expect(r.deadBarTicks, 'log colorbar ticks when the maximum is <= 0').toBe(0);
   expect(r.log, 'log cells off their step').toBe(0);
   expect(r.wave, 'wave cells off a range symmetric about 0').toBe(0);
   expect(r.range, 'cells off the given range').toBe(0);
