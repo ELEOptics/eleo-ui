@@ -25,6 +25,15 @@ test('index.d.ts: interact and onview doc comments name the keys and the focusab
   assert.match(docAbove(dts, 'export declare function interact('), /tabindex="0"/, 'interact doc names the host tab stop');
 });
 
+test('index.d.ts: the zoom-out key is written U+002D, the key interact handles, never U+2212', () => {
+  const dts = read('packages/plots/src/index.d.ts');
+  for (const anchor of ['onview?:', 'export declare function interact(']) {
+    const doc = docAbove(dts, anchor);
+    assert.match(doc, /`=`, `-`/, `${anchor} doc names the zoom-out key as \`-\``);
+    assert.ok(!doc.includes('−'), `${anchor} doc has no U+2212`);
+  }
+});
+
 test('plots-svelte README and the svelte changeset name the keys and the tab stop', () => {
   const readme = read('packages/plots-svelte/README.md');
   assert.match(readme, /tab stop|tabindex="0"/, 'README says the wrapper box is a tab stop');

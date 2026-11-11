@@ -524,7 +524,7 @@ export interface InteractOptions {
   marks?: boolean;
   /** Show the readout in a tooltip near the pointer. Default `true`. While marks or the tooltip are on, the host carries the class `eleo-hover-host`. */
   tooltip?: boolean;
-  /** Turns on zoom and pan. A wheel zooms about the pointer, a drag pans, a double-click resets; each calls `onview` with the new view (`View`: `{ x, y }` for a curve, ray fan, typed map or layout2D, `{ center, half }` for a spot or through-focus; reset sends `null`) and draws nothing: redraw with it as the renderer's `view`, and with none for `null`. The current ranges are read from the drawn markup each time, so the caller's view is the only state. A drag is not also a click (`onselect`). The keys `+`, `=`, `−` and `0` zoom and reset it too: see the plots README's Keyboard section. */
+  /** Turns on zoom and pan. A wheel zooms about the pointer, a drag pans, a double-click resets; each calls `onview` with the new view (`View`: `{ x, y }` for a curve, ray fan, typed map or layout2D, `{ center, half }` for a spot or through-focus; reset sends `null`) and draws nothing: redraw with it as the renderer's `view`, and with none for `null`. The current ranges are read from the drawn markup each time, so the caller's view is the only state. A drag is not also a click (`onselect`). The keys `+`, `=`, `-` and `0` zoom and reset it too: see the plots README's Keyboard section. */
   onview?: (view: View | null) => void;
 }
 /** `interact`'s stop function: removes the listeners. */
@@ -533,7 +533,7 @@ export interface InteractStop {
   /** Calls `onview(null)`, as a double-click does. Does nothing without `onview` or after stop. */
   reset(): void;
 }
-/** Listen for the pointer on `el`, the element holding the drawn SVG. The listeners sit on `el`, so a redraw that replaces its markup keeps them. Client-only. Returns `stop()`, which removes them, and has a `reset()` method. It makes `el` focusable (`tabindex="0"` unless set) and handles the keys (arrows, `Enter`, `Escape`, `+`, `=`, `−`, `0`): see the plots README's Keyboard section. */
+/** Listen for the pointer on `el`, the element holding the drawn SVG. The listeners sit on `el`, so a redraw that replaces its markup keeps them. Client-only. Returns `stop()`, which removes them, and has a `reset()` method. It makes `el` focusable (`tabindex="0"` unless set) and handles the keys (arrows, `Enter`, `Escape`, `+`, `=`, `-`, `0`): see the plots README's Keyboard section. */
 export declare function interact(el: Element, opts?: InteractOptions): InteractStop;
 /** How `readout` writes one axis's value. */
 export interface ReadoutAxis {
