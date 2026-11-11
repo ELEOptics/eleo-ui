@@ -65,6 +65,8 @@ export interface Layout2DProps {
   show?: RayStatus[];
   /** A key row under the scale bar, in the SVG at the layout's text size: entries (a line swatch in idx(`index`), then the label) and `"glass"` (one swatch per distinct drawn glass, as `glassLegend` gives, in first-use order), in one row in the order given, wrapping at the drawing's width. The SVG grows by its lines, to a whole px. Not drawn below a width of 630, with no room kept. Default none. */
   key?: (PlotKeyEntry | "glass")[] | "glass";
+  /** The window in mm the drawing shows, `{ x: [zlo, zhi], y: [ylo, yhi] }`: fitted into the whole viewBox at one scale on both axes and centred; geometry beyond it is clipped, text keeps its px size, and the scale bar takes a 1-2-5 mm length at the new scale. An axis that is not a finite increasing pair keeps the box's range, and a view with no valid axis is ignored. The size does not depend on it. `interact`'s `onview` sends it. */
+  view?: PlotView;
 }
 export interface Layout3DProps {
   data?: object;

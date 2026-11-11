@@ -239,6 +239,15 @@ export function layout2D(o) {
     kl = keyLayout(kents, tx0, { L: KP, R: W - KP, maxRow: 1000 });
   }
   var H = Math.round(Math.round(Hg) + (kl && kl.rows ? tx0 * (1.4 * kl.rows - 0.4) + 0.6 * tx0 : 0));
+  // `view`: { x: [zlo, zhi], y: [ylo, yhi] } in mm, the window the whole viewBox shows, fitted at the largest one scale and centred. An axis that is not a finite lo < hi pair keeps the box's
+  // range, as curve's does; with no valid axis there is no view. The viewport is the viewBox, which clips the geometry; the height is the view-less one.
+  var vr = function (a) { return Array.isArray(a) && a.length === 2 && Number.isFinite(a[0]) && Number.isFinite(a[1]) && a[0] < a[1] ? a : null; };
+  var vx = o.view && vr(o.view.x), vy = o.view && vr(o.view.y), s0 = s;
+  if (vx || vy) {
+    var wz = vx || [B.zmin, B.zmax], wy = vy || [B.ylo, B.yhi];
+    s = Math.min(W / (wz[1] - wz[0]), H / (wy[1] - wy[0]));
+    tx = W / 2 - (wz[0] + wz[1]) / 2 * s; ty = H / 2 + (wy[0] + wy[1]) / 2 * s;
+  }
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
@@ -332,7 +341,10 @@ export function layout2D(o) {
   }
   tags.forEach(function (a) { g += label(a.x, a.py, a.t, "start"); });
   var Hd = Math.round(Hg), by = Hd - 8 * u;
-  g += '<path d="M' + n(8 * u) + "," + n(by - 4 * u) + "v" + n(8 * u) + "m0," + n(-4 * u) + "h" + n(10 * s) + "m0," + n(-4 * u) + "v" + n(8 * u) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + n(10 * s + 16 * u) + '" y="' + n(by + 3 * u) + '"' + tsz + '>10 mm</text>';
+  // 10 mm; zoomed, the longest 1-2-5 mm length no longer than the px that 10 mm takes at the first scale.
+  var bar = 10;
+  if (vx || vy) { var e = Math.floor(Math.log10(10 * s0 / s)); bar = [5, 2, 1].map(function (m) { return m * Math.pow(10, e); }).concat([5 * Math.pow(10, e - 1)]).filter(function (v) { return v * s <= 10 * s0 + 1e-9; })[0]; }
+  g += '<path d="M' + n(8 * u) + "," + n(by - 4 * u) + "v" + n(8 * u) + "m0," + n(-4 * u) + "h" + n(bar * s) + "m0," + n(-4 * u) + "v" + n(8 * u) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + n(bar * s + 16 * u) + '" y="' + n(by + 3 * u) + '"' + tsz + '>' + +bar.toPrecision(6) + ' mm</text>';
   if (kl && kl.rows) g += keyMarkup(kl.places, kents, tx0, Hd, { mark: true });
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
 }

@@ -1432,3 +1432,38 @@ test('glass polygons carry element properties', () => {
   const flat = JSON.parse(JSON.stringify(L)); flat.surfaces[0].profile.forEach((q) => { q[0] = S[0].z; });
   assert.ok(/data-r1="Infinity"/.test(ELEO.layout2D({ data: flat })), 'flat surface: Infinity');
 });
+
+// Plan #804 M3 (#964, CR #957): `view: { x: [zlo, zhi], y: [ylo, yhi] }` (mm) is the window the viewBox shows, fitted at one scale and centred.
+// oracle: the window is the data group's inverse over the viewBox (tests/interact.spec.js's frame()); the scale is min(width / zspan, height / yspan), written out here; the scale bar is a 1-2-5 mm length.
+test('view windows the layout', () => {
+  const L = fixture('analysis-glasses'), W = 900;
+  const base = ELEO.layout2D({ data: L, width: W });
+  const frame = (svg) => {
+    const { M } = geometry(svg), vb = nums(/viewBox="([^"]*)"/.exec(svg)[1]);
+    return { s: M[0], d: M[3], x: [(0 - M[4]) / M[0], (vb[2] - M[4]) / M[0]], y: [(M[5] - vb[3]) / M[0], M[5] / M[0]], vb };
+  };
+  const view = { x: [40, 60], y: [-5, 5] };
+  const svg = ELEO.layout2D({ data: L, width: W, view });
+  const f = frame(svg), [, , vw, vh] = f.vb;
+  assert.equal(vw, W);
+  assert.equal(vh, frame(base).vb[3], 'the height does not depend on the view');
+  const s = Math.min(vw / 20, vh / 10);
+  assert.ok(Math.abs(f.s - s) < 1e-4 * s, 'the largest scale that fits both spans');
+  assert.ok(Math.abs(f.d + f.s) < 1e-9 * f.s, 'one scale on both axes');
+  assert.ok(Math.abs((f.x[0] + f.x[1]) / 2 - 50) < 1e-3 && Math.abs((f.y[0] + f.y[1]) / 2) < 1e-3, 'the view centre is the frame centre');
+  assert.ok(f.x[0] <= 40 + 1e-3 && f.x[1] >= 60 - 1e-3 && f.y[0] <= -5 + 1e-3 && f.y[1] >= 5 - 1e-3, 'the whole view is shown');
+  // the scale bar: a 1-2-5 mm length at the new scale, in the same px as the base's
+  const bar = /<path d="M[^"]*h([\d.]+)m[^>]*\/><text [^>]*>([\d.]+) mm<\/text>/.exec(svg);
+  assert.ok(bar, 'a scale bar');
+  const mm = +bar[2];
+  assert.ok([1, 2, 5].includes(+(mm / 10 ** Math.floor(Math.log10(mm))).toFixed(6)), `${mm} mm is 1-2-5`);
+  assert.ok(Math.abs(+bar[1] - mm * f.s) < 0.01, 'its px length is the mm length at the scale');
+  assert.ok(mm * f.s <= 10 * frame(base).s + 1e-6, 'no longer than the base bar');
+  // text keeps its px size
+  assert.equal(/font-size:([\d.]+)px/.exec(svg)[1], /font-size:([\d.]+)px/.exec(base)[1]);
+  // an invalid view is ignored, per axis for a missing or bad one; none valid is the base markup
+  for (const bad of [{}, { x: [1, 1] }, { x: [2, 1], y: [NaN, 1] }, { x: 'a' }, null, 3]) assert.equal(ELEO.layout2D({ data: L, width: W, view: bad }), base, `view ${JSON.stringify(bad)} is ignored`);
+  // one valid axis windows that axis only; the other keeps the box's range
+  const fx = frame(ELEO.layout2D({ data: L, width: W, view: { x: view.x } }));
+  assert.ok(Math.abs((fx.x[0] + fx.x[1]) / 2 - 50) < 1e-3, 'x-only view centres x');
+});
