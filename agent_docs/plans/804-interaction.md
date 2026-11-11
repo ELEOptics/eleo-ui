@@ -225,7 +225,7 @@ rays with field and status); clicking a series, bar, surface or field fan logs i
 
 ### M3: zoom, pan and reset GitHub: `P804 M3: Zoom and pan`
 
-Reopened 2026-11-11 at the re-demo (user): zoomed redraws slow down (CR #984). Before that: reopened at the demo (user) for text selection on pan, layout2D zoom and lens hover (CRs #956-#958); reviewed in 8 rounds (Review M3: 0 blocking, round 8), full gate green on 49be1b0.
+Done 2026-11-11: reopened at the re-demo (user) for zoomed redraw speed (CR #984): zoomed layouts and curves draw only their window plus 32 px, 1000x redraws 5-7 ms (were 2-7 s); reviewed in rounds 9-11, the breaker tripped twice on doc wording, and the user chose a final orchestrator fix without a 12th round; full gate green on e8cc0b7; re-demo pending. Before that: reopened at the demo for text selection, layout2D zoom and lens hover (CRs #956-#958), reviewed in 8 rounds.
 
 Demo: on the MTF, spot and PSF map tiles, the wheel zooms about the pointer with the axes redrawn, a drag
 pans, a double-click resets; the spot's panels zoom together; the gallery's live-update toggle redraws the data
@@ -289,6 +289,7 @@ and the view stays. Proves: O5
 | #991 | Unskip the zoom-budget acceptance tests, each window centred on drawn geometry, the Cassegrain tile added | forced (`workflow.md`, TDD); centred on a drawn segment because the 30 %/40 % window was empty space on the layout tiles (orchestrator, 2026-11-11) | `tests/zoom-budget.spec.js` | the two tests from #985 | #985, #986, #987, #988, #989, #990, #994 |
 | #998 | Hover-index docs name data indices; `data-from` is one number; a zoomed NaN series draws as unzoomed (CR #995) | forced (CR #995, user approved the Core wording); one number per mark because every renderer writes one (#989); considered keeping the per-run list | `packages/plots/README.md`, `packages/plots/src/index.d.ts`, `packages/plots/src/interact.js`, `packages/plots/src/curve.js` | `tests/interact.spec.js::a cut run hovers at its data index`, `tests/unit/curve.test.js::a zoomed series with a NaN draws as the unzoomed one` | #991 |
 | #1000 | Name the NaN cut exception; `data-from` offset as one number (CR #999) | forced (CR #999, review M3 round 10) | `packages/plots/README.md`, `packages/plots/src/curve.js`, `packages/plots/src/interact.js` | `tests/interact.spec.js::a cut run hovers at its data index` (one assertion added) | #998 |
+| #1002 | Only NaN or infinite draws uncut; layout ray indices count within the run (CR #1001) | forced (CR #1001, review M3 round 11; user approved the `index.d.ts` wording, orchestrator fix checked against the code) | `packages/plots/README.md`, `packages/plots/src/curve.js`, `packages/plots/src/index.d.ts`, `tests/interact.spec.js` | `tests/interact.spec.js::a cut run hovers at its data index` | #1000 |
 
 ### M4: keyboard and release GitHub: `P804 M4: Keyboard and release`
 
@@ -369,3 +370,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-11 (orchestrator): worker #991 returned CR #993 (zoomed limit lines outside the view are still drawn, up to 1e6 px out; 1000x medians now 6-7 ms on all five tiles): accepted, item #994, #991 after it.
 - 2026-11-11 review M3 round 9 (code-reviewer, claude-opus-5-5): 1 blocking, CR #995 (hover-index docs; `index.d.ts` is Core): user approved ("Approve"); item #998 also takes findings 2 (zoomed NaN series) and 4 (one-number data-from). Backlog #996 (limit dash crawl), #997 (map2D grid past the window; measured flat). Per-round counts: 10, 3, 1, 0, 7, 2, 4, 1, 1.
 - 2026-11-11 review M3 round 10 (code-reviewer, claude-opus-5-5): 2 blocking (README/curve.js omit the NaN cut exception; interact's per-point offset array is one number), 1 backlog (view bullets: data-from counts finite points), all three as CR #999, item #1000. Breaker tripped (counts 1, 1, 2); the user chose "Fix and re-review".
+- 2026-11-11 review M3 round 11 (code-reviewer, claude-opus-5-5): 2 blocking (a null coordinate is cut, not uncut; layout ray indices count within the status run), 1 backlog (a repeated assertion), as CR #1001, item #1002. Breaker tripped again (counts 2, 2; no behaviour defect since round 9); the user chose "Fix once, then demo": the orchestrator wrote the wording, checked it against the built code, and M3 is ticked without a 12th round. Per-round counts: 10, 3, 1, 0, 7, 2, 4, 1, 1, 2, 2.
