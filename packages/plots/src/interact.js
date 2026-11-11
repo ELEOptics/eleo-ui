@@ -149,22 +149,24 @@ var DRAG_PX = 3; // client px a pointer must travel before a press is a drag, no
 /* The data frames of a host, in document order: for each data group (a matrix group holding a series mark) the inverse of its screen matrix and the data ranges its nested viewport shows, read from the group's matrix and the viewport's width and height. */
 function frames(host) {
   var seen = [], out = [];
-  host.querySelectorAll("[data-series]").forEach(function (mark) {
-    var g = dataGroup(mark);
+  host.querySelectorAll('[data-series], g[data-view="layout"]').forEach(function (mark) {
+    var layout = mark.getAttribute("data-view") === "layout", g = layout ? mark : dataGroup(mark);
     if (!g || seen.indexOf(g) >= 0) return;
     seen.push(g);
     var vp = g.closest("svg"), m = g.getScreenCTM(), t = g.transform.baseVal.consolidate();
     if (!vp || !m || !t) return;
-    var a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f, w = +vp.getAttribute("width"), h = +vp.getAttribute("height");
+    var vb = layout && vp.viewBox.baseVal; // a layout has no nested frame: its viewport is the viewBox
+    var a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f, w = layout ? vb.width : +vp.getAttribute("width"), h = layout ? vb.height : +vp.getAttribute("height");
     if (!(a && d && isFinite(a + d + e + f + w + h))) return;
     out.push({ inv: m.inverse(), x: [-e / a, (w - e) / a].sort(function (u, v) { return u - v; }), y: [-f / d, (h - f) / d].sort(function (u, v) { return u - v; }) });
   });
   return out;
 }
 
-/* Which kind of plot a host holds, from its markup: "map" (an image carrying data-range), "spot" (panels carrying spot's own data-view="spot" marker), "curve" (the other series paths and polylines), or null (bars, layouts, nothing drawn). */
+/* Which kind of plot a host holds, from its markup: "map" (an image carrying data-range), "layout" (layout2D's data group carrying its data-view="layout" marker; the whole viewBox is its frame), "spot" (panels carrying spot's own data-view="spot" marker), "curve" (the other series paths and polylines), or null (bars, nothing drawn). */
 function kindOf(host) {
   if (host.querySelector("image[data-range]")) return "map";
+  if (host.querySelector('g[data-view="layout"]')) return "layout";
   var marks = host.querySelectorAll("[data-series]");
   if (!marks.length || host.querySelector("rect[data-series]")) return null;
   if (host.querySelector('[data-view="spot"]')) return "spot";

@@ -1404,7 +1404,7 @@ async function mountLayout(page, layout) {
     document.querySelector('.theme[data-theme="light"]').appendChild(host);
     const E = window.ELEO;
     window.HOST = host; window.VIEWS = []; window.LAST = undefined;
-    window.DRAW = (view) => E.layout2D({ ...layout, width: 600, ...(view ? { view } : {}) });
+    window.DRAW = (view) => E.layout2D({ data: layout, width: 600, ...(view ? { view } : {}) });
     host.innerHTML = window.DRAW(null);
     window.ORIG = host.innerHTML;
     window.STOP = E.interact(host, { onview(v) { window.VIEWS.push(v); window.LAST = v; host.innerHTML = window.DRAW(v); } });
@@ -1426,7 +1426,7 @@ const onRay = (page, c) => page.evaluate((c) => window.L.ray(c), c);
 
 // #957 (O5, layout2D): wheel zooms about the pointer at one scale on both axes, drag pans, double-click and reset() restore the first markup byte for byte; the glass and the rays follow the view.
 // The pointer rests on a vertex of the recorded fan, so the rays are checked by the browser's own hit test at that vertex's position computed from the fixture and the group's matrix.
-test.skip('layout zoom pan and reset', async ({ page }) => {
+test('layout zoom pan and reset', async ({ page }) => {
   const layout = layoutFixture('analysis-glasses');
   await mountLayout(page, layout);
   // a vertex of the recorded fan (field 0, ray 0) at which the browser's hit test finds a ray run (the renderer may drop collinear vertices, so not every one is drawn)
@@ -1458,7 +1458,7 @@ test.skip('layout zoom pan and reset', async ({ page }) => {
   // the drawn glass and rays follow: the fan vertex is still a ray under the pointer, and element 2 sits where the fixture puts it
   expect(await onRay(page, c0), 'a ray is still drawn at the fan vertex').toBe(true);
   const el = [2, 3].flatMap((i) => layout.surfaces[i].profile);
-  const box = await page.locator('polygon[data-surface="2"]').evaluate((e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; });
+  const box = await page.evaluate(() => { const r = window.HOST.querySelector('polygon[data-element="2"]').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; });
   const lo = await page.evaluate(([zs, ys]) => { const F = window.L.frame(); return [F.at([Math.min(...zs), Math.max(...ys)]), F.at([Math.max(...zs), Math.min(...ys)])]; }, [el.map((p) => p[0]), el.map((p) => p[1])]);
   // within TOL_PX plus the 1 px edge stroke, in case the browser's box includes it
   closeTo(box[0], lo[0][0], TOL_PX + 1, 'element 2 left edge'); closeTo(box[1], lo[0][1], TOL_PX + 1, 'element 2 top edge');

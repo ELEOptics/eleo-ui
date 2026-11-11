@@ -252,7 +252,7 @@ export function layout2D(o) {
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
   function line(z1, y1, z2, y2, rest, surf) { return '<line x1="' + n(z1) + '" y1="' + n(y1) + '" x2="' + n(z2) + '" y2="' + n(y2) + '" ' + rest + (surf == null ? "" : ' data-surface="' + surf + '"') + " " + NS + "/>"; }
-  var M = +s.toFixed(6), g = '<g transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')">';
+  var M = +s.toFixed(6), g = '<g data-view="layout" transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')">';
   g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"');
   // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
   // in a presentation attribute is not safe. A style with var() is never dropped, so the fill attribute never applies to these;
