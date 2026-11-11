@@ -1962,3 +1962,47 @@ test.describe.skip('keyboard', () => { // #834: unskipped by #839
     expect(await page.evaluate(() => document.activeElement === window.HOST), 'Tab moves focus off the host').toBe(false);
   });
 });
+
+// #1003 (O6): the keyboard hovers only what the pointer can (a zoomed frame clips the rest), and a + or - redraw does not leave the dot where it was.
+// oracle: property (every key hover lies inside the drawn ranges the test reads from the matrix attribute; the dot sits where the matrix puts the current point) and closed-form (the test's own sine data: x = i / 4, y = sin(x + s)).
+test('keyboard steps only in-frame points and redraws its dot after a zoom', async ({ page }) => {
+  await mountKeys(page);
+  await page.keyboard.press('ArrowRight'); // series 0, point 0
+  for (let i = 0; i < 6; i++) await page.keyboard.press('+'); // about point 0: x [0, ~4], y [~-0.4, ~0.4]
+  const f = (await frames(page))[0], ex = 0.5 / (Math.abs(f.a) * f.k), ey = 0.5 / (Math.abs(f.d) * f.k);
+  const inside = (ev) => ev.x >= f.x[0] - ex && ev.x <= f.x[1] + ex && ev.y >= f.y[0] - ey && ev.y <= f.y[1] + ey;
+  const seen = [];
+  for (let i = 0; i < 8; i++) seen.push(...await pressHover(page, 'ArrowRight'));
+  seen.push(...await pressHover(page, 'ArrowDown')); // series 1 has no point in this window
+  expect(seen.length, 'the arrows still step the points in the frame').toBeGreaterThan(0);
+  for (const ev of seen) expect(inside(ev), `hover (${ev.x}, ${ev.y}) is inside the frame`).toBe(true);
+  const dot = await page.locator('.eleo-hover__dot:visible').first().evaluate((el) => { const r = el.getBoundingClientRect(); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
+  const last = seen.at(-1), c = await toClient(page, 0, [last.x, last.y]);
+  closeTo(dot[0], c[0], 0.5, 'the dot stays on the last in-frame point x');
+  closeTo(dot[1], c[1], 0.5, 'and y');
+  await page.evaluate(() => window.STOP());
+
+  // a caller whose redraw moves the current point (here it pans by half a unit): the dot follows to the point's new place
+  await page.evaluate(() => {
+    window.HOVER = []; window.HOST.innerHTML = window.DRAW(null);
+    window.STOP = window.ELEO.interact(window.HOST, {
+      onhover: (ev) => window.HOVER.push(ev),
+      onview(v) { window.HOST.innerHTML = window.DRAW(v && { x: [v.x[0] + 0.5, v.x[1] + 0.5], y: v.y }); },
+    });
+    window.HOST.focus();
+  });
+  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight'); // series 0, point 4
+  await page.keyboard.press('+');
+  const moved = await toClient(page, 0, sinePoint(0, 4));
+  const after = await page.locator('.eleo-hover__dot:visible').first().evaluate((el) => { const r = el.getBoundingClientRect(); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
+  closeTo(after[0], moved[0], 0.5, 'after + the dot is on the current point x');
+  closeTo(after[1], moved[1], 0.5, 'and y');
+  expect(await page.evaluate(() => window.HOST.querySelector('.eleo-hover__tip').textContent), 'and the tooltip is shown').not.toBe('');
+  // 0 resets: the redraw puts the point back, and the dot follows it there
+  await page.keyboard.press('0');
+  const home = await toClient(page, 0, sinePoint(0, 4));
+  const reset = await page.locator('.eleo-hover__dot:visible').first().evaluate((el) => { const r = el.getBoundingClientRect(); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
+  closeTo(reset[0], home[0], 0.5, 'after 0 the dot is on the current point x');
+  closeTo(reset[1], home[1], 0.5, 'and y');
+  await page.evaluate(() => window.STOP());
+});

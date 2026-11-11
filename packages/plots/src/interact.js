@@ -313,28 +313,44 @@ export function interact(el, opts) {
     return { mark: m, index: i + r.off, x: r.p[i][0], y: r.p[i][1] };
   }
   var clientOf = function (b) { var q = new DOMPoint(b.x, b.y).matrixTransform(dataGroup(b.mark).getScreenCTM()); return [q.x, q.y]; };
-  /* An arrow: left and right step the current series' points, up and down its neighbours in document order at the same point, clamped at the ends (no wrap). The first one lands on series 0, point 0. Returns whether there was anything to step. */
+  // the positions of a mark's drawn points inside its frame, the points the pointer can hover too
+  function visible(m) {
+    var g = dataGroup(m), gm = g.getScreenCTM(), ok = gm ? inFrameOf(g, gm) : function () { return false; };
+    return runs(m).p.reduce(function (o, q, i) { if (ok(q[0], q[1])) o.push(i); return o; }, []);
+  }
+  /* An arrow: left and right step the current series' points inside the frame, up and down its neighbours in document order that have one, at the same point or the nearest inside the frame, clamped at the ends (no wrap). The first one lands on the first such point. A point a redraw moved out of the frame is not shown. Returns whether there was anything to step. */
   function step(k) {
-    var ms = keyMarks(), at = curSpot();
-    if (!ms.length) return false;
-    var s = at ? Math.min(cur.s, ms.length - 1) : 0, i = at ? at.index - runs(at.mark).off : 0;
-    if (at) {
-      if (k === "ArrowRight") i++; else if (k === "ArrowLeft") i--; else s += k === "ArrowDown" ? 1 : -1;
-      s = Math.max(0, Math.min(s, ms.length - 1));
-      var r = runs(ms[s]); i = Math.max(0, Math.min(i, r.p.length - 1));
+    var ms = keyMarks(), vis = ms.map(visible), at = curSpot(), s = at ? Math.min(cur.s, ms.length - 1) : 0, i = at ? at.index - runs(at.mark).off : 0;
+    if (!vis.some(function (v) { return v.length; })) return false;
+    if (!at) { while (!vis[s].length) s++; i = vis[s][0]; }
+    else if (k === "ArrowRight" || k === "ArrowLeft") {
+      var to = vis[s].filter(function (j) { return k === "ArrowRight" ? j > i : j < i; });
+      if (to.length) i = k === "ArrowRight" ? to[0] : to[to.length - 1];
+    } else {
+      var t = s, d = k === "ArrowDown" ? 1 : -1;
+      do t += d; while (t >= 0 && t < ms.length && !vis[t].length);
+      if (t >= 0 && t < ms.length) { s = t; i = vis[s].reduce(function (n, j) { return Math.abs(j - i) < Math.abs(n - i) ? j : n; }); }
     }
-    var run = runs(ms[s]);
-    cur = { s: s, i: i + run.off };
+    if (vis[s].indexOf(i) < 0) return true; // the current point is out of the frame and nothing in the direction is in it
+    cur = { s: s, i: i + runs(ms[s]).off };
     var b = curSpot(), c = clientOf(b);
     present(b, c[0], c[1]);
     return true;
+  }
+  // the hover on the current point again, after a redraw that may have moved it; hidden where it is now out of the frame
+  function refresh() {
+    var b = curSpot();
+    if (!b) return;
+    if (visible(b.mark).indexOf(b.index - runs(b.mark).off) < 0) return leave();
+    var c = clientOf(b);
+    present(b, c[0], c[1]);
   }
   // + and -: the wheel's notch about the current point, else about the centre of the first frame (a map's image)
   function zoomKey(dir) {
     var at = curSpot(), c = at && clientOf(at), hit = c && pick(el, c[0], c[1]), fs = frames(el), kind = kindOf(el), img = el.querySelector("image[data-range]");
     if (!hit && img) { var ib = img.getBoundingClientRect(); hit = pick(el, (ib.left + ib.right) / 2, (ib.top + ib.bottom) / 2); }
     if (!hit && kind && fs.length) hit = { kind: kind, x: fs[0].x, y: fs[0].y, p: [(fs[0].x[0] + fs[0].x[1]) / 2, (fs[0].y[0] + fs[0].y[1]) / 2] };
-    if (hit) zoom(hit, Math.exp(dir * KEY_NOTCH * WHEEL_RATE));
+    if (hit) { zoom(hit, Math.exp(dir * KEY_NOTCH * WHEEL_RATE)); refresh(); } // the caller's redraw has replaced the markup by now
   }
   /* A key it acts on is prevented (the arrows and + - scroll or zoom the page otherwise); any other, and any with ctrl, meta or alt, is the browser's, so Tab leaves the host. Enter selects the current point's mark, Escape clears it, 0 resets; + - 0 need onview. */
   function key(e) {
@@ -344,7 +360,7 @@ export function interact(el, opts) {
     else if (k === "Enter") { var at = onselect && curSpot(); if (at) { select(at.mark); did = true; } }
     else if (k === "Escape") { if (cur) { cur = null; leave(); did = true; } }
     else if (onview && (k === "+" || k === "-")) { zoomKey(k === "+" ? 1 : -1); did = true; }
-    else if (onview && k === "0") { reset(); did = true; }
+    else if (onview && k === "0") { reset(); refresh(); did = true; }
     if (did) e.preventDefault();
   }
   /* The host takes focus on a primary press itself: the mousedown that starts a pan has its default prevented, which stops the click from focusing it. */
