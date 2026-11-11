@@ -601,3 +601,43 @@ test('row R changesets became plots and tokens entries',
       assert.equal(entry(dir, re).kind, type[0].toUpperCase() + type.slice(1));
     }
   });
+
+// Plan #804 (agent_docs/plans/804-interaction.md), outcomes O6 and O4 (issue #838). Row H: `interact`, `readout`, `view` and the `data-*`
+// marks are a plots minor; the wrappers' callbacks and the default hover tooltip (CR #863) are a plots-svelte minor, each in its own file.
+// oracle: spec semver (new API ships as a minor); @changesets/cli's plan of the named files: plots minor, plots-svelte minor, no major.
+// Read as row O's pair: the files, or once `changeset version` deleted them, the CHANGELOG entries (#594).
+const ROW_H_PLOTS_ENTRY = /New: `interact\(el, opts\)` makes a rendered 2D plot interactive/;
+const ROW_H_SVELTE_ENTRY = /New: the wrappers take `onhover`, `onselect` and, on the zoomable ones, `onview`/;
+const rowHPlotsConsumed = barsConsumed('interact.md', 'plots', ROW_H_PLOTS_ENTRY);
+const rowHSvelteConsumed = barsConsumed('interact-svelte.md', 'plots-svelte', ROW_H_SVELTE_ENTRY);
+const rowHConsumed = rowHPlotsConsumed && rowHSvelteConsumed;
+test('row H changesets', { skip: rowHConsumed && 'consumed by changeset version' }, () => {
+  const plots = parse('interact.md');
+  const svelte = parse('interact-svelte.md');
+  assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
+  assert.deepEqual(svelte.bumps, { '@eleoptics/plots-svelte': 'minor' });
+  for (const word of ['interact', 'readout', 'view', 'data-series', 'onview', 'reset']) {
+    assert.match(plots.body, new RegExp(word), `the plots body names ${word}`);
+  }
+  for (const word of ['onhover', 'onselect', 'onview', 'tooltip']) {
+    assert.match(svelte.body, new RegExp(word), `the plots-svelte body names ${word}`);
+  }
+  assert.doesNotMatch(svelte.body, /PlotCard/, 'PlotCard takes no readout: it was dropped unreleased');
+  withWorkspace({ ...plots.bumps, ...svelte.bumps }, (ws) => {
+    rmSync(join(ws, '.changeset/bumps.md'));
+    writeFileSync(join(ws, '.changeset/interact.md'), readFileSync(join(repo, '.changeset/interact.md'), 'utf8'));
+    writeFileSync(join(ws, '.changeset/interact-svelte.md'), readFileSync(join(repo, '.changeset/interact-svelte.md'), 'utf8'));
+    run(ws, 'git', ['add', '-A']);
+    run(ws, 'git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'row H']);
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    const planned = Object.fromEntries(releases.map((r) => [r.name, r.type]));
+    assert.deepEqual(planned, { '@eleoptics/plots': 'minor', '@eleoptics/plots-svelte': 'minor' }, 'a major is planned, or a package is missing');
+  });
+});
+
+test('row H changesets became minors',
+  { skip: !rowHConsumed && 'changesets not yet versioned' }, () => {
+    assert.equal(entry('plots', ROW_H_PLOTS_ENTRY).kind, 'Minor');
+    assert.equal(entry('plots-svelte', ROW_H_SVELTE_ENTRY).kind, 'Minor');
+  });
