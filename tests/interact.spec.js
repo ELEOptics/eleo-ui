@@ -1340,3 +1340,232 @@ test('options read at event time', async ({ page }) => {
   expect(await tip(), 'replaced values read at the next hover').toContain('= 9');
   await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// M3 demo feedback (plan #804, issue #959; CRs #956, #957, #958). All three are skipped until #968 unskips them.
+// oracle: property (no text selection starts in a frame; the zoom closed form range' = p + (range - p) / k; the point under the pointer stays under it; reset restores the markup byte for byte) and
+// closed-form (the lens radius is the circle through three profile points, the focal length the thick-lens lensmaker equation, both written out in the test from tests/fixtures/layouts/analysis-glasses.json, never from the code under test).
+//
+// Contract these tests fix for #960 to #968:
+//  - layout2D takes `view: { x: [lo, hi], y: [lo, hi] }` (mm) and `interact` reports it through `onview`, as for a curve. The data group is the one `matrix(M 0 0 -M tx ty)` group (one scale on both axes);
+//    the window it draws is its inverse matrix over the root svg's viewBox (plan #965).
+//  - A glass polygon hover emits { element, glass, nd, vd, r1, r2, ct, diameter, f } and no field or ray. `element` counts the glass-bearing surfaces from 1, `glass` is the name, r1 and r2 are the signed vertex radii
+//    in mm (positive when the centre of curvature lies at greater z), `ct` the vertex thickness, `diameter` twice the largest |y| of the drawn polygon, `f` the thick-lens focal length in air. The tooltip is five lines joined by "\n" (CR #958).
+// ---------------------------------------------------------------------------------------------------------------------------
+
+const layoutFixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));
+
+// #956 (O5, spot): a pan or a double-click inside a frame starts no text selection; text elsewhere on the page stays selectable. The host is rebound without a redraw, so a selection that did start would still be in the markup.
+test.skip('a pan or double-click selects no text', async ({ page }) => {
+  await mountZoom(page, 'spot');
+  await page.evaluate(() => {
+    window.STOP();
+    window.STOP = window.ELEO.interact(window.HOST, { onview(v) { window.VIEWS.push(v); } });
+    const p = document.createElement('p');
+    p.id = 'outside'; p.textContent = 'words outside any plot';
+    window.HOST.before(p);
+    window.STARTS = [];
+    document.addEventListener('selectstart', (e) => window.STARTS.push(e.target.nodeName), true);
+    window.HOST.scrollIntoView({ block: 'center' });
+  });
+  const geo = await page.evaluate(() => {
+    const frame = window.HOST.querySelector('g[transform^="matrix("]').closest('svg').getBoundingClientRect();
+    const inside = (r) => { const x = r.left + r.width / 2, y = r.top + r.height / 2; return x >= frame.left && x <= frame.right && y >= frame.top && y <= frame.bottom; };
+    const label = [...window.HOST.querySelectorAll('svg text')].map((t) => t.getBoundingClientRect()).find((r) => r.width > 0 && !inside(r));
+    return { cx: frame.left + frame.width / 2, cy: frame.top + frame.height / 2, label: label ? { x: label.left + label.width / 2, y: label.top + label.height / 2 } : null };
+  });
+  expect(geo.label, 'axis text outside the frame to drag across').not.toBeNull();
+  const selected = () => page.evaluate(() => window.getSelection().toString());
+  // a pan that sweeps across the axis text
+  await page.mouse.move(geo.cx, geo.cy);
+  await page.mouse.down();
+  await page.mouse.move(geo.label.x, geo.label.y, { steps: 8 });
+  await page.mouse.up();
+  expect(await views(page), 'the drag panned').not.toHaveLength(0);
+  expect(await selected(), 'a pan selects no text').toBe('');
+  // a double-click in the frame
+  await page.mouse.dblclick(geo.cx, geo.cy);
+  expect(await selected(), 'a double-click selects no text').toBe('');
+  expect(await page.evaluate(() => window.STARTS), 'no selection started in the frame').toEqual([]);
+  // text elsewhere on the page still selects
+  const w = await page.locator('#outside').boundingBox();
+  await page.mouse.dblclick(w.x + 8, w.y + w.height / 2);
+  expect(await selected(), 'text outside a frame stays selectable').not.toBe('');
+  await page.evaluate(() => { window.STOP(); document.getElementById('outside').remove(); });
+});
+
+// Mounts the Cooke triplet's layout (the glasses fixture) on a fresh host with interact bound; a redraw is `host.innerHTML = draw(view)`.
+async function mountLayout(page, layout) {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate((layout) => {
+    const host = document.createElement('div');
+    host.style.cssText = 'width:600px;margin:20px auto';
+    document.querySelector('.theme[data-theme="light"]').appendChild(host);
+    const E = window.ELEO;
+    window.HOST = host; window.VIEWS = []; window.LAST = undefined;
+    window.DRAW = (view) => E.layout2D({ ...layout, width: 600, ...(view ? { view } : {}) });
+    host.innerHTML = window.DRAW(null);
+    window.ORIG = host.innerHTML;
+    window.STOP = E.interact(host, { onview(v) { window.VIEWS.push(v); window.LAST = v; host.innerHTML = window.DRAW(v); } });
+    // The drawn frame from the data group's matrix alone: scale M (a = M, d = -M), the window over the root viewBox, and data <-> client px.
+    window.L = {
+      frame() {
+        const g = host.querySelector('svg > g[transform^="matrix("]'), root = g.ownerSVGElement;
+        const [a, b, c, d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+        const box = root.getBoundingClientRect(), vb = root.viewBox.baseVal, k = box.width / vb.width;
+        return { a, b, c, d, e, f, k, x: [(0 - e) / a, (vb.width - e) / a], y: [(f - vb.height) / a, (f - 0) / a], at: (p) => [box.left + (a * p[0] + e) * k, box.top + (d * p[1] + f) * k] };
+      },
+      ray: (c) => !!document.elementFromPoint(c[0], c[1])?.closest('polyline[data-field]'),
+    };
+    host.scrollIntoView({ block: 'center' });
+  }, layout);
+}
+const lframe = (page) => page.evaluate(() => window.L.frame());
+const onRay = (page, c) => page.evaluate((c) => window.L.ray(c), c);
+
+// #957 (O5, layout2D): wheel zooms about the pointer at one scale on both axes, drag pans, double-click and reset() restore the first markup byte for byte; the glass and the rays follow the view.
+// The pointer rests on a vertex of the recorded fan, so the rays are checked by the browser's own hit test at that vertex's position computed from the fixture and the group's matrix.
+test.skip('layout zoom pan and reset', async ({ page }) => {
+  const layout = layoutFixture('analysis-glasses');
+  await mountLayout(page, layout);
+  // a vertex of the recorded fan (field 0, ray 0) at which the browser's hit test finds a ray run (the renderer may drop collinear vertices, so not every one is drawn)
+  const fan = layout.rays[0][0];
+  const drawn = await page.evaluate((fan) => fan.map((p) => window.L.ray(window.L.frame().at(p))), fan);
+  expect(drawn.includes(true), 'a fan vertex with a ray drawn on it').toBe(true);
+  const pv = fan[drawn.indexOf(true)];
+  const f0 = await lframe(page), c0 = await page.evaluate((p) => window.L.frame().at(p), pv);
+  expect([f0.b, f0.c, Math.abs(f0.a) - Math.abs(f0.d)], 'one scale on both axes, no skew').toEqual([0, 0, 0]);
+  expect(await onRay(page, c0), 'the pointer rests on the fan vertex').toBe(true);
+
+  // wheel in: the point under the pointer stays under it, and the range is p + (range - p) / k
+  await page.mouse.move(c0[0], c0[1]);
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+  await page.mouse.wheel(0, -100);
+  expect(await views(page), 'one view event per notch').toHaveLength(1);
+  expect(await page.evaluate(() => window.scrollY), 'the wheel does not scroll the page').toBe(scrollBefore);
+  const f1 = await lframe(page), k = f1.a / f0.a, s1 = f1.a * f1.k;
+  expect(k, 'a notch toward the screen zooms in').toBeGreaterThan(1);
+  closeTo(Math.abs(f1.d), f1.a, 1e-9 * f1.a, 'one scale on both axes after the zoom');
+  rangeIs(f1.x, [pv[0] + (f0.x[0] - pv[0]) / k, pv[0] + (f0.x[1] - pv[0]) / k], s1, 'x range');
+  rangeIs(f1.y, [pv[1] + (f0.y[0] - pv[1]) / k, pv[1] + (f0.y[1] - pv[1]) / k], s1, 'y range');
+  const under = await page.evaluate((p) => window.L.frame().at(p), pv);
+  closeTo(under[0], c0[0], TOL_PX, 'the vertex stays under the pointer in x');
+  closeTo(under[1], c0[1], TOL_PX, 'and in y');
+  const v1 = (await views(page))[0];
+  rangeIs(v1.x, f1.x, s1, 'event x');
+  rangeIs(v1.y, f1.y, s1, 'event y');
+  // the drawn glass and rays follow: the fan vertex is still a ray under the pointer, and element 2 sits where the fixture puts it
+  expect(await onRay(page, c0), 'a ray is still drawn at the fan vertex').toBe(true);
+  const el = [2, 3].flatMap((i) => layout.surfaces[i].profile);
+  const box = await page.locator('polygon[data-surface="2"]').evaluate((e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; });
+  const lo = await page.evaluate(([zs, ys]) => { const F = window.L.frame(); return [F.at([Math.min(...zs), Math.max(...ys)]), F.at([Math.max(...zs), Math.min(...ys)])]; }, [el.map((p) => p[0]), el.map((p) => p[1])]);
+  // within TOL_PX plus the 1 px edge stroke, in case the browser's box includes it
+  closeTo(box[0], lo[0][0], TOL_PX + 1, 'element 2 left edge'); closeTo(box[1], lo[0][1], TOL_PX + 1, 'element 2 top edge');
+  closeTo(box[2], lo[1][0], TOL_PX + 1, 'element 2 right edge'); closeTo(box[3], lo[1][1], TOL_PX + 1, 'element 2 bottom edge');
+
+  // the reverse notch at the same pointer undoes it
+  await page.mouse.wheel(0, 100);
+  const f2 = await lframe(page);
+  closeTo(f2.a, f0.a, 0.02 * f0.a, 'zoom out restores the scale');
+  closeTo(f2.x[0], f0.x[0], 2 * TOL_PX / (f2.a * f2.k), 'and the x range start');
+
+  // zoom in again, then drag: the vertex grabbed stays under the pointer, the scale does not change
+  await page.mouse.wheel(0, -100);
+  const f3 = await lframe(page), start = await page.evaluate((p) => window.L.frame().at(p), pv);
+  await page.mouse.move(start[0], start[1]);
+  await page.mouse.down();
+  await page.mouse.move(start[0] + 20, start[1] - 10, { steps: 4 });
+  await page.mouse.move(start[0] + 40, start[1] - 25, { steps: 4 });
+  await page.mouse.up();
+  const f4 = await lframe(page), end = [start[0] + 40, start[1] - 25], now = await page.evaluate((p) => window.L.frame().at(p), pv);
+  closeTo(f4.a, f3.a, 1e-9 * f3.a, 'a drag keeps the scale');
+  closeTo(now[0], end[0], TOL_PX, 'the grabbed vertex is under the pointer in x');
+  closeTo(now[1], end[1], TOL_PX, 'and in y');
+  closeTo(f4.x[0] - f3.x[0], -40 / (f3.a * f3.k), 2 * TOL_PX / (f3.a * f3.k), 'x shifted by the drag distance in data units');
+  closeTo(f4.y[0] - f3.y[0], 25 / (f3.d * f3.k), 2 * TOL_PX / (f3.a * f3.k), 'y shifted by the drag distance in data units');
+  expect(await onRay(page, end), 'the rays moved with the drag').toBe(true);
+  expect((await markup(page)) !== (await page.evaluate(() => window.ORIG)), 'the view is not the original').toBe(true);
+
+  // double-click resets: onview(null), and the markup is the first draw's, byte for byte
+  await page.mouse.dblclick(end[0], end[1]);
+  expect(await page.evaluate(() => window.LAST), 'reset reports null').toBeNull();
+  expect(await markup(page), 'double-click restores the original markup').toBe(await page.evaluate(() => window.ORIG));
+
+  // reset() does the same from code
+  await page.mouse.move(c0[0], c0[1]);
+  await page.mouse.wheel(0, -100);
+  expect(await markup(page) !== (await page.evaluate(() => window.ORIG)), 'zoomed again').toBe(true);
+  await page.evaluate(() => window.STOP.reset());
+  expect(await page.evaluate(() => window.LAST), 'reset() reports null').toBeNull();
+  expect(await markup(page), 'reset() restores the original markup').toBe(await page.evaluate(() => window.ORIG));
+  await page.evaluate(() => window.STOP());
+});
+
+// #958 (O1, layout2D): the pointer on a glass polygon, away from any ray, emits the element and the tooltip shows it. Expected values are computed here from the fixture's profile points:
+// R = the circle through three profile points (the vertex and two points either side of it, centre on the axis), signed positive when its centre lies at greater z; f = the lensmaker equation for a thick lens in air,
+// 1/f = (n - 1) [1/R1 - 1/R2 + (n - 1) ct / (n R1 R2)], with ct the vertex thickness. The fit may use other points of the profile, so R and f are compared within the sampling noise of a 41-point profile.
+test.skip('lens hover reads the element', async ({ page }) => {
+  const layout = layoutFixture('analysis-glasses'), S = layout.surfaces;
+  // The centre z of the circle through p, q, r (circumcentre formula), minus the vertex z, is the signed radius when the centre is on the axis.
+  const radius = (prof) => {
+    const [[ax, ay], [bx, by], [cx, cy]] = [prof[5], prof[20], prof[35]], D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+    return ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / D - prof[20][0];
+  };
+  const want = [[0, 1], [2, 3], [4, 5]].map(([i, j], n) => {
+    const g = S[i].glass, r1 = radius(S[i].profile), r2 = radius(S[j].profile), ct = S[j].z - S[i].z;
+    return { element: n + 1, surface: i, glass: g.name, nd: g.nd, vd: g.vd, r1, r2, ct, diameter: 2 * Math.max(...S[i].profile.concat(S[j].profile).map((p) => Math.abs(p[1]))), f: 1 / ((g.nd - 1) * (1 / r1 - 1 / r2 + (g.nd - 1) * ct / (g.nd * r1 * r2))) };
+  });
+  expect(want.map((w) => w.glass), 'the triplet\'s glasses').toEqual(['N-SK16', 'F2', 'N-SK16']);
+  expect(want[1].f, 'the middle element is the diverging flint').toBeLessThan(0);
+  await bind(page, 'layout2D-glasses');
+  const rel = (got, exp, tol, what) => expect(Math.abs(got - exp), `${what}: ${got} vs ${exp}`).toBeLessThanOrEqual(tol * Math.abs(exp));
+  for (const w of want) {
+    // the point of the polygon (where the browser's hit test finds the polygon) farthest from every drawn ray run, by distance to the runs' segments in client px
+    const at = await page.evaluate((i) => {
+      const poly = window.HOST.querySelector(`polygon[data-surface="${i}"]`), to = window.T.proj(poly), pts = window.T.pts(poly);
+      poly.scrollIntoView({ block: 'center' });
+      const segs = [];
+      window.HOST.querySelectorAll('polyline[data-field]').forEach((m) => { const q = window.T.pts(m).map((p) => window.T.proj(m)(p)); for (let j = 1; j < q.length; j++) segs.push([q[j - 1], q[j]]); });
+      const dist = (c, [u, v]) => { const dx = v[0] - u[0], dy = v[1] - u[1], t = Math.max(0, Math.min(1, ((c[0] - u[0]) * dx + (c[1] - u[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(c[0] - u[0] - t * dx, c[1] - u[1] - t * dy); };
+      const zs = pts.map((p) => p[0]), z0 = Math.min(...zs), z1 = Math.max(...zs), y1 = Math.max(...pts.map((p) => p[1]));
+      let best = null;
+      for (let a = 0; a <= 100; a++) for (let b = 0; b <= 100; b++) {
+        const [x, y] = to([z0 + (z1 - z0) * (0.1 + 0.8 * a / 100), y1 * (-0.95 + 1.9 * b / 100)]);
+        if (document.elementFromPoint(x, y) !== poly) continue;
+        const clear = Math.min(...segs.map((s) => dist([x, y], s)));
+        if (!best || clear > best.clear) best = { x, y, clear };
+      }
+      return best;
+    }, w.surface);
+    expect(at, `element ${w.element}: a polygon point to hover`).not.toBeNull();
+    expect(at.clear, `element ${w.element}: farther than interact's 24 px reach from every ray run`).toBeGreaterThan(24.5);
+    const ev = await hoverAt(page, at.x, at.y);
+    expect(ev, `element ${w.element} hovered`).not.toBeNull();
+    expect([ev.field, ev.ray, ev.series], 'a lens is not a ray or a series').toEqual([undefined, undefined, undefined]);
+    expect(ev.element, 'element').toBe(w.element);
+    expect(ev.glass, 'glass').toBe(w.glass);
+    expect(ev.nd, 'nd').toBe(w.nd);
+    expect(ev.vd, 'vd').toBe(w.vd);
+    rel(ev.r1, w.r1, 0.03, `element ${w.element} R1`);
+    rel(ev.r2, w.r2, 0.03, `element ${w.element} R2`);
+    expect(Math.abs(ev.ct - w.ct), 'ct').toBeLessThanOrEqual(0.01);
+    expect(Math.abs(ev.diameter - w.diameter), 'diameter').toBeLessThanOrEqual(0.01);
+    rel(ev.f, w.f, 0.015, `element ${w.element} f`);
+    // the tooltip: five lines in the user's layout, numbers to the CR's digits (R and f 1 decimal, CT and diameter 2, nd 4, vd 2), a true minus sign
+    const lines = (await page.evaluate(() => window.HOST.querySelector('.eleo-hover__tip').textContent)).split('\n');
+    expect(lines, 'five lines').toHaveLength(5);
+    const num = (s) => +s.replace('−', '-');
+    expect(lines[0], 'line 1').toBe(`element ${w.element} · ${w.glass}`);
+    expect(lines[1], 'line 2').toBe(`nd ${w.nd.toFixed(4)} · vd ${w.vd.toFixed(2)}`);
+    const l3 = lines[2].match(/^R1 (\S+) · R2 (\S+) mm$/), l4 = lines[3].match(/^CT (\d+\.\d{2}) · ⌀ (\d+\.\d{2}) mm$/), l5 = lines[4].match(/^f ≈ (\S+) mm$/);
+    expect(l3, `line 3 "${lines[2]}"`).not.toBeNull();
+    expect(l4, `line 4 "${lines[3]}"`).not.toBeNull();
+    expect(l5, `line 5 "${lines[4]}"`).not.toBeNull();
+    for (const t of [l3[1], l3[2], l5[1]]) expect(t, 'one decimal, a true minus').toMatch(/^[−]?\d+\.\d$/);
+    rel(num(l3[1]), w.r1, 0.03, 'tooltip R1'); rel(num(l3[2]), w.r2, 0.03, 'tooltip R2');
+    closeTo(+l4[1], w.ct, 0.01, 'tooltip CT'); closeTo(+l4[2], w.diameter, 0.01, 'tooltip diameter');
+    rel(num(l5[1]), w.f, 0.015, 'tooltip f');
+  }
+  await page.evaluate(() => window.STOP());
+});
