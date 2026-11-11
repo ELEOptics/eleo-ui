@@ -1714,3 +1714,232 @@ test('a cut run hovers at its data index', async ({ page }) => {
   expect((await hover(40, 190)).segment, 'an invalid data-from (a list) reads 0').toEqual([0, 1]);
   await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Keyboard access (plan #804 M4, outcome O6; issue #834 wrote these skipped, #835 builds it, #839 unskips them).
+// oracle: property (each key's event equals the pointer's event at the same point; the pointer's drawn position comes from the data
+// group's matrix attribute through window.Z, never getScreenCTM) and closed-form (zoom about a point, range' = p + (range - p) / k; the test's
+// own sine data gives every point's coordinates).
+//
+// The contract these tests fix for #835:
+//  - `interact(el, opts)` makes the host focusable: it sets tabindex="0" unless the host already has a tabindex attribute (any value stays).
+//  - Keys act on the focused host (keydown on it), for a curve (the MTF-like plot of mountZoom). The keyboard has a current point
+//    (series position s, drawn point i), none until the first arrow. The first arrow of any direction lands on series 0, point 0.
+//      ArrowRight / ArrowLeft  the next / previous point of the current series, clamped at the ends (no wrap, so no event at an end).
+//      ArrowDown / ArrowUp     the next / previous series in document order, at the same point index (clamped to that series' length), clamped.
+//    Each step sends onhover with the event the pointer sends at that point's drawn position (same series, panel, x, y, no `interpolated`),
+//    and the hover dot and tooltip follow, as for the pointer.
+//  - Enter sends onselect with the event a click on the current point's mark sends (SelectEvent); with no current point it sends nothing.
+//  - Escape clears the current point: onhover(null), the overlay hidden, and the next arrow starts again at series 0, point 0.
+//  - `+` zooms in, `-` zooms out, `0` resets (onview(null)); zoom needs `onview`. A key zooms by the wheel's notch factor k (in by k, out by 1 / k)
+//    about the current point, or the frame's centre when there is none. The current point survives the redraw it causes.
+//  - A key it acts on is preventDefault'ed (arrows and + - do scroll or zoom the page otherwise). A key it does not act on is not: Tab leaves the host
+//    (no keyboard trap), and any key with ctrl, meta or alt is the browser's.
+//  - stop() removes the key listeners.
+// ---------------------------------------------------------------------------------------------------------------------------
+
+// Point i of series s of mountZoom's curve, from its own data: x = i / 4, y = sin(x + s).
+const sinePoint = (s, i) => [i / 4, Math.sin(i / 4 + s)];
+
+// Rebinds interact on mountZoom's host with hover, select and view recorded, on a fresh draw; the keyboard starts with no current point.
+const bindKeys = (page) => page.evaluate(() => {
+  window.STOP();
+  window.HOVER = []; window.SELECT = []; window.VIEWS = []; window.LAST = undefined;
+  window.HOST.innerHTML = window.DRAW(null);
+  window.STOP = window.ELEO.interact(window.HOST, {
+    onhover: (ev) => window.HOVER.push(ev),
+    onselect: (ev) => window.SELECT.push(ev),
+    onview(v) { window.VIEWS.push(v); window.LAST = v; window.HOST.innerHTML = window.DRAW(v); },
+  });
+});
+async function mountKeys(page) {
+  await mountZoom(page, 'curve');
+  await bindKeys(page);
+  await page.evaluate(() => window.HOST.focus());
+}
+// Presses a key and returns the hover events it caused.
+async function pressHover(page, key) {
+  const n = await page.evaluate(() => window.HOVER.length);
+  await page.keyboard.press(key);
+  return page.evaluate((n) => window.HOVER.slice(n), n);
+}
+// The events the pointer sends at the drawn positions of these (series, index) points, on a fresh binding.
+async function pointerEvents(page, picks) {
+  await bindKeys(page);
+  const out = [];
+  for (const [s, i] of picks) {
+    const c = await toClient(page, 0, sinePoint(s, i));
+    await page.mouse.move(1, 1);
+    await page.mouse.move(c[0], c[1]);
+    out.push(await page.evaluate(() => window.HOVER.at(-1)));
+  }
+  await page.mouse.move(1, 1);
+  await bindKeys(page);
+  await page.evaluate(() => window.HOST.focus());
+  return out;
+}
+// A keyboard hover event against the pointer's: the same identity and the same point within TOL_PX.
+const sameHover = (kb, ptr, f, what) => {
+  expect(kb, `${what}: an event`).toBeTruthy();
+  expect(ptr, `${what}: the pointer's event`).toBeTruthy();
+  expect(kb.series, `${what}: series`).toEqual(ptr.series);
+  expect(kb.panel, `${what}: panel`).toEqual(ptr.panel);
+  expect(kb.interpolated, `${what}: a data point, not interpolated`).toBeUndefined();
+  closeTo(kb.x, ptr.x, TOL_PX / (Math.abs(f.a) * f.k), `${what}: x`);
+  closeTo(kb.y, ptr.y, TOL_PX / (Math.abs(f.d) * f.k), `${what}: y`);
+};
+
+test.describe.skip('keyboard', () => { // #834: unskipped by #839
+  test('the host is focusable unless it sets tabindex', async ({ page }) => {
+    await mountZoom(page, 'curve');
+    const got = await page.evaluate(() => {
+      const make = (attr) => { const h = document.createElement('div'); if (attr !== null) h.setAttribute('tabindex', attr); h.innerHTML = window.DRAW(null); document.body.append(h); const stop = window.ELEO.interact(h, { onhover: () => {} }); const v = h.getAttribute('tabindex'); stop(); h.remove(); return v; };
+      window.STOP();
+      const own = make(null);
+      return { plain: own, set: make('-1') };
+    });
+    expect(got.plain, 'a host without tabindex gets 0').toBe('0');
+    expect(got.set, 'a tabindex the host set stays').toBe('-1');
+    await page.evaluate(() => { window.STOP = window.ELEO.interact(window.HOST, { onhover: () => {} }); window.HOST.focus(); });
+    expect(await page.evaluate(() => document.activeElement === window.HOST), 'focus() lands on the host').toBe(true);
+    await page.evaluate(() => window.STOP());
+  });
+
+  test('arrows step points and series with the pointer\'s events', async ({ page }) => {
+    await mountZoom(page, 'curve');
+    // right x4, left, down, up: the points (series, index) the keyboard visits
+    const keys = ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'];
+    const visits = [[0, 0], [0, 1], [0, 2], [0, 3], [0, 2], [1, 2], [0, 2]];
+    const ptr = await pointerEvents(page, visits);
+    const f = (await frames(page))[0];
+    expect(await page.evaluate(() => document.activeElement === window.HOST), 'the host is focused').toBe(true);
+    for (let j = 0; j < keys.length; j++) {
+      const evs = await pressHover(page, keys[j]);
+      expect(evs, `${keys[j]} sends one hover`).toHaveLength(1);
+      sameHover(evs[0], ptr[j], f, `${keys[j]} to ${visits[j]}`);
+    }
+    // the dot sits on the current point, as for the pointer
+    const c = await toClient(page, 0, sinePoint(0, 2));
+    const dot = await page.locator('.eleo-hover__dot:visible').first().evaluate((el) => { const r = el.getBoundingClientRect(); return [(r.left + r.right) / 2, (r.top + r.bottom) / 2]; });
+    closeTo(dot[0], c[0], 0.5, 'dot x');
+    closeTo(dot[1], c[1], 0.5, 'dot y');
+    // clamped, not wrapped: up from the first series and left from the first point send nothing
+    expect(await pressHover(page, 'ArrowUp'), 'up from series 0 sends nothing').toHaveLength(0);
+    for (let j = 0; j < 2; j++) await pressHover(page, 'ArrowLeft');
+    expect(await pressHover(page, 'ArrowLeft'), 'left from point 0 sends nothing').toHaveLength(0);
+    // the page does not scroll under the arrows
+    const scroll = await page.evaluate(() => window.scrollY);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    expect(await page.evaluate(() => window.scrollY), 'the arrows do not scroll the page').toBe(scroll);
+    // stop() removes the key listeners
+    await page.evaluate(() => window.STOP());
+    expect(await pressHover(page, 'ArrowRight'), 'stopped: no more events').toHaveLength(0);
+  });
+
+  test('Enter selects the current point\'s mark and Escape clears', async ({ page }) => {
+    await mountKeys(page);
+    await page.keyboard.press('Enter');
+    expect(await page.evaluate(() => window.SELECT), 'Enter with no current point selects nothing').toEqual([]);
+    await page.keyboard.press('ArrowDown'); // series 0, point 0
+    await page.keyboard.press('ArrowDown'); // series 1, point 0
+    await page.keyboard.press('Enter');
+    const viaKey = await page.evaluate(() => window.SELECT.slice());
+    expect(viaKey, 'one select event').toHaveLength(1);
+    // the pointer's: a click on series 1's mark
+    await bindKeys(page);
+    await page.evaluate(() => window.HOST.querySelector('[data-series="1"]').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const viaClick = await page.evaluate(() => window.SELECT.slice());
+    expect(viaClick, 'the click sends one').toHaveLength(1);
+    expect(viaKey[0].series.index, 'series 1').toBe(1);
+    expect(viaKey[0], 'Enter sends what a click on the mark sends').toEqual(viaClick[0]);
+
+    // Escape: hover null, overlay hidden, Enter selects nothing, the next arrow starts over at series 0, point 0
+    await bindKeys(page);
+    await page.evaluate(() => window.HOST.focus());
+    for (const k of ['ArrowRight', 'ArrowRight', 'ArrowDown']) await page.keyboard.press(k);
+    const esc = await pressHover(page, 'Escape');
+    expect(esc, 'Escape sends one hover, null').toEqual([null]);
+    await expect(page.locator('.eleo-hover__dot:visible'), 'the dot is hidden').toHaveCount(0);
+    await page.keyboard.press('Enter');
+    expect(await page.evaluate(() => window.SELECT), 'Enter after Escape selects nothing').toEqual([]);
+    const again = await pressHover(page, 'ArrowRight');
+    expect(again, 'the next arrow sends one hover').toHaveLength(1);
+    expect(again[0].series.index, 'at series 0').toBe(0);
+    closeTo(again[0].x, sinePoint(0, 0)[0], 1e-9, 'at point 0');
+    await page.evaluate(() => window.STOP());
+  });
+
+  test('+ - 0 zoom about the current point and reset', async ({ page }) => {
+    await mountKeys(page);
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight'); // series 0, point 3
+    const f0 = (await frames(page))[0], p = sinePoint(0, 3), c0 = await toClient(page, 0, p);
+    const scroll = await page.evaluate(() => window.scrollY);
+    await page.keyboard.press('+');
+    expect(await views(page), 'one view event per key').toHaveLength(1);
+    expect(await page.evaluate(() => window.scrollY), 'the key does not scroll the page').toBe(scroll);
+    const f1 = (await frames(page))[0], k = span(f0.x) / span(f1.x);
+    expect(k, '+ zooms in').toBeGreaterThan(1);
+    closeTo(span(f0.y) / span(f1.y), k, 1e-6 * k, 'the same factor on y');
+    rangeIs(f1.x, [p[0] + (f0.x[0] - p[0]) / k, p[0] + (f0.x[1] - p[0]) / k], Math.abs(f1.a) * f1.k, 'x range about the current point');
+    rangeIs(f1.y, [p[1] + (f0.y[0] - p[1]) / k, p[1] + (f0.y[1] - p[1]) / k], Math.abs(f1.d) * f1.k, 'y range about the current point');
+    const under = await toData(page, 0, c0);
+    closeTo(under[0], p[0], TOL_PX / (Math.abs(f1.a) * f1.k), 'the current point stays under its old position');
+    const v1 = (await views(page))[0];
+    rangeIs(v1.x, f1.x, Math.abs(f1.a) * f1.k, 'event x');
+    rangeIs(v1.y, f1.y, Math.abs(f1.d) * f1.k, 'event y');
+    // - undoes it
+    await page.keyboard.press('-');
+    const f2 = (await frames(page))[0];
+    expect(await views(page), 'two view events').toHaveLength(2);
+    closeTo(span(f2.x), span(f0.x), TOL_PX / (Math.abs(f2.a) * f2.k) * 2, '- restores the x span');
+    closeTo(f2.x[0], f0.x[0], TOL_PX / (Math.abs(f2.a) * f2.k) * 2, 'and the x range start');
+    // the current point survives the redraw: the next arrow is point 4 of series 0
+    await page.keyboard.press('+');
+    const evs = await pressHover(page, 'ArrowRight');
+    expect(evs, 'one hover after a zoom').toHaveLength(1);
+    expect(evs[0].series.index, 'still series 0').toBe(0);
+    closeTo(evs[0].x, sinePoint(0, 4)[0], 1e-9, 'the next point after the zoom');
+    // 0 resets: onview(null), and the markup is the first draw's
+    await page.keyboard.press('0');
+    expect(await page.evaluate(() => window.LAST), '0 reports null').toBeNull();
+    expect(await markup(page), '0 restores the original markup').toBe(await page.evaluate(() => window.ORIG));
+    await page.evaluate(() => window.STOP());
+  });
+
+  test('zoom keys with no current point zoom about the frame centre', async ({ page }) => {
+    await mountKeys(page);
+    const f0 = (await frames(page))[0];
+    await page.keyboard.press('+');
+    const f1 = (await frames(page))[0], k = span(f0.x) / span(f1.x);
+    expect(k, '+ zooms in').toBeGreaterThan(1);
+    const tol = TOL_PX / (Math.abs(f1.a) * f1.k), tolY = TOL_PX / (Math.abs(f1.d) * f1.k);
+    closeTo((f1.x[0] + f1.x[1]) / 2, (f0.x[0] + f0.x[1]) / 2, tol, 'the x centre stays');
+    closeTo((f1.y[0] + f1.y[1]) / 2, (f0.y[0] + f0.y[1]) / 2, tolY, 'the y centre stays');
+    await page.evaluate(() => window.STOP());
+  });
+
+  test('keys it does not act on are left to the browser', async ({ page }) => {
+    await mountKeys(page);
+    const got = await page.evaluate(() => {
+      const fire = (init) => { const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }); window.HOST.dispatchEvent(e); return e.defaultPrevented; };
+      const left = { ctrl0: fire({ key: '0', ctrlKey: true }), meta0: fire({ key: '0', metaKey: true }), ctrlPlus: fire({ key: '+', ctrlKey: true }), altRight: fire({ key: 'ArrowRight', altKey: true }), tab: fire({ key: 'Tab' }), letter: fire({ key: 'a' }) };
+      const views = window.VIEWS.length, hovers = window.HOVER.length;
+      const acted = { plus: fire({ key: '+' }), right: fire({ key: 'ArrowRight' }) };
+      // a host without zoom leaves + - 0 alone
+      window.STOP();
+      window.STOP = window.ELEO.interact(window.HOST, { onhover: () => {} });
+      const noZoom = { plus: fire({ key: '+' }), zero: fire({ key: '0' }) };
+      return { left, acted, noZoom, views, hovers, viewsAfter: window.VIEWS.length };
+    });
+    expect(got.left, 'modified keys, Tab and other letters are not prevented').toEqual({ ctrl0: false, meta0: false, ctrlPlus: false, altRight: false, tab: false, letter: false });
+    expect([got.views, got.hovers], 'and do nothing').toEqual([0, 0]);
+    expect(got.acted, 'plain + and ArrowRight are prevented').toEqual({ plus: true, right: true });
+    expect(got.viewsAfter, 'the plain + zoomed').toBe(1);
+    expect(got.noZoom, 'without onview + and 0 are not prevented').toEqual({ plus: false, zero: false });
+    // Tab really leaves the host
+    await page.evaluate(() => { window.STOP(); window.HOST.focus(); });
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.activeElement === window.HOST), 'Tab moves focus off the host').toBe(false);
+  });
+});
