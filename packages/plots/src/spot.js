@@ -71,7 +71,7 @@ function spotPanel(x, y, side, half, o) {
   if (ay >= 6 && ay <= side - 6) cross += " M" + r2(x + 6) + "," + r2(y + ay) + " H" + r2(x + side - 6);
   if (ax >= 6 && ax <= side - 6) cross += " M" + r2(x + ax) + "," + r2(y + 6) + " V" + r2(y + side - 6);
   if (cross) g += '<path d="' + cross.slice(1) + '" fill="none" stroke="var(--plot-grid)"/>';
-  g += '<svg x="' + +x.toFixed(2) + '" y="' + +y.toFixed(2) + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '"><g transform="matrix(' + [s, 0, 0, -s, r2(cx - c0[0] * s), r2(cx + c0[1] * s)].join(" ") + ')">';
+  g += '<svg x="' + +x.toFixed(2) + '" y="' + +y.toFixed(2) + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '" data-view="spot"><g transform="matrix(' + [s, 0, 0, -s, r2(cx - c0[0] * s), r2(cx + c0[1] * s)].join(" ") + ')">';
   (o.series || []).forEach(function (se, si) {
     var ids = ' data-series="' + si + '"' + (se.role !== undefined ? ' data-role="' + esc(se.role) + '"' : "") + (se.label != null && String(se.label) !== "" ? ' data-label="' + esc(se.label) + '"' : "") + (o.panel !== undefined ? ' data-panel="' + o.panel + '"' : "") + (o.cell ? ' data-cell="' + o.cell + '"' : "");
     var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");

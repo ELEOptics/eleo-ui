@@ -1083,6 +1083,30 @@ test('a data redraw keeps the view', async ({ page }) => {
   await page.evaluate(() => window.STOP());
 });
 
+// #943 (O5, curve): a panels curve whose points are all isolated draws dots-only paths, like a spot; it still zooms as a curve ({ x, y }), because only spot's own panels carry its marker.
+test('a sparse panel curve zooms as a curve', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await installZ(page);
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'width:600px;margin:20px auto';
+    document.querySelector('.theme[data-theme="light"]').appendChild(host);
+    host.innerHTML = window.ELEO.curve({ panels: [{ series: [{ points: [[2, 0.2], [3, NaN], [7, 0.7]], index: 0 }] }], x: { range: [0, 10], label: 'x' }, y: { range: [0, 1], label: 'y' }, width: 600 });
+    window.HOST = host; window.VIEWS = [];
+    window.STOP = window.ELEO.interact(host, { onview(v) { window.VIEWS.push(v); } });
+    host.scrollIntoView({ block: 'center' });
+  });
+  const f0 = (await frames(page))[0], c = await toClient(page, 0, [5, 0.5]);
+  await page.mouse.move(c[0], c[1]);
+  await page.mouse.wheel(0, -100);
+  const v = await views(page);
+  expect(v, 'one view event').toHaveLength(1);
+  expect(Object.keys(v[0]).sort(), 'a curve view, not a spot view').toEqual(['x', 'y']);
+  expect(span(v[0].x), 'zoomed in').toBeLessThan(span(f0.x));
+  await page.evaluate(() => window.STOP());
+});
+
 // #825 (O5, spot): the panels zoom together. The window is square, the same in every panel; a wheel off-centre shifts the centre by p + (c - p) / k.
 test('spot panels share one view', async ({ page }) => {
   await mountZoom(page, 'spot');

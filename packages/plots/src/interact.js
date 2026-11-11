@@ -148,15 +148,12 @@ function frames(host) {
   return out;
 }
 
-/* Which kind of plot a host holds, from its markup: "map" (an image carrying data-range), "spot" (series paths that are dots only: no L), "curve" (the other series paths and polylines), or null (bars, layouts, nothing drawn). */
+/* Which kind of plot a host holds, from its markup: "map" (an image carrying data-range), "spot" (panels carrying spot's own data-view="spot" marker), "curve" (the other series paths and polylines), or null (bars, layouts, nothing drawn). */
 function kindOf(host) {
   if (host.querySelector("image[data-range]")) return "map";
   var marks = host.querySelectorAll("[data-series]");
   if (!marks.length || host.querySelector("rect[data-series]")) return null;
-  for (var i = 0; i < marks.length; i++) {
-    var d = marks[i].localName === "path" && marks[i].getAttribute("d");
-    if (d && /h\s*-?[\d.]/.test(d) && d.indexOf("L") < 0) return "spot";
-  }
+  if (host.querySelector('[data-view="spot"]')) return "spot";
   return "curve";
 }
 
