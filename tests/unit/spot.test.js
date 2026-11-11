@@ -714,3 +714,29 @@ test('series data attributes', () => {
     assert.deepEqual(a, { 'data-series': String(k % per), 'data-panel': String(cell), 'data-cell': `${r},${c}` }, `path ${k}`);
   });
 });
+
+// Plan #804 M3 (#827): `view: { center, half }` is one square window for every panel (spot and throughFocus).
+// oracle: closed form: with view { center: [5, -3], half: 2 } each panel's data group maps x 3 and 7 to its frame's edges and y -5 and -1 to the bottom and top; the ticks lie in the window; no view (or an invalid one) draws the markup unchanged.
+test('view windows every panel', () => {
+  const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const view = { center: [5, -3], half: 2 };
+  const edges = (svg, n) => {
+    const gs = panelGroups(svg);
+    assert.equal(gs.length, n, `${n} panels`);
+    gs.forEach((g, i) => {
+      const e = (p) => toPx(g.M, p);
+      assert.ok(Math.abs(e([3, -3])[0]) < 1e-6 && Math.abs(e([7, -3])[0] - g.box.pw) < 1e-6, `panel ${i}: x 3 and 7 on the left and right edges`);
+      assert.ok(Math.abs(e([5, -1])[1]) < 1e-6 && Math.abs(e([5, -5])[1] - g.box.ph) < 1e-6, `panel ${i}: y -1 and -5 on the top and bottom edges`);
+    });
+  };
+  const panels = [{ series: [{ points: [[5, -3], [6, -2]] }] }, { series: [{ points: [[4, -4]] }] }];
+  const base = ELEO.spot({ width: 400, panels });
+  edges(ELEO.spot({ width: 400, panels, view }), 2);
+  edges(ELEO.spot({ width: 400, panels, view, scale: 'auto' }), 2);
+  edges(ELEO.throughFocus({ data: sample, view }), sample.throughFocus.spots.length * sample.throughFocus.defocus.length);
+  const labels = (svg) => [...svg.matchAll(/<text class="eleo-tick"[^>]*>(\S+)<\/text>/g)].map((m) => +m[1].replace('−', '-')).filter(Number.isFinite);
+  assert.ok(labels(ELEO.spot({ width: 400, panels, view })).every((v) => (v > 3 && v < 7) || (v > -5 && v < -1)), 'tick labels lie inside the window');
+  assert.equal(ELEO.spot({ width: 400, panels, view: undefined }), base, 'no view: markup unchanged');
+  [{ center: [0, 0], half: 0 }, { center: [0, 0], half: -1 }, { center: [NaN, 0], half: 1 }, { center: [0], half: 1 }, null, 3].forEach((v) => assert.equal(ELEO.spot({ width: 400, panels, view: v }), base, `invalid view ${JSON.stringify(v)} is ignored`));
+  assert.equal(ELEO.throughFocus({ data: sample, view: { center: [0, 0], half: 0 } }), ELEO.throughFocus({ data: sample }), 'throughFocus ignores an invalid view');
+});
