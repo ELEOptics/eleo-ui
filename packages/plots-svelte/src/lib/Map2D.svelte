@@ -14,7 +14,7 @@
   /** @type {TypedProps | SampleProps} */
   let { label, width, onhover, onselect, onview, view: viewProp, range = $bindable(), ...props } = $props();
   let inner = $state(null); // the zoom the typed map keeps across data changes until reset; a `view` prop given by the caller controls it instead
-  const view = $derived(viewProp ?? inner);
+  const view = $derived(viewProp !== undefined ? viewProp : inner);
   const setView = (/** @type {any} */ v) => { inner = v; onview?.(v); };
   let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
   /** @type {HTMLCanvasElement | undefined} */

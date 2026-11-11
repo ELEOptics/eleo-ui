@@ -165,3 +165,29 @@ test('view survives a data redraw', async ({ page }) => {
   await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
   await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
 });
+
+// Plan #804, outcome O5 (issue #946, CR #941). oracle: the axis text after `view = null` equals the default view's axis text.
+test('a controlled view resets with null', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.addScriptTag({ content: await bundle(`import ViewHarness from ${JSON.stringify(viewHarness)};\nwindow.WRAPPERS.ViewHarness = ViewHarness;`) });
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'vc';
+    host.style.width = '600px';
+    document.body.append(host);
+    window.WRAPPERS.mount(window.WRAPPERS.ViewHarness, { target: host, props: { controlled: true } });
+  });
+  const svg = page.locator('#vc svg').first();
+  await expect(svg).toBeVisible();
+  await svg.scrollIntoViewIfNeeded();
+  const ticks = () => page.locator('#vc').evaluate((el) => el.querySelector('svg').innerHTML);
+  const axisText = (s) => s.match(/<text[^>]*>[^<]*<\/text>/g).join('');
+  const first = await ticks();
+  const box = await svg.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
+  await page.evaluate(() => window.setView(null));
+  await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
+});
