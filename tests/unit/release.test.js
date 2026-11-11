@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -380,19 +380,52 @@ test('map2D changeset became minors',
 // oracle: spec semver (a `>=X.Y.Z <M` range admits v when X.Y.Z <= v and v's major < M).
 // Issue #598 (plan #512 M3 review): the wrappers draw at a width, which needs plots 0.8.0 (row O's minor, ADR-0003), so the
 // peer also excludes 0.7.0, where rayFan ignores `width`.
-test('plots-svelte peers plots >=0.8.0', () => {
-  const range = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
+// Issue #1006 (CR #1005, plan #804 M4): the wrappers import `interact`, so the floor is the plots version this release makes:
+// plots' package.json version plus the highest bump among the pending plots changesets. The test derives it, not a fixed
+// 0.10.0, so a plots release on main before the merge (the pending bumps then add to a higher version) turns it red.
+// Read as the consumed-changeset pairs above: while a plots changeset is pending, the floor is the version it makes; once
+// `changeset version` consumed them all (the Version Packages PR, and main after), plots is already at the floor or above it,
+// so the floor must be at most the plots version and admit it.
+const peerProblem = (dir, version, range) => {
   const m = range.match(/^>=(\d+)\.(\d+)\.(\d+) <(\d+)$/);
-  assert.ok(m, `the plots peer ${range} is not >=X.Y.Z <M`);
-  const [lo, hi] = [m.slice(1, 4).map(Number), Number(m[4])];
-  const admits = (v) => {
-    const p = v.split('.').map(Number);
-    const cmp = p.map((n, i) => n - lo[i]).find((d) => d !== 0) ?? 0;
-    return cmp >= 0 && p[0] < hi;
-  };
-  assert.ok(!admits('0.6.0'), `${range} admits plots 0.6.0, which has no map2D`);
-  assert.ok(!admits('0.7.0'), `${range} admits plots 0.7.0, which ignores width`);
-  assert.ok(admits('0.8.0'), `${range} excludes plots 0.8.0`);
+  if (!m) return `the plots peer ${range} is not >=X.Y.Z <M`;
+  const floor = m.slice(1, 4).map(Number);
+  const rank = { patch: 0, minor: 1, major: 2 };
+  const pending = readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md')
+    .map((f) => readFileSync(join(dir, f), 'utf8').match(/^"@eleoptics\/plots":\s*(\w+)\s*$/m)?.[1]).filter(Boolean);
+  const [maj, min, pat] = version.split('.').map(Number);
+  if (pending.length) {
+    const top = pending.reduce((a, b) => (rank[b] > rank[a] ? b : a), 'patch');
+    const next = top === 'major' ? [maj + 1, 0, 0] : top === 'minor' ? [maj, min + 1, 0] : [maj, min, pat + 1];
+    return floor.join('.') === next.join('.') ? null : `${range} is not the plots this release makes (${next.join('.')})`;
+  }
+  const cmp = [maj, min, pat].map((n, i) => n - floor[i]).find((d) => d !== 0) ?? 0;
+  if (cmp < 0) return `${range} excludes the released plots ${version}`;
+  return maj < Number(m[4]) ? null : `${range} excludes the released plots ${version}`;
+};
+
+test('plots-svelte peers the plots that ships interact', () => {
+  const range = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
+  assert.equal(peerProblem(join(repo, '.changeset'), manifest('plots').version, range), null);
+});
+
+test('the plots peer check holds in both the pending and the released state', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'eleo-peer-'));
+  try {
+    writeFileSync(join(dir, 'README.md'), '# changesets\n');
+    // released: no pending changeset, plots at 0.10.0
+    assert.equal(peerProblem(dir, '0.10.0', '>=0.10.0 <1'), null);
+    assert.equal(peerProblem(dir, '0.11.0', '>=0.10.0 <1'), null);
+    assert.match(peerProblem(dir, '0.10.0', '>=0.11.0 <1'), /excludes the released plots/);
+    assert.match(peerProblem(dir, '1.0.0', '>=0.10.0 <1'), /excludes the released plots/);
+    // pending: a plots minor on 0.9.0 makes 0.10.0
+    writeFileSync(join(dir, 'interact.md'), '---\n"@eleoptics/plots": minor\n---\n\nNew.\n');
+    assert.equal(peerProblem(dir, '0.9.0', '>=0.10.0 <1'), null);
+    assert.match(peerProblem(dir, '0.9.0', '>=0.8.0 <1'), /not the plots this release makes \(0\.10\.0\)/);
+    assert.match(peerProblem(dir, '0.10.0', '>=0.10.0 <1'), /\(0\.11\.0\)/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // Plan #389, issue #456 (CR #455), retired by #457 (plan #464): the peer is now >=0.7.0, which has the typed map2D, so the
