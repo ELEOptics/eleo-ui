@@ -5,6 +5,7 @@ import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
 import { layoutText, layoutWeight } from './scale.js';
 import { keyLayout, keyMarkup } from './key.js';
+import { vertexRadius, thickLensF } from './lens.js';
 
 // plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
 // The size is an inline style on each text (ADR-0003), since the class's size would beat an attribute.
@@ -247,10 +248,21 @@ export function layout2D(o) {
   // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
   // in a presentation attribute is not safe. A style with var() is never dropped, so the fill attribute never applies to these;
   // glassFill falls back from the band tokens to crown and flint itself. "crown" and "flint" draw as before.
-  var fills = glassFill(drawnGlasses(S)), bodies = ""; // mirror bodies, drawn after the rays (CR #381)
+  var fills = glassFill(drawnGlasses(S)), bodies = "", element = 0; // mirror bodies, drawn after the rays (CR #381)
+  // CR #958: a glass polygon's element properties as data-* (1-based over glass polygons). r1 and r2 may read "Infinity" (a flat surface); any other non-finite value is left out.
+  function elementAttrs(a, b) {
+    var named = typeof a.glass === "object", name = named ? a.glass.name : a.glass, r1 = vertexRadius(a.profile), r2 = vertexRadius(b.profile), vz = function (p) { return p.reduce(function (v, q) { return Math.abs(q[1]) < Math.abs(v[1]) ? q : v; })[0]; };
+    var ct = vz(b.profile) - vz(a.profile), d = 2 * Math.max.apply(null, a.profile.concat(b.profile).map(function (q) { return Math.abs(q[1]); }));
+    var out = ' data-element="' + ++element + '" data-glass="' + esc(name) + '"';
+    function put(k, v, inf) { if (Number.isFinite(v) || (inf && v === Infinity)) out += " data-" + k + '="' + v + '"'; }
+    if (named) { put("nd", a.glass.nd); put("vd", a.glass.vd); }
+    put("r1", r1, true); put("r2", r2, true); put("ct", ct); put("diameter", d);
+    if (named) put("f", thickLensF(a.glass.nd, r1, r2, ct));
+    return out;
+  }
   S.forEach(function (a, i) {
     var b = S[i + 1], obj = a.glass && typeof a.glass === "object";
-    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '" ' + NS + "/>";
+    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '"' + elementAttrs(a, b) + " " + NS + "/>";
     // A mirror is a --mech body with a flat back (CR #371), drawn after the ray group (CR #381), hatched at 45 degrees every 32 px (mock A); its clipPath id is a hash of its points, so it is
     // deterministic and one polygon never gets two ids. An obscuration is an opaque bar from -sd to +sd (CR #360; the image line's ink and width),
     // left out when it lies within a mirror body (its z inside, its sd from the mirror's hole up to the mirror's sd).

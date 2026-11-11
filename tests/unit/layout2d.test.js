@@ -7,6 +7,7 @@ import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as layout2dModule from '../../packages/plots/src/layout2d.js';
 import * as plots from '../../packages/plots/src/index.js';
+import { vertexRadius, thickLensF } from '../../packages/plots/src/lens.js';
 const { layoutBounds } = layout2dModule;
 
 const TOL = 0.01; // mm
@@ -1401,4 +1402,33 @@ test('layout data attributes', () => {
     });
     assert.ok(!/data-surface/.test(svg.replace(body, '')), `${name}: nothing outside the mm group is a surface`);
   }
+});
+
+// Plan #804 M3 (#962, CR #958): each glass polygon carries its element's properties.
+// oracle: lens.js's vertexRadius and thickLensF (tests/unit/lens.test.js checks them against closed forms and the triplet's radii and f); diameter is twice the largest |y| of the polygon's profiles (tests/interact.spec.js 'lens hover reads the element').
+test('glass polygons carry element properties', () => {
+  const L = fixture('analysis-glasses'), S = L.surfaces;
+  const polys = [...ELEO.layout2D({ data: L }).matchAll(/<polygon [^>]*data-element[^>]*>/g)].map((m) => Object.fromEntries([...m[0].matchAll(/ ([\w-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
+  assert.equal(polys.length, 3);
+  [[0, 1], [2, 3], [4, 5]].forEach(([i, j], k) => {
+    const a = polys[k], g = S[i].glass, r1 = vertexRadius(S[i].profile), r2 = vertexRadius(S[j].profile), ct = S[j].z - S[i].z;
+    assert.equal(a['data-surface'], String(i));
+    assert.equal(a['data-element'], String(k + 1));
+    assert.equal(a['data-glass'], g.name);
+    assert.equal(+a['data-nd'], g.nd);
+    assert.equal(+a['data-vd'], g.vd);
+    assert.equal(+a['data-r1'], r1);
+    assert.equal(+a['data-r2'], r2);
+    assert.ok(Math.abs(+a['data-ct'] - ct) < 1e-3, 'ct');
+    assert.ok(Math.abs(+a['data-diameter'] - 2 * Math.max(...S[i].profile.concat(S[j].profile).map((p) => Math.abs(p[1])))) < 1e-3, 'diameter');
+    assert.ok(Math.abs(+a['data-f'] - thickLensF(g.nd, r1, r2, ct)) < 1e-3 * Math.abs(+a['data-f']), 'f');
+  });
+  assert.ok(+polys[1]['data-f'] < 0 && Math.abs(+polys[1]['data-diameter'] - 20.83) < 0.01, 'element 2 is the diverging flint, 20.83 mm');
+  // a string glass has an element, a glass name and the geometry, but no nd, vd or f; a flat surface reads Infinity
+  const T = fixture('tolerance'), svg = ELEO.layout2D({ data: T });
+  const p = svg.match(/<polygon [^>]*data-element[^>]*>/)[0];
+  assert.ok(/data-element="1"/.test(p) && /data-glass="/.test(p) && /data-r1="/.test(p), 'string glass: element and geometry');
+  assert.ok(!/data-nd|data-vd|data-f=/.test(p), 'string glass: no nd, vd, f');
+  const flat = JSON.parse(JSON.stringify(L)); flat.surfaces[0].profile.forEach((q) => { q[0] = S[0].z; });
+  assert.ok(/data-r1="Infinity"/.test(ELEO.layout2D({ data: flat })), 'flat surface: Infinity');
 });
