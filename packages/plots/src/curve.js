@@ -77,7 +77,8 @@ function seriesMarkup(s, panel, wt, si, pi, z) {
     /* data-from of a piece is its uncut index across the path's runs: the finite points of the runs before it, plus its index in its own run. */
     runs.forEach(function (r) { cutPieces(r, z).forEach(function (c) { emit(c, base); }); base += r.length; });
   } else {
-    var all = pts.map(function (p) { return [+p[0], +p[1]]; }).filter(function (p) { return isFinite(p[0]) && isFinite(p[1]); });
+    if (pts.some(function (p) { return !isFinite(+p[0]) || !isFinite(+p[1]); })) return '<polyline points="' + pts.map(num).join(" ") + '"' + ids + attrs; // a non-finite point: the uncut polyline, which the unzoomed drawing makes (a browser may draw none of it)
+    var all = pts.map(function (p) { return [+p[0], +p[1]]; });
     if (all.length) cutPieces(all, z).forEach(function (c) { emit(c, 0); });
   }
   return out;

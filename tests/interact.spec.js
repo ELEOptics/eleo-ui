@@ -1684,8 +1684,8 @@ test('a cropped layout hovers rays past its band', async ({ page }) => {
   await page.evaluate(() => window.STOP());
 });
 
-// #988 (CR #984): a mark cut to the window carries data-from, the offset of its drawn points in the uncut run (one entry per run of a path, absent = 0); the hover reports data indices.
-// oracle: spec CR #984 (a hover on a mark with data-from reports the drawn index plus that run's offset)
+// #988 (CR #984): a mark cut to the window carries data-from, the offset of its drawn points in the uncut series (one number per mark, absent or invalid = 0); the hover reports data indices.
+// oracle: spec CR #984, CR #995 (a hover on a mark with data-from reports the drawn index plus that offset)
 test('a cut run hovers at its data index', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -1695,7 +1695,10 @@ test('a cut run hovers at its data index', async ({ page }) => {
     host.style.cssText = 'position:fixed;left:0;top:0;width:200px;height:200px;background:#fff;z-index:9999';
     host.innerHTML = '<svg width="200" height="200" viewBox="0 0 200 200"><g transform="matrix(10 0 0 10 0 0)">'
       + '<polyline data-ray="0" data-field="0" data-from="5" points="2,2 6,2 10,2" fill="none" stroke="red"/>'
-      + '<path data-series="0" data-from="0 10" d="M2,10 L6,10 M2,15 L6,15 L10,15" fill="none" stroke="blue"/>'
+      + '<path data-series="0" d="M2,10 L6,10" fill="none" stroke="blue"/>'
+      + '<path data-series="1" data-from="12" d="M2,15 L6,15 L10,15" fill="none" stroke="green"/>'
+      + '<path data-series="2" data-from="-3" d="M2,18 L6,18" fill="none" stroke="black"/>'
+      + '<path data-series="3" data-from="2 9" d="M2,19 L6,19" fill="none" stroke="black"/>'
       + '</g></svg>';
     document.body.appendChild(host);
     window.HOST = host;
@@ -1704,7 +1707,10 @@ test('a cut run hovers at its data index', async ({ page }) => {
   const hover = async (x, y) => { await page.mouse.move(1, 199); await page.mouse.move(x, y); return page.evaluate(() => window.HOVER.at(-1)); };
   expect((await hover(40, 20)).segment, 'polyline piece: drawn segment [0, 1] is data segment [5, 6]').toEqual([5, 6]);
   expect((await hover(80, 20)).segment, 'second drawn segment of the piece').toEqual([6, 7]);
-  expect((await hover(40, 100)).segment, 'first run of a path, offset 0').toEqual([0, 1]);
-  expect((await hover(40, 150)).segment, 'second run of a path, its own offset').toEqual([12, 13]);
+  expect((await hover(40, 100)).segment, 'a path without data-from, offset 0').toEqual([0, 1]);
+  expect((await hover(40, 150)).segment, 'a path piece: one offset for the whole mark').toEqual([12, 13]);
+  expect((await hover(80, 150)).segment, 'its second segment').toEqual([13, 14]);
+  expect((await hover(40, 180)).segment, 'a negative data-from reads 0').toEqual([0, 1]);
+  expect((await hover(40, 190)).segment, 'an invalid data-from (a list) reads 0').toEqual([0, 1]);
   await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
 });

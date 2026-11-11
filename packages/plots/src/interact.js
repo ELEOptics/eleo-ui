@@ -4,22 +4,22 @@ var TIP_GAP = 14; // px between the pointer and the tooltip
 var REACH = 24; // client px: a pointer farther than this from every point and segment hovers nothing
 var SNAP = 6; // client px: within this of a point the hover is that point, not the line beside it
 
-/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them, and `off[i]` the offset that makes p[i]'s index its data index: the `data-from` entry of p[i]'s run (a space-separated list, one entry per run in order; a cut mark draws only a piece of each uncut run), 0 where absent. A polyline is one run of the browser's own parse of its points (`mark.points`), so hover follows whatever that browser draws (Chromium parses none of a list holding a NaN). A path's `d` is parsed here: its `M` starts a new run, and so does a pair with a non-finite coordinate, which is dropped whole so it never shifts the pairs after it; `h0` dots add no point. */
+/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them, and `off[i]` the offset that makes p[i]'s index its data index: the mark's `data-from` (one number: a cut mark draws a piece of the uncut series), 0 where absent, invalid or negative. A polyline is one run of the browser's own parse of its points (`mark.points`), so hover follows whatever that browser draws (Chromium parses none of a list holding a NaN). A path's `d` is parsed here: its `M` starts a new run, and so does a pair with a non-finite coordinate, which is dropped whole so it never shifts the pairs after it; `h0` dots add no point. */
 function runs(mark) {
   var p = [], join = [], off = [], open = false; // `open`: the previous pair was kept and ended a run still open
-  var from = (mark.getAttribute("data-from") || "").split(/\s+/).filter(Boolean).map(Number), run = 0, seen = false, at = function () { return from[run] > 0 ? from[run] : 0; }; // `run`: the index of the run being read
+  var from = Math.max(0, +mark.getAttribute("data-from") || 0); // one number for the whole mark
   if (mark.points) {
     for (var k = 0; k < mark.points.numberOfItems; k++) {
       var q = mark.points.getItem(k);
-      if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); off.push(at()); open = true; } else open = false;
+      if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); off.push(from); open = true; } else open = false;
     }
     return { p: p, join: join, off: off };
   }
   (mark.getAttribute("d") || "").split(/(?=[ML])/).forEach(function (t) {
-    if (t.charAt(0) === "M") { if (seen) run++; seen = true; open = false; }
+    if (t.charAt(0) === "M") open = false;
     var n = t.replace(/h\s*-?[\d.]+/g, " ").replace(/[ML]/g, " ").split(/[\s,]+/).filter(Boolean).map(Number);
     for (var i = 0; i + 1 < n.length; i += 2) {
-      if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); off.push(at()); open = true; } else open = false;
+      if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); off.push(from); open = true; } else open = false;
     }
   });
   return { p: p, join: join, off: off };

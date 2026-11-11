@@ -1052,6 +1052,17 @@ test('a zoomed curve draws only its window', () => {
   assert.ok(!/data-from/.test(ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300 })), 'no view, no data-from');
 });
 
+// Plan #804 M3 (#998, round 9 finding 2): a zoomed single plot whose series holds a non-finite point draws the uncut polyline, as the unzoomed drawing does, so zooming never makes a line appear.
+// oracle: metamorphic - the zoomed polyline's points are the unzoomed polyline's
+test('a zoomed series with a NaN draws as the unzoomed one', () => {
+  const points = [[0, 0], [100, 0.2], [200, NaN], [300, 0.4], [400, 0.5]], x = { range: [0, 1000] }, y = { range: [-1, 1] };
+  const poly = (svg) => [...svg.matchAll(/<polyline\b[^>]*>/g)].map((m) => m[0]).filter((t) => /data-series/.test(t));
+  const plain = poly(ELEO.curve({ series: [{ points, index: 0 }], x, y, width: 460, height: 300 }));
+  const zoomed = poly(ELEO.curve({ series: [{ points, index: 0 }], x, y, width: 460, height: 300, view: { x: [0, 500], y: [-1, 1] } }));
+  assert.equal(plain.length, 1);
+  assert.deepEqual(zoomed, plain);
+});
+
 // Plan #804 M3 (#990, CR #984): a cut dashed series carries stroke-dashoffset, its cut-off length in px modulo the dash period, so its dashes sit where the uncut line's do.
 // oracle: metamorphic - for views panned apart at one scale, the dash phase at a piece's first point equals the uncut series' arc length (px, from its run's start) modulo the period
 test('a cut dash keeps its phase', () => {

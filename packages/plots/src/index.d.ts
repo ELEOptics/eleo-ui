@@ -500,7 +500,7 @@ export interface HoverEvent {
   f?: number;
   /** `true` when the pointer did not snap to a point (not within 6 px of one): `x` and `y` are then the pointer projected onto the straight line joining two points, clamped to it (within 24 px of it), so at a segment's end they can equal a data point. Absent when the event is a data point itself. */
   interpolated?: true;
-  /** The indices `[i, i + 1]` of the two joined points among the mark's finite points, in order. Present only with `interpolated`. */
+  /** The data indices `[i, i + 1]` of the two joined points: the drawn indices among the mark's finite points, in order, plus the mark's `data-from` (0 when absent). Present only with `interpolated`. */
   segment?: [number, number];
 }
 /** What a click selected, named by the clicked mark's own identity: a curve, spot or bar names its `series` (with `panel`, and a bar its `category`), a layout2D surface its `surface` (the surface index, `data-surface`), a layout2D ray run its `field` only. eleo-ui does nothing else with it. */
