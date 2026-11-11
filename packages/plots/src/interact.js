@@ -207,7 +207,7 @@ export function interact(el, opts) {
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
     var b = nearest(el, e.clientX, e.clientY);
-    if (!b) return mapMove(e);
+    if (!b) return lensMove(e) || mapMove(e);
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y };
     if (d.ray !== undefined) { ev.field = +d.field; ev.ray = +d.ray; if (d.status !== undefined) ev.status = d.status; } // a layout2D ray run: z, y in mm
@@ -217,6 +217,17 @@ export function interact(el, opts) {
     if (d.panel !== undefined) ev.panel = +d.panel;
     if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
     emit(ev, [d.panel, d.series, d.field, d.ray, d.status, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
+  }
+  // a glass polygon under the pointer with no ray run in reach (rays are drawn over the glass): the element's own data-*, no dot or drop lines. r1 and r2 may read "Infinity" (a flat surface). Returns false where the pointer is on no glass.
+  function lensMove(e) {
+    var poly = e.target && e.target.closest && e.target.closest("polygon[data-element]"), g = poly && el.contains(poly) && dataGroup(poly), m = g && g.getScreenCTM();
+    if (!m) return false;
+    var d = poly.dataset, at = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()), ev = { x: at.x, y: at.y, element: +d.element, glass: d.glass };
+    ["nd", "vd", "r1", "r2", "ct", "diameter", "f"].forEach(function (k) { if (d[k] !== undefined) ev[k] = +d[k]; });
+    if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
+    emit(ev, "e" + d.element);
+    return true;
   }
   // a typed map: the sample under the pointer, its value from opts.values; no dot or drop lines (a cell has no point to mark)
   function mapMove(e) {
@@ -308,9 +319,19 @@ function value(v, spec) {
   return s.unit ? t + " " + s.unit : t;
 }
 
-/* readout(event, { x, y, value }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>[ = <value> <unit>]`, from the caller's axis specs `{ unit?, digits? }`; the ` = <value>` suffix is there when the event's `value` is not null (a map's sample), formatted by `axes.value`. A bar (an event with a non-empty `categoryLabel`) reads `<label> · <categoryLabel>, <y> <unit>`: the category label as drawn, with no x unit; an empty or absent label falls back to the formatted x. A null event gives "". */
+/* The five lines of a lens element (CR #958): `element <n> · <glass>`, `nd <nd> · vd <vd>` and `f ≈ <f> mm` left out where absent, `R1 <r1> · R2 <r2> mm` (∞ for a flat surface), `CT <ct> · ⌀ <diameter> mm`. */
+function lens(ev) {
+  var R = function (r) { return r === Infinity || r === -Infinity ? "∞" : fmt(r, 1); }, out = ["element " + ev.element + " · " + ev.glass];
+  if (ev.nd != null && ev.vd != null) out.push("nd " + fmt(ev.nd, 4) + " · vd " + fmt(ev.vd, 2));
+  out.push("R1 " + R(ev.r1) + " · R2 " + R(ev.r2) + " mm", "CT " + fmt(ev.ct, 2) + " · ⌀ " + fmt(ev.diameter, 2) + " mm");
+  if (ev.f != null) out.push("f ≈ " + fmt(ev.f, 1) + " mm");
+  return out.join("\n");
+}
+
+/* readout(event, { x, y, value }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>[ = <value> <unit>]`, from the caller's axis specs `{ unit?, digits? }`; the ` = <value>` suffix is there when the event's `value` is not null (a map's sample), formatted by `axes.value`. A bar (an event with a non-empty `categoryLabel`) reads `<label> · <categoryLabel>, <y> <unit>`: the category label as drawn, with no x unit; an empty or absent label falls back to the formatted x. An event with `element` (a lens) reads in the five lines of `lens`. A null event gives "". */
 export function readout(ev, axes) {
   if (!ev) return "";
+  if (ev.element !== undefined) return lens(ev);
   var a = axes || {}, label = ev.series && ev.series.label, xy = (typeof ev.categoryLabel === "string" && ev.categoryLabel !== "" ? ev.categoryLabel : value(ev.x, a.x)) + ", " + value(ev.y, a.y);
   if (ev.value != null) xy += " = " + value(ev.value, a.value);
   if (ev.field !== undefined && ev.ray !== undefined && !label) return "field " + ev.field + " · ray " + ev.ray + " · " + xy; // a layout ray has no series label

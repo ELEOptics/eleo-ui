@@ -1505,7 +1505,7 @@ test.skip('layout zoom pan and reset', async ({ page }) => {
 // #958 (O1, layout2D): the pointer on a glass polygon, away from any ray, emits the element and the tooltip shows it. Expected values are computed here from the fixture's profile points:
 // R = the circle through three profile points (the vertex and two points either side of it, centre on the axis), signed positive when its centre lies at greater z; f = the lensmaker equation for a thick lens in air,
 // 1/f = (n - 1) [1/R1 - 1/R2 + (n - 1) ct / (n R1 R2)], with ct the vertex thickness. The fit may use other points of the profile, so R and f are compared within the sampling noise of a 41-point profile.
-test.skip('lens hover reads the element', async ({ page }) => {
+test('lens hover reads the element', async ({ page }) => {
   const layout = layoutFixture('analysis-glasses'), S = layout.surfaces;
   // The centre z of the circle through p, q, r (circumcentre formula), minus the vertex z, is the signed radius when the centre is on the axis.
   const radius = (prof) => {

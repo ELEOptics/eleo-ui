@@ -38,3 +38,10 @@ test('empty category label', () => {
   assert.equal(readout(bar, { y: { unit: 'mm' } }), 'SI · 1, 0.02 mm');
   assert.equal(readout({ ...bar, categoryLabel: 'A' }, { y: { unit: 'mm' } }), 'SI · A, 0.02 mm');
 });
+
+test('a lens element reads in five lines', () => {
+  // oracle: the CR #958 layout, `element 2 · N-BK7\nnd 1.5168 · vd 64.17\nR1 51.7 · R2 −51.7 mm\nCT 5.00 · ⌀ 25.40 mm\nf ≈ 50.0 mm`; a flat radius reads ∞; absent nd/vd and f leave their lines out
+  const lens = { x: 1, y: 2, element: 2, glass: 'N-BK7', nd: 1.5168, vd: 64.17, r1: 51.7, r2: -51.7, ct: 5, diameter: 25.4, f: 50 };
+  assert.equal(readout(lens), 'element 2 · N-BK7\nnd 1.5168 · vd 64.17\nR1 51.7 · R2 −51.7 mm\nCT 5.00 · ⌀ 25.40 mm\nf ≈ 50.0 mm');
+  assert.equal(readout({ ...lens, r1: Infinity, nd: undefined, vd: undefined, f: undefined }), 'element 2 · N-BK7\nR1 ∞ · R2 −51.7 mm\nCT 5.00 · ⌀ 25.40 mm');
+});

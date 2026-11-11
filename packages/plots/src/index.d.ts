@@ -486,6 +486,16 @@ export interface HoverEvent {
   field?: number;
   ray?: number;
   status?: string;
+  /** A layout2D glass element, hovered where no ray run is in reach (no `series`, `field` or `ray`; `x`, `y` are the pointer in mm). `element` is 1-based over the glass polygons and `glass` its glass name; `nd`, `vd` and `f` (thick-lens focal length, mm) are present only for a named glass with finite values; `r1`, `r2` (vertex radii, mm; `Infinity` for a flat surface), `ct` (vertex thickness) and `diameter` are in mm. `readout` prints them on five lines. */
+  element?: number;
+  glass?: string;
+  nd?: number;
+  vd?: number;
+  r1?: number;
+  r2?: number;
+  ct?: number;
+  diameter?: number;
+  f?: number;
   /** `true` when the pointer did not snap to a point (not within 6 px of one): `x` and `y` are then the pointer projected onto the straight line joining two points, clamped to it (within 24 px of it), so at a segment's end they can equal a data point. Absent when the event is a data point itself. */
   interpolated?: true;
   /** The indices `[i, i + 1]` of the two joined points among the mark's finite points, in order. Present only with `interpolated`. */
