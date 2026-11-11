@@ -4,25 +4,25 @@ var TIP_GAP = 14; // px between the pointer and the tooltip
 var REACH = 24; // client px: a pointer farther than this from every point and segment hovers nothing
 var SNAP = 6; // client px: within this of a point the hover is that point, not the line beside it
 
-/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them, and `off[i]` the offset that makes p[i]'s index its data index: the mark's `data-from` (one number: a cut mark draws a piece of the uncut series), 0 where absent, invalid or negative. A polyline is one run of the browser's own parse of its points (`mark.points`), so hover follows whatever that browser draws (Chromium parses none of a list holding a NaN). A path's `d` is parsed here: its `M` starts a new run, and so does a pair with a non-finite coordinate, which is dropped whole so it never shifts the pairs after it; `h0` dots add no point. */
+/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them, and `off` the offset that makes a drawn point's index its data index: the mark's `data-from` (one number for the whole mark: a cut mark draws a piece of the uncut series), 0 where absent, invalid or negative. A polyline is one run of the browser's own parse of its points (`mark.points`), so hover follows whatever that browser draws (Chromium parses none of a list holding a NaN). A path's `d` is parsed here: its `M` starts a new run, and so does a pair with a non-finite coordinate, which is dropped whole so it never shifts the pairs after it; `h0` dots add no point. */
 function runs(mark) {
-  var p = [], join = [], off = [], open = false; // `open`: the previous pair was kept and ended a run still open
+  var p = [], join = [], open = false; // `open`: the previous pair was kept and ended a run still open
   var from = Math.max(0, +mark.getAttribute("data-from") || 0); // one number for the whole mark
   if (mark.points) {
     for (var k = 0; k < mark.points.numberOfItems; k++) {
       var q = mark.points.getItem(k);
-      if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); off.push(from); open = true; } else open = false;
+      if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); open = true; } else open = false;
     }
-    return { p: p, join: join, off: off };
+    return { p: p, join: join, off: from };
   }
   (mark.getAttribute("d") || "").split(/(?=[ML])/).forEach(function (t) {
     if (t.charAt(0) === "M") open = false;
     var n = t.replace(/h\s*-?[\d.]+/g, " ").replace(/[ML]/g, " ").split(/[\s,]+/).filter(Boolean).map(Number);
     for (var i = 0; i + 1 < n.length; i += 2) {
-      if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); off.push(from); open = true; } else open = false;
+      if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); open = true; } else open = false;
     }
   });
-  return { p: p, join: join, off: off };
+  return { p: p, join: join, off: from };
 }
 
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
@@ -63,7 +63,7 @@ function nearest(host, cx, cy) {
     var r = runs(mark), p = r.p;
     var linked = function (i) { return r.join[i] || r.join[i + 1]; };
     p.forEach(function (q, i) {
-      var d = Math.hypot((q[0] - at.x) * m.a, (q[1] - at.y) * m.d), c = { d: d, mark: mark, index: i + r.off[i], x: q[0], y: q[1] };
+      var d = Math.hypot((q[0] - at.x) * m.a, (q[1] - at.y) * m.d), c = { d: d, mark: mark, index: i + r.off, x: q[0], y: q[1] };
       if (!inside(q[0], q[1])) return;
       if (d <= SNAP && (!snap || d < snap.d)) snap = c;
       if (d <= REACH && !linked(i) && (!best || d < best.d)) best = c;
@@ -74,7 +74,7 @@ function nearest(host, cx, cy) {
       var t = len ? Math.max(0, Math.min(1, ((at.x * m.a - ax) * vx + (at.y * m.d - ay) * vy) / len)) : 0;
       var d = Math.hypot(ax + t * vx - at.x * m.a, ay + t * vy - at.y * m.d);
       var sx = p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), sy = p[i - 1][1] + t * (p[i][1] - p[i - 1][1]);
-      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1 + r.off[i], x: sx, y: sy, segment: [i - 1 + r.off[i], i + r.off[i]] };
+      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1 + r.off, x: sx, y: sy, segment: [i - 1 + r.off, i + r.off] };
     }
   });
   return bar || snap || best;
