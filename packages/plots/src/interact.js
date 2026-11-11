@@ -232,7 +232,7 @@ export function interact(el, opts) {
     ["nd", "vd", "r1", "r2", "ct", "diameter", "f"].forEach(function (k) { if (d[k] !== undefined) ev[k] = +d[k]; });
     if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
     if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
-    emit(ev, "e" + d.element);
+    emit(ev, "e" + d.element + "," + at.x + "," + at.y); // the pointer is in the key: x, y follow it within one element
     return true;
   }
   // a typed map: the sample under the pointer, its value from opts.values; no dot or drop lines (a cell has no point to mark)

@@ -1599,3 +1599,43 @@ test('lens hover reads the element', async ({ page }) => {
   }
   await page.evaluate(() => window.STOP());
 });
+
+// #976 (O1, layout2D): a lens hover's x, y are the pointer in mm, so each move within one element emits with the new position; the tooltip text, unchanged, is written once.
+test('a lens hover follows the pointer', async ({ page }) => {
+  await bind(page, 'layout2D-glasses');
+  const at = await page.evaluate(() => {
+    const poly = window.HOST.querySelector('polygon[data-surface="0"]'), to = window.T.proj(poly), pts = window.T.pts(poly);
+    poly.scrollIntoView({ block: 'center' });
+    const segs = [];
+    window.HOST.querySelectorAll('polyline[data-field]').forEach((m) => { const q = window.T.pts(m).map((p) => window.T.proj(m)(p)); for (let j = 1; j < q.length; j++) segs.push([q[j - 1], q[j]]); });
+    const dist = (c, [u, v]) => { const dx = v[0] - u[0], dy = v[1] - u[1], t = Math.max(0, Math.min(1, ((c[0] - u[0]) * dx + (c[1] - u[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(c[0] - u[0] - t * dx, c[1] - u[1] - t * dy); };
+    const zs = pts.map((p) => p[0]), z0 = Math.min(...zs), z1 = Math.max(...zs), y1 = Math.max(...pts.map((p) => p[1]));
+    let best = null;
+    for (let a = 0; a <= 100; a++) for (let b = 0; b <= 100; b++) {
+      const [x, y] = to([z0 + (z1 - z0) * (0.1 + 0.8 * a / 100), y1 * (-0.95 + 1.9 * b / 100)]);
+      if (document.elementFromPoint(x, y) !== poly || document.elementFromPoint(x + 1, y) !== poly) continue;
+      const clear = Math.min(...segs.map((s) => dist([x, y], s)));
+      if (!best || clear > best.clear) best = { x, y, clear };
+    }
+    return best;
+  });
+  expect(at, 'a polygon point to hover').not.toBeNull();
+  expect(at.clear, 'farther than interact\'s 24 px reach from every ray run, with room to move').toBeGreaterThan(26);
+  await page.evaluate(() => {
+    const tip = window.HOST.querySelector('.eleo-hover__tip');
+    window.WRITES = 0;
+    new MutationObserver((rs) => { window.WRITES += rs.length; }).observe(tip, { childList: true, characterData: true, subtree: true });
+  });
+  await page.mouse.move(2, 2);
+  await page.evaluate(() => { window.HOVER = []; window.WRITES = 0; });
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.move(at.x + 1, at.y);
+  await page.waitForTimeout(50);
+  const got = await page.evaluate(() => ({ evs: window.HOVER.slice(), writes: window.WRITES, text: window.HOST.querySelector('.eleo-hover__tip').textContent }));
+  expect(got.evs, 'a hover per move').toHaveLength(2);
+  expect(got.evs.map((e) => e.element), 'the same element').toEqual([1, 1]);
+  expect(got.evs[1].x, 'x follows the pointer').not.toBe(got.evs[0].x);
+  expect(got.writes, 'the unchanged tooltip text is written once').toBe(1);
+  expect(got.text).toContain('element 1');
+  await page.evaluate(() => window.STOP());
+});
