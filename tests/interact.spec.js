@@ -850,7 +850,7 @@ test('foreign data-series markup is ignored', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------------
-// Zoom, pan and reset (plan #804 M3, outcome O5; issue #825 writes these skipped, #833 unskips them).
+// Zoom, pan and reset (plan #804 M3, outcome O5; issue #825 wrote them skipped, #833 unskipped them).
 // oracle: closed-form zoom about a point (range' = p + (range - p) / k); property reset restores the original markup byte for byte (roadmap U13).
 //
 // The API these tests assume (#829 builds it; #826, #827, #828 add the renderers' `view`):
@@ -982,7 +982,7 @@ test('a drag does not select', async ({ page }) => {
 });
 
 // #825 (O5, curve): wheel zoom about the pointer (closed form), drag pans, double-click and reset() restore the first markup exactly, the page does not scroll.
-test.skip('zoom pan and reset', async ({ page }) => {  // unskipped by #833  // unskipped by #833
+test('zoom pan and reset', async ({ page }) => {
   await mountZoom(page, 'curve');
   expect(await page.evaluate(() => typeof window.STOP), 'interact still returns a function').toBe('function');
   expect(await page.evaluate(() => typeof window.STOP.reset), 'with a reset method').toBe('function');
@@ -1057,7 +1057,7 @@ test.skip('zoom pan and reset', async ({ page }) => {  // unskipped by #833  // 
 });
 
 // #825 (O5, curve): a data redraw that passes the caller's view keeps the axes; the next wheel zooms from the redrawn range, not from a remembered one.
-test.skip('a data redraw keeps the view', async ({ page }) => {  // unskipped by #833  // unskipped by #833
+test('a data redraw keeps the view', async ({ page }) => {
   await mountZoom(page, 'curve');
   const f0 = (await frames(page))[0], c = await toClient(page, 0, [6, 0]);
   await page.mouse.move(c[0], c[1]);
@@ -1084,7 +1084,7 @@ test.skip('a data redraw keeps the view', async ({ page }) => {  // unskipped by
 });
 
 // #825 (O5, spot): the panels zoom together. The window is square, the same in every panel; a wheel off-centre shifts the centre by p + (c - p) / k.
-test.skip('spot panels share one view', async ({ page }) => {  // unskipped by #833  // unskipped by #833
+test('spot panels share one view', async ({ page }) => {
   await mountZoom(page, 'spot');
   const f0 = await frames(page);
   expect(f0.length, 'two panels').toBe(2);
@@ -1133,7 +1133,7 @@ test.skip('spot panels share one view', async ({ page }) => {  // unskipped by #
 
 // #825 (O5, typed map): the ranges change and the <image> keeps its data extent: its px box scales by k about the pointer and the viewport clips it.
 // The map has no matrix group, so the oracle is the image box itself: the extent point under the pointer stays under it, and the box is the old one scaled by k.
-test.skip('map zoom keeps the image at its extent', async ({ page }) => {  // unskipped by #833  // unskipped by #833
+test('map zoom keeps the image at its extent', async ({ page }) => {
   await mountZoom(page, 'map');
   const img0 = await page.evaluate(() => window.Z.image(window.HOST));
   const fx = 0.3, fy = 0.65, ext = [-6, 6, -4, 4];
