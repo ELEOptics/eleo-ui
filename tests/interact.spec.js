@@ -1285,3 +1285,58 @@ test('a double-click on a non-zoom host selects twice', async ({ page }) => {
   });
   expect(await page.evaluate(() => window.SELECT), 'each click selects: no zoom, no reset').toHaveLength(2);
 });
+
+// #954 (review M3 r2 finding 3): interact reads opts.axes and opts.values when an event fires, so a caller that replaces them on its options object, without rebinding, sees the next tooltip change.
+// oracle: property the tooltip text, with the pointer placed from the frame box and Z.toClient (never getScreenCTM).
+test('options read at event time', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await installZ(page);
+  const tip = () => page.evaluate(() => window.HOST.querySelector('.eleo-hover__tip').textContent);
+  // a curve: the unit of x
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'width:600px;margin:20px auto';
+    document.querySelector('.theme[data-theme="light"]').appendChild(host);
+    const E = window.ELEO, wave = Array.from({ length: 81 }, (_, i) => [i / 8, Math.sin(i / 8)]);
+    host.innerHTML = E.curve({ series: [{ points: wave, label: 'a' }], x: { range: [0, 10], label: 'x' }, y: { range: [-1, 1], label: 'y' }, width: 600 });
+    window.HOST = host; window.OPTS = { axes: { x: { unit: 'qa' } }, onhover() {} };
+    window.STOP = E.interact(host, window.OPTS);
+    host.scrollIntoView({ block: 'center' });
+  });
+  const c = await toClient(page, 0, [4, Math.sin(4)]);
+  await page.mouse.move(2, 2);
+  await page.mouse.move(c[0], c[1]);
+  expect(await tip(), 'bound axes read').toContain('qa');
+  await page.evaluate(() => { window.OPTS.axes = { x: { unit: 'qb' } }; });
+  await page.mouse.move(2, 2);
+  await page.mouse.move(c[0], c[1]);
+  const t = await tip();
+  expect(t, 'replaced axes read at the next hover').toContain('qb');
+  expect(t).not.toContain('qa');
+  await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
+  // a map: the value
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'width:600px;margin:20px auto';
+    document.querySelector('.theme[data-theme="light"]').appendChild(host);
+    const E = window.ELEO, grid = (n) => Array.from({ length: 8 }, () => Array(12).fill(n));
+    host.innerHTML = E.map2D({ values: grid(1), extent: [-6, 6, -4, 4], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, el: host, width: 600 });
+    window.HOST = host; window.OPTS = { values: grid(7), onhover() {} };
+    window.STOP = E.interact(host, window.OPTS);
+    window.GRID9 = grid(9);
+    host.scrollIntoView({ block: 'center' });
+  });
+  const q = await page.evaluate(() => {
+    const img = window.HOST.querySelector('image[data-extent]'), r = img.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(2, 2);
+  await page.mouse.move(q.x, q.y);
+  expect(await tip(), 'bound values read').toContain('= 7');
+  await page.evaluate(() => { window.OPTS.values = window.GRID9; });
+  await page.mouse.move(2, 2);
+  await page.mouse.move(q.x, q.y);
+  expect(await tip(), 'replaced values read at the next hover').toContain('= 9');
+  await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
+});

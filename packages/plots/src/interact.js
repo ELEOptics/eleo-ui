@@ -200,9 +200,9 @@ function viewOf(kind, x, y) {
   return kind === "spot" ? { center: [(x[0] + x[1]) / 2, (y[0] + y[1]) / 2], half: (x[1] - x[0]) / 2 } : { x: x, y: y };
 }
 
-/* interact(el, { onhover, onselect, axes, marks, tooltip, values }): calls onhover({ x, y, series: { index, label, role }, panel?, category?, categoryLabel? }) (`series` is absent on a layout ray hover, and on a map's) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. With `opts.onview`, a wheel zooms about the pointer (k per notch, the same on every axis and panel), a drag pans (the grabbed data point stays under the pointer), a double-click resets: each calls onview(view) with the new view (`{ x, y }` for a curve, ray fan or typed map; `{ center, half }` for a spot or through-focus) and draws nothing, and reset calls onview(null). While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(), which has a reset() method: onview(null). */
+/* interact(el, { onhover, onselect, axes, marks, tooltip, values }): calls onhover({ x, y, series: { index, label, role }, panel?, category?, categoryLabel? }) (`series` is absent on a layout ray hover, and on a map's) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. With `opts.onview`, a wheel zooms about the pointer (k per notch, the same on every axis and panel), a drag pans (the grabbed data point stays under the pointer), a double-click resets: each calls onview(view) with the new view (`{ x, y }` for a curve, ray fan or typed map; `{ center, half }` for a spot or through-focus) and draws nothing, and reset calls onview(null). While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. `opts.axes` and `opts.values` are read when each event fires, so a caller may replace them on its options object without rebinding; the callbacks, `marks`, `tooltip` and `onview` are read once, at the call. Returns stop(), which has a reset() method: onview(null). */
 export function interact(el, opts) {
-  var onhover = (opts && opts.onhover) || function () {}, onselect = opts && opts.onselect, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, onview = opts && typeof opts.onview === "function" && opts.onview, values = opts && opts.values, layer = (marks || tip) && overlay(marks, tip);
+  var onhover = (opts && opts.onhover) || function () {}, onselect = opts && opts.onselect, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), onview = opts && typeof opts.onview === "function" && opts.onview, layer = (marks || tip) && overlay(marks, tip);
   if (layer) { el.appendChild(layer); hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
@@ -215,18 +215,18 @@ export function interact(el, opts) {
     if (b.bar) { ev.category = b.x; if (d.categoryLabel !== undefined) ev.categoryLabel = d.categoryLabel; }
     if (b.segment) { ev.interpolated = true; ev.segment = b.segment; }
     if (d.panel !== undefined) ev.panel = +d.panel;
-    if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
     emit(ev, [d.panel, d.series, d.field, d.ray, d.status, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
   }
   // a typed map: the sample under the pointer, its value from opts.values; no dot or drop lines (a cell has no point to mark)
   function mapMove(e) {
     var s = mapAt(el, e.clientX, e.clientY);
     if (!s) return leave();
-    var ev = { x: s.x, y: s.y }, polar = s.ring !== undefined, v = values && (polar ? values[s.ring] && values[s.ring][s.spoke] : values[s.row] && values[s.row][s.column]);
+    var values = opts && opts.values, ev = { x: s.x, y: s.y }, polar = s.ring !== undefined, v = values && (polar ? values[s.ring] && values[s.ring][s.spoke] : values[s.row] && values[s.row][s.column]);
     if (polar) { ev.ring = s.ring; ev.spoke = s.spoke; } else { ev.row = s.row; ev.column = s.column; }
     if (values) ev.value = typeof v === "number" && isFinite(v) ? v : null; // a masked sample (NaN, Infinity, null, missing) has no value
     if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
-    if (tip) showTip(el, layer, readout(ev, axes), e.clientX, e.clientY);
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
     emit(ev, polar ? "r" + s.ring + "," + s.spoke : "c" + s.row + "," + s.column);
   }
   /* A click selects the mark under it by the mark's own data-*: the target's nearest ancestor in the host that names a surface, a layout field or a series. A ray run names its field only (a ray is several runs); nothing else changes. */

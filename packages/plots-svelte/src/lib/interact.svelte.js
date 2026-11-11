@@ -1,5 +1,5 @@
 // The pointer action every plot wrapper reuses: `use:hover={{ onhover, onselect }}` binds `interact` to the wrapper's box while a callback is given or the hover marks or tooltip are on (the default), passes `axes`, `marks` and `tooltip` through.
-// `interact` copies its options when it binds, so the action binds once with stable options that read the latest ones at event time: a data change (new `values`, `axes` or callbacks) keeps the binding, and a drag in progress. It rebinds only when what the binding is made of changes: a callback, `values`, `marks` or `tooltip` turning on or off.
+// `interact` copies the callbacks, `marks` and `tooltip` when it binds and reads `axes` and `values` at event time, so the action binds once with one options object (stable callback wrappers that read the latest ones, and `axes` and `values` replaced on update): a data change (new `values`, `axes` or callbacks) keeps the binding, and a drag in progress. It rebinds only when what the binding is made of changes: a callback, `values`, `marks` or `tooltip` turning on or off.
 // Internal: not exported from the package.
 import { interact } from '@eleoptics/plots';
 
@@ -15,24 +15,25 @@ export function hover(el, opts) {
   let key = shape(current);
   /** @type {(() => void) | null} */
   let stop = null;
-  const axes = { get x() { return current.axes?.x; }, get y() { return current.axes?.y; }, get value() { return /** @type {any} */ (current.axes)?.value; } };
-  const values = new Proxy({}, { get: (_, k) => /** @type {any} */ (current.values)?.[k] });
+  // one options object for the life of the binding: `axes` and `values` are read by interact at event time, so update replaces those fields on it
+  const bound = /** @type {any} */ ({});
   const bind = () => {
     const o = /** @type {any} */ (current);
-    stop = wants(o) ? interact(el, /** @type {any} */ ({
-      onhover: (/** @type {any} */ e) => current.onhover?.(e),
-      onselect: (/** @type {any} */ e) => current.onselect?.(e),
-      ...(o.onview ? { onview: (/** @type {any} */ v) => current.onview?.(v) } : {}),
-      ...(o.values ? { values } : {}),
-      axes,
-      marks: o.marks !== false,
-      tooltip: o.tooltip !== false,
-    })) : null;
+    bound.axes = o.axes ?? {};
+    bound.values = o.values;
+    bound.onhover = (/** @type {any} */ e) => current.onhover?.(e);
+    bound.onselect = (/** @type {any} */ e) => current.onselect?.(e);
+    if (o.onview) bound.onview = (/** @type {any} */ v) => current.onview?.(v); else delete bound.onview;
+    bound.marks = o.marks !== false;
+    bound.tooltip = o.tooltip !== false;
+    stop = wants(o) ? interact(el, bound) : null;
   };
   bind();
   return {
     update(next) {
       current = next ?? {};
+      bound.axes = current.axes ?? {};
+      bound.values = current.values;
       const k = shape(current);
       if (k === key) return;
       key = k;
