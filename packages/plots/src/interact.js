@@ -154,6 +154,7 @@ var hosts = new WeakMap(); // host -> number of live interact calls holding its 
 /* ---- Zoom, pan and reset. interact holds no view: each gesture reads the drawn ranges off the markup, makes the new view and hands it to onview; the caller redraws. ---- */
 var WHEEL_RATE = 0.0015; // per px of wheel delta: one 100 px notch zooms by exp(0.15)
 var DRAG_PX = 3; // client px a pointer must travel before a press is a drag, not a click
+var KEY_NOTCH = 100; // wheel px a + or - key zooms by: one wheel notch
 
 /* The data frames of a host, in document order: for each data group (a matrix group holding a series mark) the inverse of its screen matrix and the data ranges its nested viewport shows, read from the group's matrix and the viewport's width and height. */
 function frames(host) {
@@ -215,6 +216,10 @@ export function interact(el, opts) {
   function move(e) {
     var b = nearest(el, e.clientX, e.clientY);
     if (!b) return lensMove(e) || mapMove(e);
+    present(b, e.clientX, e.clientY);
+  }
+  // the hover of a found spot b, shown at the client position cx, cy: the pointer's, and the keyboard's at its point
+  function present(b, cx, cy) {
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y };
     if (d.ray !== undefined) { ev.field = +d.field; ev.ray = +d.ray; if (d.status !== undefined) ev.status = d.status; } // a layout2D ray run: z, y in mm
@@ -222,7 +227,7 @@ export function interact(el, opts) {
     if (b.bar) { ev.category = b.x; if (d.categoryLabel !== undefined) ev.categoryLabel = d.categoryLabel; }
     if (b.segment) { ev.interpolated = true; ev.segment = b.segment; }
     if (d.panel !== undefined) ev.panel = +d.panel;
-    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), cx, cy);
     emit(ev, [d.panel, d.series, d.field, d.ray, d.status, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
   }
   // a glass polygon under the pointer with no ray run in reach (rays are drawn over the glass): the element's own data-*, no dot or drop lines. r1 and r2 may read "Infinity" (a flat surface). Returns false where the pointer is on no glass.
@@ -253,6 +258,9 @@ export function interact(el, opts) {
     if (onview && e.detail > 1) return; // where a double-click resets (onview), its second click selects nothing: the first click already did
     var m = e.target.closest && e.target.closest("[data-surface], [data-field], [data-series]");
     if (!m || !el.contains(m) || !onselect) return;
+    select(m);
+  }
+  function select(m) {
     var d = m.dataset, ev;
     if (d.surface !== undefined) ev = { surface: +d.surface };
     else if (d.field !== undefined) ev = { field: +d.field };
@@ -268,6 +276,9 @@ export function interact(el, opts) {
     var dy = Math.max(-400, Math.min(400, e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1))), k = Math.exp(-dy * WHEEL_RATE);
     if (!dy || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // a horizontal or mostly horizontal wheel or swipe is not ours: leave it to the page
     e.preventDefault();
+    zoom(hit, k);
+  }
+  function zoom(hit, k) {
     var about = function (r, c) { return [c + (r[0] - c) / k, c + (r[1] - c) / k]; };
     emitView(viewOf(hit.kind, about(hit.x, hit.p[0]), about(hit.y, hit.p[1])));
   }
@@ -291,6 +302,53 @@ export function interact(el, opts) {
     var sx = drag.g[0] - hit.p[0], sy = drag.g[1] - hit.p[1];
     emitView(viewOf(hit.kind, [hit.x[0] + sx, hit.x[1] + sx], [hit.y[0] + sy, hit.y[1] + sy]));
   }
+  /* ---- Keyboard. The current point is a series position s (document order among the curve and spot marks) and a data index i, both numbers, so a redraw that replaced the markup keeps it. ---- */
+  var cur = null;
+  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return m.localName !== "rect" && dataGroup(m) && runs(m).p.length; }); }
+  // the spot of the current point on the markup now (the index clamped to the mark's drawn points), or null
+  function curSpot() {
+    var ms = cur && keyMarks(), m = ms && ms[Math.min(cur.s, ms.length - 1)];
+    if (!m) return null;
+    var r = runs(m), i = Math.max(0, Math.min(cur.i - r.off, r.p.length - 1));
+    return { mark: m, index: i + r.off, x: r.p[i][0], y: r.p[i][1] };
+  }
+  var clientOf = function (b) { var q = new DOMPoint(b.x, b.y).matrixTransform(dataGroup(b.mark).getScreenCTM()); return [q.x, q.y]; };
+  /* An arrow: left and right step the current series' points, up and down its neighbours in document order at the same point, clamped at the ends (no wrap). The first one lands on series 0, point 0. Returns whether there was anything to step. */
+  function step(k) {
+    var ms = keyMarks(), at = curSpot();
+    if (!ms.length) return false;
+    var s = at ? Math.min(cur.s, ms.length - 1) : 0, i = at ? at.index - runs(at.mark).off : 0;
+    if (at) {
+      if (k === "ArrowRight") i++; else if (k === "ArrowLeft") i--; else s += k === "ArrowDown" ? 1 : -1;
+      s = Math.max(0, Math.min(s, ms.length - 1));
+      var r = runs(ms[s]); i = Math.max(0, Math.min(i, r.p.length - 1));
+    }
+    var run = runs(ms[s]);
+    cur = { s: s, i: i + run.off };
+    var b = curSpot(), c = clientOf(b);
+    present(b, c[0], c[1]);
+    return true;
+  }
+  // + and -: the wheel's notch about the current point, else about the centre of the first frame (a map's image)
+  function zoomKey(dir) {
+    var at = curSpot(), c = at && clientOf(at), hit = c && pick(el, c[0], c[1]), fs = frames(el), kind = kindOf(el), img = el.querySelector("image[data-range]");
+    if (!hit && img) { var ib = img.getBoundingClientRect(); hit = pick(el, (ib.left + ib.right) / 2, (ib.top + ib.bottom) / 2); }
+    if (!hit && kind && fs.length) hit = { kind: kind, x: fs[0].x, y: fs[0].y, p: [(fs[0].x[0] + fs[0].x[1]) / 2, (fs[0].y[0] + fs[0].y[1]) / 2] };
+    if (hit) zoom(hit, Math.exp(dir * KEY_NOTCH * WHEEL_RATE));
+  }
+  /* A key it acts on is prevented (the arrows and + - scroll or zoom the page otherwise); any other, and any with ctrl, meta or alt, is the browser's, so Tab leaves the host. Enter selects the current point's mark, Escape clears it, 0 resets; + - 0 need onview. */
+  function key(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var k = e.key, did = false;
+    if (k === "ArrowRight" || k === "ArrowLeft" || k === "ArrowDown" || k === "ArrowUp") did = step(k);
+    else if (k === "Enter") { var at = onselect && curSpot(); if (at) { select(at.mark); did = true; } }
+    else if (k === "Escape") { if (cur) { cur = null; leave(); did = true; } }
+    else if (onview && (k === "+" || k === "-")) { zoomKey(k === "+" ? 1 : -1); did = true; }
+    else if (onview && k === "0") { reset(); did = true; }
+    if (did) e.preventDefault();
+  }
+  /* The host takes focus on a primary press itself: the mousedown that starts a pan has its default prevented, which stops the click from focusing it. */
+  function focus(e) { if (e.button === 0 && el.hasAttribute("tabindex")) el.focus({ preventScroll: true }); }
   function up(e) { if (drag && e.pointerId === drag.id) drag = null; }
   function reset() { if (onview && !ended) onview(null); }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
@@ -300,6 +358,9 @@ export function interact(el, opts) {
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   el.addEventListener("click", click);
+  if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "0"); // focusable, so the keys reach it; a tabindex the host set stays
+  el.addEventListener("keydown", key);
+  el.addEventListener("pointerdown", focus);
   if (onview) {
     el.addEventListener("wheel", wheel, { passive: false });
     el.addEventListener("pointerdown", down);
@@ -312,7 +373,7 @@ export function interact(el, opts) {
   function stop() {
     el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down); el.removeEventListener("mousedown", press); el.removeEventListener("pointermove", pan); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("dblclick", reset);
     drag = null; ended = true;
-    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); el.removeEventListener("click", click);
+    if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); el.removeEventListener("click", click); el.removeEventListener("keydown", key); el.removeEventListener("pointerdown", focus);
   }
   stop.reset = reset;
   return stop;

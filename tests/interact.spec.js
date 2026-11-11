@@ -1715,6 +1715,25 @@ test('a cut run hovers at its data index', async ({ page }) => {
   await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
 });
 
+// #835 (O6): a primary press on the plot focuses the host itself, so the keys reach it after a click; the zoom host's mousedown default-prevent would otherwise stop the click from focusing it.
+// oracle: spec issue #835 and its comment from #960 (the host focuses itself on pointerdown)
+test('a click focuses the interact host', async ({ page }) => {
+  await mountZoom(page, 'curve'); // onview: its mousedown is default-prevented
+  const c = await toClient(page, 0, sinePoint(0, 2));
+  const focused = () => page.evaluate(() => document.activeElement === window.HOST);
+  await page.evaluate(() => { window.HOST.removeAttribute('tabindex'); window.HOST.blur(); window.STOP(); window.STOP = window.ELEO.interact(window.HOST, { onview() {} }); });
+  expect(await focused(), 'not focused before the click').toBe(false);
+  await page.mouse.click(c[0], c[1]);
+  expect(await focused(), 'a click focuses a zoom host without tabindex').toBe(true);
+  await page.evaluate(() => { window.STOP(); window.HOST.removeAttribute('tabindex'); window.HOST.setAttribute('tabindex', '-1'); window.HOST.blur(); window.STOP = window.ELEO.interact(window.HOST, { onview() {} }); });
+  await page.mouse.click(c[0], c[1]);
+  expect(await focused(), 'and one the author gave tabindex -1').toBe(true);
+  await page.evaluate(() => { window.STOP(); window.HOST.removeAttribute('tabindex'); window.HOST.blur(); window.STOP = window.ELEO.interact(window.HOST, { onhover: () => {} }); });
+  await page.mouse.click(c[0], c[1]);
+  expect(await focused(), 'and a host without onview').toBe(true);
+  await page.evaluate(() => window.STOP());
+});
+
 // ---------------------------------------------------------------------------------------------------------------------------
 // Keyboard access (plan #804 M4, outcome O6; issue #834 wrote these skipped, #835 builds it, #839 unskips them).
 // oracle: property (each key's event equals the pointer's event at the same point; the pointer's drawn position comes from the data
