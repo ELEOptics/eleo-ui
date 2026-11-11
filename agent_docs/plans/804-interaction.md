@@ -243,6 +243,16 @@ and the view stays. Proves: O5
 | #831 | Gallery: zoom wired on the curve, spot and map tiles, and a live-update toggle that redraws the MTF tile's data every frame | forced (round 2 pre-mortem: the view survives live updates, user; the demo shows it) | `gallery/index.html` | `tests/gallery.spec.js::zoom survives live update` | #829 |
 | #832 | Roadmap U13's text: zoom by redrawing at the zoomed range | forced (round 2, user) | `agent_docs/roadmap.md` | none (docs) | #825 |
 | #833 | Unskip M3's acceptance tests | forced (`workflow.md`, TDD) | `tests/interact.spec.js` | the M3 tests | #825, #826, #827, #828, #448, #450, #829, #830, #554, #831, #832 |
+| #942 | spot's auto-scale margin ignores panel order (CR #937) | forced (CR #937) | `packages/plots/src/spot.js` | `tests/unit/spot.test.js::auto-scale margin ignores panel order` | #833 |
+| #943 | interact tells spots from curves by spot's own marker (CR #938) | forced (CR #938: a sparse panel curve looked like a spot) | `packages/plots/src/spot.js`, `packages/plots/src/interact.js` | `tests/interact.spec.js::a sparse panel curve zooms as a curve` | #942 |
+| #944 | Zoomed plots hover only inside their frame (CR #939) | forced (CR #939) | `packages/plots/src/interact.js` | `tests/interact.spec.js::zoomed plots hover only inside the frame` | #943 |
+| #945 | The sample spot forwards view (CR #940) | forced (CR #940) | `packages/plots/src/spot.js` | `tests/unit/spot.test.js::the sample spot takes view` | #943 |
+| #946 | A wrapper's `view={null}` resets (CR #941) | forced (CR #941) | the four zoomable wrappers, `packages/plots-svelte/README.md` | `tests/svelte.spec.js::a controlled view resets with null` | #833 |
+| #947 | map2D ignores an invalid view, as curve and spot do | forced (review M3 round 1 finding 6: one rule for one prop) | `packages/plots/src/map2d.js`, `packages/plots/src/index.d.ts` | `tests/map2d.spec.js::an invalid view is ignored` | #833 |
+| #948 | Wrappers keep one interact binding across data changes | forced (finding 7: a live data frame dropped a pan) | `packages/plots-svelte/src/lib/interact.svelte.js`, `packages/plots-svelte/src/lib/Map2D.svelte` | `tests/unit/plots-svelte.test.js::a data change keeps one interact binding` | #946 |
+| #949 | A double-click selects once | forced (finding 8) | `packages/plots/src/interact.js`, `packages/plots/README.md` | `tests/interact.spec.js::a double-click selects once` | #944 |
+| #950 | A horizontal wheel scrolls past a plot | forced (finding 9) | `packages/plots/src/interact.js` | `tests/interact.spec.js::a horizontal wheel is not prevented` | #949 |
+| #951 | The Svelte view test covers every zoomable wrapper | forced (finding 10) | `tests/svelte.spec.js`, `tests/fixtures/svelte/ViewHarness.svelte` | `tests/svelte.spec.js::view survives a data redraw` | #948 |
 
 ### M4: keyboard and release GitHub: `P804 M4: Keyboard and release`
 
@@ -309,3 +319,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M2 round 9 (code-reviewer, claude-opus-5-5): 0 blocking; backlog #935 pulled in. Per-round count since the demo: 5, 3, 1, 1.
 - 2026-11-10 review M2 round 10 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M2 ticked and accepted (the user's go at the demo, conditional on the tooltip fixes, now done and reviewed).
 - 2026-11-10 CR #936 (from #830's worker) accepted (orchestrator): the view is wrapper state, so #830's Files widen to the four zoomable wrappers and a test harness; controlled when the caller passes view.
+- 2026-11-10 review M3 round 1 (code-reviewer, claude-opus-5-5): 5 blocking, CRs #937 (spot margin by panel order), #938 (sparse panel curve read as a spot), #939 (zoomed plots hover outside the frame), #940 (sample spot ignores view), #941 (view={null} doesn't reset) accepted (orchestrator); backlog findings 6-10 pulled in (map2D ignores an invalid view like the others; one interact binding across data; a double-click selects once; horizontal wheel not swallowed; Svelte view test for all wrappers). Items #942-#951. Carried #936 resolved.
