@@ -1,6 +1,6 @@
 # Plan #804: Hover, click, zoom and pan on every 2D plot
 
-Status: approved 2026-11-10
+Status: done 2026-11-11
 Branch: `plan/804-interaction` PR: #840 Depends on: none Roadmap: `agent_docs/roadmap.md`, row H
 
 ## Problem
@@ -387,3 +387,5 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-11 review M4 round 1 (code-reviewer, claude-opus-5-5): 3 blocking, CRs #1008 (keyboard point jumps series on a cutting zoom; dot placed before a wrapper's redraw; plus backlog 5, `=`) and #1009 (row H svelte consumed-guard regex) accepted (orchestrator), items #1011, #1012; backlog 4 pulled in as CR #1010 (docs omit the keys and the tab stop; the `index.d.ts` part is Core: user approved, "Approve"), item #1013; backlog 6 (the #1006 row) fixed in this commit. Carried #1005: deferred to #1007 (orchestrator). Per-round count: 6.
 - 2026-11-11 review M4 round 2 (code-reviewer, claude-opus-5-5): 1 blocking, CR #1014 (index.d.ts names the zoom-out key as U+2212; the Core edit approved by the user, "Approve"), with backlog 2 (stale keyboard test contract comment) pulled in, item #1015; the plots changeset's U+2212 fixed with it. Carried #1005, #1008-#1010 resolved. Per-round count: 6, 2.
 - 2026-11-11 review M4 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog 1 (U+2212 in O6, the M4 Demo and the #835 row) fixed in this commit; backlog 2 (a docs guard on the plots changeset) not taken, as the release consumes it and release.test.js reads its entry. Carried CRs resolved. M4 ticked; demo pending.
+- 2026-11-11 M4 accepted (user: go at the keyboard demo).
+- 2026-11-11 plan end: `CLAUDE.md` commands re-verified (`npm run build`, `test:unit`, `gallery` scripts, `scripts/check.sh`, `changeset` and `playwright` bins, `.githooks` present; the full gate ran before the push). Status done; roadmap row H done.
