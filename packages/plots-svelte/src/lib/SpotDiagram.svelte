@@ -13,7 +13,7 @@
   let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
   const w = $derived(width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined));
   const unit = $derived(props.panels ? /** @type {any} */ (props).unit : 'µm'); // the sample call draws in µm
-  const svg = $derived(spot(/** @type {any} */ ({ ...props, width: w, view }))); // the sample call has no view; the renderer ignores it there
+  const svg = $derived(spot(/** @type {any} */ ({ ...props, width: w, view })));
 </script>
 
 <div class="eleo-svg" use:hover={{ onhover, onselect, onview: setView, axes: { x: { unit }, y: { unit } } }} bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>

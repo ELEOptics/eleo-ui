@@ -164,6 +164,8 @@ export interface SpotSampleProps {
   width?: number;
   /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
   height?: number;
+  /** Zoom window: one square window for every panel, as `SpotPanelsProps.view`. */
+  view?: SpotView;
   panels?: never;
 }
 export interface ThroughFocusProps {

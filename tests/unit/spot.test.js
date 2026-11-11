@@ -746,3 +746,15 @@ test('auto-scale margin ignores panel order', () => {
   const x0 = (panels) => panelGroups(ELEO.spot({ width: 400, panels, scale: 'auto' }))[0].box.x;
   assert.equal(x0([big, small]), x0([small, big]), 'the first frame sits at the same x in both panel orders');
 });
+
+// oracle: closed form: the sample call with view { center: [0, 0], half: 2 } differs from the call without, and its data group maps x -2 and 2 to the frame's left and right edges.
+test('the sample spot takes view', () => {
+  const view = { center: [0, 0], half: 2 };
+  const base = ELEO.spot({ width: 500 }), zoomed = ELEO.spot({ width: 500, view });
+  assert.notEqual(zoomed, base, 'view changes the sample spot');
+  panelGroups(zoomed).forEach((g, i) => {
+    const e = (p) => toPx(g.M, p);
+    assert.ok(Math.abs(e([-2, 0])[0]) < 1e-6 && Math.abs(e([2, 0])[0] - g.box.pw) < 1e-6, `panel ${i}: x -2 and 2 on the left and right edges`);
+    assert.ok(Math.abs(e([0, 2])[1]) < 1e-6 && Math.abs(e([0, -2])[1] - g.box.ph) < 1e-6, `panel ${i}: y 2 and -2 on the top and bottom edges`);
+  });
+});

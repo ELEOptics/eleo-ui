@@ -160,7 +160,7 @@ export function spotPanels(D, o) {
     return p;
   });
   var r = { panels: panels, reference: "centroid", unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry", "grid"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
+  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry", "grid", "view"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
   return r;
 }
 export function spot(o) {
