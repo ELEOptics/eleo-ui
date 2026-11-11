@@ -151,13 +151,14 @@ const mountHarness = async (page, id, name, props, controlled = false) => {
   await host.scrollIntoViewIfNeeded();
   return host;
 };
-const axisText = (s) => s.match(/<text[^>]*>[^<]*<\/text>/g).join('');
+const axisText = (s) => (s.match(/<text[^>]*>[^<]*<\/text>/g) ?? [s]).join(''); // a drawing without axis text (Layout2D) compares whole
 // Each wrapper's props, and a patch that changes its data and keeps the default view's axis text (new data, same extent).
 const spotPanels = (sign) => [{ title: '0.0°', series: [{ points: [[0.1 * sign, -0.2], [0.3 * sign, 0.4], [-0.2 * sign, 0.1]], index: 0 }], airy: 2.4 }];
 const ZOOMABLE = {
   CurvePlot: { props: { series: [{ points: [[0, 1], [120, 0.62], [240, 0.3]], index: 0, role: 'tangential' }], x: { label: 'f' }, y: { label: 'm' } },
     patch: { series: [{ points: [[0, 1], [120, 0.5], [240, 0.3]], index: 0, role: 'tangential' }] } },
   RayFan: { at: [115, 60], props: {}, patch: { data: 'sample copy' } },
+  Layout2D: { props: {}, patch: { data: 'sample copy' } },
   SpotDiagram: { props: { panels: spotPanels(1), half: 5, unit: 'µm' }, patch: { panels: spotPanels(-1) } },
   Map2D: { props: { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1], x: { label: 'x' }, y: { label: 'y' } }, patch: { values: [[3, 2, 1, 0], [4, 3, 2, 1]] } },
 };

@@ -1,4 +1,4 @@
-<!-- Test page for tests/svelte.spec.js (#830, #951): a zoomable wrapper (`component`: CurvePlot, RayFan, SpotDiagram or Map2D) with `props`, which the page changes through `window.setProps(patch)`, to see the zoom survive a data redraw. -->
+<!-- Test page for tests/svelte.spec.js (#830, #951, #966): a zoomable wrapper (`component`: CurvePlot, RayFan, SpotDiagram, Map2D or Layout2D) with `props`, which the page changes through `window.setProps(patch)`, to see the zoom survive a data redraw. -->
 <script>
   let { component, props: initial, controlled = false } = $props();
   const Plot = component;
