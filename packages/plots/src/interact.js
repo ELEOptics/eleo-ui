@@ -232,7 +232,7 @@ export function interact(el, opts) {
   /* A click selects the mark under it by the mark's own data-*: the target's nearest ancestor in the host that names a surface, a layout field or a series. A ray run names its field only (a ray is several runs); nothing else changes. */
   function click(e) {
     if (dragged) { dragged = false; return; } // the mouseup of a drag is not a selection
-    if (e.detail > 1) return; // the second click of a double-click (a reset) selects nothing: the first click already did
+    if (onview && e.detail > 1) return; // where a double-click resets (onview), its second click selects nothing: the first click already did
     var m = e.target.closest && e.target.closest("[data-surface], [data-field], [data-series]");
     if (!m || !el.contains(m) || !onselect) return;
     var d = m.dataset, ev;

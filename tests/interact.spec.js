@@ -1271,3 +1271,17 @@ test('a double-click selects once', async ({ page }) => {
   expect(await page.evaluate(() => window.SELECT), 'one select event, for the first click').toHaveLength(1);
   expect(await page.evaluate(() => window.LAST), 'the double-click reset the view').toBeNull();
 });
+
+// #953 (review M3 r2 finding 2): the one-select rule holds only where a double-click resets (hosts with onview). A host without zoom (bars, layouts, hover-only) has no reset, so each click selects.
+test('a double-click on a non-zoom host selects twice', async ({ page }) => {
+  await mountZoom(page, 'curve');
+  await page.evaluate(() => {
+    window.STOP();
+    window.SELECT = [];
+    window.STOP = window.ELEO.interact(window.HOST, { onselect: (ev) => window.SELECT.push(ev) });
+    const m = window.HOST.querySelector('[data-series]');
+    const ev = (type, detail) => m.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, detail }));
+    ev('click', 1); ev('click', 2);
+  });
+  expect(await page.evaluate(() => window.SELECT), 'each click selects: no zoom, no reset').toHaveLength(2);
+});
