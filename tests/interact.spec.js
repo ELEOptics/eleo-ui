@@ -1965,6 +1965,47 @@ test.describe('keyboard', () => { // #834: unskipped by #839
   });
 });
 
+// #1011 (O6, CR #1008): the current point is (panel, series, data index), so a zoom that cuts a series into several marks (each with data-from) keeps the dot on its series; `=` zooms in as `+` does.
+// oracle: closed-form (series 1 is the flat line y = 0.55 + 0.01 x at x = i / 4, so its point 20 is x = 5, and point 21 is x = 5.25) and reference (CR #1008's repro: series 0, sin(2x), is cut into pieces by the same zoom).
+test('the keyboard keeps its series across a zoom that cuts it', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'width:600px;margin:20px auto';
+    document.body.prepend(host);
+    const s0 = Array.from({ length: 41 }, (_, i) => [i / 4, Math.sin(2 * i / 4)]);
+    const s1 = Array.from({ length: 41 }, (_, i) => [i / 4, 0.55 + 0.01 * i / 4]);
+    const draw = (v) => { host.innerHTML = window.ELEO.curve({ series: [{ points: s0, index: 0, label: 'osc' }, { points: s1, index: 1, label: 'flat' }], x: { label: 'x' }, y: { label: 'y' }, width: 600, ...(v ? { view: v } : {}) }); };
+    draw(null);
+    window.HOST = host; window.HOVER = []; window.VIEWS = [];
+    window.STOP = window.ELEO.interact(host, { onhover: (e) => window.HOVER.push(e && { s: e.series.index, x: e.x }), onview: (v) => { window.VIEWS.push(v); draw(v); } });
+    host.focus();
+  });
+  await page.keyboard.press('ArrowRight'); // series 0, point 0
+  await page.keyboard.press('ArrowDown'); // series 1, point 0
+  for (let i = 0; i < 20; i++) await page.keyboard.press('ArrowRight'); // series 1, point 20 (x = 5)
+  expect(await page.evaluate(() => window.HOVER.at(-1)), 'on series 1, x = 5').toEqual({ s: 1, x: 5 });
+  const n = await page.evaluate(() => window.HOVER.length);
+  let pieces = 0;
+  for (const key of ['+', '+', '+', '+', '+', '+', '=', '=', '=', '=', '=', '=']) {
+    await page.keyboard.press(key);
+    pieces = Math.max(pieces, await page.evaluate(() => window.HOST.querySelectorAll('[data-series="0"]').length));
+  }
+  expect((await page.evaluate(() => window.VIEWS)).length, '+ and = each zoom once').toBe(12);
+  expect(pieces, 'a zoom cut series 0 into pieces').toBeGreaterThan(1);
+  const during = await page.evaluate((n) => window.HOVER.slice(n), n);
+  expect(during.every((e) => e && e.s === 1), 'every hover the zooms send is on series 1').toBe(true);
+  expect(await page.evaluate(() => window.HOST.querySelector('.eleo-hover__tip').textContent), 'and the tooltip is on series 1 at x = 5').toMatch(/^flat · 5, 0\.6/);
+  await page.keyboard.press('ArrowRight');
+  expect(await page.evaluate(() => window.HOVER.at(-1)), 'the next arrow is series 1, point 21').toEqual({ s: 1, x: 5.25 });
+  await page.keyboard.press('ArrowUp'); // series 0 at the nearest point of its piece
+  expect((await page.evaluate(() => window.HOVER.at(-1))).s, 'up reaches series 0').toBe(0);
+  await page.keyboard.press('ArrowDown');
+  expect((await page.evaluate(() => window.HOVER.at(-1))).s, 'and down comes back to series 1').toBe(1);
+  await page.evaluate(() => window.STOP());
+});
+
 // #1003 (O6): the keyboard hovers only what the pointer can (a zoomed frame clips the rest), and a + or - redraw does not leave the dot where it was.
 // oracle: property (every key hover lies inside the drawn ranges the test reads from the matrix attribute; the dot sits where the matrix puts the current point) and closed-form (the test's own sine data: x = i / 4, y = sin(x + s)).
 test('keyboard steps only in-frame points and redraws its dot after a zoom', async ({ page }) => {

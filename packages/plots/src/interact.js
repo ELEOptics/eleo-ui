@@ -214,6 +214,7 @@ export function interact(el, opts) {
   if (layer) { el.appendChild(layer); hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
+    pending = false; // a pointer taking over the hover is not undone by a late redraw
     var b = nearest(el, e.clientX, e.clientY);
     if (!b) return lensMove(e) || mapMove(e);
     present(b, e.clientX, e.clientY);
@@ -302,15 +303,32 @@ export function interact(el, opts) {
     var sx = drag.g[0] - hit.p[0], sy = drag.g[1] - hit.p[1];
     emitView(viewOf(hit.kind, [hit.x[0] + sx, hit.x[1] + sx], [hit.y[0] + sy, hit.y[1] + sy]));
   }
-  /* ---- Keyboard. The current point is a series position s (document order among the curve and spot marks) and a data index i, both numbers, so a redraw that replaced the markup keeps it. ---- */
-  var cur = null;
+  /* ---- Keyboard. The current point is a series identity (its panel and series, from data-panel and data-series) and a data index, so a redraw that replaced the markup keeps it, and so does a zoom that cut the series into several marks (each with a data-from): the mark is looked up again on each use. ---- */
+  var cur = null, pending = false; // `pending`: a + - 0 key asked for the dot again once the caller's redraw replaces the markup
   function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return m.localName !== "rect" && dataGroup(m) && runs(m).p.length; }); }
-  // the spot of the current point on the markup now (the index clamped to the mark's drawn points), or null
+  var identOf = function (m) { return m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); };
+  // the drawn series, in document order of their first mark: { id, marks } with every mark (piece) of that identity
+  function drawnSeries() {
+    var out = [], by = {};
+    keyMarks().forEach(function (m) { var id = identOf(m); if (!by[id]) { by[id] = { id: id, marks: [] }; out.push(by[id]); } by[id].marks.push(m); });
+    return out;
+  }
+  // a series' points inside the frame, by data index (the first of two pieces drawing the same index): { mark, index, x, y }
+  function visiblePoints(ser) {
+    var out = [];
+    ser.marks.forEach(function (m) { var r = runs(m); visible(m).forEach(function (j) { out.push({ mark: m, index: j + r.off, x: r.p[j][0], y: r.p[j][1] }); }); });
+    return out.sort(function (a, b) { return a.index - b.index; }).filter(function (q, n, all) { return !n || q.index !== all[n - 1].index; });
+  }
+  // the spot of the current point on the markup now: the mark of its series whose data-from run holds the index, else the nearest piece (the index clamped to it), or null
   function curSpot() {
-    var ms = cur && keyMarks(), m = ms && ms[Math.min(cur.s, ms.length - 1)];
-    if (!m) return null;
-    var r = runs(m), i = Math.max(0, Math.min(cur.i - r.off, r.p.length - 1));
-    return { mark: m, index: i + r.off, x: r.p[i][0], y: r.p[i][1] };
+    var ser = cur && drawnSeries().filter(function (s) { return s.id === cur.id; })[0], best = null;
+    if (!ser) return null;
+    ser.marks.forEach(function (m) {
+      var r = runs(m), d = cur.i < r.off ? r.off - cur.i : Math.max(0, cur.i - (r.off + r.p.length - 1));
+      if (!best || d < best.d) best = { d: d, mark: m, r: r };
+    });
+    var i = Math.max(0, Math.min(cur.i - best.r.off, best.r.p.length - 1));
+    return { mark: best.mark, index: i + best.r.off, x: best.r.p[i][0], y: best.r.p[i][1] };
   }
   var clientOf = function (b) { var q = new DOMPoint(b.x, b.y).matrixTransform(dataGroup(b.mark).getScreenCTM()); return [q.x, q.y]; };
   // the positions of a mark's drawn points inside its frame, the points the pointer can hover too
@@ -318,26 +336,30 @@ export function interact(el, opts) {
     var g = dataGroup(m), gm = g.getScreenCTM(), ok = gm ? inFrameOf(g, gm) : function () { return false; };
     return runs(m).p.reduce(function (o, q, i) { if (ok(q[0], q[1])) o.push(i); return o; }, []);
   }
-  /* An arrow: left and right step the current series' points inside the frame, up and down its neighbours in document order that have one, at the same point or the nearest inside the frame, clamped at the ends (no wrap). The first one lands on the first such point. A point a redraw moved out of the frame is not shown. Returns whether there was anything to step. */
+  /* An arrow: left and right step the current series' points inside the frame across its pieces, up and down the neighbouring series (distinct panel and series, in document order) that have one, at the same data index or the nearest inside the frame, clamped at the ends (no wrap). The first one lands on the first such point. A point a redraw moved out of the frame is not shown. Returns whether there was anything to step. */
   function step(k) {
-    var ms = keyMarks(), vis = ms.map(visible), at = curSpot(), s = at ? Math.min(cur.s, ms.length - 1) : 0, i = at ? at.index - runs(at.mark).off : 0;
-    if (!vis.some(function (v) { return v.length; })) return false;
-    if (!at) { while (!vis[s].length) s++; i = vis[s][0]; }
-    else if (k === "ArrowRight" || k === "ArrowLeft") {
-      var to = vis[s].filter(function (j) { return k === "ArrowRight" ? j > i : j < i; });
-      if (to.length) i = k === "ArrowRight" ? to[0] : to[to.length - 1];
-    } else {
-      var t = s, d = k === "ArrowDown" ? 1 : -1;
-      do t += d; while (t >= 0 && t < ms.length && !vis[t].length);
-      if (t >= 0 && t < ms.length) { s = t; i = vis[s].reduce(function (n, j) { return Math.abs(j - i) < Math.abs(n - i) ? j : n; }); }
+    var ser = drawnSeries(), pts = ser.map(visiblePoints), at = curSpot(), s = 0, i = 0;
+    if (!pts.some(function (v) { return v.length; })) return false;
+    if (!at) { while (!pts[s].length) s++; i = pts[s][0].index; }
+    else {
+      s = ser.map(function (q) { return q.id; }).indexOf(cur.id); i = at.index;
+      if (k === "ArrowRight" || k === "ArrowLeft") {
+        var to = pts[s].filter(function (q) { return k === "ArrowRight" ? q.index > i : q.index < i; });
+        if (to.length) i = (k === "ArrowRight" ? to[0] : to[to.length - 1]).index;
+      } else {
+        var t = s, d = k === "ArrowDown" ? 1 : -1;
+        do t += d; while (t >= 0 && t < ser.length && !pts[t].length);
+        if (t >= 0 && t < ser.length) { s = t; i = pts[s].reduce(function (n, q) { return Math.abs(q.index - i) < Math.abs(n.index - i) ? q : n; }).index; }
+      }
     }
-    if (vis[s].indexOf(i) < 0) return true; // the current point is out of the frame and nothing in the direction is in it
-    cur = { s: s, i: i + runs(ms[s]).off };
-    var b = curSpot(), c = clientOf(b);
+    var b = pts[s].filter(function (q) { return q.index === i; })[0];
+    if (!b) return true; // the current point is out of the frame and nothing in the direction is in it
+    cur = { id: ser[s].id, i: i };
+    var c = clientOf(b);
     present(b, c[0], c[1]);
     return true;
   }
-  // the hover on the current point again, after a redraw that may have moved it; hidden where it is now out of the frame
+  // the hover on the current point again, after a redraw that may have moved it; hidden where it is now out of the frame. A key that redraws calls it at once and leaves `pending`, so the observer calls it again when the caller's markup swap comes later (a wrapper redraws a microtask after onview).
   function refresh() {
     var b = curSpot();
     if (!b) return;
@@ -350,17 +372,19 @@ export function interact(el, opts) {
     var at = curSpot(), c = at && clientOf(at), hit = c && pick(el, c[0], c[1]), fs = frames(el), kind = kindOf(el), img = el.querySelector("image[data-range]");
     if (!hit && img) { var ib = img.getBoundingClientRect(); hit = pick(el, (ib.left + ib.right) / 2, (ib.top + ib.bottom) / 2); }
     if (!hit && kind && fs.length) hit = { kind: kind, x: fs[0].x, y: fs[0].y, p: [(fs[0].x[0] + fs[0].x[1]) / 2, (fs[0].y[0] + fs[0].y[1]) / 2] };
-    if (hit) { zoom(hit, Math.exp(dir * KEY_NOTCH * WHEEL_RATE)); refresh(); } // the caller's redraw has replaced the markup by now
+    if (hit) { zoom(hit, Math.exp(dir * KEY_NOTCH * WHEEL_RATE)); redrawn(); }
   }
+  function redrawn() { pending = true; refresh(); }
   /* A key it acts on is prevented (the arrows and + - scroll or zoom the page otherwise); any other, and any with ctrl, meta or alt, is the browser's, so Tab leaves the host. Enter selects the current point's mark, Escape clears it, 0 resets; + - 0 need onview. */
   function key(e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var k = e.key, did = false;
+    pending = false;
     if (k === "ArrowRight" || k === "ArrowLeft" || k === "ArrowDown" || k === "ArrowUp") did = step(k);
     else if (k === "Enter") { var at = onselect && curSpot(); if (at) { select(at.mark); did = true; } }
     else if (k === "Escape") { if (cur) { cur = null; leave(); did = true; } }
-    else if (onview && (k === "+" || k === "-")) { zoomKey(k === "+" ? 1 : -1); did = true; }
-    else if (onview && k === "0") { reset(); refresh(); did = true; }
+    else if (onview && (k === "+" || k === "=" || k === "-")) { zoomKey(k === "-" ? -1 : 1); did = true; }
+    else if (onview && k === "0") { reset(); redrawn(); did = true; }
     if (did) e.preventDefault();
   }
   /* The host takes focus on a primary press itself: the mousedown that starts a pan has its default prevented, which stops the click from focusing it. */
@@ -369,8 +393,11 @@ export function interact(el, opts) {
   function reset() { if (onview && !ended) onview(null); }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
   // a redraw replaced the markup: the empty live region is back at once (a microtask), before any text is set. Appending only when detached keeps the observer from looping on its own mutation.
-  var watch = layer && new MutationObserver(function () { if (layer.parentNode !== el) el.appendChild(layer); });
-  if (watch) watch.observe(el, { childList: true });
+  var watch = new MutationObserver(function () {
+    if (layer && layer.parentNode !== el) el.appendChild(layer);
+    if (pending) { pending = false; refresh(); } // a key asked for the dot once the caller's markup is in
+  });
+  watch.observe(el, { childList: true });
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   el.addEventListener("click", click);

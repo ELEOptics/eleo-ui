@@ -247,13 +247,13 @@ The view is `{ x: [lo, hi], y: [lo, hi] }` in data units for a curve, ray fan, l
 
 `interact` makes the host focusable (`tabindex="0"` unless the host has a `tabindex` attribute, which stays; a primary press on the host focuses it, as the zoom's mousedown default-prevent would otherwise stop). Keys act on the focused host, and a key it acts on is default-prevented; any other key (Tab included) and any key with ctrl, meta or alt is the browser's.
 
-The arrows, `Enter` and `Escape` work on the curve and spot marks. The keyboard has a current point (a series position in document order and a data index), none until the first arrow, and it survives a redraw.
+The arrows, `Enter` and `Escape` work on the curve and spot marks. The keyboard has a current point (a panel, a series and a data index), none until the first arrow, and it survives a redraw. It is found again on the markup at each use, so a zoom that cuts a series into several marks (each with a `data-from`) keeps it on its series.
 
-- `→` / `←` step to the next / previous point of the current series, `↓` / `↑` to the next / previous series at the same point index (else the nearest point). Only points inside the drawn frame are stepped to, as the pointer hovers only those (on a zoomed plot the points clipped out are skipped, and a series with none in the frame is skipped). The first arrow lands on the first such point (series 0, point 0 unzoomed); at an end nothing moves and nothing is sent (no wrap).
+- `→` / `←` step to the next / previous point of the current series (across its pieces), `↓` / `↑` to the next / previous series (each panel and series once) at the same data index (else the nearest point). Only points inside the drawn frame are stepped to, as the pointer hovers only those (on a zoomed plot the points clipped out are skipped, and a series with none in the frame is skipped). The first arrow lands on the first such point (series 0, point 0 unzoomed); at an end nothing moves and nothing is sent (no wrap).
 - Each step sends `onhover` with the event the pointer sends on that point (never `interpolated`), with the dot and tooltip as for the pointer.
 - `Enter` sends `onselect` with what a click on the current point's mark sends (nothing with no current point or without `onselect`).
 - `Escape` clears the current point: `onhover(null)`, the overlay hidden, and the next arrow starts again at series 0, point 0.
-- With `onview`: `+` zooms in and `-` out by one wheel notch about the current point (else the centre of the first frame, or of a map's image) and, once the caller has redrawn, shows the dot and tooltip again on the current point (hidden if the redraw put it outside the frame). `0` resets (`onview(null)`) and does the same.
+- With `onview`: `+` (or `=`) zooms in and `-` out by one wheel notch about the current point (else the centre of the first frame, or of a map's image) and, once the caller has redrawn, shows the dot and tooltip again on the current point (hidden if the redraw put it outside the frame). The redraw may come right away or later (a Svelte wrapper redraws a microtask after `onview`): the dot follows the markup swap. `0` resets (`onview(null)`) and does the same.
 
 ### `readout`
 

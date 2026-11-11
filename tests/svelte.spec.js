@@ -199,6 +199,42 @@ for (const [name, { props, at }] of Object.entries(ZOOMABLE)) {
   });
 }
 
+// Plan #804, outcome O6 (issue #1011, CR #1008). oracle: closed-form (the dot sits where the data group's matrix puts the current point, x = 14 / 4 of the test's own sine data).
+// The wrapper redraws a microtask after onview (its view is $state), so the dot is placed once the caller's markup has been replaced.
+test('a wrapper re-shows the keyboard dot after + and 0', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.addScriptTag({ content: await bundle() });
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.width = '600px';
+    document.body.prepend(host);
+    window.BOX = host;
+    const points = Array.from({ length: 21 }, (_, i) => [i / 4, Math.sin(i / 4)]);
+    window.WRAPPERS.mount(window.WRAPPERS.CurvePlot, { target: host, props: { series: [{ points, index: 0, label: 'a' }], x: { label: 'x' }, y: { label: 'y' } } });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    host.querySelector('.eleo-svg').focus();
+  });
+  for (let n = 0; n < 15; n++) await page.keyboard.press('ArrowRight'); // point 14
+  const gap = () => page.evaluate(async () => {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const h = window.BOX.querySelector('.eleo-svg'), dot = h.querySelector('.eleo-hover__dot'), hb = h.getBoundingClientRect();
+    const m = h.querySelector('[data-series]');
+    const pt = new DOMPoint(14 / 4, Math.sin(14 / 4)).matrixTransform(m.closest('g[transform^="matrix("]').getScreenCTM());
+    return { hidden: dot.hidden, dx: parseFloat(dot.style.left) - (pt.x - hb.left - h.clientLeft), dy: parseFloat(dot.style.top) - (pt.y - hb.top - h.clientTop), tip: h.querySelector('.eleo-hover__tip').textContent };
+  });
+  const before = await gap();
+  expect(before.hidden, 'a dot before the zoom').toBe(false);
+  for (const key of ['+', '+', '+', '0']) {
+    await page.keyboard.press(key);
+    const g = await gap();
+    expect(g.hidden, `a dot after ${key}`).toBe(false);
+    expect(Math.abs(g.dx), `after ${key} the dot is on the point (x)`).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(g.dy), `after ${key} the dot is on the point (y)`).toBeLessThanOrEqual(0.5);
+    expect(g.tip, `after ${key} the tooltip is shown`).not.toBe('');
+  }
+});
+
 // Plan #804, outcome O5 (issue #955). oracle: the tooltip reads the unit and value the props hold at event time, so a data change shows in the next hover.
 test('a data change updates the tooltip', async ({ page }) => {
   const grid = (v) => Array.from({ length: 4 }, () => Array.from({ length: 6 }, () => v));
