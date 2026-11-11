@@ -1639,3 +1639,47 @@ test('a lens hover follows the pointer', async ({ page }) => {
   expect(got.text).toContain('element 1');
   await page.evaluate(() => window.STOP());
 });
+
+// #978 (review M3 r6 finding 2): `layout2D` clips to its geometry band only with a view, so a view-less layout cropped by a caller `box` smaller than its geometry draws rays into the label room and the scale-bar band, and they hover as they did before #972. The same layout zoomed hovers only inside its band.
+// oracle: property a pointer placed from the data group's matrix attribute on a ray point outside the band's y range (computed from data-band) hovers that ray when the group has no clip-path, and hovers no ray when it does.
+test('a cropped layout hovers rays past its band', async ({ page }) => {
+  const layout = layoutFixture('analysis-glasses');
+  await mountLayout(page, layout);
+  const run = async (view) => {
+    await page.evaluate(({ layout, view }) => {
+      window.STOP();
+      const s0 = layout.surfaces.find((x) => x.stop && x.glass), h = s0.sd / 2;
+      window.HOVER = [];
+      window.HOST.innerHTML = window.ELEO.layout2D({ data: layout, width: 700, box: { zmin: Math.min(...layout.surfaces.map((x) => x.z)) - 8, zmax: Math.max(...layout.surfaces.map((x) => x.z)) + 4, ylo: -h, yhi: h }, ...(view ? { view } : {}) });
+      window.STOP = window.ELEO.interact(window.HOST, { onhover: (ev) => window.HOVER.push(ev) });
+    }, { layout, view });
+    // a ray point drawn past the band's top or bottom edge, still inside the root viewBox, and its client position
+    const c = await page.evaluate(() => {
+      const g = window.HOST.querySelector('g[data-band]'), root = g.ownerSVGElement, r = root.getBoundingClientRect(), vb = root.viewBox.baseVal, k = r.width / vb.width;
+      const [bx, by, bw, bh] = g.getAttribute('data-band').split(' ').map(Number), [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+      let best = null;
+      for (const pl of g.querySelectorAll('polyline[data-ray]')) {
+        for (let i = 1; i < pl.points.numberOfItems; i++) {
+          const q0 = pl.points.getItem(i - 1), q1 = pl.points.getItem(i);
+          for (let t = 0; t <= 1; t += 0.05) { // a spot along the segment, so a ray crossing the label room is found between its vertices
+            const px = a * (q0.x + t * (q1.x - q0.x)) + e, py = d * (q0.y + t * (q1.y - q0.y)) + f, out = Math.min(py - by, by + bh - py);
+            if (px >= bx && px <= bx + bw && out < -4 && py > 2 && py < vb.height - 2 && (!best || out > best.out)) best = { out, c: [r.left + px * k, r.top + py * k] };
+          }
+        }
+      }
+      return { clip: g.hasAttribute('clip-path'), at: best && best.c };
+    });
+    return c;
+  };
+  const plain = await run(null);
+  expect(plain.clip, 'no view, no band clip').toBe(false);
+  expect(plain.at, 'a ray point is drawn past the band').not.toBeNull();
+  const ev = await hoverAt(page, plain.at[0], plain.at[1]);
+  expect(ev?.ray, 'a pointer on a ray point past the band hovers that ray').not.toBeUndefined();
+  const s0 = layout.surfaces.find((x) => x.stop && x.glass);
+  const zoomed = await run({ x: [Math.min(...layout.surfaces.map((x) => x.z)) - 8, Math.max(...layout.surfaces.map((x) => x.z)) + 4], y: [-s0.sd / 2, s0.sd / 2] });
+  expect(zoomed.clip, 'a view clips to the band').toBe(true);
+  expect(zoomed.at, 'a zoomed ray runs past the band (clipped there)').not.toBeNull();
+  expect((await hoverAt(page, zoomed.at[0], zoomed.at[1]))?.ray, 'a zoomed layout hovers nothing past its band').toBeUndefined();
+  await page.evaluate(() => window.STOP());
+});
