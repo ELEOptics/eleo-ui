@@ -128,9 +128,70 @@ function showMarks(host, layer, b) {
 
 var hosts = new WeakMap(); // host -> number of live interact calls holding its `eleo-hover-host` class
 
-/* interact(el, { onhover, onselect, axes, marks, tooltip, values }): calls onhover({ x, y, series: { index, label, role }, panel?, category?, categoryLabel? }) (`series` is absent on a layout ray hover, and on a map's) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(). */
+/* ---- Zoom, pan and reset. interact holds no view: each gesture reads the drawn ranges off the markup, makes the new view and hands it to onview; the caller redraws. ---- */
+var WHEEL_RATE = 0.0015; // per px of wheel delta: one 100 px notch zooms by exp(0.15)
+var DRAG_PX = 3; // client px a pointer must travel before a press is a drag, not a click
+
+/* The data frames of a host, in document order: for each data group (a matrix group holding a series mark) the inverse of its screen matrix and the data ranges its nested viewport shows, read from the group's matrix and the viewport's width and height. */
+function frames(host) {
+  var seen = [], out = [];
+  host.querySelectorAll("[data-series]").forEach(function (mark) {
+    var g = dataGroup(mark);
+    if (!g || seen.indexOf(g) >= 0) return;
+    seen.push(g);
+    var vp = g.closest("svg"), m = g.getScreenCTM(), t = g.transform.baseVal.consolidate();
+    if (!vp || !m || !t) return;
+    var a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f, w = +vp.getAttribute("width"), h = +vp.getAttribute("height");
+    if (!(a && d && isFinite(a + d + e + f + w + h))) return;
+    out.push({ inv: m.inverse(), x: [-e / a, (w - e) / a].sort(function (u, v) { return u - v; }), y: [-f / d, (h - f) / d].sort(function (u, v) { return u - v; }) });
+  });
+  return out;
+}
+
+/* Which kind of plot a host holds, from its markup: "map" (an image carrying data-range), "spot" (series paths that are dots only: no L), "curve" (the other series paths and polylines), or null (bars, layouts, nothing drawn). */
+function kindOf(host) {
+  if (host.querySelector("image[data-range]")) return "map";
+  var marks = host.querySelectorAll("[data-series]");
+  if (!marks.length || host.querySelector("rect[data-series]")) return null;
+  for (var i = 0; i < marks.length; i++) {
+    var d = marks[i].localName === "path" && marks[i].getAttribute("d");
+    if (d && /h\s*-?[\d.]/.test(d) && d.indexOf("L") < 0) return "spot";
+  }
+  return "curve";
+}
+
+/* What is under the client position: { kind, index, p: the data point there, x, y: the drawn ranges of its frame }, or null. With `index` the frame is that one (a drag keeps its frame) wherever the pointer is; otherwise the frame whose ranges hold the pointer. */
+function pick(host, cx, cy, index) {
+  var kind = kindOf(host), at, x, y;
+  if (!kind) return null;
+  if (kind === "map") {
+    var img = host.querySelector("image[data-range]"), m = img.getScreenCTM();
+    if (!m) return null;
+    var q = new DOMPoint(cx, cy).matrixTransform(m.inverse()), e = img.dataset.extent.split(" ").map(Number), r = img.dataset.range.split(" ").map(Number);
+    at = { x: e[0] + (q.x - +img.getAttribute("x")) / +img.getAttribute("width") * (e[1] - e[0]), y: e[3] - (q.y - +img.getAttribute("y")) / +img.getAttribute("height") * (e[3] - e[2]) };
+    x = [r[0], r[1]]; y = [r[2], r[3]];
+    if (!(isFinite(at.x + at.y + r[0] + r[1] + r[2] + r[3]))) return null;
+    return index === undefined && !(at.x >= x[0] && at.x <= x[1] && at.y >= y[0] && at.y <= y[1]) ? null : { kind: kind, index: 0, p: [at.x, at.y], x: x, y: y };
+  }
+  var fs = frames(host);
+  for (var i = 0; i < fs.length; i++) {
+    if (index !== undefined && i !== index) continue;
+    var pt = new DOMPoint(cx, cy).matrixTransform(fs[i].inv);
+    if (index !== undefined || (pt.x >= fs[i].x[0] && pt.x <= fs[i].x[1] && pt.y >= fs[i].y[0] && pt.y <= fs[i].y[1])) return { kind: kind, index: i, p: [pt.x, pt.y], x: fs[i].x, y: fs[i].y };
+  }
+  return null;
+}
+
+/* The view for ranges x and y: { center, half } for a spot (its window is square: half is x's), else { x, y }; null where a range collapsed or left the finite numbers. */
+function viewOf(kind, x, y) {
+  var okr = function (r) { return isFinite(r[0] + r[1]) && r[1] > r[0] && r[1] - r[0] > 1e-12 * Math.max(Math.abs(r[0]), Math.abs(r[1])); };
+  if (!okr(x) || !okr(y)) return null;
+  return kind === "spot" ? { center: [(x[0] + x[1]) / 2, (y[0] + y[1]) / 2], half: (x[1] - x[0]) / 2 } : { x: x, y: y };
+}
+
+/* interact(el, { onhover, onselect, axes, marks, tooltip, values }): calls onhover({ x, y, series: { index, label, role }, panel?, category?, categoryLabel? }) (`series` is absent on a layout ray hover, and on a map's) for the point nearest the pointer (or the spot on the line between two points, see README), and onhover(null) when the pointer leaves it or the host. With `opts.onview`, a wheel zooms about the pointer (k per notch, the same on every axis and panel), a drag pans (the grabbed data point stays under the pointer), a double-click resets: each calls onview(view) with the new view (`{ x, y }` for a curve, ray fan or typed map; `{ center, half }` for a spot or through-focus) and draws nothing, and reset calls onview(null). While a point is hovered it also draws a dot on it and drop lines to the plot frame's axes in an overlay on the host, unless `opts.marks` is false, and a tooltip near the pointer with `readout(event, opts.axes)`, unless `opts.tooltip` is false. Returns stop(), which has a reset() method: onview(null). */
 export function interact(el, opts) {
-  var onhover = (opts && opts.onhover) || function () {}, onselect = opts && opts.onselect, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, values = opts && opts.values, layer = (marks || tip) && overlay(marks, tip);
+  var onhover = (opts && opts.onhover) || function () {}, onselect = opts && opts.onselect, last = "", marks = !(opts && opts.marks === false), tip = !(opts && opts.tooltip === false), axes = opts && opts.axes, onview = opts && typeof opts.onview === "function" && opts.onview, values = opts && opts.values, layer = (marks || tip) && overlay(marks, tip);
   if (layer) { el.appendChild(layer); hosts.set(el, (hosts.get(el) || 0) + 1); el.classList.add("eleo-hover-host"); }
   function emit(ev, key) { if (key === last) return; last = key; onhover(ev); }
   function move(e) {
@@ -159,6 +220,7 @@ export function interact(el, opts) {
   }
   /* A click selects the mark under it by the mark's own data-*: the target's nearest ancestor in the host that names a surface, a layout field or a series. A ray run names its field only (a ray is several runs); nothing else changes. */
   function click(e) {
+    if (dragged) { dragged = false; return; } // the mouseup of a drag is not a selection
     var m = e.target.closest && e.target.closest("[data-surface], [data-field], [data-series]");
     if (!m || !el.contains(m) || !onselect) return;
     var d = m.dataset, ev;
@@ -168,6 +230,37 @@ export function interact(el, opts) {
       ev = { series: { index: +d.series, label: d.label, role: d.role } }; if (d.panel !== undefined) ev.panel = +d.panel; if (d.category !== undefined) ev.category = +d.category; }
     onselect(ev);
   }
+  var dragged = false, drag = null, stopped = false, ended = false;
+  function emitView(v) { if (v) onview(v); }
+  function wheel(e) {
+    var hit = pick(el, e.clientX, e.clientY);
+    if (!hit) return;
+    e.preventDefault();
+    var dy = Math.max(-400, Math.min(400, e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1))), k = Math.exp(-dy * WHEEL_RATE);
+    if (!dy) return;
+    var about = function (r, c) { return [c + (r[0] - c) / k, c + (r[1] - c) / k]; };
+    emitView(viewOf(hit.kind, about(hit.x, hit.p[0]), about(hit.y, hit.p[1])));
+  }
+  function down(e) {
+    dragged = false; drag = null;
+    if (e.button !== 0) return;
+    var hit = pick(el, e.clientX, e.clientY);
+    if (hit) drag = { id: e.pointerId, x: e.clientX, y: e.clientY, g: hit.p, index: hit.index, moved: false };
+  }
+  function pan(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moved) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) <= DRAG_PX) return;
+      drag.moved = true; dragged = true;
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* a synthetic pointer: keep going without capture */ }
+    }
+    var hit = pick(el, e.clientX, e.clientY, drag.index);
+    if (!hit) return;
+    var sx = drag.g[0] - hit.p[0], sy = drag.g[1] - hit.p[1];
+    emitView(viewOf(hit.kind, [hit.x[0] + sx, hit.x[1] + sx], [hit.y[0] + sy, hit.y[1] + sy]));
+  }
+  function up(e) { if (drag && e.pointerId === drag.id) drag = null; }
+  function reset() { if (onview && !ended) onview(null); }
   function leave() { if (layer) hide(layer, tip); emit(null, ""); }
   // a redraw replaced the markup: the empty live region is back at once (a microtask), before any text is set. Appending only when detached keeps the observer from looping on its own mutation.
   var watch = layer && new MutationObserver(function () { if (layer.parentNode !== el) el.appendChild(layer); });
@@ -175,10 +268,21 @@ export function interact(el, opts) {
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   el.addEventListener("click", click);
-  var stopped = false;
-  return function stop() {
+  if (onview) {
+    el.addEventListener("wheel", wheel, { passive: false });
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointermove", pan);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("dblclick", reset);
+  }
+  function stop() {
+    el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down); el.removeEventListener("pointermove", pan); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("dblclick", reset);
+    drag = null; ended = true;
     if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); el.removeEventListener("click", click);
-  };
+  }
+  stop.reset = reset;
+  return stop;
 }
 
 /* One value as text: `fmt` to `spec.digits` decimals, or to at most 2 with trailing zeros dropped, then a space and `spec.unit`. */

@@ -99,8 +99,14 @@ export interface SpotPanel {
   /** Extra caption lines under the panel, after the RMS and GEO lines. */
   notes?: string[];
 }
+/** A zoomed and panned window, in data units: what `interact`'s `onview` sends and the renderers' `view` prop takes. A curve, ray fan or typed map takes `{ x, y }` (either key optional on input; a map's in extent units); a spot or through-focus a square window `{ center, half }` shared by every panel. */
+export type PlotView = { x?: [number, number]; y?: [number, number] };
+export type SpotView = { center: [number, number]; half: number };
+export type View = PlotView | SpotView;
 /** Typed call: you give the panels. */
 export interface SpotPanelsProps {
+  /** Zoom window: one square window for every panel, replacing the common half-width and the centre. Ignored when not `{ center: [cx, cy], half }` with finite `half` above 0. */
+  view?: SpotView;
   panels: SpotPanel[];
   /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
   origin?: string;
@@ -162,6 +168,8 @@ export interface SpotSampleProps {
 }
 export interface ThroughFocusProps {
   data?: object;
+  /** Zoom window: one square window for every cell, as `SpotPanelsProps.view`. */
+  view?: SpotView;
   /** Box half-width in the data's unit. */
   half?: number;
   /** The figure's width in px. A panel's side is ADR-0003's frame, solved from it; 92 px without it. */
@@ -172,6 +180,8 @@ export interface ThroughFocusProps {
 export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
 export interface RayFanProps {
   data?: object;
+  /** Zoom window in data units, replacing the drawn ranges of every panel; an absent key keeps that axis's range. */
+  view?: PlotView;
   /** Transverse ray aberration (µm) or optical path difference (waves). Default "tra". */
   kind?: "tra" | "opd";
   /** Field indexes to show. Default all. */
@@ -205,6 +215,8 @@ export interface Map2DProps {
 }
 /** A grid drawn as a map: SVG in curve's frame with the grid as one nearest-neighbour `<image>`. Colors come from `map` read at `el`; there is no color option (ADR-0001). */
 export interface Map2DGridProps {
+  /** Zoom window in extent units, per axis; the image keeps its extent and the frame clips it. Each range must be finite with lo < hi, else `map2D` throws a `TypeError`. */
+  view?: PlotView;
   /** Rows of cells, row 0 at the top. A cell that is not a finite number is masked: it draws no color, so the page's `--surface` shows. Plain arrays. With `polar`, `values[ring][spoke]` are polar samples instead. */
   values: number[][];
   /** Polar samples about the origin of `extent`: `radii` in extent units, `angles` in radians from +x, counter-clockwise (y up). `values[ring][spoke]` is the sample at `radii[ring]`, `angles[spoke]`. */
@@ -330,7 +342,8 @@ export interface CurveKindProps {
   panels?: never;
   limits?: never;
 }
-export type CurvePlotProps = CurveSeriesProps | CurvePanelsProps | CurveKindProps;
+/** `view` overrides the drawn x and y ranges of every panel (an absent key keeps that axis's range); `interact`'s `onview` sends it. */
+export type CurvePlotProps = (CurveSeriesProps | CurvePanelsProps | CurveKindProps) & { view?: PlotView };
 /** One bar series: a value per category, one palette slot. There is no color option (ADR-0001). */
 export interface BarSeries {
   /** One value per category, in `y` units; the bar rises from 0, so a negative value hangs below it. A null (or any value that is not a finite number) is a gap: no bar, no share of the total or the range. A series may be shorter than `categories`. */
@@ -497,9 +510,17 @@ export interface InteractOptions {
   marks?: boolean;
   /** Show the readout in a tooltip near the pointer. Default `true`. While marks or the tooltip are on, the host carries the class `eleo-hover-host`. */
   tooltip?: boolean;
+  /** Turns on zoom and pan. A wheel zooms about the pointer, a drag pans, a double-click resets; each calls `onview` with the new view (`View`: `{ x, y }` for a curve, ray fan or typed map, `{ center, half }` for a spot or through-focus; reset sends `null`) and draws nothing: redraw with it as the renderer's `view`, and with none for `null`. The current ranges are read from the drawn markup each time, so the caller's view is the only state. A drag is not also a click (`onselect`). */
+  onview?: (view: View | null) => void;
 }
-/** Listen for the pointer on `el`, the element holding the drawn SVG. The listeners sit on `el`, so a redraw that replaces its markup keeps them. Client-only. Returns `stop()`, which removes them. */
-export declare function interact(el: Element, opts?: InteractOptions): () => void;
+/** `interact`'s stop function: removes the listeners. */
+export interface InteractStop {
+  (): void;
+  /** Calls `onview(null)`, as a double-click does. Does nothing without `onview` or after stop. */
+  reset(): void;
+}
+/** Listen for the pointer on `el`, the element holding the drawn SVG. The listeners sit on `el`, so a redraw that replaces its markup keeps them. Client-only. Returns `stop()`, which removes them, and has a `reset()` method. */
+export declare function interact(el: Element, opts?: InteractOptions): InteractStop;
 /** How `readout` writes one axis's value. */
 export interface ReadoutAxis {
   /** Appended after the value, e.g. "mm". Default none. */

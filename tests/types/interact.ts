@@ -1,6 +1,6 @@
 // Plan #804 M1 (#809): interact, InteractOptions, HoverEvent and readout compile; a bad option or axis spec does not.
 // oracle: spec packages/plots/src/interact.js (interact, readout)
-import type { HoverEvent, InteractOptions, ReadoutAxis, SelectEvent } from '../../packages/plots/src/index';
+import type { CurvePlotProps, HoverEvent, InteractOptions, InteractStop, Map2DGridProps, PlotView, RayFanProps, ReadoutAxis, SelectEvent, SpotPanelsProps, SpotView, ThroughFocusProps, View } from '../../packages/plots/src/index';
 import ELEO, { interact, readout } from '../../packages/plots/src/index';
 
 declare const host: HTMLElement;
@@ -75,3 +75,29 @@ const maskedHover: HoverEvent = { x: 1, y: 2, row: 0, column: 3, value: null };
 const maskedValue: number | null | undefined = maskedHover.value;
 // @ts-expect-error value is a number or null
 const badValue: HoverEvent = { x: 1, y: 2, value: 'high' };
+
+// Zoom and pan (#829): onview receives a View or null; the stop function has reset(); the renderers take `view`.
+const zoomStop: InteractStop = interact(host, { onview: (v) => { if (v === null) return; if ('half' in v) { const h: number = v.half; } else { const r: [number, number] | undefined = v.x; } } });
+zoomStop();
+zoomStop.reset();
+const plain: () => void = interact(host);
+plain();
+// @ts-expect-error a plain stop function from a typed variable has no reset; the returned stop does
+const lacksReset: () => void = interact(host); lacksReset.reset();
+// @ts-expect-error onview takes a view or null, not a string
+interact(host, { onview: (v: string) => {} });
+const curveView: PlotView = { x: [0, 5], y: [-1, 1] };
+const xOnly: PlotView = { x: [0, 5] };
+const spotView: SpotView = { center: [0, 0], half: 4 };
+const anyView: View = spotView;
+const curveProps: CurvePlotProps = { series: [], x: { range: [0, 1] }, y: { range: [0, 1] }, view: curveView };
+const fanProps: RayFanProps = { view: xOnly };
+const spotProps: SpotPanelsProps = { panels: [], view: spotView };
+const tfProps: ThroughFocusProps = { view: spotView };
+const mapProps: Map2DGridProps = { values: [[1]], extent: [0, 1, 0, 1], view: curveView };
+// @ts-expect-error a spot view is a centre and a half-width, not ranges
+const badSpot: SpotPanelsProps = { panels: [], view: { x: [0, 1], y: [0, 1] } };
+// @ts-expect-error a curve view range is a pair
+const badCurve: CurvePlotProps = { series: [], view: { x: [0, 1, 2] } };
+// @ts-expect-error a map view's ranges are pairs of numbers
+const badMap: Map2DGridProps = { values: [[1]], extent: [0, 1, 0, 1], view: { x: ['a', 'b'] } };

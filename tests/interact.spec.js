@@ -882,13 +882,15 @@ const installZ = (page) => page.evaluate(() => {
       if (t) { const [u, v] = t[1].split(/[\s,]+/).map(Number); tx += u; ty += v || 0; }
     }
     const vx = vp === root ? 0 : +(vp.getAttribute('x') || 0), vy = vp === root ? 0 : +(vp.getAttribute('y') || 0), vw = +vp.getAttribute('width'), vh = +vp.getAttribute('height');
-    return { a, d, k, box, tx: tx + vx, ty: ty + vy, e, f, x: [-e / a, (vw - e) / a].sort((u, v) => u - v), y: [-f / d, (vh - f) / d].sort((u, v) => u - v) };
+    return { a, d, k, box, tx: tx + vx, ty: ty + vy, e, f, x: [(0 - e) / a, (vw - e) / a].sort((u, v) => u - v), y: [(0 - f) / d, (vh - f) / d].sort((u, v) => u - v) }; // (0 - e), not -e: a zero offset must read 0, not -0
   });
   const client = (fr, p) => [fr.box.left + (fr.tx + fr.a * p[0] + fr.e) * fr.k, fr.box.top + (fr.ty + fr.d * p[1] + fr.f) * fr.k];
   const data = (fr, c) => [((c[0] - fr.box.left) / fr.k - fr.tx - fr.e) / fr.a, ((c[1] - fr.box.top) / fr.k - fr.ty - fr.f) / fr.d];
   // a map: its <image> box in root px, and the client px of its fraction (fx, fy)
   const image = (host) => {
-    const img = host.querySelector('svg image'), root = img.ownerSVGElement, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+    const img = host.querySelector('svg image');
+    let root = img.ownerSVGElement; while (root.ownerSVGElement) root = root.ownerSVGElement; // the outermost svg: a zoomed map's image sits in a nested viewport
+    const box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
     const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((q) => +img.getAttribute(q));
     return { x, y, w, h, at: (fx, fy) => [box.left + (x + fx * w) * k, box.top + (y + fy * h) * k], frac: (c) => [((c[0] - box.left) / k - x) / w, ((c[1] - box.top) / k - y) / h] };
   };
@@ -932,15 +934,55 @@ const frames = (page) => page.evaluate(() => window.Z.read(window.HOST));
 const toClient = (page, i, p) => page.evaluate(([i, p]) => window.Z.toClient(window.HOST, i, p), [i, p]);
 const toData = (page, i, c) => page.evaluate(([i, c]) => window.Z.toData(window.HOST, i, c), [i, c]);
 const views = (page) => page.evaluate(() => window.VIEWS);
-const markup = (page) => page.evaluate(() => window.HOST.innerHTML);
+// The host's markup without interact's own hover overlay (a live region it keeps in the host), which is not the caller's draw.
+const markup = (page) => page.evaluate(() => { const c = window.HOST.cloneNode(true); c.querySelectorAll('.eleo-hover').forEach((n) => n.remove()); return c.innerHTML; });
 const closeTo = (got, want, tol, what) => expect(Math.abs(got - want), `${what}: ${got} vs ${want} (tol ${tol})`).toBeLessThanOrEqual(tol);
 // A range pair against the wanted one, within TOL_PX of the frame's scale along that axis.
 const rangeIs = (got, want, scale, what) => { closeTo(got[0], want[0], TOL_PX / scale, `${what} low`); closeTo(got[1], want[1], TOL_PX / scale, `${what} high`); };
 // The zoom factor a wheel notch applied, from the old and new spans of one axis.
 const span = (r) => r[1] - r[0];
 
+// #829 (O5, curve): one wheel notch zooms about the pointer: the point under it stays under it, the range is p + (range - p) / k with one k on both axes, the event is the drawn range, and the page does not scroll.
+test('wheel zooms about the pointer', async ({ page }) => {
+  await mountZoom(page, 'curve');
+  const f0 = (await frames(page))[0], p = [3, 0.4], c0 = await toClient(page, 0, p);
+  await page.mouse.move(c0[0], c0[1]);
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+  await page.mouse.wheel(0, -100);
+  expect(await views(page), 'one view event per notch').toHaveLength(1);
+  expect(await page.evaluate(() => window.scrollY), 'the wheel does not scroll the page').toBe(scrollBefore);
+  const f1 = (await frames(page))[0], k = span(f0.x) / span(f1.x);
+  expect(k, 'a notch toward the screen zooms in').toBeGreaterThan(1);
+  closeTo(span(f0.y) / span(f1.y), k, 1e-6 * k, 'the same factor on y');
+  rangeIs(f1.x, [p[0] + (f0.x[0] - p[0]) / k, p[0] + (f0.x[1] - p[0]) / k], Math.abs(f1.a) * f1.k, 'x range');
+  rangeIs(f1.y, [p[1] + (f0.y[0] - p[1]) / k, p[1] + (f0.y[1] - p[1]) / k], Math.abs(f1.d) * f1.k, 'y range');
+  const under = await toData(page, 0, c0);
+  closeTo(under[0], p[0], TOL_PX / (Math.abs(f1.a) * f1.k), 'data x under the pointer');
+  closeTo(under[1], p[1], TOL_PX / (Math.abs(f1.d) * f1.k), 'data y under the pointer');
+  const v1 = (await views(page))[0];
+  rangeIs(v1.x, f1.x, Math.abs(f1.a) * f1.k, 'event x');
+  rangeIs(v1.y, f1.y, Math.abs(f1.d) * f1.k, 'event y');
+  await page.evaluate(() => window.STOP());
+});
+
+// #829: a drag that pans does not also select the mark it started on; a plain click still does.
+test('a drag does not select', async ({ page }) => {
+  await mountZoom(page, 'curve');
+  await page.evaluate(() => { window.SELECT = []; window.STOP(); window.STOP = window.ELEO.interact(window.HOST, { onview(v) { window.HOST.innerHTML = window.DRAW(v); }, onselect: (ev) => window.SELECT.push(ev) }); });
+  const c = await toClient(page, 0, [2.5, Math.sin(2.5)]);
+  await page.mouse.move(c[0], c[1]);
+  await page.mouse.down();
+  await page.mouse.move(c[0] + 30, c[1] + 5, { steps: 4 });
+  await page.mouse.up();
+  expect(await page.evaluate(() => window.SELECT), 'the mouseup of a drag selects nothing').toEqual([]);
+  const d = await toClient(page, 0, [4, Math.sin(4)]);
+  await page.mouse.click(d[0], d[1]);
+  expect((await page.evaluate(() => window.SELECT)).length, 'a plain click still selects').toBe(1);
+  await page.evaluate(() => window.STOP());
+});
+
 // #825 (O5, curve): wheel zoom about the pointer (closed form), drag pans, double-click and reset() restore the first markup exactly, the page does not scroll.
-test.skip('zoom pan and reset', async ({ page }) => {  // unskipped by #833
+test.skip('zoom pan and reset', async ({ page }) => {  // unskipped by #833  // unskipped by #833
   await mountZoom(page, 'curve');
   expect(await page.evaluate(() => typeof window.STOP), 'interact still returns a function').toBe('function');
   expect(await page.evaluate(() => typeof window.STOP.reset), 'with a reset method').toBe('function');
@@ -1015,7 +1057,7 @@ test.skip('zoom pan and reset', async ({ page }) => {  // unskipped by #833
 });
 
 // #825 (O5, curve): a data redraw that passes the caller's view keeps the axes; the next wheel zooms from the redrawn range, not from a remembered one.
-test.skip('a data redraw keeps the view', async ({ page }) => {  // unskipped by #833
+test.skip('a data redraw keeps the view', async ({ page }) => {  // unskipped by #833  // unskipped by #833
   await mountZoom(page, 'curve');
   const f0 = (await frames(page))[0], c = await toClient(page, 0, [6, 0]);
   await page.mouse.move(c[0], c[1]);
@@ -1042,7 +1084,7 @@ test.skip('a data redraw keeps the view', async ({ page }) => {  // unskipped by
 });
 
 // #825 (O5, spot): the panels zoom together. The window is square, the same in every panel; a wheel off-centre shifts the centre by p + (c - p) / k.
-test.skip('spot panels share one view', async ({ page }) => {  // unskipped by #833
+test.skip('spot panels share one view', async ({ page }) => {  // unskipped by #833  // unskipped by #833
   await mountZoom(page, 'spot');
   const f0 = await frames(page);
   expect(f0.length, 'two panels').toBe(2);
@@ -1091,7 +1133,7 @@ test.skip('spot panels share one view', async ({ page }) => {  // unskipped by #
 
 // #825 (O5, typed map): the ranges change and the <image> keeps its data extent: its px box scales by k about the pointer and the viewport clips it.
 // The map has no matrix group, so the oracle is the image box itself: the extent point under the pointer stays under it, and the box is the old one scaled by k.
-test.skip('map zoom keeps the image at its extent', async ({ page }) => {  // unskipped by #833
+test.skip('map zoom keeps the image at its extent', async ({ page }) => {  // unskipped by #833  // unskipped by #833
   await mountZoom(page, 'map');
   const img0 = await page.evaluate(() => window.Z.image(window.HOST));
   const fx = 0.3, fy = 0.65, ext = [-6, 6, -4, 4];
@@ -1108,9 +1150,10 @@ test.skip('map zoom keeps the image at its extent', async ({ page }) => {  // un
   const frac = await page.evaluate((c) => window.Z.imageFrac(window.HOST, c), c);
   closeTo(frac[0], fx, TOL_PX / img1.w, 'the image fraction under the pointer, x');
   closeTo(frac[1], fy, TOL_PX / img1.h, 'the image fraction under the pointer, y');
-  // the event is the closed form over the extent: the viewport shows the extent's range about p, over k
-  rangeIs(v.x, [p[0] + (ext[0] - p[0]) / k, p[0] + (ext[1] - p[0]) / k], (img1.w / (ext[1] - ext[0])), 'event x');
-  rangeIs(v.y, [p[1] + (ext[2] - p[1]) / k, p[1] + (ext[3] - p[1]) / k], (img1.h / (ext[3] - ext[2])), 'event y');
+    // the window drawn before the zoom is the extent padded on its shorter side (data-range), and zooming about p scales that window
+  const r0 = await page.evaluate(() => window.ORIG.match(/data-range="([^"]*)"/)[1].split(' ').map(Number));
+  rangeIs(v.x, [p[0] + (r0[0] - p[0]) / k, p[0] + (r0[1] - p[0]) / k], (img1.w / (ext[1] - ext[0])), 'event x');
+  rangeIs(v.y, [p[1] + (r0[2] - p[1]) / k, p[1] + (r0[3] - p[1]) / k], (img1.h / (ext[3] - ext[2])), 'event y');
   // the axes read the new range: every x tick label lies inside it
   const ticks = await page.evaluate(() => [...window.HOST.querySelectorAll('text.eleo-tick')].map((t) => t.textContent.trim().replace('−', '-')).map(Number).filter(Number.isFinite));
   const tol = 1e-9;
