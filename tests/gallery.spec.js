@@ -1081,3 +1081,36 @@ test('gallery tooltips carry units', async ({ page }) => {
     }
   }
 });
+
+// Plan #804 (agent_docs/plans/804-interaction.md), outcome O5, issue #831: the live-update toggle redraws the MTF tile's data every frame and the tile keeps the caller's zoom.
+// oracle: property, a data redraw that passes the kept view leaves the drawn x range unchanged while the drawn series changes; double-click returns the default range (the first draw's).
+// The pointer is placed from the data group's matrix(...) attribute, the nested viewport's x/y/width/height and the SVG's box, never getScreenCTM.
+test('zoom survives live update', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tile = page.locator('.theme[data-theme="light"] [data-tile="mtf"]');
+  await tile.scrollIntoViewIfNeeded();
+  const read = () => tile.evaluate((t) => {
+    const mark = t.querySelector('[data-series]'), g = mark.parentNode, vp = g.closest('svg'), root = vp.ownerSVGElement || vp;
+    const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width, vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0), vw = +vp.getAttribute('width'), vh = +vp.getAttribute('height');
+    return { x: [(0 - e) / a, (vw - e) / a], series: mark.getAttribute('points') || mark.getAttribute('d'), cx: box.left + (vx + vw / 2) * k, cy: box.top + (vy + vh / 2) * k };
+  });
+  const near = (got, want, what) => { for (const i of [0, 1]) expect(Math.abs(got[i] - want[i]), `${what} [${i}]`).toBeLessThanOrEqual(1e-6 * Math.max(1, Math.abs(want[1] - want[0]))); };
+  const first = await read();
+  await page.mouse.move(first.cx, first.cy);
+  await page.mouse.wheel(0, -300);
+  const zoomed = await read();
+  expect(zoomed.x[1] - zoomed.x[0], 'the wheel zoomed in').toBeLessThan((first.x[1] - first.x[0]) * 0.9);
+
+  await page.locator('#live').check();
+  await expect.poll(async () => (await read()).series, { message: 'live update changes the drawn data' }).not.toBe(zoomed.series);
+  await page.waitForTimeout(150); // a few more frames
+  near((await read()).x, zoomed.x, 'x range after live frames');
+
+  await tile.scrollIntoViewIfNeeded(); // checking the box scrolled the page back to the header
+  const at = await read();
+  await page.mouse.dblclick(at.cx, at.cy);
+  near((await read()).x, first.x, 'x range after double-click');
+  await page.locator('#live').uncheck();
+});
