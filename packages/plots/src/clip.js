@@ -37,6 +37,14 @@ export function clipPolyline(points, rect) {
   return runs;
 }
 
+// CR #984: a cut dashed run keeps the uncut line's dash phase. The attribute stroke-dashoffset = `px` (the cut-off length, in screen px
+// since the dashes are non-scaling) modulo the dash period (doubled for an odd count), to 3 decimals; "" for no dash, no cut-off or an offset of 0.
+export function dashOffset(dash, px) {
+  if (!dash || !(px > 0)) return "";
+  const a = dash.split(" ").map(Number), P = (a.length % 2 ? a.concat(a) : a).reduce((u, v) => u + v, 0), o = +(px % P).toFixed(3);
+  return o ? ` stroke-dashoffset="${o}"` : "";
+}
+
 // Sutherland-Hodgman: the polygon cut to rect; empty when it misses or touches only at a point or edge.
 export function clipPolygon(points, [x0, y0, x1, y1]) {
   const edges = [

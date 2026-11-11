@@ -1607,3 +1607,39 @@ test('a zoomed layout draws only its window', () => {
   }
   assert.ok(!/data-from/.test(base), 'no view, no data-from');
 });
+
+// Plan #804 M3 (#990, CR #984): a cut dashed run carries stroke-dashoffset, its cut-off length in px modulo the dash period, so the dashes sit where the uncut line's do.
+// oracle: metamorphic - the dash phase at a run's first drawn point (the uncut arc length from the run's own start, at the view's scale, modulo the period) is the same for two views panned apart and equals the view-less drawing's
+test('a cut dash keeps its phase', () => {
+  const L = fixture('analysis-glasses'), W = 900, views = [{ x: [13.5, 15.5], y: [-1, 1] }, { x: [14, 16], y: [-1, 1] }, { x: [14.6, 16.6], y: [-1, 1] }];
+  const base = ELEO.layout2D({ data: L, width: W }), B = layoutBounds([L]);
+  const period = (d) => { const a = d.split(' ').map(Number); return (a.length % 2 ? a.concat(a) : a).reduce((x, y) => x + y, 0); };
+  const gap = (got, want, P) => { const d = Math.abs(((got - want) % P + P) % P); return Math.min(d, P - d); };
+  const baseRuns = [...base.matchAll(/<polyline\b[^>]*>/g)].map((m) => attrs(m[0])).filter((a) => a['stroke-dasharray']);
+  assert.ok(!/stroke-dashoffset/.test(base), 'no view, no dashoffset');
+  let shifted = 0, checked = 0;
+  for (const view of views) {
+    const svg = ELEO.layout2D({ data: L, width: W, view }), { body } = geometry(svg), s = geometry(svg).M[0];
+    for (const m of body.matchAll(/<polyline\b[^>]*>/g)) {
+      const a = attrs(m[0]);
+      if (!a['stroke-dasharray']) { assert.equal(a['stroke-dashoffset'], undefined, 'a solid run has no dashoffset'); continue; }
+      const whole = baseRuns.filter((b) => b['data-field'] === a['data-field'] && b['data-ray'] === a['data-ray'] && b['stroke-dasharray'] === a['stroke-dasharray']);
+      assert.equal(whole.length, 1, 'the uncut run of this piece');
+      const U = [pairs(whole[0].points)[0]].concat(L.rays[+a['data-field']][+a['data-ray']].slice(1)), p0 = pairs(a.points)[0], from = +(a['data-from'] || 0), P = period(a['stroke-dasharray']);
+      let len = Math.hypot(p0[0] - U[from][0], p0[1] - U[from][1]);
+      for (let j = 0; j < from; j++) len += Math.hypot(U[j + 1][0] - U[j][0], U[j + 1][1] - U[j][1]);
+      const off = +(a['stroke-dashoffset'] || 0);
+      assert.ok(off >= 0 && off < P, `the offset is within one period, got ${off}`);
+      // the uncut start is the view-less drawing's, written to 0.001 mm, so the arc length is good to that at this scale
+      assert.ok(gap(off, len * s, P) < 0.001 * s + 0.02, `ray ${a['data-field']}/${a['data-ray']}: dash phase ${off} should be ${(len * s) % P}`);
+      checked++; if (off) shifted++;
+    }
+    // the axis line: dashed 4 6 from B.zmin + 1
+    const ax = [...body.matchAll(/<line\b[^>]*>/g)].map((m) => attrs(m[0])).find((a) => a['stroke-dasharray'] === '4 6');
+    assert.ok(ax, 'the axis is drawn');
+    const want = ((+ax.x1 - (B.zmin + 1)) * s) % 10, off = +(ax['stroke-dashoffset'] || 0);
+    assert.ok(gap(off, want, 10) < 0.02, `axis dash phase ${off} should be ${want}`);
+    if (off) shifted++;
+  }
+  assert.ok(checked > 0 && shifted > 0, `some dashed piece is cut (${checked} checked, ${shifted} shifted)`);
+});

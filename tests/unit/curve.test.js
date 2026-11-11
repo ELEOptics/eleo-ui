@@ -1051,3 +1051,37 @@ test('a zoomed curve draws only its window', () => {
   assert.equal(tags(ELEO.curve({ series: [{ points: [[600, 0], [700, 0.1]], index: 0 }], x, y, width: 460, height: 300, view }), 'polyline').filter((a) => a['data-series'] !== undefined).length, 0);
   assert.ok(!/data-from/.test(ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300 })), 'no view, no data-from');
 });
+
+// Plan #804 M3 (#990, CR #984): a cut dashed series carries stroke-dashoffset, its cut-off length in px modulo the dash period, so its dashes sit where the uncut line's do.
+// oracle: metamorphic - for views panned apart at one scale, the dash phase at a piece's first point equals the uncut series' arc length (px, from its run's start) modulo the period
+test('a cut dash keeps its phase', () => {
+  const sine = Array.from({ length: 2000 }, (_, i) => [i * 0.5, Math.sin(i * 0.05)]);
+  const x = { range: [0, 1000] }, y = { range: [-1, 1] }, views = [{ x: [0, 400], y: [-0.3, 0.3] }, { x: [150, 550], y: [-0.3, 0.3] }, { x: [300, 700], y: [-0.3, 0.3] }];
+  const tags = (svg, tag) => [...svg.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'g'))].map((m) => Object.fromEntries([...m[0].matchAll(/([\w-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
+  const period = (d) => { const a = d.split(' ').map(Number); return (a.length % 2 ? a.concat(a) : a).reduce((u, v) => u + v, 0); };
+  let shifted = 0, checked = 0;
+  const check = (svg, tag, M, live, starts, label) => {
+    for (const a of tags(svg, tag).filter((t) => t['data-series'] !== undefined)) {
+      const P = period(a['stroke-dasharray']), from = +(a['data-from'] || 0), run = starts.filter((r) => r <= from).pop();
+      const p = subpaths(tag === 'path' ? a.d : `M${a.points.trim().replace(/ /g, ' L')}`)[0], U = live.slice(run).map((q) => toPx(M, q)), q0 = toPx(M, p[0]);
+      let len = Math.hypot(q0[0] - U[from - run][0], q0[1] - U[from - run][1]);
+      for (let j = 0; j < from - run; j++) len += Math.hypot(U[j + 1][0] - U[j][0], U[j + 1][1] - U[j][1]);
+      const off = +(a['stroke-dashoffset'] || 0), d = Math.abs((off - len) % P), want = len % P;
+      assert.ok(off >= 0 && off < P, `${label}: the offset is within one period, got ${off}`);
+      assert.ok(Math.min(d, P - d) < 0.02, `${label}: dash phase ${off} should be ${want}`);
+      checked++; if (off) shifted++;
+    }
+  };
+  const gap = sine.map((p, i) => (i === 700 ? null : p)), live = gap.filter((p) => p);
+  for (const role of ['sagittal', 'reference']) for (const [i, view] of views.entries()) {
+    const single = ELEO.curve({ series: [{ points: sine, index: 0, role }], x, y, width: 460, height: 300, view });
+    check(single, 'polyline', seriesGroup(single).M, sine, [0], `${role} single ${i}`);
+    const panels = ELEO.curve({ panels: [{ title: 'a', series: [{ points: gap, index: 0, role }] }], x, y, width: 460, height: 300, view });
+    const g = panelGroups(panels)[0];
+    check(panels, 'path', g.M, live, [0, 700], `${role} panels ${i}`);
+  }
+  assert.ok(checked > 0 && shifted > 0, `some dashed piece is cut (${checked} checked, ${shifted} shifted)`);
+  // without a view, and for a solid series, no dashoffset
+  assert.ok(!/dashoffset/.test(ELEO.curve({ series: [{ points: sine, index: 0, role: 'sagittal' }], x, y, width: 460, height: 300 })), 'no view, no dashoffset');
+  assert.ok(!/dashoffset/.test(ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300, view: views[1] })), 'a solid series has none');
+});

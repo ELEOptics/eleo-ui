@@ -5,7 +5,7 @@ import { niceTicks, niceRange } from "./axis.js";
 import { frameText, frameWeight, frameOf, CURVE_MARGINS } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
 import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
-import { clipPolyline } from "./clip.js";
+import { clipPolyline, dashOffset } from "./clip.js";
 
 /* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). A sagittal dash is in units of `wt` (4 wt, 2.5 wt; CR #726). */
 function roleStyle(s, wt) {
@@ -52,14 +52,14 @@ function cutPieces(run, z) {
   px.forEach(function (q, i) { at.set(q, run[i]); });
   if (px.length === 1) return px[0][0] >= rect[0] && px[0][0] <= rect[2] && px[0][1] >= rect[1] && px[0][1] <= rect[3] ? [{ from: 0, points: [run[0]] }] : [];
   return clipPolyline(px, rect).map(function (c) {
-    return { from: c.from, points: c.points.map(function (q) { return at.get(q) || [xr[0] + q[0] / sx, yr[0] + (z.ph - q[1]) / sy]; }) };
+    return { from: c.from, cut: c.cut, points: c.points.map(function (q) { return at.get(q) || [xr[0] + q[0] / sx, yr[0] + (z.ph - q[1]) / sy]; }) };
   });
 }
 /* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. `z` (zoomed only, see cutPieces) cuts the series: one mark per piece, each carrying `data-from` (the piece's first uncut index in the mark, omitted when 0) and otherwise the same attributes; a series wholly outside draws nothing. */
 function seriesMarkup(s, panel, wt, si, pi, z) {
   var st = roleStyle(s, wt), pts = s.points || [];
   var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label) + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
-  var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
+  var head = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : ""), attrs = head + " " + NS + "/>";
   var num = function (p) { return String(+p[0]) + "," + String(+p[1]); };
   if (!z) {
     if (panel) return '<path d="' + seriesPath(pts) + '"' + ids + attrs;
@@ -68,7 +68,7 @@ function seriesMarkup(s, panel, wt, si, pi, z) {
   var out = "", base = 0;
   function emit(piece, off) {
     var from = off + piece.from;
-    out += (panel ? '<path d="M' + piece.points.map(num).join(" L") + (piece.points.length === 1 ? " h0" : "") + '"' : '<polyline points="' + piece.points.map(num).join(" ") + '"') + ids + (from ? ' data-from="' + from + '"' : "") + attrs;
+    out += (panel ? '<path d="M' + piece.points.map(num).join(" L") + (piece.points.length === 1 ? " h0" : "") + '"' : '<polyline points="' + piece.points.map(num).join(" ") + '"') + ids + (from ? ' data-from="' + from + '"' : "") + head + dashOffset(st.dash, piece.cut) + " " + NS + "/>";
   }
   if (panel) {
     var runs = [], run = [];

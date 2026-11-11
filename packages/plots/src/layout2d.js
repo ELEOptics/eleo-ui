@@ -6,7 +6,7 @@ import { glassFill, drawnGlasses } from './glass.js';
 import { layoutText, layoutWeight } from './scale.js';
 import { keyLayout, keyMarkup } from './key.js';
 import { vertexRadius, thickLensF } from './lens.js';
-import { clipPolyline, clipPolygon } from './clip.js';
+import { clipPolyline, clipPolygon, dashOffset } from './clip.js';
 
 // plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
 // The size is an inline style on each text (ADR-0003), since the class's size would beat an attribute.
@@ -260,8 +260,8 @@ export function layout2D(o) {
   // 31.9 px, 0.1 short of 32, so the rounding of the written points and of the matrix never leaves a cut end past 32 px.
   var cut = null;
   if (vx || vy) { var sl = 31.9 / s; cut = [(band[0] - tx) / s - sl, (ty - band[1] - band[3]) / s - sl, (band[0] + band[2] - tx) / s + sl, (ty - band[1]) / s + sl]; pd = Math.min(20, Math.max(3, Math.ceil(Math.log10(s)) + 3)); }
-  function line(z1, y1, z2, y2, rest, surf) {
-    if (cut) { var cr = clipPolyline([[z1, y1], [z2, y2]], cut)[0]; if (!cr) return ""; z1 = cr.points[0][0]; y1 = cr.points[0][1]; z2 = cr.points[1][0]; y2 = cr.points[1][1]; }
+  function line(z1, y1, z2, y2, rest, surf, dash) {
+    if (cut) { var cr = clipPolyline([[z1, y1], [z2, y2]], cut)[0]; if (!cr) return ""; z1 = cr.points[0][0]; y1 = cr.points[0][1]; z2 = cr.points[1][0]; y2 = cr.points[1][1]; rest += dashOffset(dash, cr.cut * s); }
     return '<line x1="' + np(z1) + '" y1="' + np(y1) + '" x2="' + np(z2) + '" y2="' + np(y2) + '" ' + rest + (surf == null ? "" : ' data-surface="' + surf + '"') + " " + NS + "/>"; }
   var M = +s.toFixed(6), g = '<g data-view="layout" transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')"';
   g += ' data-band="' + band.map(n).join(" ") + '"';
@@ -273,7 +273,7 @@ export function layout2D(o) {
     var bm = bq.split(" ");
     g += ' clip-path="url(#' + bid + ')"><clipPath id="' + bid + '"><rect x="' + bm[0] + '" y="' + bm[1] + '" width="' + bm[2] + '" height="' + bm[3] + '"/></clipPath>';
   } else g += ">";
-  g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"');
+  g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"', undefined, "4 6");
   // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
   // in a presentation attribute is not safe. A style with var() is never dropped, so the fill attribute never applies to these;
   // glassFill falls back from the band tokens to crown and flint itself. "crown" and "flint" draw as before.
@@ -346,7 +346,7 @@ export function layout2D(o) {
         // data-from: the uncut run's index of a cut piece's first point, so interact's indices into the drawn polyline map back to the data.
         var pieces = !cut ? [{ from: 0, points: u.q }] : u.q.length > 1 ? clipPolyline(u.q, cut) : u.q.filter(function (p) { return p[0] >= cut[0] && p[0] <= cut[2] && p[1] >= cut[1] && p[1] <= cut[3]; }).map(function (p) { return { from: 0, points: [p] }; });
         pieces.forEach(function (pc) {
-          var poly = '<polyline points="' + pts(pc.points) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + ' data-field="' + k + '" data-ray="' + i + '"' + (pc.from ? ' data-from="' + pc.from + '"' : "") + " " + NS + "/>";
+          var poly = '<polyline points="' + pts(pc.points) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' + dashOffset(dash, pc.cut * s) : "") + (L.status ? ' data-status="' + u.st + '"' : "") + ' data-field="' + k + '" data-ray="' + i + '"' + (pc.from ? ' data-from="' + pc.from + '"' : "") + " " + NS + "/>";
           if (L.status && u.st !== "Alive") faded += poly; else live += poly;
         });
       });

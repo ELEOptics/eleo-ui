@@ -2,7 +2,7 @@
 // oracle: spec hand-computed cases on the rectangle [0, 0, 10, 10] (a segment through it, one inside, one missing it, a re-entering polyline, a triangle over a corner).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clipPolyline, clipPolygon } from '../../packages/plots/src/clip.js';
+import { clipPolyline, clipPolygon, dashOffset } from '../../packages/plots/src/clip.js';
 
 const R = [0, 0, 10, 10];
 
@@ -34,4 +34,15 @@ test('clips polylines and polygons to a rectangle', () => {
   assert.deepEqual(clipPolygon([[2, 2], [8, 2], [5, 8]], R), [[2, 2], [8, 2], [5, 8]]);
   const big = clipPolygon([[-5, -5], [15, -5], [15, 15], [-5, 15]], R);
   assert.equal(big.reduce((s, [x, y], i) => { const [u, v] = big[(i + 1) % big.length]; return s + (x * v - u * y) / 2; }, 0), 100);
+});
+
+// Plan #804 M3 (#990, CR #984): the dash offset of a cut run.
+// oracle: spec hand-computed: the cut-off length modulo the dash period, the period doubled for an odd count
+test('dashOffset is the cut-off length modulo the dash period', () => {
+  assert.equal(dashOffset('6 4', 25), ' stroke-dashoffset="5"');
+  assert.equal(dashOffset('1 2 3', 13), ' stroke-dashoffset="1"', 'an odd count doubles: period 12');
+  assert.equal(dashOffset('6 4', 20), '', 'a whole period is no offset');
+  assert.equal(dashOffset('6 4', 0), '');
+  assert.equal(dashOffset('', 7), '', 'no dash');
+  assert.equal(dashOffset('6 4', 1 / 3), ' stroke-dashoffset="0.333"');
 });
