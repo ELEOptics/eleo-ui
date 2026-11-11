@@ -31,3 +31,10 @@ test('ray readout', () => {
   const mm = { x: { unit: 'mm' }, y: { unit: 'mm' } };
   assert.equal(readout({ x: 5.33, y: 2.28, field: 0, ray: 3 }, mm), 'field 0 · ray 3 · 5.33 mm, 2.28 mm');
 });
+
+test('empty category label', () => {
+  // oracle: closed-form `<label> · <category>, <y> <unit>`; an empty label falls back to the formatted x (issue #930)
+  const bar = { x: 1, y: 0.02, series: { index: 0, label: 'SI' }, category: 1, categoryLabel: '' };
+  assert.equal(readout(bar, { y: { unit: 'mm' } }), 'SI · 1, 0.02 mm');
+  assert.equal(readout({ ...bar, categoryLabel: 'A' }, { y: { unit: 'mm' } }), 'SI · A, 0.02 mm');
+});

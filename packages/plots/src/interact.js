@@ -189,10 +189,10 @@ function value(v, spec) {
   return s.unit ? t + " " + s.unit : t;
 }
 
-/* readout(event, { x, y, value }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>[ = <value> <unit>]`, from the caller's axis specs `{ unit?, digits? }`; the ` = <value>` suffix is there when the event's `value` is not null (a map's sample), formatted by `axes.value`. A bar (an event with `categoryLabel`) reads `<label> · <categoryLabel>, <y> <unit>`: the category label as drawn, with no x unit. A null event gives "". */
+/* readout(event, { x, y, value }): the text of a hover event, `<label> · <x> <unit>, <y> <unit>[ = <value> <unit>]`, from the caller's axis specs `{ unit?, digits? }`; the ` = <value>` suffix is there when the event's `value` is not null (a map's sample), formatted by `axes.value`. A bar (an event with a non-empty `categoryLabel`) reads `<label> · <categoryLabel>, <y> <unit>`: the category label as drawn, with no x unit; an empty or absent label falls back to the formatted x. A null event gives "". */
 export function readout(ev, axes) {
   if (!ev) return "";
-  var a = axes || {}, label = ev.series && ev.series.label, xy = (ev.categoryLabel !== undefined ? ev.categoryLabel : value(ev.x, a.x)) + ", " + value(ev.y, a.y);
+  var a = axes || {}, label = ev.series && ev.series.label, xy = (typeof ev.categoryLabel === "string" && ev.categoryLabel !== "" ? ev.categoryLabel : value(ev.x, a.x)) + ", " + value(ev.y, a.y);
   if (ev.value != null) xy += " = " + value(ev.value, a.value);
   if (ev.field !== undefined && ev.ray !== undefined && !label) return "field " + ev.field + " · ray " + ev.ray + " · " + xy; // a layout ray has no series label
   return label ? label + " · " + xy : xy;
