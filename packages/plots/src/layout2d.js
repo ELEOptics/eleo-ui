@@ -6,6 +6,7 @@ import { glassFill, drawnGlasses } from './glass.js';
 import { layoutText, layoutWeight } from './scale.js';
 import { keyLayout, keyMarkup } from './key.js';
 import { vertexRadius, thickLensF } from './lens.js';
+import { clipPolyline, clipPolygon } from './clip.js';
 
 // plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
 // The size is an inline style on each text (ADR-0003), since the class's size would beat an attribute.
@@ -250,9 +251,18 @@ export function layout2D(o) {
     tx = band[0] + band[2] / 2 - (wz[0] + wz[1]) / 2 * s; ty = band[1] + band[3] / 2 + (wy[0] + wy[1]) / 2 * s;
   }
   function n(v) { return +v.toFixed(3); }
-  function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
+  // Cut geometry is written to 0.001 px at the scale (3 mm decimals are tens of px at a deep zoom), so a cut end stays where the cut put it.
+  var pd = 3; // set below with the cut
+  function np(v) { return +v.toFixed(pd); }
+  function pts(r) { return r.map(function (p) { return np(p[0]) + "," + np(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
-  function line(z1, y1, z2, y2, rest, surf) { return '<line x1="' + n(z1) + '" y1="' + n(y1) + '" x2="' + n(z2) + '" y2="' + n(y2) + '" ' + rest + (surf == null ? "" : ' data-surface="' + surf + '"') + " " + NS + "/>"; }
+  // CR #984: with a view the geometry is cut to the band plus 32 px (past REACH and the widest stroke cap, so a cut end is never hovered inside the frame), in mm; without one nothing is cut.
+  // 31.9 px, 0.1 short of 32, so the rounding of the written points and of the matrix never leaves a cut end past 32 px.
+  var cut = null;
+  if (vx || vy) { var sl = 31.9 / s; cut = [(band[0] - tx) / s - sl, (ty - band[1] - band[3]) / s - sl, (band[0] + band[2] - tx) / s + sl, (ty - band[1]) / s + sl]; pd = Math.min(20, Math.max(3, Math.ceil(Math.log10(s)) + 3)); }
+  function line(z1, y1, z2, y2, rest, surf) {
+    if (cut) { var cr = clipPolyline([[z1, y1], [z2, y2]], cut)[0]; if (!cr) return ""; z1 = cr.points[0][0]; y1 = cr.points[0][1]; z2 = cr.points[1][0]; y2 = cr.points[1][1]; }
+    return '<line x1="' + np(z1) + '" y1="' + np(y1) + '" x2="' + np(z2) + '" y2="' + np(y2) + '" ' + rest + (surf == null ? "" : ' data-surface="' + surf + '"') + " " + NS + "/>"; }
   var M = +s.toFixed(6), g = '<g data-view="layout" transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')"';
   g += ' data-band="' + band.map(n).join(" ") + '"';
   if (vx || vy) {
@@ -281,12 +291,16 @@ export function layout2D(o) {
   }
   S.forEach(function (a, i) {
     var b = S[i + 1], obj = a.glass && typeof a.glass === "object";
-    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '"' + elementAttrs(a, b) + " " + NS + "/>";
+    // The element number counts every glass polygon, drawn or not.
+    var ea = a.glass && b ? elementAttrs(a, b) : "", gp = a.glass && b ? (cut ? clipPolygon(a.profile.concat(b.profile.slice().reverse()), cut) : a.profile.concat(b.profile.slice().reverse())) : [];
+    if (gp.length) g += '<polygon points="' + pts(gp) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '"' + ea + " " + NS + "/>";
     // A mirror is a --mech body with a flat back (CR #371), drawn after the ray group (CR #381), hatched at 45 degrees every 32 px (mock A); its clipPath id is a hash of its points, so it is
     // deterministic and one polygon never gets two ids. An obscuration is an opaque bar from -sd to +sd (CR #360; the image line's ink and width),
     // left out when it lies within a mirror body (its z inside, its sd from the mirror's hole up to the mirror's sd).
     if (a.mirror) mirrorBodies(L, i).forEach(function (b) {
-      var P = pts(b), id = "eleo-m", zs = b.map(function (p) { return p[0]; }), ys = b.map(function (p) { return p[1]; }), z0 = Math.min.apply(null, zs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), d = "";
+      var cb = cut ? clipPolygon(b, cut) : b;
+      if (!cb.length) return;
+      var P = pts(cb), id = "eleo-m", zs = b.map(function (p) { return p[0]; }), ys = b.map(function (p) { return p[1]; }), z0 = Math.min.apply(null, zs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), d = "";
       for (var j = 0, h = 5381; j < P.length; j++) h = (h * 33 ^ P.charCodeAt(j)) >>> 0;
       id += h.toString(36);
       // With a view only the lines crossing the window are drawn (CR #969): from the grid step at or above the first one that reaches it (the same phase as without), to the last that does not pass it.
@@ -298,7 +312,7 @@ export function layout2D(o) {
       }
       // The counter runs from 0 so it still advances when j0 is past 2^53, and a body with 1e4 or more lines (or a NaN count) draws no hatch: no drawable window needs that many (#981).
       var j1 = Math.floor((kmax - kb) / step + 1e-9), nl = j1 - j0;
-      if (nl < 1e4) for (var c = 0; c <= nl; c++) { var k = kb + (j0 + c) * step; d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1); }
+      if (nl < 1e4) for (var c = 0; c <= nl; c++) { var k = kb + (j0 + c) * step, h0 = [k, y0], h1 = [k + y1 - y0, y1]; if (cut) { var hr = clipPolyline([h0, h1], cut)[0]; if (!hr) continue; h0 = hr.points[0]; h1 = hr.points[1]; } d += "M" + np(h0[0]) + "," + np(h0[1]) + "L" + np(h1[0]) + "," + np(h1[1]); }
       bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '" ' + NS + '/>'
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
@@ -329,8 +343,12 @@ export function layout2D(o) {
       if (!L.status && r.length === 1 && st[0] === "Virtual" && show.indexOf("Virtual") >= 0) runs.push({ st: "Virtual", q: [r[0]] });
       runs.forEach(function (u) {
         var dash = u.st === "Virtual" ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
-        var poly = '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + ' data-field="' + k + '" data-ray="' + i + '" ' + NS + "/>";
-        if (L.status && u.st !== "Alive") faded += poly; else live += poly;
+        // data-from: the uncut run's index of a cut piece's first point, so interact's indices into the drawn polyline map back to the data.
+        var pieces = !cut ? [{ from: 0, points: u.q }] : u.q.length > 1 ? clipPolyline(u.q, cut) : u.q.filter(function (p) { return p[0] >= cut[0] && p[0] <= cut[2] && p[1] >= cut[1] && p[1] <= cut[3]; }).map(function (p) { return { from: 0, points: [p] }; });
+        pieces.forEach(function (pc) {
+          var poly = '<polyline points="' + pts(pc.points) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + ' data-field="' + k + '" data-ray="' + i + '"' + (pc.from ? ' data-from="' + pc.from + '"' : "") + " " + NS + "/>";
+          if (L.status && u.st !== "Alive") faded += poly; else live += poly;
+        });
       });
     });
     ends[k] = rays[c][rays[c].length - 1];

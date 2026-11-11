@@ -10,6 +10,7 @@ import sample from '../../packages/plots/src/sample.js';
 import * as layout2dModule from '../../packages/plots/src/layout2d.js';
 import * as plots from '../../packages/plots/src/index.js';
 import { vertexRadius, thickLensF } from '../../packages/plots/src/lens.js';
+import { clipPolygon } from '../../packages/plots/src/clip.js';
 const { layoutBounds } = layout2dModule;
 
 const TOL = 0.01; // mm
@@ -1476,9 +1477,10 @@ test('view windows the layout', () => {
 test('zoomed hatch stays bounded', () => {
   const L = JSON.parse(readFileSync(new URL('../fixtures/phos-core/cassegrain-layout.json', import.meta.url)));
   const W = 900, mirror = L.surfaces.find((q) => q.mirror), cy = mirror.sd * 0.8;
-  const hatches = (svg) => [...svg.matchAll(/<polygon points="([^"]*)" fill="var\(--mech\)"[^>]*\/><path d="([^"]*)" clip-path/g)].map((m) => ({
+  // #987: a line is cut to the window, so its phase k is read back along its 45 degrees: k = x - (y - y0), y0 the uncut body's lowest y (a clipped body's is not)
+  const hatches = (svg, y0s) => [...svg.matchAll(/<polygon points="([^"]*)" fill="var\(--mech\)"[^>]*\/><path d="([^"]*)" clip-path/g)].map((m, b) => ({
     body: m[1].split(' ').map((p) => p.split(',').map(Number)),
-    ks: [...m[2].matchAll(/M([-\d.e]+),([-\d.e]+)L/g)].map((q) => +q[1]),
+    ks: [...m[2].matchAll(/M([-\d.e]+),([-\d.e]+)L/g)].map((q) => +q[1] - (+q[2] - (y0s ? y0s[b] : 0))),
   }));
   const frame = (svg) => {
     const { M } = geometry(svg), vb = nums(/viewBox="([^"]*)"/.exec(svg)[1]);
@@ -1489,9 +1491,11 @@ test('zoomed hatch stays bounded', () => {
   const base = ELEO.layout2D({ data: L, width: W });
   assert.ok(hatches(base).length >= 2 && hatches(base).every((h) => h.ks.length > 4), 'the view-less hatch is drawn');
   // the expected k of every line of the unclipped hatch that crosses the window
+  const reached = (svg) => { const f = frame(svg), step = 32 / f.s; return hatches(base).map(({ body }) => body).filter((body) => clipPolygon(body, [f.x[0] - step, f.y[0] - step, f.x[1] + step, f.y[1] + step]).length); };
   const expected = (svg) => {
     const f = frame(svg), step = 32 / f.s;
-    return hatches(svg).map(({ body }) => {
+    // #987: a body the cut (the window plus 32 px) misses is not drawn, so the expected lines are those of the uncut bodies that reach it
+    return reached(svg).map((body) => {
       const zs = body.map((p) => p[0]), ys = body.map((p) => p[1]), z0 = Math.min(...zs), y0 = Math.min(...ys), y1 = Math.max(...ys), out = [];
       const ya = Math.max(y0, f.y[0]), yb = Math.min(y1, f.y[1]);
       for (let k = z0 - (y1 - y0); k <= Math.max(...zs) + 1e-9; k += step) if (ya <= yb && k + (yb - y0) >= f.x[0] && k + (ya - y0) <= f.x[1]) out.push(k);
@@ -1500,13 +1504,18 @@ test('zoomed hatch stays bounded', () => {
   };
   const tiny = ELEO.layout2D({ data: L, width: W, view: window(0.001) }), { vb } = frame(tiny);
   for (const h of hatches(tiny)) assert.ok(h.ks.length < (vb[2] + vb[3]) / 32 + 4, `${h.ks.length} hatch lines in a 0.001 mm window`);
-  const mid = ELEO.layout2D({ data: L, width: W, view: window(1) }), want = expected(mid), got = hatches(mid);
+  const mid = ELEO.layout2D({ data: L, width: W, view: window(1) }), want = expected(mid), got = hatches(mid, reached(mid).map((b) => Math.min(...b.map((p) => p[1]))));
   assert.equal(got.length, want.length);
   got.forEach((h, b) => {
     assert.equal(h.ks.length, want[b].length, `body ${b}: ${h.ks.length} lines, expected ${want[b].length}`);
     h.ks.forEach((k, j) => assert.ok(Math.abs(k - want[b][j]) < 2e-3, `body ${b} line ${j} at ${k}, expected ${want[b][j]}`));
   });
   assert.ok(want.some((w) => w.length), 'the 1 mm window crosses some hatch');
+  // #987: every hatch coordinate lies within the band plus 32 px (a line is cut to it, not drawn body-long)
+  for (const svg of [tiny, mid]) {
+    const f = frame(svg), m = (32 + 1e-3) / f.s, ds = [...svg.matchAll(/<path d="([^"]*)" clip-path/g)].map((q) => nums(q[1].replace(/[ML]/g, ' ')));
+    for (const d of ds) for (let i = 0; i + 1 < d.length; i += 2) assert.ok(d[i] >= f.x[0] - m && d[i] <= f.x[1] + m && d[i + 1] >= f.y[0] - m && d[i + 1] <= f.y[1] + m, `hatch point ${d[i]},${d[i + 1]} is outside the window plus 32 px`);
+  }
 });
 
 // Plan #804 M3 (#977, #981, review M3 round 6 finding 1, round 7 finding 3): a valid view too small for the hatch loop to advance no longer hangs it.
@@ -1517,10 +1526,10 @@ test('a tiny view still draws the hatch', () => {
   const script = `import ELEO from ${JSON.stringify(root + 'packages/plots/src/renderers.js')};
 import { readFileSync } from 'node:fs';
 const L = JSON.parse(readFileSync(${JSON.stringify(fx)}));
-const m = L.surfaces.find((q) => q.mirror && q.z < -70), w = 1e-13, cy = m.sd * 0.8;
+const m = L.surfaces.find((q) => q.mirror && q.z < -70), w = 1e-13, cy = m.sd * 0.8, cz = m.z - 2; // #987: 2 mm behind the vertex is inside the body; at the vertex the window is in front of it, where a cut view draws no body
 const out = {};
-out.tiny = ELEO.layout2D({ data: L, width: 900, view: { x: [m.z - w / 2, m.z + w / 2], y: [cy - w / 4, cy + w / 4] } });
-out.ulp = ELEO.layout2D({ data: L, width: 900, view: { x: [-75, -74.99999999999999], y: [8.66872, 8.668720000000002] } });
+out.tiny = ELEO.layout2D({ data: L, width: 900, view: { x: [cz - w / 2, cz + w / 2], y: [cy - w / 4, cy + w / 4] } });
+out.ulp = ELEO.layout2D({ data: L, width: 900, view: { x: [-77, -76.99999999999999], y: [8.66872, 8.668720000000002] } });
 const count = (svg) => [...svg.matchAll(/<path d="([^"]*)" clip-path/g)].map((q) => (q[1].match(/M/g) || []).length);
 process.stdout.write(JSON.stringify({ tiny: count(out.tiny), ulp: count(out.ulp) }));`;
   const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { timeout: 10000, encoding: 'utf8' });
@@ -1559,4 +1568,42 @@ test('view fits the geometry band', () => {
   assert.ok(Math.abs(r[2] * s - band[2]) < 0.01 && Math.abs(r[3] * s - band[3]) < 0.01, 'its size is the band');
   assert.ok(!/clip-path="url\(#eleo-b/.test(base) && !/<clipPath id="eleo-b/.test(base), 'the view-less markup has no band clip');
   assert.ok(/data-band=/.test(base), 'but carries the band, so interact reads one window before and after a zoom');
+});
+
+// Plan #804 M3 (#987, CR #984): with a view the geometry is cut to the band plus 32 px, so a zoom draws only what it can show.
+// oracle: property - every drawn point, read through the data group's matrix, lies within the band widened by 32 px; metamorphic - the interior points of a cut ray piece are the uncut ray's points from data-from on, and a glass polygon that is drawn keeps the data-* it has without a view
+test('a zoomed layout draws only its window', () => {
+  const L = fixture('analysis-glasses'), W = 900;
+  const view = { x: [13.5, 15.5], y: [-1, 1] };
+  const base = ELEO.layout2D({ data: L, width: W }), svg = ELEO.layout2D({ data: L, width: W, view });
+  const { M, body } = geometry(svg);
+  const band = nums(/data-band="([^"]*)"/.exec(svg)[1]), slack = 32 + 1e-3;
+  const inside = ([x, y]) => { const px = M[0] * x + M[4], py = M[3] * y + M[5]; return px >= band[0] - slack && px <= band[0] + band[2] + slack && py >= band[1] - slack && py <= band[1] + band[3] + slack; };
+  const pts = [];
+  for (const m of body.matchAll(/<(?:polyline|polygon)\b[^>]*\bpoints="([^"]*)"/g)) pts.push(...pairs(m[1]));
+  for (const m of body.matchAll(/<line\b[^>]*>/g)) { const a = attrs(m[0]); pts.push([+a.x1, +a.y1], [+a.x2, +a.y2]); }
+  assert.ok(pts.length > 0, 'something is drawn');
+  assert.ok(pts.every(inside), 'every point is within the band plus 32 px');
+  // a cut ray piece: its interior points are the uncut ray's, from data-from
+  const pieces = [...body.matchAll(/<polyline\b[^>]*>/g)].map((m) => attrs(m[0]));
+  const baseLines = [...base.matchAll(/<polyline\b[^>]*>/g)].map((m) => attrs(m[0]));
+  assert.ok(pieces.length > 0 && pieces.length < baseLines.length, 'rays outside the window draw nothing');
+  assert.ok(pieces.some((a) => a['data-from'] !== undefined), 'a cut piece carries data-from');
+  assert.ok(pieces.every((a) => a['data-from'] !== '0'), 'data-from is left out when 0');
+  let interior = 0;
+  for (const a of pieces) {
+    const p = pairs(a.points), from = +(a['data-from'] || 0), ray = L.rays[+a['data-field']][+a['data-ray']];
+    for (let j = 1; j + 1 < p.length; j++) { interior++; assert.ok(near(p[j], ray[from + j]), `ray ${a['data-field']}/${a['data-ray']} point ${j} is data point ${from + j}`); }
+  }
+  assert.ok(interior > 0, 'some piece has interior data points');
+  // glass polygons: the numbering is over all of them, the drawn ones keep their uncut data-*
+  const polys = (s) => [...s.matchAll(/<polygon\b[^>]*data-element[^>]*>/g)].map((m) => attrs(m[0]));
+  const bp = polys(base), zp = polys(svg);
+  assert.equal(bp.length, 3);
+  assert.ok(zp.length > 0 && zp.length < bp.length, 'glass outside the window is not drawn');
+  for (const a of zp) {
+    const b = bp[+a['data-element'] - 1];
+    for (const k of Object.keys(b)) if (k !== 'points') assert.equal(a[k], b[k], `element ${a['data-element']} ${k}`);
+  }
+  assert.ok(!/data-from/.test(base), 'no view, no data-from');
 });
