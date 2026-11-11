@@ -1248,8 +1248,8 @@ test('zoomed plots hover only inside the frame', async ({ page }) => {
     for (const [x, y] of outs) expect(await hoverAt(page, x, y), `${kind}: ${x.toFixed(0)},${y.toFixed(0)} is outside the frame`).toBeNull();
     await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
   }
-  // #972 (CR #970, layout): a zoomed layout is clipped by its root viewBox, so a ray run's point or interpolated spot outside that window is not drawn and must not hover. The Cooke triplet at view y [-1, 1] puts rays past the top and bottom edges within reach of a pointer on them.
-  // oracle: property every emitted ray event lies inside the window computed from the data group's matrix attribute and the viewBox (window.L.frame), to half a client px.
+  // #972 (CR #970, layout): a zoomed layout is clipped by its geometry band, so a ray run's point or interpolated spot outside that window is not drawn and must not hover. The Cooke triplet at view y [-1, 1] puts rays past the top and bottom edges within reach of a pointer on them.
+  // oracle: property every emitted ray event lies inside the window computed from the data group's matrix attribute and its data-band (window.L.frame), to half a client px.
   await mountLayout(page, layoutFixture('analysis-glasses'));
   await page.evaluate(() => {
     window.STOP();
@@ -1259,8 +1259,10 @@ test('zoomed plots hover only inside the frame', async ({ page }) => {
   });
   const lf = await lframe(page), slack = 0.5 / (lf.a * lf.k);
   const box = await page.evaluate(() => { const r = window.HOST.querySelector('svg').getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+  // the sweep rides the geometry band's top and bottom edges (the band is the hover frame; the key and labels lie outside it)
+  const edge = await page.evaluate(() => { const g = window.HOST.querySelector('g[data-band]'), r = g.ownerSVGElement.getBoundingClientRect(), [, by, , bh] = g.getAttribute('data-band').split(' ').map(Number), k = r.height / g.ownerSVGElement.viewBox.baseVal.height; return [r.top + by * k, r.top + (by + bh) * k]; });
   let seen = 0;
-  for (const y of [box.top + 1, box.bottom - 1]) {
+  for (const y of [edge[0] + 1, edge[1] - 1]) {
     for (let x = box.left + 5; x < box.right - 5; x += 3) {
       await page.evaluate(([x, y]) => { window.HOVER = []; window.HOST.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true })); }, [x, y]);
       for (const ev of await page.evaluate(() => window.HOVER)) {
@@ -1435,13 +1437,14 @@ async function mountLayout(page, layout) {
     host.innerHTML = window.DRAW(null);
     window.ORIG = host.innerHTML;
     window.STOP = E.interact(host, { onview(v) { window.VIEWS.push(v); window.LAST = v; host.innerHTML = window.DRAW(v); } });
-    // The drawn frame from the data group's matrix alone: scale M (a = M, d = -M), the window over the root viewBox, and data <-> client px.
+    // The drawn frame from the data group's matrix alone: scale M (a = M, d = -M), the window over the group's data-band (the root viewBox without one), and data <-> client px.
     window.L = {
       frame() {
         const g = host.querySelector('svg > g[transform^="matrix("]'), root = g.ownerSVGElement;
         const [a, b, c, d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
         const box = root.getBoundingClientRect(), vb = root.viewBox.baseVal, k = box.width / vb.width;
-        return { a, b, c, d, e, f, k, x: [(0 - e) / a, (vb.width - e) / a], y: [(f - vb.height) / a, (f - 0) / a], at: (p) => [box.left + (a * p[0] + e) * k, box.top + (d * p[1] + f) * k] };
+        const [bx, by, bw, bh] = (g.getAttribute('data-band') || `0 0 ${vb.width} ${vb.height}`).split(' ').map(Number);
+        return { a, b, c, d, e, f, k, x: [(bx - e) / a, (bx + bw - e) / a], y: [(f - by - bh) / a, (f - by) / a], at: (p) => [box.left + (a * p[0] + e) * k, box.top + (d * p[1] + f) * k] };
       },
       ray: (c) => !!document.elementFromPoint(c[0], c[1])?.closest('polyline[data-field]'),
     };

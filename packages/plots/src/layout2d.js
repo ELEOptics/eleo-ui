@@ -239,20 +239,30 @@ export function layout2D(o) {
     kl = keyLayout(kents, tx0, { L: KP, R: W - KP, maxRow: 1000 });
   }
   var H = Math.round(Math.round(Hg) + (kl && kl.rows ? tx0 * (1.4 * kl.rows - 0.4) + 0.6 * tx0 : 0));
-  // `view`: { x: [zlo, zhi], y: [ylo, yhi] } in mm, the window the whole viewBox shows, fitted at the largest one scale and centred. An axis that is not a finite lo < hi pair keeps the box's
-  // range, as curve's does; with no valid axis there is no view. The viewport is the viewBox, which clips the geometry; the height is the view-less one.
+  // `view`: { x: [zlo, zhi], y: [ylo, yhi] } in mm, the window the geometry band shows, fitted at the largest one scale and centred in it. The band is the view-less geometry's room: x inside the pads (and the label room), y from
+  // the top label room to above the scale bar, so the labels, the scale bar and the key stay clear. An axis that is not a finite lo < hi pair keeps the box's range, as curve's does; with no valid axis there is no view.
+  // The band rides on the data group, with or without a view, as data-band="x y w h" in viewBox px, and clips the geometry (a clipPath on the group) with a view; the height is the view-less one.
   var vr = function (a) { return Array.isArray(a) && a.length === 2 && Number.isFinite(a[0]) && Number.isFinite(a[1]) && a[0] < a[1] ? a : null; };
-  var vx = o.view && vr(o.view.x), vy = o.view && vr(o.view.y), s0 = s;
+  var vx = o.view && vr(o.view.x), vy = o.view && vr(o.view.y), s0 = s, band = [PAD, top, W - 2 * PAD - room, (B.yhi - B.ylo) * s0].map(n); // rounded as written, so the fit and interact's window agree
   if (vx || vy) {
     var wz = vx || [B.zmin, B.zmax], wy = vy || [B.ylo, B.yhi];
-    s = Math.min(W / (wz[1] - wz[0]), H / (wy[1] - wy[0]));
-    tx = W / 2 - (wz[0] + wz[1]) / 2 * s; ty = H / 2 + (wy[0] + wy[1]) / 2 * s;
+    s = Math.min(band[2] / (wz[1] - wz[0]), band[3] / (wy[1] - wy[0]));
+    tx = band[0] + band[2] / 2 - (wz[0] + wz[1]) / 2 * s; ty = band[1] + band[3] / 2 + (wy[0] + wy[1]) / 2 * s;
   }
   function n(v) { return +v.toFixed(3); }
   function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
   function line(z1, y1, z2, y2, rest, surf) { return '<line x1="' + n(z1) + '" y1="' + n(y1) + '" x2="' + n(z2) + '" y2="' + n(y2) + '" ' + rest + (surf == null ? "" : ' data-surface="' + surf + '"') + " " + NS + "/>"; }
-  var M = +s.toFixed(6), g = '<g data-view="layout" transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')">';
+  var M = +s.toFixed(6), g = '<g data-view="layout" transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')"';
+  g += ' data-band="' + band.map(n).join(" ") + '"';
+  if (vx || vy) {
+    // The clip is the band in mm (the clipPath is in the group's own space), its id a hash of the band's numbers.
+    var bq = [(band[0] - tx) / s, (ty - band[1] - band[3]) / s, band[2] / s, band[3] / s].map(n).join(" "), bid = "eleo-b";
+    for (var bj = 0, bh = 5381; bj < bq.length; bj++) bh = (bh * 33 ^ bq.charCodeAt(bj)) >>> 0;
+    bid += bh.toString(36);
+    var bm = bq.split(" ");
+    g += ' clip-path="url(#' + bid + ')"><clipPath id="' + bid + '"><rect x="' + bm[0] + '" y="' + bm[1] + '" width="' + bm[2] + '" height="' + bm[3] + '"/></clipPath>';
+  } else g += ">";
   g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"');
   // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
   // in a presentation attribute is not safe. A style with var() is never dropped, so the fill attribute never applies to these;
@@ -282,7 +292,7 @@ export function layout2D(o) {
       // With a view only the lines crossing the window are drawn (CR #969): from the grid step at or above the first one that reaches it (the same phase as without), to the last that does not pass it.
       var kb = z0 - (y1 - y0), kmax = Math.max.apply(null, zs), step = 32 / s, ka = kb;
       if (vx || vy) {
-        var vzlo = -tx / s, vzhi = (W - tx) / s, vylo = (ty - H) / s, vyhi = ty / s;
+        var vzlo = (band[0] - tx) / s, vzhi = (band[0] + band[2] - tx) / s, vylo = (ty - band[1] - band[3]) / s, vyhi = (ty - band[1]) / s;
         ka = Math.max(kb, vzlo - (Math.min(y1, vyhi) - y0)); kmax = Math.min(kmax, vzhi - (Math.max(y0, vylo) - y0));
         ka = kb + Math.ceil((ka - kb) / step - 1e-9) * step;
       }

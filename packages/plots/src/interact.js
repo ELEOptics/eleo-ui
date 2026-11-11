@@ -27,13 +27,14 @@ function runs(mark) {
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
 function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
-/* The data window a data group's clipping viewport shows: { x: [lo, hi], y: [lo, hi] }, read from the group's matrix and the viewport's width and height (a layout group, marked data-view="layout", has no nested frame: its viewport is the root viewBox); null where there is no matrix or no finite viewport. The one place that says what window a group is clipped to. */
+/* The data window a data group's clipping viewport shows: { x: [lo, hi], y: [lo, hi] }, read from the group's matrix and the viewport's width and height (a layout group, marked data-view="layout", has no nested frame: its viewport is the geometry band it carries as data-band="x y w h" in viewBox px, else the root viewBox); null where there is no matrix or no finite viewport. The one place that says what window a group is clipped to. */
 function windowOf(g) {
   var vp = g.closest("svg"), t = g.transform.baseVal.consolidate(), layout = g.getAttribute("data-view") === "layout";
   if (!vp || !t || !(layout || vp.hasAttribute("width"))) return null;
-  var vb = layout && vp.viewBox.baseVal, a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f, w = layout ? vb.width : +vp.getAttribute("width"), h = layout ? vb.height : +vp.getAttribute("height");
-  if (!(a && d && isFinite(a + d + e + f + w + h))) return null;
-  return { x: [-e / a, (w - e) / a].sort(function (u, v) { return u - v; }), y: [-f / d, (h - f) / d].sort(function (u, v) { return u - v; }) };
+  var vb = layout && vp.viewBox.baseVal, bd = layout && (g.getAttribute("data-band") || "").split(" ").map(Number), a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f;
+  var x0 = bd && bd.length === 4 ? bd[0] : 0, y0 = bd && bd.length === 4 ? bd[1] : 0, w = bd && bd.length === 4 ? bd[2] : layout ? vb.width : +vp.getAttribute("width"), h = bd && bd.length === 4 ? bd[3] : layout ? vb.height : +vp.getAttribute("height");
+  if (!(a && d && isFinite(a + d + e + f + w + h + x0 + y0))) return null;
+  return { x: [(x0 - e) / a, (x0 + w - e) / a].sort(function (u, v) { return u - v; }), y: [(y0 - f) / d, (y0 + h - f) / d].sort(function (u, v) { return u - v; }) };
 }
 
 /* The data window a group's viewport clips to, as a test on a data point (windowOf). Half a client px of slack keeps a point on the frame's edge in. Always true where there is no window. */
@@ -166,7 +167,7 @@ function frames(host) {
   return out;
 }
 
-/* Which kind of plot a host holds, from its markup: "map" (an image carrying data-range), "layout" (layout2D's data group carrying its data-view="layout" marker; the whole viewBox is its frame), "spot" (panels carrying spot's own data-view="spot" marker), "curve" (the other series paths and polylines), or null (bars, nothing drawn). */
+/* Which kind of plot a host holds, from its markup: "map" (an image carrying data-range), "layout" (layout2D's data group carrying its data-view="layout" marker; its geometry band, else the whole viewBox, is its frame), "spot" (panels carrying spot's own data-view="spot" marker), "curve" (the other series paths and polylines), or null (bars, nothing drawn). */
 function kindOf(host) {
   if (host.querySelector("image[data-range]")) return "map";
   if (host.querySelector('g[data-view="layout"]')) return "layout";

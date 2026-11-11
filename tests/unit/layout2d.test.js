@@ -1440,14 +1440,15 @@ test('view windows the layout', () => {
   const base = ELEO.layout2D({ data: L, width: W });
   const frame = (svg) => {
     const { M } = geometry(svg), vb = nums(/viewBox="([^"]*)"/.exec(svg)[1]);
-    return { s: M[0], d: M[3], x: [(0 - M[4]) / M[0], (vb[2] - M[4]) / M[0]], y: [(M[5] - vb[3]) / M[0], M[5] / M[0]], vb };
+    const [bx, by, bw, bh] = nums(/data-band="([^"]*)"/.exec(svg)?.[1] ?? `0 0 ${vb[2]} ${vb[3]}`);
+    return { s: M[0], d: M[3], x: [(bx - M[4]) / M[0], (bx + bw - M[4]) / M[0]], y: [(M[5] - by - bh) / M[0], (M[5] - by) / M[0]], vb, band: [bx, by, bw, bh] };
   };
   const view = { x: [40, 60], y: [-5, 5] };
   const svg = ELEO.layout2D({ data: L, width: W, view });
   const f = frame(svg), [, , vw, vh] = f.vb;
   assert.equal(vw, W);
   assert.equal(vh, frame(base).vb[3], 'the height does not depend on the view');
-  const s = Math.min(vw / 20, vh / 10);
+  const s = Math.min(f.band[2] / 20, f.band[3] / 10);
   assert.ok(Math.abs(f.s - s) < 1e-4 * s, 'the largest scale that fits both spans');
   assert.ok(Math.abs(f.d + f.s) < 1e-9 * f.s, 'one scale on both axes');
   assert.ok(Math.abs((f.x[0] + f.x[1]) / 2 - 50) < 1e-3 && Math.abs((f.y[0] + f.y[1]) / 2) < 1e-3, 'the view centre is the frame centre');
@@ -1479,7 +1480,8 @@ test('zoomed hatch stays bounded', () => {
   }));
   const frame = (svg) => {
     const { M } = geometry(svg), vb = nums(/viewBox="([^"]*)"/.exec(svg)[1]);
-    return { s: M[0], x: [(0 - M[4]) / M[0], (vb[2] - M[4]) / M[0]], y: [(M[5] - vb[3]) / M[0], M[5] / M[0]], vb };
+    const [bx, by, bw, bh] = nums(/data-band="([^"]*)"/.exec(svg)?.[1] ?? `0 0 ${vb[2]} ${vb[3]}`);
+    return { s: M[0], x: [(bx - M[4]) / M[0], (bx + bw - M[4]) / M[0]], y: [(M[5] - by - bh) / M[0], (M[5] - by) / M[0]], vb };
   };
   const window = (w) => ({ x: [mirror.z - w / 2, mirror.z + w / 2], y: [cy - w / 4, cy + w / 4] });
   const base = ELEO.layout2D({ data: L, width: W });
@@ -1503,4 +1505,34 @@ test('zoomed hatch stays bounded', () => {
     h.ks.forEach((k, j) => assert.ok(Math.abs(k - want[b][j]) < 2e-3, `body ${b} line ${j} at ${k}, expected ${want[b][j]}`));
   });
   assert.ok(want.some((w) => w.length), 'the 1 mm window crosses some hatch');
+});
+
+// Plan #804 M3 (#973, review M3 round 5 finding 3): a zoomed layout fits its view into the geometry band, clear of the labels, scale bar and key, and clips to it.
+// oracle: the band is written out here from the view-less layout: x from the 2 px pad (less the label room), y from the top label room 15u down the view-less geometry height; the scale is min(band width / zspan, band height / yspan), centred in the band
+test('view fits the geometry band', () => {
+  const L = fixture('analysis-glasses'), W = 900, labels = ['F1', 'F2'];
+  const base = ELEO.layout2D({ data: L, width: W, labels, key: 'glass' });
+  const view = { x: [40, 60], y: [-5, 5] };
+  const svg = ELEO.layout2D({ data: L, width: W, labels, key: 'glass', view });
+  const band = nums(/<g data-view="layout"[^>]* data-band="([^"]*)"/.exec(svg)[1]);
+  assert.equal(band.length, 4);
+  const tx0 = +/font-size:([\d.]+)px/.exec(svg)[1], uu = tx0 / 10;
+  assert.ok(Math.abs(band[1] - 15 * uu) < 1e-3, 'the band starts below the label room');
+  assert.equal(band[0], 2, 'x starts at the pad');
+  const vb = nums(/viewBox="([^"]*)"/.exec(svg)[1]);
+  assert.ok(band[0] + band[2] <= vb[2] - 2 + 1e-6, 'x ends inside the pad');
+  // the bar sits below the band, the key below the bar
+  const bar = /<path d="M([\d.]+),([\d.]+)v/.exec(svg), barTop = +bar[2] - 4 * uu;
+  assert.ok(band[1] + band[3] <= barTop + 1e-6, 'the band ends above the scale bar');
+  const { M } = geometry(svg), s = M[0];
+  assert.ok(Math.abs(s - Math.min(band[2] / 20, band[3] / 10)) < 1e-4 * s, 'one scale, the largest that fits the band');
+  assert.ok(Math.abs((M[4] + 50 * s) - (band[0] + band[2] / 2)) < 1e-2, 'centred in x');
+  assert.ok(Math.abs((M[5] - 0 * s) - (band[1] + band[3] / 2)) < 1e-2, 'centred in y');
+  // the geometry is clipped to the band: a clipPath on the data group, in the group's own mm
+  const id = /<g data-view="layout"[^>]* clip-path="url\(#([^)]*)\)"/.exec(svg)[1];
+  const r = nums(new RegExp(`<clipPath id="${id}"><rect x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)"`).exec(svg).slice(1).join(' '));
+  assert.ok(Math.abs(r[0] * s + M[4] - band[0]) < 0.01 && Math.abs(M[5] - (r[1] + r[3]) * s - band[1]) < 0.01, 'the clip covers the band');
+  assert.ok(Math.abs(r[2] * s - band[2]) < 0.01 && Math.abs(r[3] * s - band[3]) < 0.01, 'its size is the band');
+  assert.ok(!/clip-path="url\(#eleo-b/.test(base) && !/<clipPath id="eleo-b/.test(base), 'the view-less markup has no band clip');
+  assert.ok(/data-band=/.test(base), 'but carries the band, so interact reads one window before and after a zoom');
 });

@@ -11,7 +11,7 @@ const baseline = JSON.parse(readFileSync(new URL('../fixtures/renderers-baseline
 
 // Plan #804 M1 (#806, #844): the plan's data-* names are not part of the base markup; both sides are compared without them.
 // Every other data-* (data-grid) stays compared. M2 adds its names here (data-category, data-cell, ...); #818 added data-field, data-ray, data-surface.
-const PLAN_ATTRS = ['data-series', 'data-role', 'data-label', 'data-panel', 'data-cell', 'data-category', 'data-category-label', 'data-extent', 'data-range', 'data-rows', 'data-columns', 'data-radii', 'data-angles', 'data-field', 'data-ray', 'data-surface', 'data-view', 'data-element', 'data-glass', 'data-nd', 'data-vd', 'data-r1', 'data-r2', 'data-ct', 'data-diameter', 'data-f'];
+const PLAN_ATTRS = ['data-series', 'data-role', 'data-label', 'data-panel', 'data-cell', 'data-category', 'data-category-label', 'data-extent', 'data-range', 'data-rows', 'data-columns', 'data-radii', 'data-angles', 'data-field', 'data-ray', 'data-surface', 'data-view', 'data-element', 'data-glass', 'data-nd', 'data-vd', 'data-r1', 'data-r2', 'data-ct', 'data-diameter', 'data-f', 'data-band'];
 const planAttr = new RegExp(` (?:${PLAN_ATTRS.join('|')})="[^"]*"`, 'g');
 const bare = (m) => m.replace(planAttr, '');
 
