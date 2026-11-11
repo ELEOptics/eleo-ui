@@ -225,6 +225,8 @@ rays with field and status); clicking a series, bar, surface or field fan logs i
 
 ### M3: zoom, pan and reset GitHub: `P804 M3: Zoom and pan`
 
+Done 2026-11-10: reviewed in 4 rounds (Review M3: 0 blocking, round 4), full gate green on 5b2a47d; demo pending.
+
 Demo: on the MTF, spot and PSF map tiles, the wheel zooms about the pointer with the axes redrawn, a drag
 pans, a double-click resets; the spot's panels zoom together; the gallery's live-update toggle redraws the data
 and the view stays. Proves: O5
@@ -326,3 +328,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M3 round 1 (code-reviewer, claude-opus-5-5): 5 blocking, CRs #937 (spot margin by panel order), #938 (sparse panel curve read as a spot), #939 (zoomed plots hover outside the frame), #940 (sample spot ignores view), #941 (view={null} doesn't reset) accepted (orchestrator); backlog findings 6-10 pulled in (map2D ignores an invalid view like the others; one interact binding across data; a double-click selects once; horizontal wheel not swallowed; Svelte view test for all wrappers). Items #942-#951. Carried #936 resolved.
 - 2026-11-10 review M3 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, carried CRs #936-#941 resolved; backlog #952, #953, #954 pulled in. Per-round count: 10, 3.
 - 2026-11-10 review M3 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog #955 pulled in. Per-round count: 10, 3, 1.
+- 2026-11-10 review M3 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M3 ticked; demo pending.
