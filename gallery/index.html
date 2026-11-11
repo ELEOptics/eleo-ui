@@ -99,12 +99,12 @@
     function atWidth(d, w, more, v) { return Object.assign({}, d, more, v ? { view: v } : {}, { width: w }); }
     var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50, label: '50 cycles/mm' }, { y: [0, 0.3] }];
     var SVG = {
-      'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, key: legendKey('field') }); } },
-      'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }); } },
-      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w) { return ELEO.layout2D({ data: d, width: w, marks: false, key: fieldKey(d) }); } },
-      'layout2D-wandersleb': recTile('layout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
-      'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
-      'layout2D-cassegrain-dead-hidden': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w, { show: ['Alive', 'Virtual'] })); }),
+      'layout2D': { need: sampleBox, draw: function (box, w, v) { return ELEO.layout2D(atWidth({}, w, { box: box, key: legendKey('field') }, v)); } },
+      'layout2D-fan': { need: sampleBox, draw: function (box, w, v) { return ELEO.layout2D(atWidth({}, w, { box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }, v)); } },
+      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w, v) { return ELEO.layout2D({ data: d, width: w, marks: false, key: fieldKey(d), view: v || undefined }); } },
+      'layout2D-wandersleb': recTile('layout', function (d, w, v) { return ELEO.layout2D(atWidth(d, w, null, v)); }),
+      'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w, v) { return ELEO.layout2D(atWidth(d, w, null, v)); }),
+      'layout2D-cassegrain-dead-hidden': recTile('cassegrainLayout', function (d, w, v) { return ELEO.layout2D(atWidth(d, w, { show: ['Alive', 'Virtual'] }, v)); }),
       'spot': recTile('spot', function (d, w, v) { return ELEO.spot(atWidth(d, w, null, v)); }),
       'footprint': recTile('footprint', function (d, w, v) { return ELEO.spot(atWidth(d, w, null, v)); }),
       // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
@@ -224,8 +224,8 @@
         var body = tile.querySelector('.eleo-plot__body'), map = body && body.dataset.map && MAPS[body.dataset.map];
         if (!body) return;
         var opts = map ? mapInteract(map) : { axes: tileAxes(tile.dataset.tile) };
-        // A zoomable tile (curve, spot and typed-map tiles, ray fans, through focus) keeps its view on the body: onview stores it (null after a reset) and redraws the tile through its own draw path, so fit's width still applies.
-        if (map || (body.dataset.svg && body.dataset.svg.indexOf('layout2D') !== 0 && SVG[body.dataset.svg] && !/^seidel/.test(body.dataset.svg))) opts.onview = function (v) { body._view = v || undefined; body._redraw(); };
+        // A zoomable tile (curve, spot, layout and typed-map tiles, ray fans, through focus) keeps its view on the body: onview stores it (null after a reset) and redraws the tile through its own draw path, so fit's width still applies.
+        if (map || (body.dataset.svg && SVG[body.dataset.svg] && !/^seidel/.test(body.dataset.svg))) opts.onview = function (v) { body._view = v || undefined; body._redraw(); };
         ELEO.interact(body, opts);
         // A press holds the live redraw until it is released: a redraw between mousedown and mouseup removes the pressed element, and the browser then sends no click or double-click.
         body.addEventListener('pointerdown', function () { body._held = true; });

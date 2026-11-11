@@ -1114,3 +1114,52 @@ test('zoom survives live update', async ({ page }) => {
   near((await read()).x, first.x, 'x range after double-click');
   await page.locator('#live').uncheck();
 });
+
+// Plan #804 (agent_docs/plans/804-interaction.md), outcome O1 and O5, issue #967 (CRs #957, #958): every layout tile zooms through the tile's kept view, and the Cooke glass tile reads a lens element in its tooltip.
+// oracle: property, a wheel notch over a layout tile changes its data group's matrix(...) (zoom about the pointer), a double-click restores the markup it first drew; a pointer on a glass polygon's rim, away from the rays, shows a tooltip whose first line starts `element ` (the five-line readout of #963, tests/interact.spec.js).
+test('layout tiles zoom and read lenses', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tiles = ['layout2D', 'layout2D-fan', 'layout2D-glasses', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden'];
+  const theme = 'light';
+  for (const name of tiles) {
+    const tile = page.locator(`.theme[data-theme="${theme}"] [data-tile="${name}"]`);
+    await tile.scrollIntoViewIfNeeded();
+    const svg = tile.locator('svg').first();
+    const matrix = () => svg.evaluate((s) => s.querySelector('g[transform^="matrix"]').getAttribute('transform'));
+    const markup = () => svg.evaluate((s) => s.outerHTML);
+    const first = { matrix: await matrix(), markup: await markup() };
+    const box = await svg.boundingBox();
+    const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(matrix, { message: `${name} wheel changes the drawn matrix` }).not.toBe(first.matrix);
+    await page.mouse.dblclick(cx, cy);
+    await expect.poll(markup, { message: `${name} double-click restores the markup` }).toBe(first.markup);
+    await page.mouse.move(2, 2);
+  }
+
+  const glass = page.locator(`.theme[data-theme="${theme}"] [data-tile="layout2D-glasses"]`);
+  await glass.scrollIntoViewIfNeeded();
+  const poly = glass.locator('polygon[data-element]').first();
+  const bb = await poly.boundingBox();
+  // The point of the first element farthest from every ray run (data units; the tile's scale is uniform): the 24 px reach of a ray never touches it.
+  const at = await poly.evaluate((p) => {
+    const pairs = (el) => el.getAttribute('points').trim().split(/\s+/).map((q) => q.split(',').map(Number));
+    const pts = pairs(p), xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const segs = [...p.ownerSVGElement.querySelectorAll('polyline[data-ray]')].flatMap((l) => { const r = pairs(l); return r.slice(1).map((q, i) => [r[i], q]); });
+    const inside = (x, y) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) if ((pts[i][1] > y) !== (pts[j][1] > y) && x < (pts[j][0] - pts[i][0]) * (y - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0]) c = !c; return c; };
+    const dist = (x, y, [a, b]) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy); };
+    let best = { d: -1 };
+    for (let i = 1; i < 20; i++) for (let k = 1; k < 40; k++) {
+      const x = x0 + (x1 - x0) * i / 20, y = y0 + (y1 - y0) * k / 40;
+      if (!inside(x, y)) continue;
+      const d = Math.min(...segs.map((g) => dist(x, y, g)));
+      if (d > best.d) best = { d, fx: (x - x0) / (x1 - x0), fy: (y1 - y) / (y1 - y0) };
+    }
+    return best;
+  });
+  await page.mouse.move(bb.x + at.fx * bb.width, bb.y + at.fy * bb.height);
+  await expect(glass.locator('.eleo-hover__tip'), 'lens tooltip').toHaveText(/^element /);
+  await page.mouse.move(2, 2);
+});
