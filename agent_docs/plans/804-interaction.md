@@ -225,7 +225,7 @@ rays with field and status); clicking a series, bar, surface or field fan logs i
 
 ### M3: zoom, pan and reset GitHub: `P804 M3: Zoom and pan`
 
-Reopened 2026-11-10 at the demo (user): text selection on pan, layout2D zoom, lens hover (CRs #956-#958). First reviewed in 4 rounds (Review M3: 0 blocking, round 4), full gate green on 5b2a47d.
+Done 2026-11-10: reopened at the demo (user) for text selection on pan, layout2D zoom and lens hover (CRs #956-#958); reviewed in 8 rounds (Review M3: 0 blocking, round 8), full gate green on 49be1b0; re-demo pending.
 
 Demo: on the MTF, spot and PSF map tiles, the wheel zooms about the pointer with the axes redrawn, a drag
 pans, a double-click resets; the spot's panels zoom together; the gallery's live-update toggle redraws the data
@@ -353,3 +353,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M3 round 5 (code-reviewer, claude-opus-5-5): 2 blocking, CRs #969 (unbounded mirror hatch on deep zoom) and #970 (zoomed layout hovers outside its window) accepted (orchestrator); backlog findings 3, 4, 5, 7 pulled in, 6 fixed here (#963's cell: `pre`, not `pre-line`). Items #971-#976. Per-round count: 10, 3, 1, 0, 7.
 - 2026-11-10 review M3 round 6 (code-reviewer, claude-opus-5-5): 0 blocking, carried CRs #936-#941, #956-#958, #969, #970 resolved; backlog #977, #978 pulled in. Per-round count: 10, 3, 1, 0, 7, 2.
 - 2026-11-10 review M3 round 7 (code-reviewer, claude-opus-5-5): 2 blocking, CRs #979 (a 1-ulp view hangs the hatch loop) and #980 (README: the band is the hover frame only with a view) accepted (orchestrator); backlog 3 and 4 (test nesting, child path quoting) folded into #981. Items #981, #982. Per-round count: 10, 3, 1, 0, 7, 2, 4.
+- 2026-11-10 review M3 round 8 (code-reviewer, claude-opus-5-5): 0 blocking, carried CRs resolved; one pre-existing backlog finding (README mirror order) filed as #983, outside the milestone. Per-round count: 10, 3, 1, 0, 7, 2, 4, 1. M3 ticked; re-demo pending.
