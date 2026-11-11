@@ -221,6 +221,7 @@ rays with field and status); clicking a series, bar, surface or field fan logs i
 | #932 | Readout docs give the empty-category fallback (CR #931) | forced (CR #931) | `packages/plots/README.md`, `packages/plots/src/index.d.ts` | `tests/unit/types.test.js::interact types` | #930 |
 | #933 | Gallery tooltip units come from each tile's own recording key | forced (review M2 round 7 findings 2, 3: the name table is how CR #926 happened) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::gallery tooltips carry units` | #930 |
 | #934 | `tileAxes` drops its dead name fallback; every recorded tile resolves its axes | forced (review M2 round 8 findings 1, 3) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::gallery tooltips carry units` | #933 |
+| #935 | The recorded-tile guard checks an axis unit, not just keys | forced (review M2 round 9 finding 1) | `tests/gallery.spec.js` | `tests/gallery.spec.js::gallery tooltips carry units` | #934 |
 
 ### M3: zoom, pan and reset GitHub: `P804 M3: Zoom and pan`
 
@@ -305,3 +306,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M2 round 6 (code-reviewer, claude-opus-5-5): 2 blocking, CRs #926 (seidel-terms tooltip had no unit), #927 (README bar select) accepted; backlog findings 3, 4 pulled in. Items #928, #929, #930. User CRs #920, #921 resolved. Per-round count: 11, 5, 3, 2, 0, 5 (the rise is the user's demo CRs' round).
 - 2026-11-10 review M2 round 7 (code-reviewer, claude-opus-5-5): 1 blocking, CR #931 (readout docs miss #930's fallback) accepted; backlog findings 2, 3 pulled in. Items #932, #933. Carried #926, #927 resolved. Per-round count since the demo: 5, 3.
 - 2026-11-10 review M2 round 8 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved (#931 too); backlog findings 1 and 3 pulled in as #934; finding 2 (two plan Tests cells named the test before #933's rename) fixed in this commit. Per-round count since the demo: 5, 3, 1.
+- 2026-11-10 review M2 round 9 (code-reviewer, claude-opus-5-5): 0 blocking; backlog #935 pulled in. Per-round count since the demo: 5, 3, 1, 1.
