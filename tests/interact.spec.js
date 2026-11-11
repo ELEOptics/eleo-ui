@@ -965,6 +965,21 @@ test('wheel zooms about the pointer', async ({ page }) => {
   await page.evaluate(() => window.STOP());
 });
 
+// #950 (review M3): a horizontal-only wheel or trackpad swipe over a plot is not swallowed: it is not prevented and no view fires; a vertical wheel still is.
+test('a horizontal wheel is not prevented', async ({ page }) => {
+  await mountZoom(page, 'curve');
+  const c0 = await toClient(page, 0, [3, 0.4]);
+  await page.mouse.move(c0[0], c0[1]);
+  const prevented = await page.evaluate(([x, y]) => {
+    const fire = (dx, dy) => { const e = new WheelEvent('wheel', { deltaX: dx, deltaY: dy, clientX: x, clientY: y, bubbles: true, cancelable: true }); window.HOST.querySelector('svg').dispatchEvent(e); return e.defaultPrevented; };
+    return [fire(50, 0), fire(0, -100)];
+  }, c0);
+  expect(prevented[0], 'a horizontal wheel is not prevented').toBe(false);
+  expect(prevented[1], 'a vertical wheel still is').toBe(true);
+  expect(await views(page), 'only the vertical wheel fired a view').toHaveLength(1);
+  await page.evaluate(() => window.STOP());
+});
+
 // #829: a drag that pans does not also select the mark it started on; a plain click still does.
 test('a drag does not select', async ({ page }) => {
   await mountZoom(page, 'curve');

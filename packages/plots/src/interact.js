@@ -247,9 +247,9 @@ export function interact(el, opts) {
   function wheel(e) {
     var hit = pick(el, e.clientX, e.clientY);
     if (!hit) return;
-    e.preventDefault();
     var dy = Math.max(-400, Math.min(400, e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1))), k = Math.exp(-dy * WHEEL_RATE);
-    if (!dy) return;
+    if (!dy) return; // a horizontal-only wheel or swipe is not ours: leave it to the page
+    e.preventDefault();
     var about = function (r, c) { return [c + (r[0] - c) / k, c + (r[1] - c) / k]; };
     emitView(viewOf(hit.kind, about(hit.x, hit.p[0]), about(hit.y, hit.p[1])));
   }
