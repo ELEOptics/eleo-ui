@@ -574,7 +574,7 @@ test('row R changesets became plots and tokens entries',
 // oracle: spec semver (new API ships as a minor); @changesets/cli's plan of the named files: plots minor, plots-svelte minor, no major.
 // Read as row O's pair: the files, or once `changeset version` deleted them, the CHANGELOG entries (#594).
 const ROW_H_PLOTS_ENTRY = /New: `interact\(el, opts\)` makes a rendered 2D plot interactive/;
-const ROW_H_SVELTE_ENTRY = /New: the wrappers take `onhover`, `onselect` and, on the zoomable ones, `onview`/;
+const ROW_H_SVELTE_ENTRY = /New: the wrappers take `onhover`, `onselect` and, on the zoomable ones/;
 const rowHPlotsConsumed = barsConsumed('interact.md', 'plots', ROW_H_PLOTS_ENTRY);
 const rowHSvelteConsumed = barsConsumed('interact-svelte.md', 'plots-svelte', ROW_H_SVELTE_ENTRY);
 const rowHConsumed = rowHPlotsConsumed && rowHSvelteConsumed;
@@ -601,6 +601,13 @@ test('row H changesets', { skip: rowHConsumed && 'consumed by changeset version'
     const planned = Object.fromEntries(releases.map((r) => [r.name, r.type]));
     assert.deepEqual(planned, { '@eleoptics/plots': 'minor', '@eleoptics/plots-svelte': 'minor' }, 'a major is planned, or a package is missing');
   });
+});
+
+// The entry regexes are what the consumed guards and the twin above read the CHANGELOG with; run against the bodies while they exist, a
+// wording edit breaks here, not on the Version Packages PR (#1012).
+test('row H entries match their changesets', { skip: rowHConsumed && 'consumed by changeset version' }, () => {
+  assert.match(parse('interact.md').body, ROW_H_PLOTS_ENTRY, 'the plots entry regex matches its changeset');
+  assert.match(parse('interact-svelte.md').body, ROW_H_SVELTE_ENTRY, 'the plots-svelte entry regex matches its changeset');
 });
 
 test('row H changesets became minors',
