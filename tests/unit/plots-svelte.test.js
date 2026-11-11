@@ -92,6 +92,47 @@ test('hover binds unless marks and tooltip are off', async () => {
   }
 });
 
+// Plan #804, outcome O5 (issue #948). oracle: closed-form (a data change keeps the one binding: binds stay 1 across updates with new axes, values and callbacks, and the bound options read the latest; interact copies its options at bind time, so the action hands it stable ones).
+test('a data change keeps one interact binding', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-hover-'));
+  try {
+    const count = { binds: 0, stops: 0, opts: null };
+    globalThis.__hoverCount = count;
+    writeFileSync(join(dir, 'plots.js'), 'export const interact = (el, o) => { globalThis.__hoverCount.binds++; globalThis.__hoverCount.opts = o; return () => { globalThis.__hoverCount.stops++; }; };');
+    writeFileSync(join(dir, 'interact.js'), readFileSync(new URL('../../packages/plots-svelte/src/lib/interact.svelte.js', import.meta.url), 'utf8').replaceAll("'@eleoptics/plots'", '"./plots.js"'));
+    const { hover } = await import(pathToFileURL(join(dir, 'interact.js')).href);
+    const live = () => count.binds - count.stops;
+    const seen = [];
+    const a = hover({}, { onhover: (e) => seen.push(['a', e]), onview() {}, values: [[1]], axes: { x: { unit: 'mm' }, y: { unit: 'um' } } });
+    assert.equal(count.binds, 1);
+    const bound = count.opts;
+    a.update({ onhover: (e) => seen.push(['b', e]), onview() {}, values: [[2]], axes: { x: { unit: 'cm' }, y: { unit: 'nm' }, value: { unit: 'V' } } });
+    assert.equal(count.binds, 1, 'a data change rebinds interact');
+    assert.equal(count.stops, 0, 'a data change stops interact');
+    assert.equal(bound.values[0][0], 2, 'the bound options read stale values');
+    assert.equal(bound.axes.x.unit, 'cm', 'the bound options read stale axes');
+    assert.equal(bound.axes.value.unit, 'V');
+    bound.onhover(7);
+    assert.deepEqual(seen, [['b', 7]], 'the bound options call a stale callback');
+    a.update({ onhover: () => {}, onview() {}, values: [[3]] });
+    assert.equal(bound.axes.x, undefined);
+    assert.equal(count.binds, 1);
+    a.update({ onhover: () => {}, onview() {}, values: undefined });
+    assert.equal(count.binds, 2, 'values removed keeps a binding that reads them');
+    assert.equal(live(), 1);
+    a.update({ onhover: () => {}, values: undefined });
+    assert.equal(count.binds, 3, 'onview removed keeps its listeners');
+    assert.equal(live(), 1);
+    a.update({ marks: false, tooltip: false });
+    assert.equal(live(), 0, 'all callbacks and marks off do not stop');
+    a.destroy();
+    assert.equal(live(), 0);
+  } finally {
+    delete globalThis.__hoverCount;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // Plan #804 M2 (issue #820). oracle: closed-form (a callback goes to the hover action, never to the renderer: the renderer's props hold no onhover or onselect;
 // the action itself runs in the browser, tests/svelte.spec.js). SpotDiagram's axes are its unit on both x and y; RayFan's are the x and y specs it passes to curve.
 test('spot and fan callbacks', async () => {
