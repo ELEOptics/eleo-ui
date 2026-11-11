@@ -1027,6 +1027,9 @@ test('map tiles show their value', async ({ page }) => {
 test('gallery tooltips carry units', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  // SVG and tileAxes are page globals: every recTile tile (an SVG entry with a `rec`) resolves non-empty axes.
+  const bare = await page.evaluate(() => Object.keys(SVG).filter((t) => SVG[t].rec && !Object.keys(tileAxes(t) || {}).length));
+  expect(bare, 'recorded tiles with no axes').toEqual([]);
   for (const theme of ['dark', 'light']) {
     const spot = `.theme[data-theme="${theme}"] [data-tile="spot"]`;
     const dot = page.locator(`${spot} path[data-series], ${spot} polyline[data-series]`).first();
