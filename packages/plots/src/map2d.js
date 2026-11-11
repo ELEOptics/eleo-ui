@@ -55,13 +55,15 @@ function margins(o, W, H) {
     cbt = vt.ticks.filter(function (v) { var t = cbpos(v); return t >= -1e-9 && t <= 1 + 1e-9; }).map(function (v) { return { t: cbpos(v), s: fmt(v, vt.decimals == null ? (v < 1 ? Math.max(0, -Math.floor(Math.log10(v) + 1e-9)) : 0) : vt.decimals) }; });
     CB = 3 + 0.6 * Math.max.apply(null, [0].concat(cbt.map(function (q) { return Array.from(q.s).length; })));
   }
-  /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin (text units) is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. The text size follows the margin, since it follows the frame. */
-  var Rt0 = scales({ x: { range: [e[0], e[1]], ticks: withMajor(x, gx, [e[0], e[1]]).ticks }, y: { range: [e[2], e[3]] } }, [[]]).Rt + CB, Rt = Rt0, F, t, L, T, Bm, R, pw, ph, dx = e[1] - e[0], dy = e[3] - e[2], xr, yr;
+  /* The drawn window: the extent, or `view`'s ranges (extent units) per axis; padded below like the extent. */
+  var vw = o.view || {}, bx = vw.x || [e[0], e[1]], by = vw.y || [e[2], e[3]];
+  /* Ranges: the window (the extent without a `view`) padded on the shorter side so the plot area's px per unit are equal. The right margin (text units) is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. The text size follows the margin, since it follows the frame. */
+  var Rt0 = scales({ x: { range: [e[0], e[1]], ticks: withMajor(x, gx, bx).ticks }, y: { range: by } }, [[]]).Rt + CB, Rt = Rt0, F, t, L, T, Bm, R, pw, ph, dx = bx[1] - bx[0], dy = by[1] - by[0], xr, yr;
   for (var it = 0; it < 8; it++) {
     F = frameOf(W, CURVE_MARGINS.L + Rt); t = frameText(F); L = r2(CURVE_MARGINS.L * t); T = r2(CURVE_MARGINS.T * t); Bm = CURVE_MARGINS.B * t; R = Rt * t;
-    pw = r2(Math.max(1, W - L - R)); ph = r2(Math.max(1, H - T - Bm)); xr = [e[0], e[1]]; yr = [e[2], e[3]];
-    if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [e[0] - (px - dx) / 2, e[1] + (px - dx) / 2]; }
-    else { var py = dx * ph / pw; yr = [e[2] - (py - dy) / 2, e[3] + (py - dy) / 2]; }
+    pw = r2(Math.max(1, W - L - R)); ph = r2(Math.max(1, H - T - Bm)); xr = [bx[0], bx[1]]; yr = [by[0], by[1]];
+    if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [bx[0] - (px - dx) / 2, bx[1] + (px - dx) / 2]; }
+    else { var py = dx * ph / pw; yr = [by[0] - (py - dy) / 2, by[1] + (py - dy) / 2]; }
     var need = Math.max(Rt0, scales({ x: { range: xr, ticks: withMajor(x, gx, xr).ticks }, y: { range: yr } }, [[]]).Rt + CB);
     if (need <= Rt + 1e-9) break;
     Rt = need;
@@ -82,6 +84,12 @@ function typedMap(o) {
   if (!Array.isArray(rows) || !nr || !Array.isArray(rows[0]) || !nc) throw new TypeError("map2D: values must be a non-empty array of non-empty rows");
   if (rows.some(function (r) { return !Array.isArray(r) || r.length !== nc; })) throw new TypeError("map2D: every row of values must have the same length");
   if (!Array.isArray(e) || e.length !== 4 || !e.every(live) || !(e[0] < e[1]) || !(e[2] < e[3])) throw new TypeError("map2D: extent must be [x0, x1, y0, y1] with x0 < x1 and y0 < y1");
+  var vw = o.view;
+  if (vw !== undefined && vw !== null) {
+    var okr = function (a) { return a === undefined || a === null || (Array.isArray(a) && a.length === 2 && live(a[0]) && live(a[1]) && a[0] < a[1]); };
+    if (typeof vw !== "object" || !okr(vw.x) || !okr(vw.y)) throw new TypeError("map2D: view must be { x?: [lo, hi], y?: [lo, hi] } with finite lo < hi");
+    o = Object.assign({}, o, { view: { x: vw.x || undefined, y: vw.y || undefined } });
+  }
   var pol = o.polar, pr, pa;
   if (pol) {
     pr = pol.radii; pa = pol.angles;
@@ -103,7 +111,9 @@ function typedMap(o) {
   var bw = nc, bh = nr;
   if (pol) {
     /* Polar: the bitmap has one pixel per px the image shows (the plot area's px, so never more), which resolves a sector wherever it is at least a pixel wide at the outer ring. */
-    bw = Math.max(1, Math.round((e[1] - e[0]) * sx)); bh = Math.max(1, Math.round((e[3] - e[2]) * sy));
+    /* A view does not re-bake: the bitmap is sized at the scale without it. */
+    var M0 = vw ? margins(Object.assign({}, o, { view: undefined }), W, H) : M, sx0 = M0.pw / (M0.xr[1] - M0.xr[0]), sy0 = M0.ph / (M0.yr[1] - M0.yr[0]);
+    bw = Math.max(1, Math.round((e[1] - e[0]) * sx0)); bh = Math.max(1, Math.round((e[3] - e[2]) * sy0));
   }
   cv.width = bw; cv.height = bh;
   var ctx = cv.getContext("2d"), im = ctx.createImageData(bw, bh), put = function (k, c) {
@@ -130,7 +140,9 @@ function typedMap(o) {
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var g = plotCell(sc, [], W, H, T, false, "", undefined, { L: L, B: Bm, R: R, t: t, grid: false });
   /* What interact reads off the image: the extent in data units and the grid's shape, or the polar map's radii and angles. */
-  var shape = ' data-extent="' + e.join(" ") + '"' + (pol ? ' data-radii="' + pr.join(" ") + '" data-angles="' + pa.join(" ") + '"' : ' data-rows="' + nr + '" data-columns="' + nc + '"');
+  var shape = ' data-range="' + [xr[0], xr[1], yr[0], yr[1]].map(function (v) { return +v.toFixed(9); }).join(" ") + '" data-extent="' + e.join(" ") + '"' + (pol ? ' data-radii="' + pr.join(" ") + '" data-angles="' + pa.join(" ") + '"' : ' data-rows="' + nr + '" data-columns="' + nc + '"');
+  var vp = o.view && (o.view.x || o.view.y);
+  if (vp) g += '<svg x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" viewBox="' + L + " " + T + " " + pw + " " + ph + '">';
   g += '<image x="' + X(e[0]) + '" y="' + Y(e[3]) + '" width="' + +((e[1] - e[0]) * sx).toFixed(2) + '" height="' + +((e[3] - e[2]) * sy).toFixed(2) + '" preserveAspectRatio="none" style="image-rendering: pixelated"' + shape + ' href="' + cv.toDataURL("image/png") + '"/>';
   /* The grid, over the image and under the aperture: a line at each major tick inside the image, `minor` evenly spaced lines in each interval between ticks, in the grid tokens of the map colormap draws (an unknown map falls back to ember, as colormap does). */
   {
@@ -151,6 +163,7 @@ function typedMap(o) {
     g += '<path fill-rule="evenodd" fill="var(--surface)" d="M' + ix0 + " " + iy0 + "H" + ix1 + "V" + iy1 + "H" + ix0 + "ZM" + +(ax - ar).toFixed(2) + " " + ay + "a" + ar + " " + ar + " 0 1 0 " + 2 * ar + " 0a" + ar + " " + ar + " 0 1 0 " + -2 * ar + ' 0Z"/>';
     g += '<circle cx="' + ax + '" cy="' + ay + '" r="' + ar + '" fill="none" stroke="var(--plot-axis)" stroke-width="' + wt + '"/>';
   }
+  if (vp) g += "</svg>";
   if (cbt) {
     var bc = document.createElement("canvas"); bc.width = 1; bc.height = 256;
     var bctx = bc.getContext("2d"), bim = bctx.createImageData(1, 256);

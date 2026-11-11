@@ -908,3 +908,38 @@ test('grid option', async ({ page }) => {
   expect(r.over).toMatch(/^map2D: grid\.x\.minor/);
   expect(r.huge).toMatch(/^map2D: grid\.y\.minor/);
 });
+
+// Plan #804 M3 (#828, O5): `view: { x?, y? }` in extent units changes the panel ranges; the <image> keeps its extent (no re-bake) and a nested viewport clips it.
+// oracle: closed-form. Extent [-2, 2] x [-1, 1], view x [1, 3], y [-0.5, 0.5] (2:1, wider than the frame): x spans exactly the view, y is widened about its centre, so px per unit is pw / 2 on both axes,
+// the image's left edge is (-2 - 1) * s from the frame's left, its box is the extent times s, and its centre in y is the frame's centre (view y is centred on 0). No view: no clip, the view's attributes absent.
+test('view window', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const base = { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, width: 460 };
+    const draw = (o) => {
+      el.insertAdjacentHTML('beforeend', window.ELEO.map2D(o));
+      const svg = el.lastElementChild, f = svg.querySelector('rect'), im = svg.querySelector('image[data-extent]');
+      const fr = { x: +f.getAttribute('x'), y: +f.getAttribute('y'), w: +f.getAttribute('width'), h: +f.getAttribute('height') };
+      const bottom = fr.y + fr.h;
+      const xt = [...svg.querySelectorAll('text.eleo-tick')].filter((t) => Math.abs(+t.getAttribute('y') - bottom) < 0.2 * fr.h && t.getAttribute('text-anchor') === 'middle').map((t) => ({ v: Number(t.textContent.trim().replace('−', '-')), px: +t.getAttribute('x') }));
+      const out = { fr, xt, im: { x: +im.getAttribute('x'), y: +im.getAttribute('y'), w: +im.getAttribute('width'), h: +im.getAttribute('height') }, range: im.getAttribute('data-range'), clipped: !!svg.querySelector(':scope > svg image'), html: svg.outerHTML };
+      svg.remove();
+      return out;
+    };
+    return { v: draw({ ...base, view: { x: [1, 3], y: [-0.5, 0.5] } }), n: draw(base) };
+  });
+  const { v, n } = r, s = v.fr.w / 2;
+  expect(v.xt.length, 'x ticks drawn').toBeGreaterThan(0);
+  for (const t of v.xt) { expect(t.v, `tick ${t.v} inside the view`).toBeGreaterThanOrEqual(1 - 1e-9); expect(t.v).toBeLessThanOrEqual(3 + 1e-9); expect(t.px).toBeGreaterThanOrEqual(v.fr.x - 0.01); expect(t.px).toBeLessThanOrEqual(v.fr.x + v.fr.w + 0.01); }
+  expect(Math.abs(v.im.w - 4 * s), 'image width is the extent times the view scale').toBeLessThan(0.02);
+  expect(Math.abs(v.im.h - 2 * s), 'image height, equal scale').toBeLessThan(0.02);
+  expect(Math.abs(v.im.x - (v.fr.x - 3 * s)), 'image left').toBeLessThan(0.02);
+  expect(Math.abs(v.im.y + v.im.h / 2 - (v.fr.y + v.fr.h / 2)), 'image centred on the view centre in y').toBeLessThan(0.02);
+  expect(v.clipped, 'the image sits in a clipping viewport').toBe(true);
+  const rg = v.range.split(' ').map(Number);
+  expect(Math.abs(rg[0] - 1) + Math.abs(rg[1] - 3), 'data-range x').toBeLessThan(1e-9);
+  expect(rg[2] + rg[3], 'data-range y centred').toBeLessThan(1e-9);
+  expect(n.clipped, 'no view: no viewport').toBe(false);
+  expect(n.range.split(' ').length, 'no view: the frame ranges are still exposed').toBe(4);
+});
