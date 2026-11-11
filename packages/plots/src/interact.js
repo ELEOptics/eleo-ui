@@ -27,13 +27,24 @@ function runs(mark) {
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
 function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
+/* The data window a group's nested viewport clips to, as a test on a data point: the viewport's width and height through the group's matrix. Half a client px of slack keeps a point on the frame's edge in. Always true where there is no matrix or no finite viewport (a layout has no frame). */
+function inFrameOf(g, m) {
+  var vp = g.closest("svg"), t = g.transform.baseVal.consolidate();
+  if (!vp || !t || !vp.hasAttribute("width")) return function () { return true; };
+  var a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f, w = +vp.getAttribute("width"), h = +vp.getAttribute("height");
+  if (!(a && d && isFinite(a + d + e + f + w + h))) return function () { return true; };
+  var x0 = Math.min(-e / a, (w - e) / a), x1 = Math.max(-e / a, (w - e) / a), y0 = Math.min(-f / d, (h - f) / d), y1 = Math.max(-f / d, (h - f) / d), ex = 0.5 / Math.abs(m.a), ey = 0.5 / Math.abs(m.d);
+  return function (x, y) { return x >= x0 - ex && x <= x1 + ex && y >= y0 - ey && y <= y1 + ey; };
+}
+
 /* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. A bar is hovered inside its rect, or within SNAP client px of its value end inside its x span (a zero-height bar too), the nearest end winning, and it beats a point or a segment. */
 function nearest(host, cx, cy) {
   var snap = null, best = null, bar = null;
   host.querySelectorAll("[data-series], polyline[data-ray]").forEach(function (mark) {
     var g = dataGroup(mark), m = g && g.getScreenCTM();
     if (!m) return;
-    var at = new DOMPoint(cx, cy).matrixTransform(m.inverse());
+    var at = new DOMPoint(cx, cy).matrixTransform(m.inverse()), inside = mark.dataset.ray !== undefined || mark.localName === "rect" ? function () { return true; } : inFrameOf(g, m);
+    if (!inside(at.x, at.y)) return; // the pointer is outside the clipped frame: a zoomed curve's points out there are not drawn
     if (mark.localName === "rect") { // a bar is hovered with the pointer inside its box or within SNAP client px of its value end inside its x span (so a bar under a pixel tall, or of zero height, can be); its value is its y when below zero, else its height, and the bar whose value end is nearest wins
       var rx = +mark.getAttribute("x"), ry = +mark.getAttribute("y"), rw = +mark.getAttribute("width"), rh = +mark.getAttribute("height");
       var v = ry < 0 ? ry : rh, dv = Math.abs(at.y - v) * Math.abs(m.d);
@@ -44,6 +55,7 @@ function nearest(host, cx, cy) {
     var linked = function (i) { return r.join[i] || r.join[i + 1]; };
     p.forEach(function (q, i) {
       var d = Math.hypot((q[0] - at.x) * m.a, (q[1] - at.y) * m.d), c = { d: d, mark: mark, index: i, x: q[0], y: q[1] };
+      if (!inside(q[0], q[1])) return;
       if (d <= SNAP && (!snap || d < snap.d)) snap = c;
       if (d <= REACH && !linked(i) && (!best || d < best.d)) best = c;
     });
@@ -52,7 +64,8 @@ function nearest(host, cx, cy) {
       var ax = p[i - 1][0] * m.a, ay = p[i - 1][1] * m.d, vx = p[i][0] * m.a - ax, vy = p[i][1] * m.d - ay, len = vx * vx + vy * vy;
       var t = len ? Math.max(0, Math.min(1, ((at.x * m.a - ax) * vx + (at.y * m.d - ay) * vy) / len)) : 0;
       var d = Math.hypot(ax + t * vx - at.x * m.a, ay + t * vy - at.y * m.d);
-      if (d <= REACH && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1, x: p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), y: p[i - 1][1] + t * (p[i][1] - p[i - 1][1]), segment: [i - 1, i] };
+      var sx = p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), sy = p[i - 1][1] + t * (p[i][1] - p[i - 1][1]);
+      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1, x: sx, y: sy, segment: [i - 1, i] };
     }
   });
   return bar || snap || best;
@@ -62,6 +75,7 @@ function nearest(host, cx, cy) {
 function mapAt(host, cx, cy) {
   var img = host.querySelector("image[data-extent]"), m = img && img.getScreenCTM && img.getScreenCTM();
   if (!m) return null;
+  if (img.hasAttribute("data-range") && !pick(host, cx, cy)) return null; // a zoomed map's image extends past its clipped frame
   var at = new DOMPoint(cx, cy).matrixTransform(m.inverse()), w = +img.getAttribute("width"), h = +img.getAttribute("height");
   var fx = (at.x - +img.getAttribute("x")) / w, fy = (at.y - +img.getAttribute("y")) / h;
   if (!(fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1)) return null;

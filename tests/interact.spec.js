@@ -1188,3 +1188,48 @@ test('map zoom keeps the image at its extent', async ({ page }) => {
   expect(await markup(page), 'double-click restores the original markup').toBe(await page.evaluate(() => window.ORIG));
   await page.evaluate(() => window.STOP());
 });
+
+// #944 (O5, map and curve): hover happens only inside the drawn window. A zoomed plot's data (the map's <image>, a curve's points) extends past the clipped frame, so a pointer in the margin must emit nothing, and one just inside still hovers.
+// oracle: property the frame is the nested viewport box computed from its x/y/width/height and the ancestors' translate() with the root's client box, never getScreenCTM (as installZ).
+test('zoomed plots hover only inside the frame', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await installZ(page);
+  const frameBox = (kind) => page.evaluate((kind) => {
+    const host = window.HOST, mark = host.querySelector(kind === 'map' ? 'image[data-extent]' : 'polyline[data-series], path[data-series]');
+    const vp = mark.closest('svg'), root = vp.ownerSVGElement, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+    let tx = 0, ty = 0;
+    for (let n = vp.parentNode; n && n !== root; n = n.parentNode) {
+      const t = (n.getAttribute('transform') || '').match(/translate\(([^)]*)\)/);
+      if (t) { const [u, v] = t[1].split(/[\s,]+/).map(Number); tx += u; ty += v || 0; }
+    }
+    const x = +vp.getAttribute('x') + tx, y = +vp.getAttribute('y') + ty, w = +vp.getAttribute('width'), h = +vp.getAttribute('height');
+    return { left: box.left + x * k, top: box.top + y * k, right: box.left + (x + w) * k, bottom: box.top + (y + h) * k };
+  }, kind);
+  for (const kind of ['map', 'curve']) {
+    await page.evaluate((kind) => {
+      const host = document.createElement('div');
+      host.style.cssText = 'width:600px;margin:20px auto';
+      document.querySelector('.theme[data-theme="light"]').appendChild(host);
+      const E = window.ELEO, wave = Array.from({ length: 81 }, (_, i) => [i / 8, Math.sin(i / 8)]);
+      host.innerHTML = kind === 'map'
+        ? E.map2D({ values: Array.from({ length: 8 }, (_, r) => Array.from({ length: 12 }, (_, c) => r * c + 1)), extent: [-6, 6, -4, 4], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, el: host, width: 600, view: { x: [-2, 2], y: [-1.5, 1.5] } })
+        : E.curve({ series: [{ points: wave, label: 'a' }], x: { range: [0, 10], label: 'x' }, y: { range: [-1, 1], label: 'y' }, width: 600, view: { x: [4, 6], y: [-1.2, 1.2] } });
+      window.HOST = host; window.HOVER = [];
+      window.STOP = E.interact(host, { values: kind === 'map' ? Array.from({ length: 8 }, () => Array(12).fill(1)) : undefined, onhover: (ev) => window.HOVER.push(ev) });
+      host.scrollIntoView({ block: 'center' });
+    }, kind);
+    const f = await frameBox(kind), mid = [(f.left + f.right) / 2, (f.top + f.bottom) / 2];
+    // inside: just in from the left edge, at mid height (a curve is hovered at its own point, so aim at the data there)
+    const inside = kind === 'curve' ? await toClient(page, 0, [4.2, Math.sin(4.2)]) : [f.left + 5, mid[1]];
+    expect(inside[0] > f.left && inside[0] < f.right && inside[1] > f.top && inside[1] < f.bottom, `${kind}: the inside probe is inside`).toBe(true);
+    expect(await hoverAt(page, inside[0], inside[1]), `${kind}: inside the frame still hovers`).not.toBeNull();
+    // outside: 10 px past each edge, level with the inside probe or the middle; the data lies there, clipped
+    const outs = kind === 'curve'
+      ? [await toClient(page, 0, [3.9, Math.sin(3.9)]), await toClient(page, 0, [6.1, Math.sin(6.1)])]
+      : [[f.left - 10, mid[1]], [f.right + 10, mid[1]], [mid[0], f.top - 10], [mid[0], f.bottom + 10]];
+    if (kind === 'curve') { outs[0][0] = Math.min(outs[0][0], f.left - 10); outs[1][0] = Math.max(outs[1][0], f.right + 10); }
+    for (const [x, y] of outs) expect(await hoverAt(page, x, y), `${kind}: ${x.toFixed(0)},${y.toFixed(0)} is outside the frame`).toBeNull();
+    await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
+  }
+});
