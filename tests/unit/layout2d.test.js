@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as layout2dModule from '../../packages/plots/src/layout2d.js';
@@ -1505,6 +1506,25 @@ test('zoomed hatch stays bounded', () => {
     h.ks.forEach((k, j) => assert.ok(Math.abs(k - want[b][j]) < 2e-3, `body ${b} line ${j} at ${k}, expected ${want[b][j]}`));
   });
   assert.ok(want.some((w) => w.length), 'the 1 mm window crosses some hatch');
+
+// Plan #804 M3 (#977, review M3 round 6 finding 1): a valid view too small for `k += step` to move k no longer hangs the mirror hatch loop.
+// oracle: a 1e-13 mm span around the cassegrain mirror returns (in a child process, killed after 10 s) with a bounded line count per body (under 100)
+test('a tiny view still draws the hatch', () => {
+  const root = new URL('../../', import.meta.url).href;
+  const script = `import ELEO from '${root}packages/plots/src/renderers.js';
+import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+const L = JSON.parse(readFileSync('${new URL('../fixtures/phos-core/cassegrain-layout.json', import.meta.url).pathname}'));
+const m = L.surfaces.find((q) => q.mirror && q.z < -70), w = 1e-13, cy = m.sd * 0.8;
+const svg = ELEO.layout2D({ data: L, width: 900, view: { x: [m.z - w / 2, m.z + w / 2], y: [cy - w / 4, cy + w / 4] } });
+const lines = [...svg.matchAll(/ clip-path="url\\(#eleo-m/g)].length ? [...svg.matchAll(/<path d="([^"]*)" clip-path/g)].map((q) => (q[1].match(/M/g) || []).length) : [];
+process.stdout.write(JSON.stringify(lines));`;
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { timeout: 10000, encoding: 'utf8' });
+  assert.equal(r.error, undefined, `the draw did not return in time: ${r.error}`);
+  assert.equal(r.status, 0, r.stderr);
+  const lines = JSON.parse(r.stdout);
+  assert.ok(lines.length >= 1 && lines.every((c) => c <= 100), `hatch line counts ${lines}`);
+});
 });
 
 // Plan #804 M3 (#973, review M3 round 5 finding 3): a zoomed layout fits its view into the geometry band, clear of the labels, scale bar and key, and clips to it.

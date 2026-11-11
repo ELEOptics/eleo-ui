@@ -290,13 +290,13 @@ export function layout2D(o) {
       for (var j = 0, h = 5381; j < P.length; j++) h = (h * 33 ^ P.charCodeAt(j)) >>> 0;
       id += h.toString(36);
       // With a view only the lines crossing the window are drawn (CR #969): from the grid step at or above the first one that reaches it (the same phase as without), to the last that does not pass it.
-      var kb = z0 - (y1 - y0), kmax = Math.max.apply(null, zs), step = 32 / s, ka = kb;
+      var kb = z0 - (y1 - y0), kmax = Math.max.apply(null, zs), step = 32 / s, ka = kb, j0 = 0; // lines at kb + j * step: an integer index, since k += step stalls once step is under half an ulp of k (#977)
       if (vx || vy) {
         var vzlo = (band[0] - tx) / s, vzhi = (band[0] + band[2] - tx) / s, vylo = (ty - band[1] - band[3]) / s, vyhi = (ty - band[1]) / s;
         ka = Math.max(kb, vzlo - (Math.min(y1, vyhi) - y0)); kmax = Math.min(kmax, vzhi - (Math.max(y0, vylo) - y0));
-        ka = kb + Math.ceil((ka - kb) / step - 1e-9) * step;
+        j0 = Math.ceil((ka - kb) / step - 1e-9);
       }
-      for (var k = ka; k <= kmax; k += step) d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1);
+      for (var jk = j0, j1 = Math.floor((kmax - kb) / step + 1e-9); jk <= j1; jk++) { var k = kb + jk * step; d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1); }
       bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '" ' + NS + '/>'
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
