@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 
 const BUDGET_MS = 150;
 const SLACK_PX = 32;
-const TILES = ['layout2D-wandersleb', 'layout2D-glasses', 'mtf', 'mtf-limits'];
+const TILES = ['layout2D-wandersleb', 'layout2D-glasses', 'layout2D-cassegrain', 'mtf', 'mtf-limits'];
 const LIGHT = '.theme[data-theme="light"]';
 
 async function ready(page, tile) {
@@ -15,23 +15,29 @@ async function ready(page, tile) {
   await page.locator(`${LIGHT} [data-tile="${tile}"]`).scrollIntoViewIfNeeded();
 }
 
-// In the page: the 1000x view of a tile, from its unzoomed drawing. Centre 30 % across and 40 % down the frame, half-width frame/2/1000 per axis.
+// In the page: the 1000x view of a tile, from its unzoomed drawing. The window is centred on drawn geometry: the midpoint of the middle segment of a layout's longest ray, or of a curve's longest series; half-width frame/2/1000 per axis.
 function windowOf(body) {
   const layout = body.querySelector('g[data-view="layout"]');
   const g = layout || body.querySelector('svg[width] > g[transform^="matrix("]');
   if (!g) throw new Error('no data group');
-  const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+  const [a, , , d] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
   const vp = g.parentNode;
-  const [bx, by, bw, bh] = layout ? layout.getAttribute('data-band').split(/\s+/).map(Number)
-    : ['x', 'y', 'width', 'height'].map((q) => +vp.getAttribute(q));
-  // frame px -> data; the frame of a curve is in its viewport's own coordinates, so the matrix is applied to offsets from the viewport origin
-  const ox = layout ? 0 : bx, oy = layout ? 0 : by;
-  const cx = (bx + 0.3 * bw - ox - e) / a, cy = (by + 0.4 * bh - oy - f) / d;
+  const [bw, bh] = layout ? layout.getAttribute('data-band').split(/\s+/).map(Number).slice(2)
+    : ['width', 'height'].map((q) => +vp.getAttribute(q));
+  const marks = layout ? [...g.querySelectorAll('polyline[data-ray]')] : [...g.querySelectorAll('polyline[data-series], path[data-series]')];
+  let best = null;
+  for (const el of marks) {
+    const n = (el.getAttribute('points') || el.getAttribute('d') || '').match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+    if (!best || n.length > best.length) best = n;
+  }
+  if (!best || best.length < 4) throw new Error('no segment to centre on');
+  const i = Math.floor((best.length / 2 - 1) / 2) * 2; // the middle segment starts at point i/2
+  const cx = (best[i] + best[i + 2]) / 2, cy = (best[i + 1] + best[i + 3]) / 2;
   const hx = Math.abs(bw / 2 / 1000 / a), hy = Math.abs(bh / 2 / 1000 / d);
   return { layout: !!layout, x: [cx - hx, cx + hx], y: [cy - hy, cy + hy] };
 }
 
-test.skip('a 1000x zoom redraws within budget', async ({ page, browser }, info) => { // #985; #991 unskips
+test('a 1000x zoom redraws within budget', async ({ page, browser }, info) => { // #985, unskipped by #991
   test.setTimeout(900000);
   const medians = {};
   for (const tile of TILES) {
@@ -60,7 +66,7 @@ test.skip('a 1000x zoom redraws within budget', async ({ page, browser }, info) 
 });
 
 // The window test reports the farthest point of every polyline, polygon and line of the data group, through its screen matrix, from the frame.
-test.skip('a zoomed plot draws only near its window', async ({ page }) => { // #985; #991 unskips
+test('a zoomed plot draws only near its window', async ({ page }) => { // #985, unskipped by #991
   for (const tile of TILES) {
     await ready(page, tile);
     const sel = `${LIGHT} [data-tile="${tile}"] .eleo-plot__body`;
