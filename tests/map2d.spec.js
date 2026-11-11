@@ -953,3 +953,27 @@ test('view window', async ({ page }) => {
   expect(n.clipped, 'no view: no viewport').toBe(false);
   expect(n.range.split(' ').length, 'no view: the frame ranges are still exposed').toBe(4);
 });
+
+// Plan #804 M3 (#947, review M3 round 1 finding 6): an invalid `view` is ignored, as curve and spot do. oracle: differential, an invalid axis draws as if absent (a bad axis keeps the extent's range, the other axis still applies).
+test('an invalid view is ignored', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.locator('.theme[data-theme="light"]').evaluate((el) => {
+    const base = { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, width: 460 };
+    const draw = (o) => { try { return window.ELEO.map2D(o); } catch (e) { return 'threw ' + e.message; } };
+    return {
+      none: draw(base),
+      reversed: draw({ ...base, view: { x: [3, 1], y: [0.5, -0.5] } }),
+      nan: draw({ ...base, view: { x: [NaN, 3], y: [0, Infinity] } }),
+      equal: draw({ ...base, view: { x: [1, 1] } }),
+      notArray: draw({ ...base, view: { x: 'a', y: 5 } }),
+      notObject: draw({ ...base, view: 7 }),
+      empty: draw({ ...base, view: {} }),
+      goodX: draw({ ...base, view: { x: [1, 3] } }),
+      mixed: draw({ ...base, view: { x: [1, 3], y: [1, -1] } }),
+    };
+  });
+  for (const k of ['reversed', 'nan', 'equal', 'notArray', 'notObject', 'empty']) expect(r[k], `${k} view draws as no view`).toBe(r.none);
+  expect(r.goodX, 'a valid x view applies').not.toBe(r.none);
+  expect(r.mixed, 'an invalid y beside a valid x is ignored alone').toBe(r.goodX);
+});

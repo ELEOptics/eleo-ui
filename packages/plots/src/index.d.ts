@@ -217,7 +217,7 @@ export interface Map2DProps {
 }
 /** A grid drawn as a map: SVG in curve's frame with the grid as one nearest-neighbour `<image>`. Colors come from `map` read at `el`; there is no color option (ADR-0001). */
 export interface Map2DGridProps {
-  /** Zoom window in extent units, per axis; the image keeps its extent and the frame clips it. Each range must be finite with lo < hi, else `map2D` throws a `TypeError`. */
+  /** Zoom window in extent units, per axis; the image keeps its extent and the frame clips it. An invalid range (not finite, or lo >= hi) is ignored and keeps that axis's extent, as for a curve or spot. */
   view?: PlotView;
   /** Rows of cells, row 0 at the top. A cell that is not a finite number is masked: it draws no color, so the page's `--surface` shows. Plain arrays. With `polar`, `values[ring][spoke]` are polar samples instead. */
   values: number[][];

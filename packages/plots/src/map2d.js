@@ -85,12 +85,13 @@ function typedMap(o) {
   if (!Array.isArray(rows) || !nr || !Array.isArray(rows[0]) || !nc) throw new TypeError("map2D: values must be a non-empty array of non-empty rows");
   if (rows.some(function (r) { return !Array.isArray(r) || r.length !== nc; })) throw new TypeError("map2D: every row of values must have the same length");
   if (!Array.isArray(e) || e.length !== 4 || !e.every(live) || !(e[0] < e[1]) || !(e[2] < e[3])) throw new TypeError("map2D: extent must be [x0, x1, y0, y1] with x0 < x1 and y0 < y1");
-  var vw = o.view;
-  if (vw !== undefined && vw !== null) {
-    var okr = function (a) { return a === undefined || a === null || (Array.isArray(a) && a.length === 2 && live(a[0]) && live(a[1]) && a[0] < a[1]); };
-    if (typeof vw !== "object" || !okr(vw.x) || !okr(vw.y)) throw new TypeError("map2D: view must be { x?: [lo, hi], y?: [lo, hi] } with finite lo < hi");
-    o = Object.assign({}, o, { view: { x: vw.x || undefined, y: vw.y || undefined } });
-  }
+  /* An invalid view axis (absent, not a finite lo < hi pair) is ignored and keeps the extent's range, as curve's does; no valid axis is no view. */
+  var vw = o.view, okr = function (a) { return Array.isArray(a) && a.length === 2 && live(a[0]) && live(a[1]) && a[0] < a[1] ? a : undefined; };
+  if (vw && typeof vw === "object") {
+    var vx = okr(vw.x), vy = okr(vw.y);
+    vw = vx || vy ? { x: vx, y: vy } : undefined;
+  } else vw = undefined;
+  o = Object.assign({}, o, { view: vw });
   var pol = o.polar, pr, pa;
   if (pol) {
     pr = pol.radii; pa = pol.angles;
