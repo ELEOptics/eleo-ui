@@ -740,3 +740,9 @@ test('view windows every panel', () => {
   [{ center: [0, 0], half: 0 }, { center: [0, 0], half: -1 }, { center: [NaN, 0], half: 1 }, { center: [0], half: 1 }, null, 3].forEach((v) => assert.equal(ELEO.spot({ width: 400, panels, view: v }), base, `invalid view ${JSON.stringify(v)} is ignored`));
   assert.equal(ELEO.throughFocus({ data: sample, view: { center: [0, 0], half: 0 } }), ELEO.throughFocus({ data: sample }), 'throughFocus ignores an invalid view');
 });
+
+test('auto-scale margin ignores panel order', () => {
+  const big = { series: [{ points: [[1, 1], [-1, -1]] }] }, small = { series: [{ points: [[0.01, 0.01], [-0.01, -0.01]] }] };
+  const x0 = (panels) => panelGroups(ELEO.spot({ width: 400, panels, scale: 'auto' }))[0].box.x;
+  assert.equal(x0([big, small]), x0([small, big]), 'the first frame sits at the same x in both panel orders');
+});

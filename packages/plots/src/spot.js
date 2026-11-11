@@ -43,7 +43,7 @@ export function spotLM(o, panels) {
   });
   var common = isFinite(o.half) && o.half > 0 && isFinite(75 / o.half) ? +o.half : niceHalf(Math.max.apply(null, [0].concat(ext)));
   var halves = panels.map(function (p, i) { var h = (o.scale || "common") === "auto" ? niceHalf(ext[i]) : common; return isFinite(75 / h) ? h : 1; });
-  return { halves: halves, LM: Math.max.apply(null, [SPOT_LABEL_M].concat(halves.map(labelM))) };
+  return { halves: halves, LM: Math.max.apply(null, [SPOT_LABEL_M].concat(halves.map(function (h) { return labelM(h); }))) };
 }
 /* One square spot panel at (x, y), side `side`, the same scale `side / 2 / half` on both axes: the frame (stroke `frame`, default --plot-grid), the grid strictly inside ±half under the dots (with a valid `o.view` the window is view.center ± view.half, `half` is ignored, and the centre cross sits at the data origin when that is inside the window) (`grid` not false), the centre cross, then in a nested svg (which clips) one round-cap dot path per series (data-series its position, data-role, data-label, `o.panel` as data-panel and `o.cell` as data-cell when given) and a circle per positive radius in `circles`. wt is the dot weight, frameWeight(side). typedSpot and throughFocus both draw their panels with it; `o.labels` ({ x, y } flags, with `o.t` the text size in px) writes the tick labels of the same ticks outside the frame: x centred under the bottom edge, y right-aligned left of the left edge, every other one dropped until neighbours clear each other; the caller adds anything else outside the frame. */
 function spotPanel(x, y, side, half, o) {
