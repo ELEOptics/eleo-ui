@@ -5,6 +5,7 @@ import { niceTicks, niceRange } from "./axis.js";
 import { frameText, frameWeight, frameOf, CURVE_MARGINS } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
 import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
+import { clipPolyline } from "./clip.js";
 
 /* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). A sagittal dash is in units of `wt` (4 wt, 2.5 wt; CR #726). */
 function roleStyle(s, wt) {
@@ -44,13 +45,42 @@ function seriesPath(pts) {
   flush();
   return d;
 }
-/* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. */
-function seriesMarkup(s, panel, wt, si, pi) {
+/* CR #984: with a view a series is cut to the plot area plus 32 px. The cut is in px (the axes scale differently): `z` is { sc, pw, ph }, the ranges and the plot area, and px = ((x - xr0) * sx, ph - (y - yr0) * sy) as the group's matrix has it. Each run (a panel's path run, or a single plot's whole polyline) gives its pieces { from, points }: `from` is the uncut index of the piece's first point within its run, and the points are data units, a data point being the caller's own (not a round trip) and a cut point mapped back. 31.9 px, 0.1 short of 32, so the rounding of the written points never leaves a cut end past 32. */
+function cutPieces(run, z) {
+  var xr = z.sc.xr, yr = z.sc.yr, sx = z.pw / (xr[1] - xr[0]), sy = z.ph / (yr[1] - yr[0]), m = 31.9, rect = [-m, -m, z.pw + m, z.ph + m];
+  var px = run.map(function (p) { return [(p[0] - xr[0]) * sx, z.ph - (p[1] - yr[0]) * sy]; }), at = new Map();
+  px.forEach(function (q, i) { at.set(q, run[i]); });
+  if (px.length === 1) return px[0][0] >= rect[0] && px[0][0] <= rect[2] && px[0][1] >= rect[1] && px[0][1] <= rect[3] ? [{ from: 0, points: [run[0]] }] : [];
+  return clipPolyline(px, rect).map(function (c) {
+    return { from: c.from, points: c.points.map(function (q) { return at.get(q) || [xr[0] + q[0] / sx, yr[0] + (z.ph - q[1]) / sy]; }) };
+  });
+}
+/* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. `z` (zoomed only, see cutPieces) cuts the series: one mark per piece, each carrying `data-from` (the piece's first uncut index in the mark, omitted when 0) and otherwise the same attributes; a series wholly outside draws nothing. */
+function seriesMarkup(s, panel, wt, si, pi, z) {
   var st = roleStyle(s, wt), pts = s.points || [];
   var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label) + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
-  var attrs = ids + ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
-  if (panel) return '<path d="' + seriesPath(pts) + '"' + attrs;
-  return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;
+  var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
+  var num = function (p) { return String(+p[0]) + "," + String(+p[1]); };
+  if (!z) {
+    if (panel) return '<path d="' + seriesPath(pts) + '"' + ids + attrs;
+    return '<polyline points="' + pts.map(num).join(" ") + '"' + ids + attrs;
+  }
+  var out = "", base = 0;
+  function emit(piece, off) {
+    var from = off + piece.from;
+    out += (panel ? '<path d="M' + piece.points.map(num).join(" L") + (piece.points.length === 1 ? " h0" : "") + '"' : '<polyline points="' + piece.points.map(num).join(" ") + '"') + ids + (from ? ' data-from="' + from + '"' : "") + attrs;
+  }
+  if (panel) {
+    var runs = [], run = [];
+    pts.forEach(function (p) { if (!drawn(p)) { if (run.length) runs.push(run); run = []; } else run.push([+p[0], +p[1]]); });
+    if (run.length) runs.push(run);
+    /* data-from of a piece is its uncut index across the path's runs: the finite points of the runs before it, plus its index in its own run. */
+    runs.forEach(function (r) { cutPieces(r, z).forEach(function (c) { emit(c, base); }); base += r.length; });
+  } else {
+    var all = pts.map(function (p) { return [+p[0], +p[1]]; }).filter(function (p) { return isFinite(p[0]) && isFinite(p[1]); });
+    if (all.length) cutPieces(all, z).forEach(function (c) { emit(c, 0); });
+  }
+  return out;
 }
 /* The ranges and ticks, computed once over every series of every panel, and the right margin they need. */
 export function scales(o, groups, panel) {
@@ -72,6 +102,8 @@ export function scales(o, groups, panel) {
   return { xr: xr, yr: yr, xt: xt, yt: yt, Rt: Rt };
 }
 var r2 = function (v) { return +v.toFixed(2); };
+/* The plot area's size in px for a cell of w by h, its top margin T and margins mg: plotCell's, shared with the cut. */
+function plotArea(w, h, T, mg) { return { pw: r2(Math.max(1, w - r2(mg.L) - mg.R)), ph: r2(Math.max(1, h - r2(T) - mg.B)) }; }
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
@@ -79,9 +111,9 @@ var r2 = function (v) { return +v.toFixed(2); };
 export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   /* The frame is rounded to 2 decimals once, here: everything below derives from these, so the markup is small and doesn't depend on Math.cbrt's last bits. */
   T = r2(T);
-  var L = r2(mg.L), Bm = mg.B, ph = r2(Math.max(1, h - T - Bm)), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
+  var L = r2(mg.L), Bm = mg.B, ph = plotArea(w, h, T, mg).ph, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var grid = mg.grid !== false, u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
-  var pw = r2(Math.max(1, w - L - mg.R)), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
+  var pw = plotArea(w, h, T, mg).pw, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
   var fr = 'x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"', Bt = r2(T + ph), Rt = r2(L + pw);
   g += '<rect ' + fr + ' fill="none" stroke="var(--plot-grid)"/>';
@@ -156,7 +188,9 @@ function typedCurve(o) {
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(Hf - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
   var sc, g = "", lim = checkLimits(o.limits, "curve");
-  var cell = function (series, w, h, T, panel, mg, pi) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi); }).join("")), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
+  /* A valid view axis zooms: the series are cut to the plot area plus 32 px (cutPieces). */
+  var zoomed = !!(o.view && (viewRange(o.view.x) || viewRange(o.view.y)));
+  var cell = function (series, w, h, T, panel, mg, pi) { var z = zoomed && Object.assign({ sc: sc }, plotArea(w, h, T, mg)); return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi, z); }).join("")), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));

@@ -9,7 +9,7 @@ import { niceRange } from '../../packages/plots/src/axis.js';
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-import { TOL_PX, SIZES, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
+import { TOL_PX, SIZES, subpaths, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
 
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
@@ -1013,4 +1013,41 @@ test('view overrides the range', () => {
   const fan = ELEO.rayFan({ width: 600, view: { x: [-0.5, 0.5], y: [-10, 10] } });
   const first = panelGroups(fan)[0];
   assert.ok(Math.hypot(...toPx(first.M, [-0.5, -10]).map((v, i) => v - [0, first.box.ph][i])) <= TOL_PX, 'rayFan: view reaches the panels');
+});
+
+// Plan #804 M3 (#989, CR #984): with a view each series (and each run of a panel's path) is cut to the plot area plus 32 px, a cut piece carries data-from.
+// oracle: property - every drawn point, through the group's matrix, lies within the plot area widened by 32 px; metamorphic - the interior points of a piece are the uncut series' points from data-from on
+test('a zoomed curve draws only its window', () => {
+  const sine = Array.from({ length: 2000 }, (_, i) => [i * 0.5, Math.sin(i * 0.05)]);
+  const view = { x: [0, 400], y: [-0.3, 0.3] }, x = { range: [0, 1000] }, y = { range: [-1, 1] };
+  const tags = (svg, tag) => [...svg.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'g'))].map((m) => Object.fromEntries([...m[0].matchAll(/([\w-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
+  const check = (svg, tag, live, M, pw, ph, label) => {
+    const pieces = tags(svg, tag).filter((a) => a['data-series'] !== undefined);
+    assert.ok(pieces.length >= 3, `${label}: the series leaves the window and returns, so it is several pieces`);
+    assert.ok(pieces.some((a) => a['data-from'] !== undefined && +a['data-from'] > 0), `${label}: a cut piece carries data-from`);
+    assert.ok(pieces.every((a) => a['data-from'] !== '0'), `${label}: data-from is left out when 0`);
+    let total = 0, interior = 0;
+    for (const a of pieces) {
+      const p = subpaths(tag === 'path' ? a.d : `M${a.points.trim().replace(/ /g, ' L')}`)[0], from = +(a['data-from'] || 0);
+      total += p.length;
+      for (const q of p) {
+        const [px, py] = toPx(M, q);
+        assert.ok(px >= -32 - 1e-3 && px <= pw + 32 + 1e-3 && py >= -32 - 1e-3 && py <= ph + 32 + 1e-3, `${label}: point ${q} is within the plot area plus 32 px`);
+      }
+      for (let j = 1; j + 1 < p.length; j++) { interior++; assert.deepEqual(p[j], live[from + j], `${label}: interior point ${j} is data point ${from + j}`); }
+    }
+    assert.ok(total < live.length / 4, `${label}: ${total} of ${live.length} points drawn`);
+    assert.ok(interior > 0, `${label}: some piece has interior data points`);
+  };
+  const single = ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300, view });
+  const { M } = seriesGroup(single), { pw, ph } = frame(single);
+  check(single, 'polyline', sine, M, pw, ph, 'single');
+  // panels: a null splits the series, and data-from counts the finite points across its runs
+  const gap = sine.map((p, i) => (i === 700 ? null : p)), live = gap.filter((p) => p);
+  const panels = ELEO.curve({ panels: [{ title: 'a', series: [{ points: gap, index: 0 }] }], x, y, width: 460, height: 300, view });
+  const g = panelGroups(panels)[0];
+  check(panels, 'path', live, g.M, g.box.pw, g.box.ph, 'panels');
+  // a series wholly outside the window draws nothing; without a view nothing is cut and nothing carries data-from
+  assert.equal(tags(ELEO.curve({ series: [{ points: [[600, 0], [700, 0.1]], index: 0 }], x, y, width: 460, height: 300, view }), 'polyline').filter((a) => a['data-series'] !== undefined).length, 0);
+  assert.ok(!/data-from/.test(ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300 })), 'no view, no data-from');
 });
