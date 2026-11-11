@@ -101,7 +101,7 @@ export interface SpotPanel {
   /** Extra caption lines under the panel, after the RMS and GEO lines. */
   notes?: string[];
 }
-/** A zoomed and panned window, in data units: what `interact`'s `onview` sends and the renderers' `view` prop takes. A curve, ray fan or typed map takes `{ x, y }` (either key optional on input; a map's in extent units); a spot or through-focus a square window `{ center, half }` shared by every panel. */
+/** A zoomed and panned window, in data units: what `interact`'s `onview` sends and the renderers' `view` prop takes. A curve, ray fan, typed map or layout2D takes `{ x, y }` (either key optional on input; a map's in extent units; a layout's window is the geometry band, in mm); a spot or through-focus a square window `{ center, half }` shared by every panel. */
 export type PlotView = { x?: [number, number]; y?: [number, number] };
 export type SpotView = { center: [number, number]; half: number };
 export type View = PlotView | SpotView;
@@ -524,7 +524,7 @@ export interface InteractOptions {
   marks?: boolean;
   /** Show the readout in a tooltip near the pointer. Default `true`. While marks or the tooltip are on, the host carries the class `eleo-hover-host`. */
   tooltip?: boolean;
-  /** Turns on zoom and pan. A wheel zooms about the pointer, a drag pans, a double-click resets; each calls `onview` with the new view (`View`: `{ x, y }` for a curve, ray fan or typed map, `{ center, half }` for a spot or through-focus; reset sends `null`) and draws nothing: redraw with it as the renderer's `view`, and with none for `null`. The current ranges are read from the drawn markup each time, so the caller's view is the only state. A drag is not also a click (`onselect`). */
+  /** Turns on zoom and pan. A wheel zooms about the pointer, a drag pans, a double-click resets; each calls `onview` with the new view (`View`: `{ x, y }` for a curve, ray fan, typed map or layout2D, `{ center, half }` for a spot or through-focus; reset sends `null`) and draws nothing: redraw with it as the renderer's `view`, and with none for `null`. The current ranges are read from the drawn markup each time, so the caller's view is the only state. A drag is not also a click (`onselect`). */
   onview?: (view: View | null) => void;
 }
 /** `interact`'s stop function: removes the listeners. */

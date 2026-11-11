@@ -1,6 +1,6 @@
 // Plan #804 M1 (#809): interact, InteractOptions, HoverEvent and readout compile; a bad option or axis spec does not.
 // oracle: spec packages/plots/src/interact.js (interact, readout)
-import type { CurvePlotProps, HoverEvent, InteractOptions, InteractStop, Map2DGridProps, PlotView, RayFanProps, ReadoutAxis, SelectEvent, SpotPanelsProps, SpotView, ThroughFocusProps, View } from '../../packages/plots/src/index';
+import type { CurvePlotProps, HoverEvent, Layout2DProps, InteractOptions, InteractStop, Map2DGridProps, PlotView, RayFanProps, ReadoutAxis, SelectEvent, SpotPanelsProps, SpotView, ThroughFocusProps, View } from '../../packages/plots/src/index';
 import ELEO, { interact, readout } from '../../packages/plots/src/index';
 
 declare const host: HTMLElement;
@@ -95,6 +95,12 @@ const fanProps: RayFanProps = { view: xOnly };
 const spotProps: SpotPanelsProps = { panels: [], view: spotView };
 const tfProps: ThroughFocusProps = { view: spotView };
 const mapProps: Map2DGridProps = { values: [[1]], extent: [0, 1, 0, 1], view: curveView };
+// #957, #974: layout2D takes the { x, y } view, in mm, not a spot's centre and half-width.
+const layoutProps: Layout2DProps = { view: curveView };
+// @ts-expect-error a layout view is ranges, not a centre and a half-width
+const badLayout: Layout2DProps = { view: spotView };
+// A lens hover event (#963) carries its element and glass.
+const lensEv: HoverEvent = { x: 0, y: 0, element: 1, glass: 'N-BK7', r1: 50, r2: Infinity, ct: 5, diameter: 25 };
 // @ts-expect-error a spot view is a centre and a half-width, not ranges
 const badSpot: SpotPanelsProps = { panels: [], view: { x: [0, 1], y: [0, 1] } };
 // @ts-expect-error a curve view range is a pair
