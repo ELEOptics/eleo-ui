@@ -256,6 +256,7 @@ and the view stays. Proves: O5
 | #952 | A mostly horizontal swipe scrolls past a plot | forced (review M3 round 2 finding 1) | `packages/plots/src/interact.js` | `tests/interact.spec.js::a horizontal wheel is not prevented` | #951 |
 | #953 | The double-click select rule applies only where a double-click resets | forced (finding 2) | `packages/plots/src/interact.js`, `packages/plots/README.md` | `tests/interact.spec.js::a double-click on a non-zoom host selects twice` | #952 |
 | #954 | interact reads axes and values at event time; the action drops its Proxy | forced (finding 3: smaller than getters and a Proxy) | `packages/plots/src/interact.js`, `packages/plots-svelte/src/lib/interact.svelte.js` | `tests/interact.spec.js::options read at event time` | #953 |
+| #955 | A Svelte test covers the action's update of axes and values | forced (review M3 round 3 finding 1) | `tests/svelte.spec.js` | `tests/svelte.spec.js::a data change updates the tooltip` | #954 |
 
 ### M4: keyboard and release GitHub: `P804 M4: Keyboard and release`
 
@@ -324,3 +325,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 CR #936 (from #830's worker) accepted (orchestrator): the view is wrapper state, so #830's Files widen to the four zoomable wrappers and a test harness; controlled when the caller passes view.
 - 2026-11-10 review M3 round 1 (code-reviewer, claude-opus-5-5): 5 blocking, CRs #937 (spot margin by panel order), #938 (sparse panel curve read as a spot), #939 (zoomed plots hover outside the frame), #940 (sample spot ignores view), #941 (view={null} doesn't reset) accepted (orchestrator); backlog findings 6-10 pulled in (map2D ignores an invalid view like the others; one interact binding across data; a double-click selects once; horizontal wheel not swallowed; Svelte view test for all wrappers). Items #942-#951. Carried #936 resolved.
 - 2026-11-10 review M3 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, carried CRs #936-#941 resolved; backlog #952, #953, #954 pulled in. Per-round count: 10, 3.
+- 2026-11-10 review M3 round 3 (code-reviewer, claude-opus-5-5): 0 blocking; backlog #955 pulled in. Per-round count: 10, 3, 1.
