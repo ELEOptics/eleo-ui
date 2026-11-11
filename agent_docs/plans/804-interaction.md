@@ -275,6 +275,8 @@ and the view stays. Proves: O5
 | #974 | The `{ x, y }` view lists name layout2D, and interact's header names the lens hover | forced (review M3 round 5 finding 4) | `packages/plots/src/index.d.ts`, `packages/plots/src/interact.js` | none (docs) | #973 |
 | #975 | The controlled-view reset test covers every zoomable wrapper | forced (review M3 round 5 finding 5) | `tests/svelte.spec.js` | `tests/svelte.spec.js::a controlled view resets with null` (loops over ZOOMABLE) | #968 |
 | #976 | A lens hover's x and y follow the pointer | the pointer in the emit key because x and y are documented as the pointer; considered documenting them as the entry point, which a caller reading a position would not expect | `packages/plots/src/interact.js` | `tests/interact.spec.js::a lens hover follows the pointer` | #974 |
+| #977 | The mirror hatch loop ends for any valid view | an integer index (`k = kb + j * step`) because float accumulation stalls below half an ulp; considered rejecting small spans in layout2D, a second rule beside interact's `viewOf` | `packages/plots/src/layout2d.js` | `tests/unit/layout2d.test.js::a tiny view still draws the hatch` | #976 |
+| #978 | A view-less layout hovers rays drawn outside its band | the band test only where the group carries the band clip, because only then is the geometry clipped to it; considered clipping the view-less layout too, which changes the base markup | `packages/plots/src/interact.js` | `tests/interact.spec.js::a cropped layout hovers rays past its band` | #977 |
 
 ### M4: keyboard and release GitHub: `P804 M4: Keyboard and release`
 
@@ -347,3 +349,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M3 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M3 ticked; demo pending.
 - 2026-11-10 M3 demo (user): no-go with feedback. CR #956 (a pan or double-click selects the axis text), CR #957 (zoom and pan on layout2D, reversing that Non-goal) and CR #958 (lens hover with glass and properties; the user chose radii and an estimated thick-lens f over recorded values only) accepted. Items #959-#968; M3 reopened.
 - 2026-11-10 review M3 round 5 (code-reviewer, claude-opus-5-5): 2 blocking, CRs #969 (unbounded mirror hatch on deep zoom) and #970 (zoomed layout hovers outside its window) accepted (orchestrator); backlog findings 3, 4, 5, 7 pulled in, 6 fixed here (#963's cell: `pre`, not `pre-line`). Items #971-#976. Per-round count: 10, 3, 1, 0, 7.
+- 2026-11-10 review M3 round 6 (code-reviewer, claude-opus-5-5): 0 blocking, carried CRs #936-#941, #956-#958, #969, #970 resolved; backlog #977, #978 pulled in. Per-round count: 10, 3, 1, 0, 7, 2.
