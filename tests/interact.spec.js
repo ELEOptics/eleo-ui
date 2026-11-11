@@ -1356,7 +1356,7 @@ test('options read at event time', async ({ page }) => {
 const layoutFixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));
 
 // #956 (O5, spot): a pan or a double-click inside a frame starts no text selection; text elsewhere on the page stays selectable. The host is rebound without a redraw, so a selection that did start would still be in the markup.
-test.skip('a pan or double-click selects no text', async ({ page }) => {
+test('a pan or double-click selects no text', async ({ page }) => {
   await mountZoom(page, 'spot');
   await page.evaluate(() => {
     window.STOP();

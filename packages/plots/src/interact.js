@@ -259,6 +259,8 @@ export function interact(el, opts) {
     var hit = pick(el, e.clientX, e.clientY);
     if (hit) drag = { id: e.pointerId, x: e.clientX, y: e.clientY, g: hit.p, index: hit.index, moved: false };
   }
+  /* The mousedown that starts a pan (or the second of a double-click) inside a frame has its default prevented: that is where a text selection would start. Text outside a frame stays selectable. */
+  function press(e) { if (e.button === 0 && pick(el, e.clientX, e.clientY)) e.preventDefault(); }
   function pan(e) {
     if (!drag || e.pointerId !== drag.id) return;
     if (!drag.moved) {
@@ -283,13 +285,14 @@ export function interact(el, opts) {
   if (onview) {
     el.addEventListener("wheel", wheel, { passive: false });
     el.addEventListener("pointerdown", down);
+    el.addEventListener("mousedown", press);
     el.addEventListener("pointermove", pan);
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", up);
     el.addEventListener("dblclick", reset);
   }
   function stop() {
-    el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down); el.removeEventListener("pointermove", pan); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("dblclick", reset);
+    el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down); el.removeEventListener("mousedown", press); el.removeEventListener("pointermove", pan); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("dblclick", reset);
     drag = null; ended = true;
     if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); el.removeEventListener("click", click);
   }
