@@ -131,3 +131,37 @@ test('CurvePlot hover tooltip', async ({ page }) => {
   await page.mouse.move(at.x, at.y);
   await expect(page.locator('#harness .eleo-hover__tip')).toHaveText('Tangential · 120 cycles/mm, 0.62');
 });
+
+// Plan #804, outcome O5 (issue #830; #833 unskips). oracle: the axis text drawn after the data change equals the zoomed axis text before it, and a double-click restores the default axis text.
+// The harness (tests/fixtures/svelte/ViewHarness.svelte) holds a CurvePlot whose series `window.setSeries` replaces.
+const viewHarness = fileURLToPath(new URL('./fixtures/svelte/ViewHarness.svelte', import.meta.url));
+test('view survives a data redraw', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.addScriptTag({ content: await bundle(`import ViewHarness from ${JSON.stringify(viewHarness)};\nwindow.WRAPPERS.ViewHarness = ViewHarness;`) });
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'vh';
+    host.style.width = '600px';
+    document.body.append(host);
+    window.WRAPPERS.mount(window.WRAPPERS.ViewHarness, { target: host, props: {} });
+  });
+  const svg = page.locator('#vh svg').first();
+  await expect(svg).toBeVisible();
+  await svg.scrollIntoViewIfNeeded();
+  const ticks = () => page.locator('#vh').evaluate((el) => el.querySelector('svg').innerHTML);
+  const first = await ticks();
+  const box = await svg.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(ticks).not.toBe(first);
+  const zoomed = await ticks();
+  // new data with the same extent: the default view would redraw as `first`
+  await page.evaluate(() => window.setSeries([{ points: [[0, 1], [120, 0.5], [240, 0.3]], index: 0, role: 'tangential' }]));
+  await page.waitForTimeout(100);
+  const axisText = (s) => s.match(/<text[^>]*>[^<]*<\/text>/g).join('');
+  expect(axisText(await ticks())).toBe(axisText(zoomed));
+  expect(axisText(await ticks())).not.toBe(axisText(first));
+  await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
+  await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
+});
