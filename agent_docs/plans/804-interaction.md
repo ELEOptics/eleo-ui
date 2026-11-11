@@ -215,6 +215,9 @@ rays with field and status); clicking a series, bar, surface or field fan logs i
 | #923 | Bar tooltip reads series · category, value (CR #920) | forced (CR #920, user: "SI · 2, −0.07 mm") | `packages/plots/src/interact.js`, `packages/plots/src/index.d.ts`, `packages/plots/README.md` | `tests/interact.spec.js::bar hover` | #922 |
 | #924 | Layout ray tooltip names field and ray (CR #921) | forced (CR #921, user) | `packages/plots/src/interact.js`, `packages/plots/README.md` | `tests/unit/readout.test.js::ray readout` | #923 |
 | #925 | Gallery spot and layout tooltips carry units (CR #921) | forced (CR #921, user) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::spot and layout tooltips carry units` | #924 |
+| #928 | Every gallery bar and spot tile's tooltip carries its unit (CR #926) | forced (CR #926, finding 4) | `gallery/index.html`, `tests/gallery.spec.js` | `tests/gallery.spec.js::spot and layout tooltips carry units` | #925 |
+| #929 | plots README's bar select event names `series.label` (CR #927) | forced (CR #927) | `packages/plots/README.md` | none (docs) | #925 |
+| #930 | An empty bar category label falls back to its index | forced (finding 3) | `packages/plots/src/interact.js` | `tests/unit/readout.test.js::empty category label` | #925 |
 
 ### M3: zoom, pan and reset GitHub: `P804 M3: Zoom and pan`
 
@@ -296,3 +299,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-10 review M2 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, every carried CR resolved; backlog #918, #919 pulled in. Per-round count: 11, 5, 3, 2.
 - 2026-11-10 review M2 round 5 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. M2 ticked; demo pending.
 - 2026-11-10 M2 demo (user): go, with tooltip fixes added before the tick and reviewed, no re-demo. CR #920 (bar tooltip names its series and category label: "SI · 2, −0.07 mm") and CR #921 (spot tooltips carry units; layout ray tooltips read "field f · ray r · z mm, y mm"), accepted by the user. Items #922, #923, #924, #925.
+- 2026-11-10 review M2 round 6 (code-reviewer, claude-opus-5-5): 2 blocking, CRs #926 (seidel-terms tooltip had no unit), #927 (README bar select) accepted; backlog findings 3, 4 pulled in. Items #928, #929, #930. User CRs #920, #921 resolved. Per-round count: 11, 5, 3, 2, 0, 5 (the rise is the user's demo CRs' round).
