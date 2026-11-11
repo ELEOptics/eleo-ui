@@ -134,9 +134,9 @@ export function limitStyle() {
   var st = roleStyle({ role: "limit" }, 1);
   return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
 }
-/* A series group's markup with the limits: bands under `inner`, lines over it. */
-export function limitBody(limits, sc, inner) {
-  var m = limitMarks(limits, sc.xr, sc.yr, limitStyle());
+/* A series group's markup with the limits: bands under `inner`, lines over it. `cut` (zoomed) keeps only the limits inside the ranges (limitMarks). */
+export function limitBody(limits, sc, inner, cut) {
+  var m = limitMarks(limits, sc.xr, sc.yr, limitStyle(), cut);
   return m.under + inner + m.over;
 }
 /* ADR-0003's margins in text units (scale.js CURVE_MARGINS: left, bottom, top), the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
@@ -190,7 +190,7 @@ function typedCurve(o) {
   var sc, g = "", lim = checkLimits(o.limits, "curve");
   /* A valid view axis zooms: the series are cut to the plot area plus 32 px (cutPieces). */
   var zoomed = !!(o.view && (viewRange(o.view.x) || viewRange(o.view.y)));
-  var cell = function (series, w, h, T, panel, mg, pi) { var z = zoomed && Object.assign({ sc: sc }, plotArea(w, h, T, mg)); return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi, z); }).join("")), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
+  var cell = function (series, w, h, T, panel, mg, pi) { var z = zoomed && Object.assign({ sc: sc }, plotArea(w, h, T, mg)); return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi, z); }).join(""), zoomed), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));

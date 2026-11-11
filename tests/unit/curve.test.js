@@ -1085,3 +1085,31 @@ test('a cut dash keeps its phase', () => {
   assert.ok(!/dashoffset/.test(ELEO.curve({ series: [{ points: sine, index: 0, role: 'sagittal' }], x, y, width: 460, height: 300 })), 'no view, no dashoffset');
   assert.ok(!/dashoffset/.test(ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300, view: views[1] })), 'a solid series has none');
 });
+
+// Plan #804 M3 (#994, CR #993): with a view a limit line outside the view's range is not drawn, a band is clamped to the range (one wholly outside draws nothing); no view, same markup.
+// oracle: property - every limit mark, through the group's matrix, lies within the plot area widened by 32 px; metamorphic - a limit inside the view draws as without a view
+test('a zoomed curve draws its limits only in its window', () => {
+  const series = [{ points: [[0, 0], [1000, 1]], index: 0 }], x = { range: [0, 1000] }, y = { range: [0, 1] };
+  const limits = [{ x: 50 }, { y: 0.3 }, { x: [10, 30] }, { y: [0.1, 0.2] }, { x: [190, 260] }, { y: [0.45, 0.9] }, { x: 150 }, { y: 0.6 }];
+  const view = { x: [100, 200], y: [0.5, 0.7] };
+  const marks = (svg) => [...svg.matchAll(/<(line|rect) class="eleo-limit"[^>]*>/g)].map((m) => ({ tag: m[1], ...Object.fromEntries([...m[0].matchAll(/([\w-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])) }));
+  const zoomed = ELEO.curve({ series, x, y, width: 460, height: 300, limits, view });
+  const { M } = seriesGroup(zoomed), { pw, ph } = frame(zoomed), ms = marks(zoomed);
+  for (const m of ms) {
+    const pts = m.tag === 'line' ? [[+m.x1, +m.y1], [+m.x2, +m.y2]] : [[+m.x, +m.y], [+m.x + +m.width, +m.y + +m.height]];
+    for (const q of pts) {
+      const [px, py] = toPx(M, q);
+      assert.ok(px >= -32 - 1e-3 && px <= pw + 32 + 1e-3 && py >= -32 - 1e-3 && py <= ph + 32 + 1e-3, `mark ${JSON.stringify(m)} reaches ${q} -> ${px},${py}, outside the plot area plus 32 px`);
+    }
+  }
+  // two lines inside the view, and the two bands that overlap it (clamped); the rest are left out
+  assert.equal(ms.filter((m) => m.tag === 'line').length, 2, 'only the lines at x=150 and y=0.6');
+  assert.equal(ms.filter((m) => m.tag === 'rect').length, 2, 'only the bands that overlap the view');
+  // without a view the marks are all there, unchanged
+  assert.equal(marks(ELEO.curve({ series, x, y, width: 460, height: 300, limits })).length, limits.length);
+  // a limit inside the view draws as without a view
+  const inside = [{ x: 150 }, { y: 0.6 }];
+  const a = ELEO.curve({ series, x, y, width: 460, height: 300, limits: inside, view: { x: [0, 1000], y: [0, 1] } });
+  assert.equal(a, ELEO.curve({ series, x, y, width: 460, height: 300, limits: inside, view: { x: [0, 1000], y: [0, 1] } }));
+  assert.equal(marks(a).length, 2, 'a full-range view keeps its limits');
+});

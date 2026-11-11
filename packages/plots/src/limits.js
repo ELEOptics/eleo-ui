@@ -26,11 +26,16 @@ export function limitValues(norm, axis) {
   norm.forEach(function (l) { if (l.axis === axis) out.push(l.lo, l.hi); });
   return out;
 }
-/* Markup in data units for the series group, given the ranges: bands for under the series, lines for over them. `style` is { line, band }: the attributes of a line and of a band (the `limit` role's style). */
-export function limitMarks(norm, xr, yr, style) {
+/* Markup in data units for the series group, given the ranges: bands for under the series, lines for over them. `style` is { line, band }: the attributes of a line and of a band (the `limit` role's style). `cut` (a zoomed curve, CR #993) leaves out a line whose value is outside its axis's range and clamps a band to it, one wholly outside giving nothing; the marks already span the drawn range. */
+export function limitMarks(norm, xr, yr, style, cut) {
   var under = "", over = "";
   norm.forEach(function (l) {
     var h = l.axis === "y", span = h ? xr : yr;
+    if (cut) {
+      var own = h ? yr : xr;
+      if (l.hi < own[0] || l.lo > own[1] || (l.band && (l.hi <= own[0] || l.lo >= own[1]))) return;
+      if (l.band) l = { axis: l.axis, band: true, lo: Math.max(l.lo, own[0]), hi: Math.min(l.hi, own[1]) };
+    }
     if (l.band) {
       under += h ? '<rect class="eleo-limit" x="' + span[0] + '" y="' + l.lo + '" width="' + (span[1] - span[0]) + '" height="' + (l.hi - l.lo) + '"' : '<rect class="eleo-limit" x="' + l.lo + '" y="' + span[0] + '" width="' + (l.hi - l.lo) + '" height="' + (span[1] - span[0]) + '"';
       under += " " + style.band + "/>";
