@@ -1024,7 +1024,7 @@ test('map tiles show their value', async ({ page }) => {
 // Plan #804, issue #925, CR #921: the spot, footprint and throughFocus tiles take their units from their recording, the layout tiles read in mm.
 // oracle: closed-form `readout()`: a spot reads `<label> · <x> µm, <y> µm`; a layout ray point reads `field <f> · ray <r> · <x> mm, <y> mm` (#924).
 // The pointer is placed at a point's drawn position from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
-test('spot and layout tooltips carry units', async ({ page }) => {
+test('gallery tooltips carry units', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['dark', 'light']) {
@@ -1063,13 +1063,15 @@ test('spot and layout tooltips carry units', async ({ page }) => {
       await page.mouse.move(2, 2);
     }
 
-    // Seidel terms: a bar reads `<series> · <category>, <value> mm`; the pointer sits at the centre of the bar's drawn box.
-    const bars = `.theme[data-theme="${theme}"] [data-tile="seidel-terms"]`;
-    const bar = page.locator(`${bars} rect[data-series][data-category]`).first();
-    await bar.scrollIntoViewIfNeeded();
-    const bb = await bar.boundingBox();
-    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await expect(page.locator(`${bars} .eleo-hover__tip`), `${theme} seidel-terms tooltip`).toHaveText(/ mm$/);
-    await page.mouse.move(2, 2);
+    // Seidel bars (sums and terms): a bar reads `<series> · <category>, <value> mm`; the pointer sits at the centre of the bar's drawn box.
+    for (const tile of ['seidel', 'seidel-terms']) {
+      const bars = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
+      const bar = page.locator(`${bars} rect[data-series][data-category]`).first();
+      await bar.scrollIntoViewIfNeeded();
+      const bb = await bar.boundingBox();
+      await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await expect(page.locator(`${bars} .eleo-hover__tip`), `${theme} ${tile} tooltip`).toHaveText(/ mm$/);
+      await page.mouse.move(2, 2);
+    }
   }
 });
