@@ -27,23 +27,30 @@ function runs(mark) {
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
 function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
-/* The data window a group's nested viewport clips to, as a test on a data point: the viewport's width and height through the group's matrix. Half a client px of slack keeps a point on the frame's edge in. Always true where there is no matrix or no finite viewport (a layout has no frame). */
-function inFrameOf(g, m) {
-  var vp = g.closest("svg"), t = g.transform.baseVal.consolidate();
-  if (!vp || !t || !vp.hasAttribute("width")) return function () { return true; };
-  var a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f, w = +vp.getAttribute("width"), h = +vp.getAttribute("height");
-  if (!(a && d && isFinite(a + d + e + f + w + h))) return function () { return true; };
-  var x0 = Math.min(-e / a, (w - e) / a), x1 = Math.max(-e / a, (w - e) / a), y0 = Math.min(-f / d, (h - f) / d), y1 = Math.max(-f / d, (h - f) / d), ex = 0.5 / Math.abs(m.a), ey = 0.5 / Math.abs(m.d);
-  return function (x, y) { return x >= x0 - ex && x <= x1 + ex && y >= y0 - ey && y <= y1 + ey; };
+/* The data window a data group's clipping viewport shows: { x: [lo, hi], y: [lo, hi] }, read from the group's matrix and the viewport's width and height (a layout group, marked data-view="layout", has no nested frame: its viewport is the root viewBox); null where there is no matrix or no finite viewport. The one place that says what window a group is clipped to. */
+function windowOf(g) {
+  var vp = g.closest("svg"), t = g.transform.baseVal.consolidate(), layout = g.getAttribute("data-view") === "layout";
+  if (!vp || !t || !(layout || vp.hasAttribute("width"))) return null;
+  var vb = layout && vp.viewBox.baseVal, a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f, w = layout ? vb.width : +vp.getAttribute("width"), h = layout ? vb.height : +vp.getAttribute("height");
+  if (!(a && d && isFinite(a + d + e + f + w + h))) return null;
+  return { x: [-e / a, (w - e) / a].sort(function (u, v) { return u - v; }), y: [-f / d, (h - f) / d].sort(function (u, v) { return u - v; }) };
 }
 
-/* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. A bar is hovered inside its rect, or within SNAP client px of its value end inside its x span (a zero-height bar too), the nearest end winning, and it beats a point or a segment. A pointer outside a curve's or spot's frame (a zoomed plot's clipped window) hovers nothing, and so does one outside a map's drawn window. */
+/* The data window a group's viewport clips to, as a test on a data point (windowOf). Half a client px of slack keeps a point on the frame's edge in. Always true where there is no window. */
+function inFrameOf(g, m) {
+  var win = windowOf(g);
+  if (!win) return function () { return true; };
+  var ex = 0.5 / Math.abs(m.a), ey = 0.5 / Math.abs(m.d);
+  return function (x, y) { return x >= win.x[0] - ex && x <= win.x[1] + ex && y >= win.y[0] - ey && y <= win.y[1] + ey; };
+}
+
+/* The hovered spot for the client position, through the inverse of each data group's screen matrix, or null. Within SNAP client px of a drawn point it is that point (the nearest one). Otherwise it is the nearest spot within REACH of a drawn segment (between consecutive points of one run), the pointer projected onto the segment and clamped to it, its data coordinates linearly interpolated, with `interpolated` and `segment` [i, i + 1] (indices into the mark's finite points); a point with no segment (a dot) is hovered within REACH as itself. A bar is hovered inside its rect, or within SNAP client px of its value end inside its x span (a zero-height bar too), the nearest end winning, and it beats a point or a segment. A pointer outside a curve's, spot's or layout's frame (a zoomed plot's clipped window) hovers nothing, and so does one outside a map's drawn window. */
 function nearest(host, cx, cy) {
   var snap = null, best = null, bar = null;
   host.querySelectorAll("[data-series], polyline[data-ray]").forEach(function (mark) {
     var g = dataGroup(mark), m = g && g.getScreenCTM();
     if (!m) return;
-    var at = new DOMPoint(cx, cy).matrixTransform(m.inverse()), inside = mark.dataset.ray !== undefined || mark.localName === "rect" ? function () { return true; } : inFrameOf(g, m);
+    var at = new DOMPoint(cx, cy).matrixTransform(m.inverse()), inside = mark.localName === "rect" ? function () { return true; } : inFrameOf(g, m);
     if (!inside(at.x, at.y)) return; // the pointer is outside the clipped frame: a zoomed curve's points out there are not drawn
     if (mark.localName === "rect") { // a bar is hovered with the pointer inside its box or within SNAP client px of its value end inside its x span (so a bar under a pixel tall, or of zero height, can be); its value is its y when below zero, else its height, and the bar whose value end is nearest wins
       var rx = +mark.getAttribute("x"), ry = +mark.getAttribute("y"), rw = +mark.getAttribute("width"), rh = +mark.getAttribute("height");
@@ -153,12 +160,8 @@ function frames(host) {
     var layout = mark.getAttribute("data-view") === "layout", g = layout ? mark : dataGroup(mark);
     if (!g || seen.indexOf(g) >= 0) return;
     seen.push(g);
-    var vp = g.closest("svg"), m = g.getScreenCTM(), t = g.transform.baseVal.consolidate();
-    if (!vp || !m || !t) return;
-    var vb = layout && vp.viewBox.baseVal; // a layout has no nested frame: its viewport is the viewBox
-    var a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f, w = layout ? vb.width : +vp.getAttribute("width"), h = layout ? vb.height : +vp.getAttribute("height");
-    if (!(a && d && isFinite(a + d + e + f + w + h))) return;
-    out.push({ inv: m.inverse(), x: [-e / a, (w - e) / a].sort(function (u, v) { return u - v; }), y: [-f / d, (h - f) / d].sort(function (u, v) { return u - v; }) });
+    var m = g.getScreenCTM(), win = m && windowOf(g);
+    if (win) out.push({ inv: m.inverse(), x: win.x, y: win.y });
   });
   return out;
 }

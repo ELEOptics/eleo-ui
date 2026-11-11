@@ -1248,6 +1248,33 @@ test('zoomed plots hover only inside the frame', async ({ page }) => {
     for (const [x, y] of outs) expect(await hoverAt(page, x, y), `${kind}: ${x.toFixed(0)},${y.toFixed(0)} is outside the frame`).toBeNull();
     await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
   }
+  // #972 (CR #970, layout): a zoomed layout is clipped by its root viewBox, so a ray run's point or interpolated spot outside that window is not drawn and must not hover. The Cooke triplet at view y [-1, 1] puts rays past the top and bottom edges within reach of a pointer on them.
+  // oracle: property every emitted ray event lies inside the window computed from the data group's matrix attribute and the viewBox (window.L.frame), to half a client px.
+  await mountLayout(page, layoutFixture('analysis-glasses'));
+  await page.evaluate(() => {
+    window.STOP();
+    window.HOVER = [];
+    window.HOST.innerHTML = window.DRAW({ x: [1, 9], y: [-1, 1] });
+    window.STOP = window.ELEO.interact(window.HOST, { onhover: (ev) => window.HOVER.push(ev) });
+  });
+  const lf = await lframe(page), slack = 0.5 / (lf.a * lf.k);
+  const box = await page.evaluate(() => { const r = window.HOST.querySelector('svg').getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+  let seen = 0;
+  for (const y of [box.top + 1, box.bottom - 1]) {
+    for (let x = box.left + 5; x < box.right - 5; x += 3) {
+      await page.evaluate(([x, y]) => { window.HOVER = []; window.HOST.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true })); }, [x, y]);
+      for (const ev of await page.evaluate(() => window.HOVER)) {
+        if (ev === null || ev.ray === undefined) continue;
+        seen++;
+        expect(ev.y, `layout: a ray hover at ${x.toFixed(0)},${y.toFixed(0)} lies inside the window's y range`).toBeGreaterThanOrEqual(lf.y[0] - slack);
+        expect(ev.y, `layout: a ray hover at ${x.toFixed(0)},${y.toFixed(0)} lies inside the window's y range`).toBeLessThanOrEqual(lf.y[1] + slack);
+        expect(ev.x, 'and its x range').toBeGreaterThanOrEqual(lf.x[0] - slack);
+        expect(ev.x, 'and its x range').toBeLessThanOrEqual(lf.x[1] + slack);
+      }
+    }
+  }
+  expect(seen, 'the edge sweep still hovers rays inside the window').toBeGreaterThan(0);
+  await page.evaluate(() => window.STOP());
 });
 
 // #949 (review M3 r1 finding 8): a double-click is click(detail 1), click(detail 2), dblclick. It resets the view and selects once, for the first click.
