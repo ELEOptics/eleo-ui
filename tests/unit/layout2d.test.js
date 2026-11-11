@@ -1467,3 +1467,40 @@ test('view windows the layout', () => {
   const fx = frame(ELEO.layout2D({ data: L, width: W, view: { x: view.x } }));
   assert.ok(Math.abs((fx.x[0] + fx.x[1]) / 2 - 50) < 1e-3, 'x-only view centres x');
 });
+
+// Plan #804 M3 (#971, CR #969): a zoomed mirror draws only the hatch lines in the window, so their count stays about (W + H) / 32 whatever the zoom.
+// oracle: the hatch is 45-degree lines every 32 px (mock A), phase at the body's z0 - (y1 - y0); the window is the data group's inverse over the viewBox; the expected lines are written out here from the body polygon and the drawn matrix
+test('zoomed hatch stays bounded', () => {
+  const L = JSON.parse(readFileSync(new URL('../fixtures/phos-core/cassegrain-layout.json', import.meta.url)));
+  const W = 900, mirror = L.surfaces.find((q) => q.mirror), cy = mirror.sd * 0.8;
+  const hatches = (svg) => [...svg.matchAll(/<polygon points="([^"]*)" fill="var\(--mech\)"[^>]*\/><path d="([^"]*)" clip-path/g)].map((m) => ({
+    body: m[1].split(' ').map((p) => p.split(',').map(Number)),
+    ks: [...m[2].matchAll(/M([-\d.e]+),([-\d.e]+)L/g)].map((q) => +q[1]),
+  }));
+  const frame = (svg) => {
+    const { M } = geometry(svg), vb = nums(/viewBox="([^"]*)"/.exec(svg)[1]);
+    return { s: M[0], x: [(0 - M[4]) / M[0], (vb[2] - M[4]) / M[0]], y: [(M[5] - vb[3]) / M[0], M[5] / M[0]], vb };
+  };
+  const window = (w) => ({ x: [mirror.z - w / 2, mirror.z + w / 2], y: [cy - w / 4, cy + w / 4] });
+  const base = ELEO.layout2D({ data: L, width: W });
+  assert.ok(hatches(base).length >= 2 && hatches(base).every((h) => h.ks.length > 4), 'the view-less hatch is drawn');
+  // the expected k of every line of the unclipped hatch that crosses the window
+  const expected = (svg) => {
+    const f = frame(svg), step = 32 / f.s;
+    return hatches(svg).map(({ body }) => {
+      const zs = body.map((p) => p[0]), ys = body.map((p) => p[1]), z0 = Math.min(...zs), y0 = Math.min(...ys), y1 = Math.max(...ys), out = [];
+      const ya = Math.max(y0, f.y[0]), yb = Math.min(y1, f.y[1]);
+      for (let k = z0 - (y1 - y0); k <= Math.max(...zs) + 1e-9; k += step) if (ya <= yb && k + (yb - y0) >= f.x[0] && k + (ya - y0) <= f.x[1]) out.push(k);
+      return out;
+    });
+  };
+  const tiny = ELEO.layout2D({ data: L, width: W, view: window(0.001) }), { vb } = frame(tiny);
+  for (const h of hatches(tiny)) assert.ok(h.ks.length < (vb[2] + vb[3]) / 32 + 4, `${h.ks.length} hatch lines in a 0.001 mm window`);
+  const mid = ELEO.layout2D({ data: L, width: W, view: window(1) }), want = expected(mid), got = hatches(mid);
+  assert.equal(got.length, want.length);
+  got.forEach((h, b) => {
+    assert.equal(h.ks.length, want[b].length, `body ${b}: ${h.ks.length} lines, expected ${want[b].length}`);
+    h.ks.forEach((k, j) => assert.ok(Math.abs(k - want[b][j]) < 2e-3, `body ${b} line ${j} at ${k}, expected ${want[b][j]}`));
+  });
+  assert.ok(want.some((w) => w.length), 'the 1 mm window crosses some hatch');
+});

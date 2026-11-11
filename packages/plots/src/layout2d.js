@@ -279,7 +279,14 @@ export function layout2D(o) {
       var P = pts(b), id = "eleo-m", zs = b.map(function (p) { return p[0]; }), ys = b.map(function (p) { return p[1]; }), z0 = Math.min.apply(null, zs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), d = "";
       for (var j = 0, h = 5381; j < P.length; j++) h = (h * 33 ^ P.charCodeAt(j)) >>> 0;
       id += h.toString(36);
-      for (var k = z0 - (y1 - y0); k <= Math.max.apply(null, zs); k += 32 / s) d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1);
+      // With a view only the lines crossing the window are drawn (CR #969): from the grid step at or above the first one that reaches it (the same phase as without), to the last that does not pass it.
+      var kb = z0 - (y1 - y0), kmax = Math.max.apply(null, zs), step = 32 / s, ka = kb;
+      if (vx || vy) {
+        var vzlo = -tx / s, vzhi = (W - tx) / s, vylo = (ty - H) / s, vyhi = ty / s;
+        ka = Math.max(kb, vzlo - (Math.min(y1, vyhi) - y0)); kmax = Math.min(kmax, vzhi - (Math.max(y0, vylo) - y0));
+        ka = kb + Math.ceil((ka - kb) / step - 1e-9) * step;
+      }
+      for (var k = ka; k <= kmax; k += step) d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1);
       bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '" ' + NS + '/>'
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
