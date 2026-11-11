@@ -972,10 +972,11 @@ test('a horizontal wheel is not prevented', async ({ page }) => {
   await page.mouse.move(c0[0], c0[1]);
   const prevented = await page.evaluate(([x, y]) => {
     const fire = (dx, dy) => { const e = new WheelEvent('wheel', { deltaX: dx, deltaY: dy, clientX: x, clientY: y, bubbles: true, cancelable: true }); window.HOST.querySelector('svg').dispatchEvent(e); return e.defaultPrevented; };
-    return [fire(50, 0), fire(0, -100)];
+    return [fire(50, 0), fire(0, -100), fire(50, 2)];
   }, c0);
   expect(prevented[0], 'a horizontal wheel is not prevented').toBe(false);
   expect(prevented[1], 'a vertical wheel still is').toBe(true);
+  expect(prevented[2], 'a mostly horizontal swipe (50, 2) is not prevented').toBe(false);
   expect(await views(page), 'only the vertical wheel fired a view').toHaveLength(1);
   await page.evaluate(() => window.STOP());
 });
