@@ -132,59 +132,62 @@ test('CurvePlot hover tooltip', async ({ page }) => {
   await expect(page.locator('#harness .eleo-hover__tip')).toHaveText('Tangential · 120 cycles/mm, 0.62');
 });
 
-// Plan #804, outcome O5 (issue #830; #833 unskips). oracle: the axis text drawn after the data change equals the zoomed axis text before it, and a double-click restores the default axis text.
-// The harness (tests/fixtures/svelte/ViewHarness.svelte) holds a CurvePlot whose series `window.setSeries` replaces.
+// Plan #804, outcome O5 (issue #830; #833 unskips; #951 runs it for every zoomable wrapper). oracle: the axis text drawn after the data change equals the zoomed axis text before it, and a double-click restores the default axis text.
+// The harness (tests/fixtures/svelte/ViewHarness.svelte) holds the wrapper given as `component` with `props`; `window.setProps(patch)` changes them.
 const viewHarness = fileURLToPath(new URL('./fixtures/svelte/ViewHarness.svelte', import.meta.url));
-test('view survives a data redraw', async ({ page }) => {
+const mountHarness = async (page, id, name, props, controlled = false) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.addScriptTag({ content: await bundle(`import ViewHarness from ${JSON.stringify(viewHarness)};\nwindow.WRAPPERS.ViewHarness = ViewHarness;`) });
-  await page.evaluate(() => {
+  await page.evaluate(([id, name, props, controlled]) => {
     const host = document.createElement('div');
-    host.id = 'vh';
+    host.id = id;
     host.style.width = '600px';
     document.body.append(host);
-    window.WRAPPERS.mount(window.WRAPPERS.ViewHarness, { target: host, props: {} });
+    window.WRAPPERS.mount(window.WRAPPERS.ViewHarness, { target: host, props: { component: window.WRAPPERS[name], props, controlled } });
+  }, [id, name, props, controlled]);
+  const host = page.locator(`#${id}`); // the host div is stable; the svg inside is replaced by a redraw
+  await expect(host.locator('svg').first()).toBeVisible();
+  await host.scrollIntoViewIfNeeded();
+  return host;
+};
+const axisText = (s) => s.match(/<text[^>]*>[^<]*<\/text>/g).join('');
+// Each wrapper's props, and a patch that changes its data and keeps the default view's axis text (new data, same extent).
+const spotPanels = (sign) => [{ title: '0.0°', series: [{ points: [[0.1 * sign, -0.2], [0.3 * sign, 0.4], [-0.2 * sign, 0.1]], index: 0 }], airy: 2.4 }];
+const ZOOMABLE = {
+  CurvePlot: { props: { series: [{ points: [[0, 1], [120, 0.62], [240, 0.3]], index: 0, role: 'tangential' }], x: { label: 'f' }, y: { label: 'm' } },
+    patch: { series: [{ points: [[0, 1], [120, 0.5], [240, 0.3]], index: 0, role: 'tangential' }] } },
+  RayFan: { at: [115, 60], props: {}, patch: { data: 'sample copy' } },
+  SpotDiagram: { props: { panels: spotPanels(1), half: 5, unit: 'µm' }, patch: { panels: spotPanels(-1) } },
+  Map2D: { props: { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1], x: { label: 'x' }, y: { label: 'y' } }, patch: { values: [[3, 2, 1, 0], [4, 3, 2, 1]] } },
+};
+for (const [name, { props, patch, at }] of Object.entries(ZOOMABLE)) {
+  test(`view survives a data redraw (${name})`, async ({ page }) => {
+    const host = await mountHarness(page, 'vh', name, props);
+    const ticks = () => host.evaluate((el) => el.querySelector('svg').innerHTML);
+    const first = await ticks();
+    const box = await host.boundingBox();
+    const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
+    await page.mouse.move(px, py);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
+    const zoomed = await ticks();
+    // new data with the same extent: the default view would redraw as `first`
+    await page.evaluate((patch) => window.setProps(patch.data === 'sample copy' ? { data: { ...window.ELEO.sample } } : patch), patch);
+    await page.waitForTimeout(100);
+    expect(axisText(await ticks())).toBe(axisText(zoomed));
+    expect(axisText(await ticks())).not.toBe(axisText(first));
+    await page.mouse.dblclick(px, py);
+    await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
   });
-  const svg = page.locator('#vh svg').first();
-  await expect(svg).toBeVisible();
-  await svg.scrollIntoViewIfNeeded();
-  const ticks = () => page.locator('#vh').evaluate((el) => el.querySelector('svg').innerHTML);
-  const first = await ticks();
-  const box = await svg.boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.wheel(0, -300);
-  await expect.poll(ticks).not.toBe(first);
-  const zoomed = await ticks();
-  // new data with the same extent: the default view would redraw as `first`
-  await page.evaluate(() => window.setSeries([{ points: [[0, 1], [120, 0.5], [240, 0.3]], index: 0, role: 'tangential' }]));
-  await page.waitForTimeout(100);
-  const axisText = (s) => s.match(/<text[^>]*>[^<]*<\/text>/g).join('');
-  expect(axisText(await ticks())).toBe(axisText(zoomed));
-  expect(axisText(await ticks())).not.toBe(axisText(first));
-  await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
-  await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
-});
+}
 
 // Plan #804, outcome O5 (issue #946, CR #941). oracle: the axis text after `view = null` equals the default view's axis text.
 test('a controlled view resets with null', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  await page.addScriptTag({ content: await bundle(`import ViewHarness from ${JSON.stringify(viewHarness)};\nwindow.WRAPPERS.ViewHarness = ViewHarness;`) });
-  await page.evaluate(() => {
-    const host = document.createElement('div');
-    host.id = 'vc';
-    host.style.width = '600px';
-    document.body.append(host);
-    window.WRAPPERS.mount(window.WRAPPERS.ViewHarness, { target: host, props: { controlled: true } });
-  });
-  const svg = page.locator('#vc svg').first();
-  await expect(svg).toBeVisible();
-  await svg.scrollIntoViewIfNeeded();
-  const ticks = () => page.locator('#vc').evaluate((el) => el.querySelector('svg').innerHTML);
-  const axisText = (s) => s.match(/<text[^>]*>[^<]*<\/text>/g).join('');
+  const host = await mountHarness(page, 'vc', 'CurvePlot', ZOOMABLE.CurvePlot.props, true);
+  const ticks = () => host.evaluate((el) => el.querySelector('svg').innerHTML);
   const first = await ticks();
-  const box = await svg.boundingBox();
+  const box = await host.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, -300);
   await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
