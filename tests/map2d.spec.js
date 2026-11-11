@@ -486,6 +486,11 @@ test('typed map log scale and wave range', async ({ page }) => {
     [0, 0.5 * 255, 255].forEach((s, i) => { if (!near(R4, i, ember, s)) out.range++; });
     const R5 = await draw([[1e-3, 1]], { map: 'ember', scale: 'log', range: [1e-3, 1], decades: 2 });
     [0, 255].forEach((s, i) => { if (!near(R5, i, ember, s)) out.range++; });
+    // an invalid range (one number, or a NaN end) falls back to the data's: [2, 4, 6] draws steps 0, 127.5, 255
+    for (const bad of [[0], [0, NaN]]) {
+      const RB = await draw([[2, 4, 6]], { map: 'ember', range: bad });
+      [0, 0.5 * 255, 255].forEach((s, i) => { if (!near(RB, i, ember, s)) out.range++; });
+    }
     // its colorbar follows the same span: whole-decade ticks 1e-3..1 at 0, 1/3, 2/3, 1 of the bar
     el.insertAdjacentHTML('beforeend', ELEO.map2D({ values: [[1e-3, 1]], extent: [0, 1, 0, 1], map: 'ember', scale: 'log', range: [1e-3, 1], value: { label: 'v' }, el }));
     const svg = el.lastElementChild;

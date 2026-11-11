@@ -35,10 +35,11 @@ function margins(o, W, H) {
   rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
   /* Value range: the data's, symmetric about 0 for "wave" (a diverging map's middle step means 0); `range` overrides. */
   if (o.map === "wave" && lo <= hi) { var mx = Math.max(Math.abs(lo), Math.abs(hi)); lo = -mx; hi = mx; }
-  if (Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1])) { lo = o.range[0]; hi = o.range[1]; }
+  var rg = Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1]);
+  if (rg) { lo = o.range[0]; hi = o.range[1]; }
   var log = o.scale === "log", dec = o.decades > 0 ? o.decades : 4;
   /* A log scale with a range 0 < lo < hi spans exactly [lo, hi]; otherwise it spans `decades` below hi. */
-  if (log && lo > 0 && lo < hi && Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1])) dec = Math.log10(hi / lo);
+  if (log && lo > 0 && lo < hi && rg) dec = Math.log10(hi / lo);
   /* Colorbar (only with `value`): ticks over the color scale, whole decades on log. Its width joins the right margin, in text units: 1.2 gap, 1 bar, 0.4, the widest label (0.6 a character), 0.4. */
   var vb = o.value, cbt = null, CB = 0;
   if (vb) {
