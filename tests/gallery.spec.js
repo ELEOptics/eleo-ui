@@ -1048,5 +1048,28 @@ test('spot and layout tooltips carry units', async ({ page }) => {
     await page.mouse.move(pt.x, pt.y);
     await expect(page.locator(`${lay} .eleo-hover__tip`), `${theme} layout tooltip`).toHaveText(/^field \d+ · ray \d+ · −?[\d.]+ mm, −?[\d.]+ mm$/);
     await page.mouse.move(2, 2);
+
+    // Footprint reads in its recording's unit (cooke-footprint's adapter: mm), throughFocus in the µm it draws.
+    for (const [tile, unit] of [['footprint', 'mm'], ['throughFocus', 'µm']]) {
+      const sel = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
+      const mark = page.locator(`${sel} path[data-series], ${sel} polyline[data-series]`).first();
+      await mark.scrollIntoViewIfNeeded();
+      let p = await drawnPoint(mark, 0);
+      // A tall tile's first point can sit above or below the viewport: scroll it to the middle, then place the pointer again.
+      await page.evaluate((y) => window.scrollBy(0, y - window.innerHeight / 2), p.y);
+      p = await drawnPoint(mark, 0);
+      await page.mouse.move(p.x, p.y);
+      await expect(page.locator(`${sel} .eleo-hover__tip`), `${theme} ${tile} tooltip`).toHaveText(new RegExp(`${unit}, −?[\\d.]+ ${unit}$`));
+      await page.mouse.move(2, 2);
+    }
+
+    // Seidel terms: a bar reads `<series> · <category>, <value> mm`; the pointer sits at the centre of the bar's drawn box.
+    const bars = `.theme[data-theme="${theme}"] [data-tile="seidel-terms"]`;
+    const bar = page.locator(`${bars} rect[data-series][data-category]`).first();
+    await bar.scrollIntoViewIfNeeded();
+    const bb = await bar.boundingBox();
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await expect(page.locator(`${bars} .eleo-hover__tip`), `${theme} seidel-terms tooltip`).toHaveText(/ mm$/);
+    await page.mouse.move(2, 2);
   }
 });
