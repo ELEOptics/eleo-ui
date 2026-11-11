@@ -48,6 +48,8 @@ const barHover: HoverEvent = { x: 2, y: 0.4, series: { index: 0, label: 'SI' }, 
 const gridHover: HoverEvent = { x: 1, y: 2, row: 0, column: 3, value: 0.5 };
 const polarHover: HoverEvent = { x: 1, y: 2, ring: 1, spoke: 4 };
 const runHover: HoverEvent = { x: 10, y: 1, field: 0, ray: 3, status: 'ok', interpolated: true, segment: [0, 1] };
+// An empty category label: readout falls back to the category index, formatted by x's spec.
+const emptyLabelHover: HoverEvent = { x: 2, y: 0.4, series: { index: 0, label: 'SI' }, category: 1, categoryLabel: '' };
 const cat: number | undefined = barHover.category;
 const catLabel: string | undefined = barHover.categoryLabel;
 // @ts-expect-error row is a number
