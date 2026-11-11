@@ -194,3 +194,17 @@ test('a controlled view resets with null', async ({ page }) => {
   await page.evaluate(() => window.setView(null));
   await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
 });
+
+// Plan #804, outcome O5 (issue #955). oracle: the tooltip reads the unit and value the props hold at event time, so a data change shows in the next hover.
+test('a data change updates the tooltip', async ({ page }) => {
+  const grid = (v) => Array.from({ length: 4 }, () => Array.from({ length: 6 }, () => v));
+  const host = await mountHarness(page, 'vu', 'Map2D', { values: grid(1), extent: [-2, 2, -1, 1], x: { label: 'x' }, y: { label: 'y' }, value: { unit: 'qa' } });
+  const box = await host.boundingBox();
+  const tip = host.locator('.eleo-hover__tip');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(tip).toContainText('= 1 qa');
+  await page.evaluate((values) => window.setProps({ values, value: { unit: 'qb' } }), grid(9));
+  await page.mouse.move(box.x + box.width / 2 + 3, box.y + box.height / 2 + 3); // a nudge off the sample and back, so the hover recomputes
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(tip).toContainText('= 9 qb');
+});
