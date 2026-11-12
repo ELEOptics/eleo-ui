@@ -1075,6 +1075,8 @@ test('zoom pan and reset', async ({ page }) => {
   const n = (await views(page)).length;
   await page.evaluate(() => window.STOP());
   await page.mouse.wheel(0, -100);
+  // no view event is expected, so the wheel helper cannot wait for one: let two frames pass so a late wheel event would land first
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   expect((await views(page)).length, 'stop() removes the zoom listeners').toBe(n);
 });
 
