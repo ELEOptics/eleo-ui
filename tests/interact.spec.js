@@ -135,6 +135,25 @@ test('non-finite points are skipped', async ({ page }) => {
 });
 
 // #858: hovering draws a dot on the point and drop lines to the frame's bottom (x axis) and left (y axis) edges, in an overlay on the host.
+// #1058: reading the data group's matrix must not rewrite its `transform` attribute (Firefox re-serialized it through consolidate(), shortening its numbers).
+test('a hover leaves the data group transform attribute unchanged', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tile = 'mtf', light = page.locator('.theme[data-theme="light"]');
+  await page.evaluate((tile) => {
+    const body = document.querySelector(`.theme[data-theme="light"] [data-tile="${tile}"] .eleo-plot__body`);
+    window.STOP = window.ELEO.interact(body, { onhover: () => {} });
+  }, tile);
+  await light.locator(`[data-tile="${tile}"]`).scrollIntoViewIfNeeded();
+  const attrs = () => light.locator(`[data-tile="${tile}"] g[transform^="matrix("]`).evaluateAll((gs) => gs.map((g) => g.getAttribute('transform')));
+  const before = await attrs();
+  expect(before.length).toBeGreaterThan(0);
+  const p = await drawnAt(light, tile, 0, 3);
+  await moveTo(page, p.clientX, p.clientY);
+  expect(await attrs()).toEqual(before);
+  await page.evaluate(() => window.STOP());
+});
+
 test('hover marks the point and its drop lines', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');

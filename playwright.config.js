@@ -7,8 +7,6 @@ const CHROMIUM_ONLY = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'm
 export const PENDING = {
   webkit: [],
   firefox: [
-    // the click picks the right mark (#1033); interact.js' consolidate() rewrites the transform attribute in Firefox (CR, see M3)
-    'select events',
     'curve keys',
     'fan and footprint keys',
     'keyboard + - 0 zoom about the current point and reset',
