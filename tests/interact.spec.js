@@ -1524,7 +1524,7 @@ test('layout zoom pan and reset', async ({ page }) => {
   }, c0);
   expect(d0, 'a pixel on the ray within 2 px of the fan vertex').not.toBeNull();
 
-  // wheel in: the pixel under the pointer stays fixed, the vertex moves to d0 + (c0 - d0) * k, and the range is p + (range - p) / k
+  // wheel in: the pixel under the pointer stays fixed, the vertex moves to d0 + (c0 - d0) * k, and the range is q + (range - q) / k, q the data point under d0 (the vertex pv shifted by d0 - c0, up to 2 px)
   await moveTo(page, d0[0], d0[1]);
   const scrollBefore = await page.evaluate(() => window.scrollY);
   await wheel(page, -100);
@@ -1533,8 +1533,9 @@ test('layout zoom pan and reset', async ({ page }) => {
   const f1 = await lframe(page), k = f1.a / f0.a, s1 = f1.a * f1.k;
   expect(k, 'a notch toward the screen zooms in').toBeGreaterThan(1);
   closeTo(Math.abs(f1.d), f1.a, 1e-9 * f1.a, 'one scale on both axes after the zoom');
-  rangeIs(f1.x, [pv[0] + (f0.x[0] - pv[0]) / k, pv[0] + (f0.x[1] - pv[0]) / k], s1, 'x range');
-  rangeIs(f1.y, [pv[1] + (f0.y[0] - pv[1]) / k, pv[1] + (f0.y[1] - pv[1]) / k], s1, 'y range');
+  const q = [pv[0] + (d0[0] - c0[0]) / (f0.a * f0.k), pv[1] + (d0[1] - c0[1]) / (f0.d * f0.k)];
+  rangeIs(f1.x, [q[0] + (f0.x[0] - q[0]) / k, q[0] + (f0.x[1] - q[0]) / k], s1, 'x range');
+  rangeIs(f1.y, [q[1] + (f0.y[0] - q[1]) / k, q[1] + (f0.y[1] - q[1]) / k], s1, 'y range');
   const under = await page.evaluate((p) => window.L.frame().at(p), pv);
   closeTo(under[0], d0[0] + (c0[0] - d0[0]) * k, TOL_PX, 'the vertex is zoomed about the pointer in x');
   closeTo(under[1], d0[1] + (c0[1] - d0[1]) * k, TOL_PX, 'and in y');
