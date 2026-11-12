@@ -1289,7 +1289,7 @@ test('zoomed plots hover only inside the frame', async ({ page }) => {
     for (const [x, y] of outs) expect(await hoverAt(page, x, y), `${kind}: ${x.toFixed(0)},${y.toFixed(0)} is outside the frame`).toBeNull();
     await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
   }
-  // #1065: matrixOf parses only a lone matrix(...). A data group whose transform has more after it (here a no-op translate) yields no frame, so the pointer over clipped data hovers it unclipped, not the first matrix's window.
+  // #1065: matrixOf parses only a lone matrix(...). A data group whose transform has more after it (here a no-op translate) yields no frame and fails closed (#1066): it hovers nothing, not the clipped point and not the first matrix's window.
   await page.evaluate(() => {
     const host = document.createElement('div');
     host.style.cssText = 'width:600px;margin:20px auto';
@@ -1303,7 +1303,7 @@ test('zoomed plots hover only inside the frame', async ({ page }) => {
   const clipped = await toClient(page, 0, [3.9, Math.sin(3.9)]);
   expect(await hoverAt(page, clipped[0], clipped[1]), 'a lone matrix clips the data outside the window').toBeNull();
   await page.evaluate(() => { const g = window.HOST.querySelector('[data-series]').closest('g[transform^="matrix("]'); g.setAttribute('transform', g.getAttribute('transform') + ' translate(0)'); });
-  expect(await hoverAt(page, clipped[0], clipped[1]), 'a matrix with a trailing transform yields no frame: the point hovers unclipped').not.toBeNull();
+  expect(await hoverAt(page, clipped[0], clipped[1]), 'a matrix with a trailing transform fails closed: nothing hovers on that group').toBeNull();
   await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
   // #972 (CR #970, layout): a zoomed layout is clipped by its geometry band, so a ray run's point or interpolated spot outside that window is not drawn and must not hover. The Cooke triplet at view y [-1, 1] puts rays past the top and bottom edges within reach of a pointer on them.
   // oracle: property every emitted ray event lies inside the window computed from the data group's matrix attribute and its data-band (window.L.frame), to half a client px.

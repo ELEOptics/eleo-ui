@@ -45,10 +45,10 @@ function windowOf(g) {
   return { x: [(x0 - e) / a, (x0 + w - e) / a].sort(function (u, v) { return u - v; }), y: [(y0 - f) / d, (y0 + h - f) / d].sort(function (u, v) { return u - v; }) };
 }
 
-/* The data window a group's viewport clips to, as a test on a data point (windowOf). Half a client px of slack keeps a point on the frame's edge in. Always true where there is no window. */
+/* The data window a group's viewport clips to, as a test on a data point (windowOf). Half a client px of slack keeps a point on the frame's edge in. Where there is no window: false for a group whose `transform` does not parse (matrixOf null), so nothing on it hovers; true for one with no clipping viewport. */
 function inFrameOf(g, m) {
   var win = windowOf(g);
-  if (!win) return function () { return true; };
+  if (!win) { var open = !g.hasAttribute("transform") || !!matrixOf(g); return function () { return open; }; }
   var ex = 0.5 / Math.abs(m.a), ey = 0.5 / Math.abs(m.d);
   return function (x, y) { return x >= win.x[0] - ex && x <= win.x[1] + ex && y >= win.y[0] - ey && y <= win.y[1] + ey; };
 }
