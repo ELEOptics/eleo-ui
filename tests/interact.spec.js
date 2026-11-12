@@ -934,6 +934,12 @@ const frames = (page) => page.evaluate(() => window.Z.read(window.HOST));
 const toClient = (page, i, p) => page.evaluate(([i, p]) => window.Z.toClient(window.HOST, i, p), [i, p]);
 const toData = (page, i, c) => page.evaluate(([i, c]) => window.Z.toData(window.HOST, i, c), [i, c]);
 const views = (page) => page.evaluate(() => window.VIEWS);
+// A wheel notch, returning once its view event has arrived: the renderer redraws on its own schedule, so a read right after mouse.wheel can still see the frame from before it.
+const wheel = async (page, dy) => {
+  const n = (await views(page)).length;
+  await page.mouse.wheel(0, dy);
+  await expect.poll(async () => (await views(page)).length, { message: 'the wheel emits a view event' }).toBeGreaterThan(n);
+};
 // The host's markup without interact's own hover overlay (a live region it keeps in the host), which is not the caller's draw.
 const markup = (page) => page.evaluate(() => { const c = window.HOST.cloneNode(true); c.querySelectorAll('.eleo-hover').forEach((n) => n.remove()); return c.innerHTML; });
 const closeTo = (got, want, tol, what) => expect(Math.abs(got - want), `${what}: ${got} vs ${want} (tol ${tol})`).toBeLessThanOrEqual(tol);
@@ -948,7 +954,7 @@ test('wheel zooms about the pointer', async ({ page }) => {
   const f0 = (await frames(page))[0], p = [3, 0.4], c0 = await toClient(page, 0, p);
   await page.mouse.move(c0[0], c0[1]);
   const scrollBefore = await page.evaluate(() => window.scrollY);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   expect(await views(page), 'one view event per notch').toHaveLength(1);
   expect(await page.evaluate(() => window.scrollY), 'the wheel does not scroll the page').toBe(scrollBefore);
   const f1 = (await frames(page))[0], k = span(f0.x) / span(f1.x);
@@ -1010,7 +1016,7 @@ test('zoom pan and reset', async ({ page }) => {
   const p = [3, 0.4], c0 = await toClient(page, 0, p);
   await page.mouse.move(c0[0], c0[1]);
   const scrollBefore = await page.evaluate(() => window.scrollY);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   expect(await views(page), 'one view event per notch').toHaveLength(1);
   expect(await page.evaluate(() => window.scrollY), 'the wheel does not scroll the page').toBe(scrollBefore);
   const f1 = (await frames(page))[0], k = span(f0.x) / span(f1.x);
@@ -1027,14 +1033,14 @@ test('zoom pan and reset', async ({ page }) => {
   rangeIs(v1.y, f1.y, Math.abs(f1.d) * f1.k, 'event y');
 
   // the reverse notch at the same pointer undoes it
-  await page.mouse.wheel(0, 100);
+  await wheel(page, 100);
   const f2 = (await frames(page))[0];
   closeTo(span(f2.x), span(f0.x), TOL_PX / (Math.abs(f2.a) * f2.k) * 2, 'zoom out restores the x span');
   closeTo(f2.x[0], f0.x[0], TOL_PX / (Math.abs(f2.a) * f2.k) * 2, 'and the x range start');
   closeTo(f2.y[0], f0.y[0], TOL_PX / (Math.abs(f2.d) * f2.k) * 2, 'and the y range start');
 
   // zoom in again, then drag: the data point grabbed stays under the pointer, the spans do not change
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   const f3 = (await frames(page))[0], start = await toClient(page, 0, p), grabbed = await toData(page, 0, start);
   await page.mouse.move(start[0], start[1]);
   await page.mouse.down();
@@ -1059,7 +1065,7 @@ test('zoom pan and reset', async ({ page }) => {
 
   // reset() does the same from code
   await page.mouse.move(c0[0], c0[1]);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   expect(await markup(page) !== (await page.evaluate(() => window.ORIG)), 'zoomed again').toBe(true);
   await page.evaluate(() => window.STOP.reset());
   expect(await page.evaluate(() => window.LAST), 'reset() reports null').toBeNull();
@@ -1077,7 +1083,7 @@ test('a data redraw keeps the view', async ({ page }) => {
   await mountZoom(page, 'curve');
   const f0 = (await frames(page))[0], c = await toClient(page, 0, [6, 0]);
   await page.mouse.move(c[0], c[1]);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   const view = await page.evaluate(() => window.LAST), f1 = (await frames(page))[0];
   await page.evaluate(() => { window.DATA = 0.5; window.HOST.innerHTML = window.DRAW(window.LAST); });
   const f2 = (await frames(page))[0], s = Math.abs(f2.a) * f2.k;
@@ -1088,7 +1094,7 @@ test('a data redraw keeps the view', async ({ page }) => {
   // zooming again compounds on the redrawn range
   const c2 = await toClient(page, 0, [6, 0]);
   await page.mouse.move(c2[0], c2[1]);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   const f3 = (await frames(page))[0], k = span(f1.x) / span(f3.x);
   expect(k, 'a second notch zooms in again').toBeGreaterThan(1);
   closeTo(k, span(f0.x) / span(f1.x), 1e-6 * k, 'by the same factor as the first');
@@ -1115,7 +1121,7 @@ test('a sparse panel curve zooms as a curve', async ({ page }) => {
   });
   const f0 = (await frames(page))[0], c = await toClient(page, 0, [5, 0.5]);
   await page.mouse.move(c[0], c[1]);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   const v = await views(page);
   expect(v, 'one view event').toHaveLength(1);
   expect(Object.keys(v[0]).sort(), 'a curve view, not a spot view').toEqual(['x', 'y']);
@@ -1135,7 +1141,7 @@ test('spot panels share one view', async ({ page }) => {
   // wheel in over the second panel, off its centre
   const p = [c0x + 0.5 * half0, c0y - 0.3 * half0], c = await toClient(page, 1, p);
   await page.mouse.move(c[0], c[1]);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   expect(await views(page), 'one event').toHaveLength(1);
   const v = (await views(page))[0], f1 = await frames(page), k = half0 / (span(f1[0].x) / 2);
   expect(k, 'zooms in').toBeGreaterThan(1);
@@ -1179,7 +1185,7 @@ test('map zoom keeps the image at its extent', async ({ page }) => {
   const fx = 0.3, fy = 0.65, ext = [-6, 6, -4, 4];
   const c = await page.evaluate(([fx, fy]) => window.Z.imageAt(window.HOST, fx, fy), [fx, fy]);
   await page.mouse.move(c[0], c[1]);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   expect(await views(page), 'one event').toHaveLength(1);
   const v = (await views(page))[0], img1 = await page.evaluate(() => window.Z.image(window.HOST));
   const k = img1.w / img0.w;
@@ -1289,7 +1295,7 @@ test('a double-click selects once', async ({ page }) => {
   });
   const c = await toClient(page, 0, [2, Math.sin(2)]);
   await page.mouse.move(c[0], c[1]);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   expect(await page.evaluate(() => window.LAST), 'zoomed first').not.toBeNull();
   const fire = (page2) => page2.evaluate(() => {
     const m = window.HOST.querySelector('[data-series]');
@@ -1471,7 +1477,7 @@ test('layout zoom pan and reset', async ({ page }) => {
   // wheel in: the point under the pointer stays under it, and the range is p + (range - p) / k
   await page.mouse.move(c0[0], c0[1]);
   const scrollBefore = await page.evaluate(() => window.scrollY);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   expect(await views(page), 'one view event per notch').toHaveLength(1);
   expect(await page.evaluate(() => window.scrollY), 'the wheel does not scroll the page').toBe(scrollBefore);
   const f1 = await lframe(page), k = f1.a / f0.a, s1 = f1.a * f1.k;
@@ -1495,13 +1501,13 @@ test('layout zoom pan and reset', async ({ page }) => {
   closeTo(box[2], lo[1][0], TOL_PX + 1, 'element 2 right edge'); closeTo(box[3], lo[1][1], TOL_PX + 1, 'element 2 bottom edge');
 
   // the reverse notch at the same pointer undoes it
-  await page.mouse.wheel(0, 100);
+  await wheel(page, 100);
   const f2 = await lframe(page);
   closeTo(f2.a, f0.a, 0.02 * f0.a, 'zoom out restores the scale');
   closeTo(f2.x[0], f0.x[0], 2 * TOL_PX / (f2.a * f2.k), 'and the x range start');
 
   // zoom in again, then drag: the vertex grabbed stays under the pointer, the scale does not change
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   const f3 = await lframe(page), start = await page.evaluate((p) => window.L.frame().at(p), pv);
   await page.mouse.move(start[0], start[1]);
   await page.mouse.down();
@@ -1524,7 +1530,7 @@ test('layout zoom pan and reset', async ({ page }) => {
 
   // reset() does the same from code
   await page.mouse.move(c0[0], c0[1]);
-  await page.mouse.wheel(0, -100);
+  await wheel(page, -100);
   expect(await markup(page) !== (await page.evaluate(() => window.ORIG)), 'zoomed again').toBe(true);
   await page.evaluate(() => window.STOP.reset());
   expect(await page.evaluate(() => window.LAST), 'reset() reports null').toBeNull();

@@ -1095,6 +1095,7 @@ test('zoom survives live update', async ({ page }) => {
   const first = await read();
   await page.mouse.move(first.cx, first.cy);
   await page.mouse.wheel(0, -300);
+  await expect.poll(async () => (await read()).x, { message: 'the wheel redraws the tile' }).not.toEqual(first.x);
   const zoomed = await read();
   expect(zoomed.x[1] - zoomed.x[0], 'the wheel zoomed in').toBeLessThan((first.x[1] - first.x[0]) * 0.9);
 
