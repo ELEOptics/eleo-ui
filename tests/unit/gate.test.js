@@ -63,3 +63,19 @@ test('playwright version', () => {
   assert.ok(maj > 1 || (maj === 1 && min >= 65), `lock resolves @playwright/test ${lock.packages['node_modules/@playwright/test'].version}`);
   assert.equal(JSON.parse(read('package.json')).devDependencies['@playwright/test'], '^1.65.0');
 });
+
+// Plan #1018, issue #1023: the gate and CI install all three browsers before the projects exist.
+// oracle: spec Playwright CLI: `playwright install [--with-deps] <browsers>`, `test --project=<name>` (playwright.dev/docs/browsers, playwright.dev/docs/test-cli)
+test('installs', () => {
+  const installLine = (path) => read(path).split('\n').find((l) => /playwright install/.test(l));
+  for (const path of ['scripts/check.sh', '.github/workflows/ci.yml', 'README.md']) {
+    const line = installLine(path);
+    assert.ok(line, `${path} has an install line`);
+    for (const b of ['chromium', 'firefox', 'webkit']) assert.match(line, new RegExp(`\\b${b}\\b`), `${path} installs ${b}`);
+  }
+  assert.match(installLine('.github/workflows/ci.yml'), /--with-deps/);
+  const readme = read('README.md');
+  assert.match(readme, /npx playwright test --project=firefox/);
+  assert.doesNotMatch(readme, /--browser/);
+  assert.match(readme, /three browsers/);
+});

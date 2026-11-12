@@ -23,5 +23,5 @@ npm ci
 npm run build
 npm run check
 npm run test:unit
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 npx playwright test
