@@ -54,3 +54,12 @@ test('chromium-only specs', { skip: SKIP }, () => {
     assert.doesNotMatch(src, /test\.(skip|fixme)\([^)]*browserName/, `${f} conditions no skip on the browser`);
   }
 });
+
+// Plan #1018, issue #1020: Playwright 1.65.0, whose Firefox launches on macOS 27.2 without a workaround.
+// oracle: user round 2 (2026-11-12): bump to 1.65.0; spec npm semver (package-lock.json resolves @playwright/test)
+test('playwright version', () => {
+  const lock = JSON.parse(read('package-lock.json'));
+  const [maj, min] = lock.packages['node_modules/@playwright/test'].version.split('.').map(Number);
+  assert.ok(maj > 1 || (maj === 1 && min >= 65), `lock resolves @playwright/test ${lock.packages['node_modules/@playwright/test'].version}`);
+  assert.equal(JSON.parse(read('package.json')).devDependencies['@playwright/test'], '^1.65.0');
+});
