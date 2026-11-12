@@ -191,6 +191,8 @@ alone; the PR head's CI run is green with all three installed. Proves: O1, O2
 
 ### M2: A bad point breaks the line on a single plot GitHub: `P1018 M2: A bad point breaks the line on a single plot`
 
+Done 2026-11-12: review round 2 (Review M2: 0 blocking, nothing pulled in); full gate green on ba75546 (415 passed in three projects); CI green on dfebc86, pending on ba75546 at the tick. Demo pending.
+
 Demo: in the gallery page, `ELEO.curve` with one series holding a NaN point draws both finite runs, under all
 three projects; in Chromium it also hovers on each run; `npx playwright test` and CI are green. Proves: O5
 
@@ -285,6 +287,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 (user): M1 demo go; M2 starts. The user skipped the start gate (`scripts/check.sh` was green on 3c86004 at the tick).
 - 2026-11-12 Review M2 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog. Backlog [#1056] into M2 (orchestrator: a one-comment fix in `curve.js`, which M2 changed); round 2 follows.
 - 2026-11-12 re-scope (orchestrator): [#1056] also asserts its comment's claim in `curve.test.js`, since `check-tests-touched.sh` refuses a comment-only source change.
+- 2026-11-12 Review M2 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. Per-round count (blocking + pulled in): 1, 0. M2 ticked; demo pending.
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
