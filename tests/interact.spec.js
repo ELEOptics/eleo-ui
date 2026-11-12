@@ -2062,7 +2062,7 @@ test('keyboard steps only in-frame points and redraws its dot after a zoom', asy
 
 // Plan #1018 (agent_docs/plans/1018-cross-browser.md), M2 outcome O5 (issue #1027; #1028 unskips). A single-plot curve series holding a NaN draws its finite runs, as panels do.
 // oracle: reference, the panel path for the same points: it draws the series as a <path> with one run on each side of the gap.
-test.skip('single plot bad point', async ({ page }) => {
+test('single plot bad point', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const pts = [[0, 0], [1, 1], [NaN, 2], [3, 1], [4, 0]];
