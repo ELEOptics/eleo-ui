@@ -52,7 +52,8 @@ test('chromium-only specs', () => {
   }
   for (const f of readdirSync(new URL('tests/', root)).filter((n) => n.endsWith('.spec.js'))) {
     const src = read(`tests/${f}`);
-    assert.doesNotMatch(src, /test\.(skip|fixme)\([^)]*browserName/, `${f} conditions no skip on the browser`);
+    // match on the file: a skip can take a condition computed from browserName earlier
+    assert.ok(!(/browserName/.test(src) && /\.(skip|fixme|fail)\(/.test(src)), `${f} conditions no skip on the browser`);
   }
 });
 
