@@ -224,7 +224,8 @@ projects; the pending list holds no interaction test; CI is green. Proves: O3
 | [#1059] | `CurvePlot hover tooltip` scrolls the harness host into view, not the series mark, and reads the mark once the drawing is stable: it raced the harness's redraw (gate on c7e200c, 1 in 60 runs) | scroll the host because the mark is replaced when the card measures its width; considered `retries`, which hides the race | `tests/svelte.spec.js` | `CurvePlot hover tooltip` 60 of 60 with `--repeat-each=20` | [#1035] |
 | [#1061] | `layout zoom pan and reset` expects the zoom's range about q, the data point under the delivered pixel d0, in both `rangeIs` lines (CR [#1060], review M3 round 1) | pivot on d0 because the pointer sits there since [#1031], up to 2 px from the vertex, and the stale pivot used up to 0.57 px of `TOL_PX`; considered a wider search radius cap, which still leaves the offset in the oracle | `tests/interact.spec.js` | `layout zoom pan and reset` in the three projects; CI green | [#1059] |
 | [#1062] | `select events` snapshots its markup before `T.hit(...)` again, so "markup unchanged" covers a hover the hit probe's scroll fires (review M3 round 1, backlog) | restore the order because [#1033] moved it with no reason and the scroll's hover is CR [#1057]'s path; considered a separate hover test per tile, more code for the same claim | `tests/interact.spec.js` | `select events` in the three projects | [#1061] |
-| [#1063] | A unit test pins that curve's, layout2D's and spot's data-group `transform` is `matrix(` six space-separated finite numbers `)`, the shape `matrixOf` parses (review M3 round 1, backlog) | pin the writers' format because `matrixOf` returns null on any other shape and the hover frame drops silently; considered a full SVG transform parser in `interact.js`, which no writer needs | `tests/unit/` (one test file) | the new test; red on a scratch `matrix(1,2,3,4,5,6) translate(1)` | [#1062] |
+| [#1063] | A unit test pins that curve's, layout2D's and spot's data-group `transform` is `matrix(` six space-separated finite numbers `)`, the shape `matrixOf` parses (review M3 round 1, backlog) | pin the writers' format because a writer's other shape would give `matrixOf` no frame or a wrong one; considered a full SVG transform parser in `interact.js`, which no writer needs | `tests/unit/` (one test file) | the new test; red on a scratch `matrix(1,2,3,4,5,6) translate(1)` | [#1062] |
+| [#1065] | `matrixOf` is anchored (`\s*$`), so a transform with anything after its `matrix(...)` returns null instead of the first matrix (review M3 round 2, backlog) | fail closed because a dropped trailing transform gives a silently wrong frame; considered only rewording [#1063]'s test comments, which leaves the wrong frame | `packages/plots/src/interact.js`, `tests/unit/interact-matrix.test.js` | a group with `matrix(...) translate(1)` yields no frame (red today); interact specs green | [#1063] |
 
 ### M4: Keys and maps in Firefox, nothing pending GitHub: `P1018 M4: Keys and maps in Firefox, nothing pending`
 
@@ -300,6 +301,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 [#1031]'s last title, `layout zoom pan and reset`, failed twice on Linux Firefox (CI runs 43273034181, 43316866519: the delivered pixel beside the fan vertex is off the 1 px ray); back in `PENDING` (e50cd9c). (user): the test searches a whole pixel on the ray near the vertex (`elementFromPoint`, within ±2 px) and wheels and drags there; no tolerance change.
 - 2026-11-12: the full gate on c7e200c failed `CurvePlot hover tooltip` (chromium, element detached); 1 in 60 with `--repeat-each=20`, a spec this plan never touched. Item [#1059] in M3 (orchestrator: test-only, the gate must be green to push). c7e200c was pushed past the red gate by a chained command; its CI run decides nothing about this flake.
 - 2026-11-12 Review M3 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, 3 backlog. CR [#1060] (accepted by the orchestrator: test-only, it tightens an oracle back) becomes item [#1061]; backlog [#1062] and [#1063] into M3 (small, named, in files M3 changed); backlog [#1064] (about 30 fractional pointer moves in three specs) stays a plain issue. Round 2 follows.
+- 2026-11-12 Review M3 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog; carried CRs [#1057] and [#1060] resolved. Backlog [#1065] into M3 (orchestrator: a one-regex fix in `interact.js`, which M3 changed). Per-round count (blocking + pulled in): 3, 1. Round 3 follows.
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
@@ -349,6 +351,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1062]: https://github.com/ELEOptics/eleo-ui/issues/1062
 [#1063]: https://github.com/ELEOptics/eleo-ui/issues/1063
 [#1064]: https://github.com/ELEOptics/eleo-ui/issues/1064
+[#1065]: https://github.com/ELEOptics/eleo-ui/issues/1065
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#676]: https://github.com/ELEOptics/eleo-ui/issues/676
 [#804]: https://github.com/ELEOptics/eleo-ui/issues/804
