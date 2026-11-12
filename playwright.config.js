@@ -5,8 +5,6 @@ const CHROMIUM_ONLY = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'm
 
 // Titles each browser still fails, from #1020's table (Playwright 1.65.0). Each fix removes its title here.
 const HOVER = [
-  'non-finite points are skipped',
-  'layout ray hover reads along a run',
   'select events',
 ];
 export const PENDING = {

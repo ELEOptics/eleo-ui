@@ -10,6 +10,11 @@ import { TOL_PX } from './unit/helpers/svg.js';
 // The pixel the browser delivers for a computed client point: Firefox and WebKit truncate pointer coordinates to whole pixels (#1030), so the specs aim at the nearest one.
 const pixel = (...c) => c.map(Math.round);
 const moveTo = (page, x, y) => page.mouse.move(...pixel(x, y));
+// What a segment reads at the pixel the browser delivers: the pixel projected onto the segment a-b (client px) and clamped to it, as the same fraction of the data span d0-d1.
+const readAt = (a, b, d0, d1, [px, py]) => {
+  const t = Math.min(1, Math.max(0, ((px - a[0]) * (b[0] - a[0]) + (py - a[1]) * (b[1] - a[1])) / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2)));
+  return [d0[0] + t * (d1[0] - d0[0]), d0[1] + t * (d1[1] - d0[1])];
+};
 
 // The data group of a tile's first series, and where data point (dx, dy) is drawn in client px.
 const drawnAt = (page, tile, series, index) => page.locator(`[data-tile="${tile}"] polyline[data-series="${series}"], [data-tile="${tile}"] path[data-series="${series}"]`).first()
@@ -111,12 +116,15 @@ test('non-finite points are skipped', async ({ page }) => {
     return { ev: await page.evaluate(() => window.HOVER.at(-1) || null), p };
   };
   // each side of the gap: the midpoint of segment [0, 1] and of [3, 4] reads interpolated values on that segment
-  for (const [x, y] of [[0.5, 1.5], [3.5, 4.5]]) {
+  // Firefox and WebKit deliver whole pixels, so the reading is checked at the delivered pixel (#1030).
+  for (const [x, y, d0, d1] of [[0.5, 1.5, [0, 1], [1, 2]], [3.5, 4.5, [3, 4], [4, 5]]]) {
     const { ev, p } = await read('gap-host', x, y);
     expect(ev, `segment at ${x} hovered`).toBeTruthy();
     expect(ev.interpolated, `${x} interpolated`).toBe(true);
-    expect(Math.abs(ev.x - x) * Math.abs(p.a) * p.k, `x of ${x} within TOL_PX`).toBeLessThanOrEqual(TOL_PX);
-    expect(Math.abs(ev.y - y) * Math.abs(p.d) * p.k, `y of ${x} within TOL_PX`).toBeLessThanOrEqual(TOL_PX);
+    const [a, b] = await Promise.all([page.evaluate(([x, y]) => window.AT('gap-host', x, y), d0), page.evaluate(([x, y]) => window.AT('gap-host', x, y), d1)]);
+    const want = readAt([a.clientX, a.clientY], [b.clientX, b.clientY], d0, d1, pixel(p.clientX, p.clientY));
+    expect(Math.abs(ev.x - want[0]) * Math.abs(p.a) * p.k, `x of ${x} within TOL_PX`).toBeLessThanOrEqual(TOL_PX);
+    expect(Math.abs(ev.y - want[1]) * Math.abs(p.d) * p.k, `y of ${x} within TOL_PX`).toBeLessThanOrEqual(TOL_PX);
   }
   // across the gap, between (1, 2) and (3, 4), no segment is drawn: nothing is hovered
   expect((await read('gap-host', 2, 3)).ev, 'gap hovers nothing').toBeNull();
@@ -495,7 +503,7 @@ const install = (page) => page.evaluate(() => {
         for (let i = 1; i < p.length; i++) {
           const [x0, y0] = me.c[i - 1], [x1, y1] = me.c[i], mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
           if (Math.hypot(x1 - x0, y1 - y0) >= minLen && clear(list, mx, my, px)) {
-            return { segment: [i - 1, i], data: [(p[i - 1][0] + p[i][0]) / 2, (p[i - 1][1] + p[i][1]) / 2], x: mx, y: my, a: me.to.a, d: me.to.d, k: me.to.k, ds: { ...m.dataset } };
+            return { segment: [i - 1, i], data: [(p[i - 1][0] + p[i][0]) / 2, (p[i - 1][1] + p[i][1]) / 2], c0: me.c[i - 1], c1: me.c[i], d0: p[i - 1], d1: p[i], x: mx, y: my, a: me.to.a, d: me.to.d, k: me.to.k, ds: { ...m.dataset } };
           }
         }
       }
@@ -794,7 +802,8 @@ test('layout ray hover reads along a run', async ({ page }) => {
   expect(ev.interpolated).toBe(true);
   expect(ev.field).toBe(+p.ds.field);
   expect(ev.ray).toBe(+p.ds.ray);
-  within(ev, p.data, p, 'segment middle');
+  // the reading is checked at the pixel the browser delivers (#1030)
+  within(ev, readAt(p.c0, p.c1, p.d0, p.d1, pixel(p.x, p.y)), p, 'segment middle');
   await page.evaluate(() => window.STOP());
 });
 
