@@ -510,13 +510,14 @@ const install = (page) => page.evaluate(() => {
       return null;
     },
     // The first point (vertex, segment middle or fill centre) of a mark matching sel at which the browser's own hit test finds that mark: where a click lands on it.
+    // Probed at the whole pixel the browser delivers (#1030), where an overlapping mark may be on top of the fractional point.
     hit(host, sel) {
       for (const m of host.querySelectorAll(sel)) {
         m.scrollIntoView({ block: 'center' });
         const to = proj(m), p = pts(m), probes = p.slice();
         for (let i = 1; i < p.length; i++) probes.push([(p[i - 1][0] + p[i][0]) / 2, (p[i - 1][1] + p[i][1]) / 2]);
         if (p.length > 2) probes.push([p.reduce((s, q) => s + q[0], 0) / p.length, p.reduce((s, q) => s + q[1], 0) / p.length]);
-        for (const q of probes) { const [x, y] = to(q); if (document.elementFromPoint(x, y) === m) return { x, y, ds: { ...m.dataset } }; }
+        for (const q of probes) { const [x, y] = to(q).map(Math.round); if (document.elementFromPoint(x, y) === m) return { x, y, ds: { ...m.dataset } }; }
       }
       return null;
     },
@@ -821,9 +822,9 @@ test('select events', async ({ page }) => {
   ];
   for (const [tile, sel, check] of cases) {
     await bind(page, tile);
-    const before = await page.evaluate(() => window.HOST.querySelector('svg').outerHTML);
     const p = await page.evaluate((sel) => window.T.hit(window.HOST, sel), sel);
     expect(p, `${tile}: a mark matching ${sel} the hit test finds`).not.toBeNull();
+    const before = await page.evaluate(() => window.HOST.querySelector('svg').outerHTML);
     await page.mouse.click(p.x, p.y);
     const got = await page.evaluate(() => window.SELECT);
     expect(got, `${tile}: one select event`).toHaveLength(1);

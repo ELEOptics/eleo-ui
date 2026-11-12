@@ -4,13 +4,11 @@ import { defineConfig } from '@playwright/test';
 const CHROMIUM_ONLY = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'map2d-sample'].map((n) => `**/${n}.spec.js`);
 
 // Titles each browser still fails, from #1020's table (Playwright 1.65.0). Each fix removes its title here.
-const HOVER = [
-  'select events',
-];
 export const PENDING = {
-  webkit: [...HOVER],
+  webkit: [],
   firefox: [
-    ...HOVER,
+    // the click picks the right mark (#1033); interact.js' consolidate() rewrites the transform attribute in Firefox (CR, see M3)
+    'select events',
     'curve keys',
     'fan and footprint keys',
     'keyboard + - 0 zoom about the current point and reset',
@@ -25,7 +23,7 @@ const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // anchored from the spec file's name to the title's end: the grep string is the file name, describe titles and the title,
 // so 'hover emits the point under the pointer' does not catch 'footprint hover emits ...'
 const pending = (browser) =>
-  new RegExp(`\\.spec\\.js (${PENDING[browser].map((t) => `${escape(t)}$`).join('|')})`);
+  PENDING[browser].length === 0 ? undefined : new RegExp(`\\.spec\\.js (${PENDING[browser].map((t) => `${escape(t)}$`).join('|')})`);
 
 export default defineConfig({
   testDir: 'tests',
