@@ -179,6 +179,10 @@ alone; the PR head's CI run is green with all three installed. Proves: O1, O2
 | [#1025] | Linux's failures join the pending list: read the CI run of [#1024]'s push; a test that fails only there gets its title in `PENDING` and a comment on this issue with the failure. A failure this plan does not list is also a CR, as in [#1020]. If CI is green, the item closes with the run's link | read CI's first run because it is the Linux measurement and costs nothing; considered Playwright's Docker image on this Mac, a 2 GB download for one run | `playwright.config.js` | the CI run of this item's push is green | [#1024] |
 | [#1047] | The specs wait for each wheel's redraw before they read the frame (a shared helper per spec file: poll the frame or wait for the wheel's `view` event); `layout zoom pan and reset` leaves Firefox's `PENDING`. No assertion, tolerance or oracle changes (CR [#1046]) | wait in the test because the renderer redraws on its own schedule and the oracle is the frame after the wheel; considered `retries` in CI, which hides the race, and a `PENDING` title per failure, which leaves the next one to fail | `tests/interact.spec.js` and any spec that reads a frame straight after `mouse.wheel`, `playwright.config.js` (title removed) | `zoom pan and reset` and `layout zoom pan and reset` under load in all three projects; the CI run of this item's push is green | [#1025] |
 | [#1026] | Unskip O1 and O2 acceptance tests | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/gate.test.js` | `::three browsers`, `::chromium-only specs` | all above |
+| [#1049] | One test listing in `gate.test.js`: `listing()` returns `project -> [{ file, name }]` and all three listing tests use it; no assertion changes (CR [#1048], review M1 round 1) | one listing because `projects`' Chromium-only filter drops the only files `PERF`/`SHOTS` add; considered two calls, a spawn and 15 lines for nothing | `tests/unit/gate.test.js` | `node --test tests/unit/gate.test.js`: the same 5 pass, one `execFileSync` | [#1026] |
+| [#1050] | O2's skip check fails on any spec that mentions `browserName` and calls `.skip(`, `.fixme(` or `.fail(` (review M1 round 1, backlog) | match on the file because a skip can take a condition computed earlier; considered a wider call regex, which still misses a variable | `tests/unit/gate.test.js` | `::chromium-only specs` red on a scratch `test.skip(ff)` spec, green on the repo | [#1049] |
+| [#1051] | The negative wheel check in `zoom pan and reset` waits two animation frames before counting view events (review M1 round 1, backlog) | wait frames because the `wheel` helper waits for an event that must not come here; considered a second handled input | `tests/interact.spec.js` | `zoom pan and reset` in all three projects | [#1050] |
+| [#1052] | `pixel-ratio.spec.js` expects 4 canvas tiles before the CDP override, as its source test did (review M1 round 1, backlog) | copy the count from the original test; considered a non-empty check, which accepts a missing tile | `tests/pixel-ratio.spec.js` | `canvas tiles redraw at the device pixel ratio (#638)` in chromium | [#1051] |
 
 ### M2: A bad point breaks the line on a single plot GitHub: `P1018 M2: A bad point breaks the line on a single plot`
 
@@ -267,6 +271,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 CR [#1044] (user): accepted. CI's first three-browser run fails two tests in Firefox on Linux only: `arrows step points and series` (listed already) and `layout zoom pan and reset` (not listed). Both join Firefox's `PENDING` in [#1025]; the second joins spike [#1030] and item [#1031].
 - 2026-11-12 CR [#1046] (user): accepted. CI on `b1f2819` failed `zoom pan and reset` in Firefox on Linux: the test read the frame before the wheel's redraw (span ratio 1.162, one notch), as `layout zoom pan and reset` did. Item [#1047] makes the specs wait for the redraw; that title leaves Firefox's `PENDING`, and CR [#1044]'s additions to [#1030] and [#1031] are undone.
 - 2026-11-12 (user): CI on `e5cda16` ([run 43273034181](https://github.com/ELEOptics/eleo-ui/actions/runs/43273034181)) passes `zoom pan and reset` but fails `layout zoom pan and reset` again in Firefox on Linux, at the browser's hit test with the redraw awaited: not the wheel race. It goes back to Firefox's `PENDING`, spike [#1030] and item [#1031], as CR [#1044] first had it; [#1047] is done.
+- 2026-11-12 Review M1 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, 3 backlog. CR [#1048] (accepted by the orchestrator: no invariant, test code only) becomes item [#1049]. 
+- 2026-11-12: backlog [#1050], [#1051] and [#1052] into M1 (orchestrator: small, named fixes in files this milestone changed).
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
@@ -299,6 +305,11 @@ One bullet per entry (bare lines render as one paragraph).
 [#1044]: https://github.com/ELEOptics/eleo-ui/issues/1044
 [#1046]: https://github.com/ELEOptics/eleo-ui/issues/1046
 [#1047]: https://github.com/ELEOptics/eleo-ui/issues/1047
+[#1048]: https://github.com/ELEOptics/eleo-ui/issues/1048
+[#1049]: https://github.com/ELEOptics/eleo-ui/issues/1049
+[#1050]: https://github.com/ELEOptics/eleo-ui/issues/1050
+[#1051]: https://github.com/ELEOptics/eleo-ui/issues/1051
+[#1052]: https://github.com/ELEOptics/eleo-ui/issues/1052
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#676]: https://github.com/ELEOptics/eleo-ui/issues/676
 [#804]: https://github.com/ELEOptics/eleo-ui/issues/804
