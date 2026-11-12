@@ -185,6 +185,7 @@ alone; the PR head's CI run is green with all three installed. Proves: O1, O2
 | [#1052] | `pixel-ratio.spec.js` expects 4 canvas tiles before the CDP override, as its source test did (review M1 round 1, backlog) | copy the count from the original test; considered a non-empty check, which accepts a missing tile | `tests/pixel-ratio.spec.js` | `canvas tiles redraw at the device pixel ratio (#638)` in chromium | [#1051] |
 | [#1053] | O2's skip check also fails a spec that names `project.name` or `projectName` with a skip, fixme or fail (review M1 round 2, backlog) | widen the pattern because the project name is the browser here; considered a list of browser names, which matches any string | `tests/unit/gate.test.js` | `::chromium-only specs` red on a scratch `test.skip(info.project.name === 'webkit')` spec, green on the repo | [#1052] |
 | [#1054] | `gate.test.js` runs `playwright test --list` once per unit run and reuses it in its three tests (review M1 round 2, backlog) | cache because CR [#1048]'s cost was the spawn; considered a `before` hook, the same state with more ceremony | `tests/unit/gate.test.js` | the same 5 pass; the three listing tests take about one listing's time | [#1053] |
+| [#1055] | O2's skip check also matches `project?.name` (review M1 round 3, backlog) | one optional `?` because it is the other spelling of the same access; considered any `name` near `project`, which flags unrelated code | `tests/unit/gate.test.js` | `::chromium-only specs` red on a scratch `project?.name` skip, green on the repo | [#1054] |
 
 ### M2: A bad point breaks the line on a single plot GitHub: `P1018 M2: A bad point breaks the line on a single plot`
 
@@ -276,6 +277,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 Review M1 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, 3 backlog. CR [#1048] (accepted by the orchestrator: no invariant, test code only) becomes item [#1049]. 
 - 2026-11-12: backlog [#1050], [#1051] and [#1052] into M1 (orchestrator: small, named fixes in files this milestone changed).
 - 2026-11-12 Review M1 round 2: 0 blocking, 2 backlog; carried CRs [#1042], [#1044], [#1046], [#1048] resolved. Backlog [#1053] and [#1054] into M1 (orchestrator: small, named, in `gate.test.js`); round 3 follows.
+- 2026-11-12 Review M1 round 3: 0 blocking, 1 backlog; backlog [#1055] into M1 (orchestrator: a one-character fix in `gate.test.js`); round 4 follows.
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
@@ -315,6 +317,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1052]: https://github.com/ELEOptics/eleo-ui/issues/1052
 [#1053]: https://github.com/ELEOptics/eleo-ui/issues/1053
 [#1054]: https://github.com/ELEOptics/eleo-ui/issues/1054
+[#1055]: https://github.com/ELEOptics/eleo-ui/issues/1055
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#676]: https://github.com/ELEOptics/eleo-ui/issues/676
 [#804]: https://github.com/ELEOptics/eleo-ui/issues/804
