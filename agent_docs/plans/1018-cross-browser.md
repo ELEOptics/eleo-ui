@@ -208,6 +208,8 @@ a NaN polyline, which item [#884] replaces; M3 then makes that test pass in Fire
 
 ### M3: Hover, click and keyboard in Firefox and WebKit GitHub: `P1018 M3: Hover, click and keyboard in Firefox and WebKit`
 
+Done 2026-11-12: review round 5 (Review M3: 0 blocking, nothing pulled in); full gate green on 0d8285f (435 passed in three projects); CI green on dd5e932, pending on 0d8285f at the tick. Pending list: no interaction test left (M4's four Firefox titles remain). Demo pending.
+
 Demo: `npx playwright test tests/interact.spec.js` and `-g "tooltip on every curve tile"` pass under all three
 projects; the pending list holds no interaction test; CI is green. Proves: O3
 
@@ -306,6 +308,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 Review M3 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog; carried CRs [#1057] and [#1060] resolved. Backlog [#1065] into M3 (orchestrator: a one-regex fix in `interact.js`, which M3 changed). Per-round count (blocking + pulled in): 3, 1. Round 3 follows.
 - 2026-11-12 Review M3 round 3 (code-reviewer, claude-opus-5-5): 0 blocking, 2 backlog; carried CRs resolved. [#1065] failed open, not closed: backlog [#1066] into M3 (orchestrator: a one-line fix in `interact.js` and its spec). Backlog [#1067] (unanchored test-side parsers, 14 sites) stays a plain issue. Per-round count (blocking + pulled in): 3, 1, 1. Round 4 follows; a fourth count of 1 or more trips the breaker.
 - 2026-11-12 Review M3 round 4 (code-reviewer, claude-opus-5-5): 1 blocking (a dead guard in [#1066]'s line), 0 backlog. The breaker tripped: counts 3, 1, 1, 1. (user): continue. CR [#1068] accepted, item [#1069]; round 5 follows.
+- 2026-11-12 Review M3 round 5 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; carried CRs [#1057], [#1060], [#1068] resolved. Per-round count: 3, 1, 1, 1, 0. M3 ticked; demo pending.
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
