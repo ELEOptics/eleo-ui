@@ -202,6 +202,7 @@ a NaN polyline, which item [#884] replaces; M3 then makes that test pass in Fire
 | [#1027] | O5 acceptance test, skipped | forced (`workflow.md`, TDD: the first item writes them skipped) | `tests/interact.spec.js` | `tests/interact.spec.js::single plot bad point` |  |
 | [#884] reuse | A single plot draws a series that holds a NaN or infinite coordinate as a `<path>` whose runs break at the bad point: unzoomed through `seriesPath`, zoomed through the panel branch (its runs and `cutPieces`). A null still draws as 0, and a series with no bad point stays a `<polyline>`, so `renderers-baseline.json` does not change. Three tests that pin today's behaviour are rewritten to the new one: `non-finite points are skipped`' second half (`interact.spec.js:118-121`: the series now hovers on its finite runs), `a zoomed series with a NaN draws as the unzoomed one` (`curve.test.js:1057`), and any range assertion that counted the bad point. `interact.js`'s polyline `isFinite` guard stays and gains a comment ([#889]). `index.d.ts`' comment and the README's `curve` and hover paragraphs say a NaN or infinite coordinate breaks the line; the README's mirror line ([#983]) reads "Obscurations sit under the rays, with the glass polygons; mirror bodies are drawn over them." Creates the changeset. Stop and return a CR if a recorded baseline changes, or if `single plot range unchanged by nulls` would have to change (approved oracles) | a path only for a series with a bad point because every clean series, which is every recorded one, keeps its markup and its baseline; considered a path for every single-plot series, which re-records the baseline and rewrites the tests' `polyline` selectors (52 mentions) | `packages/plots/src/curve.js`, `packages/plots/src/interact.js` (comment), `packages/plots/src/index.d.ts` (comment), `packages/plots/README.md`, `.changeset/cross-browser.md`, `tests/unit/curve.test.js`, `tests/interact.spec.js` | `tests/unit/curve.test.js::non-finite points break a single-plot series` (the same runs as the panel path for the same points) | [#1027] |
 | [#1028] | Unskip O5 acceptance test. It joins `PENDING` for a browser only if it fails there for a reason M3 lists | forced (`workflow.md`, TDD: the last item unskips them) | `tests/interact.spec.js` | `::single plot bad point` | all above |
+| [#1056] | `cutPieces`' header comment names a single plot's bad-point series as path runs (review M2 round 1, backlog) | reword the comment because the code path is right and only the comment is incomplete; considered leaving it, which misleads the next reader of the cut | `packages/plots/src/curve.js` (comment) | none (comment only): `check.sh --fast` green | [#1028] |
 
 ### M3: Hover, click and keyboard in Firefox and WebKit GitHub: `P1018 M3: Hover, click and keyboard in Firefox and WebKit`
 
@@ -282,6 +283,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 Review M1 round 3: 0 blocking, 1 backlog; backlog [#1055] into M1 (orchestrator: a one-character fix in `gate.test.js`); round 4 follows.
 - 2026-11-12 Review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. Per-round count (blocking + pulled in): 4, 2, 1, 0. M1 ticked; demo pending.
 - 2026-11-12 (user): M1 demo go; M2 starts. The user skipped the start gate (`scripts/check.sh` was green on 3c86004 at the tick).
+- 2026-11-12 Review M2 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 1 backlog. Backlog [#1056] into M2 (orchestrator: a one-comment fix in `curve.js`, which M2 changed); round 2 follows.
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
@@ -322,6 +324,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1053]: https://github.com/ELEOptics/eleo-ui/issues/1053
 [#1054]: https://github.com/ELEOptics/eleo-ui/issues/1054
 [#1055]: https://github.com/ELEOptics/eleo-ui/issues/1055
+[#1056]: https://github.com/ELEOptics/eleo-ui/issues/1056
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#676]: https://github.com/ELEOptics/eleo-ui/issues/676
 [#804]: https://github.com/ELEOptics/eleo-ui/issues/804
