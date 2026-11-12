@@ -8,7 +8,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 const root = new URL('../../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
-// project name -> the spec files it lists; PERF and SHOTS turn on the opt-in specs, so the listing holds them
+// project -> [{ file, name }]; a test's name is its describe titles and its title, as PENDING spells it.
+// PERF and SHOTS turn on the opt-in specs, which are all Chromium-only files, so one listing serves every test.
 function listing() {
   const out = execFileSync('npx', ['playwright', 'test', '--list', '--reporter=json'], {
     cwd: root,
@@ -16,18 +17,18 @@ function listing() {
     maxBuffer: 1 << 28,
     env: { ...process.env, PERF: '1', SHOTS: '1' },
   });
-  const files = new Map();
-  const walk = (suite) => {
+  const byProject = new Map();
+  const walk = (suite, path) => {
     for (const spec of suite.specs ?? []) {
       for (const t of spec.tests ?? []) {
-        if (!files.has(t.projectName)) files.set(t.projectName, new Set());
-        files.get(t.projectName).add(spec.file.split('/').pop());
+        if (!byProject.has(t.projectName)) byProject.set(t.projectName, []);
+        byProject.get(t.projectName).push({ file: spec.file.split('/').pop(), name: [...path, spec.title].join(' ') });
       }
     }
-    for (const s of suite.suites ?? []) walk(s);
+    for (const s of suite.suites ?? []) walk(s, [...path, s.title]);
   };
-  for (const s of JSON.parse(out).suites) walk(s);
-  return files;
+  for (const s of JSON.parse(out).suites) walk(s, []);
+  return byProject;
 }
 
 // oracle: user roadmap row S (2026-11-10): Chromium, Firefox and WebKit; spec Playwright projects (playwright.dev/docs/test-projects) (O1)
@@ -43,10 +44,11 @@ test('three browsers', () => {
 // oracle: spec Playwright: CDPSession and browser.startTracing are Chromium only (playwright.dev/docs/api/class-cdpsession); measurement roadmap U14: headless Chromium; user round 2 (2026-11-12): the PNG recording stays Chromium's (O2)
 test('chromium-only specs', () => {
   const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'map2d-sample'].map((n) => `${n}.spec.js`);
-  const files = listing();
-  for (const f of only) assert.ok(files.get('chromium')?.has(f), `chromium lists ${f}`);
+  const byProject = listing();
+  const lists = (p, f) => (byProject.get(p) ?? []).some((t) => t.file === f);
+  for (const f of only) assert.ok(lists('chromium', f), `chromium lists ${f}`);
   for (const p of ['firefox', 'webkit']) {
-    for (const f of only) assert.ok(!files.get(p)?.has(f), `${p} does not list ${f}`);
+    for (const f of only) assert.ok(!lists(p, f), `${p} does not list ${f}`);
   }
   for (const f of readdirSync(new URL('tests/', root)).filter((n) => n.endsWith('.spec.js'))) {
     const src = read(`tests/${f}`);
@@ -83,23 +85,7 @@ test('installs', () => {
 // oracle: measurement #1020 comment, Playwright 1.65.0 failure table on macOS 27.2 (minus the Chromium-only specs); spec Playwright projects, grepInvert (playwright.dev/docs/test-projects)
 test('projects', async () => {
   const { PENDING } = await import(new URL('playwright.config.js', root));
-  const out = execFileSync('npx', ['playwright', 'test', '--list', '--reporter=json'], {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 1 << 28,
-  });
-  // project -> [{ file, name }]; a test's name is its describe titles and its title, as PENDING spells it
-  const byProject = new Map();
-  const walk = (suite, path) => {
-    for (const spec of suite.specs ?? []) {
-      for (const t of spec.tests ?? []) {
-        if (!byProject.has(t.projectName)) byProject.set(t.projectName, []);
-        byProject.get(t.projectName).push({ file: spec.file.split('/').pop(), name: [...path, spec.title].join(' ') });
-      }
-    }
-    for (const s of suite.suites ?? []) walk(s, [...path, s.title]);
-  };
-  for (const s of JSON.parse(out).suites) walk(s, []);
+  const byProject = listing();
   assert.deepEqual([...byProject.keys()].sort(), ['chromium', 'firefox', 'webkit']);
   assert.deepEqual(Object.keys(PENDING).sort(), ['firefox', 'webkit']);
   const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'map2d-sample'].map((n) => `${n}.spec.js`);
