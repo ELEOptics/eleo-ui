@@ -931,7 +931,7 @@ test('tooltip on every curve tile', async ({ page }) => {
       await mark.scrollIntoViewIfNeeded();
       const at = await drawnPoint(mark, 0);
       const tip = page.locator(`${sel} .eleo-hover__tip`);
-      await page.mouse.move(at.x, at.y);
+      await page.mouse.move(Math.round(at.x), Math.round(at.y)); // whole pixels: Firefox and WebKit truncate (#1030)
       await expect(tip, `${theme} ${tile} tooltip`).toHaveText(new RegExp(`^${at.label} · `));
       await expect(tip).toBeVisible();
       await page.mouse.move(2, 2);

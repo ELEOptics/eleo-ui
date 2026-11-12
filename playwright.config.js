@@ -5,16 +5,12 @@ const CHROMIUM_ONLY = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'm
 
 // Titles each browser still fails, from #1020's table (Playwright 1.65.0). Each fix removes its title here.
 const HOVER = [
-  'hover emits the point under the pointer',
-  'curve hover round trip',
   'non-finite points are skipped',
   'layout ray hover reads along a run',
   'select events',
-  'tooltip on every curve tile',
 ];
-const ARROWS = "keyboard arrows step points and series with the pointer's events";
 export const PENDING = {
-  webkit: [...HOVER, ARROWS],
+  webkit: [...HOVER],
   firefox: [
     ...HOVER,
     'curve keys',
@@ -22,9 +18,7 @@ export const PENDING = {
     'keyboard + - 0 zoom about the current point and reset',
     'recorded PSF cells (U8)',
     'standalone label style (#112)',
-    'a lens hover follows the pointer',
-    // these two fail on Linux only (CI runs 43257335033, 43273034181)
-    ARROWS,
+    // fails on Linux only (CI run 43273034181); #1031's rounding helper is not shown to fix it
     'layout zoom pan and reset',
   ],
 };

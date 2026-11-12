@@ -7,6 +7,10 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { TOL_PX } from './unit/helpers/svg.js';
 
+// The pixel the browser delivers for a computed client point: Firefox and WebKit truncate pointer coordinates to whole pixels (#1030), so the specs aim at the nearest one.
+const pixel = (...c) => c.map(Math.round);
+const moveTo = (page, x, y) => page.mouse.move(...pixel(x, y));
+
 // The data group of a tile's first series, and where data point (dx, dy) is drawn in client px.
 const drawnAt = (page, tile, series, index) => page.locator(`[data-tile="${tile}"] polyline[data-series="${series}"], [data-tile="${tile}"] path[data-series="${series}"]`).first()
   .evaluate((mark, index) => {
@@ -39,7 +43,7 @@ async function hoverRoundTrip(page) {
   await page.locator(`.theme[data-theme="light"] [data-tile="${tile}"]`).scrollIntoViewIfNeeded(); // the MTF tile sits far below the viewport
   for (const index of [0, 3, 7]) {
     const p = await drawnAt(page.locator('.theme[data-theme="light"]'), tile, 0, index);
-    await page.mouse.move(p.clientX, p.clientY);
+    await moveTo(page, p.clientX, p.clientY);
     const ev = await page.evaluate(() => window.HOVER.at(-1));
     expect(ev, `point ${index} hovered`).not.toBeNull();
     expect(ev.series.index).toBe(0);
@@ -63,7 +67,7 @@ test('curve hover round trip', async ({ page }) => {
   const tile = await hoverRoundTrip(page);
   const n = await page.evaluate(() => window.HOVER.length);
   const p = await drawnAt(page.locator('.theme[data-theme="light"]'), tile, 0, 3);
-  await page.mouse.move(p.clientX, p.clientY);
+  await moveTo(page, p.clientX, p.clientY);
   expect(await page.evaluate(() => window.HOVER.length), 'stop() detaches').toBe(n);
 });
 
@@ -103,7 +107,7 @@ test('non-finite points are skipped', async ({ page }) => {
     const p = await page.evaluate(([id, x, y]) => window.AT(id, x, y), [id, x, y]);
     await page.mouse.move(0, 700);
     await page.evaluate(() => { window.HOVER = []; });
-    await page.mouse.move(p.clientX, p.clientY);
+    await moveTo(page, p.clientX, p.clientY);
     return { ev: await page.evaluate(() => window.HOVER.at(-1) || null), p };
   };
   // each side of the gap: the midpoint of segment [0, 1] and of [3, 4] reads interpolated values on that segment
@@ -142,7 +146,7 @@ test('hover marks the point and its drop lines', async ({ page }) => {
     const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
     return { left: box.left + vx * k, bottom: box.top + (vy + +vp.getAttribute('height')) * k };
   });
-  await page.mouse.move(p.clientX, p.clientY);
+  await moveTo(page, p.clientX, p.clientY);
   const rect = (sel) => light.locator(`[data-tile="${tile}"] ${sel}`).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
   const dot = await rect('.eleo-hover__dot'), v = await rect('.eleo-hover__v'), h = await rect('.eleo-hover__h');
   // The lines are --line-strong and dashed: their painted colour is the resolved --line-strong (read off a probe in the same themed tile), not --plot-grid's, and the paint is a repeating gradient, not a solid fill.
@@ -190,7 +194,7 @@ test('tooltip follows the pointer', async ({ page }) => {
   const tip = light.locator(`[data-tile="${tile}"] .eleo-hover__tip`);
   for (const index of [3, 7]) {
     const p = await drawnAt(light, tile, 0, index);
-    await page.mouse.move(p.clientX, p.clientY);
+    await moveTo(page, p.clientX, p.clientY);
     const want = await page.evaluate(() => window.ELEO.readout(window.HOVER.at(-1), window.AXES));
     await expect(tip.first()).toHaveText(want);
     expect(want).toContain('cycles/mm');
@@ -213,7 +217,7 @@ test('tooltip follows the pointer', async ({ page }) => {
   // tooltip: false
   await page.evaluate(() => { window.STOP = window.ELEO.interact(document.querySelector('[data-tile="own"]'), { tooltip: false }); });
   const p = await drawnAt(light, tile, 0, 3);
-  await page.mouse.move(p.clientX, p.clientY);
+  await moveTo(page, p.clientX, p.clientY);
   await expect(light.locator(`[data-tile="${tile}"] .eleo-hover__dot`).first()).toHaveCount(1);
   await expect(tip, 'tooltip off').toHaveCount(0);
   await page.evaluate(() => window.STOP());
@@ -240,7 +244,7 @@ test('tooltip is a live region', async ({ page }) => {
   await expect(tip).toBeHidden();
   await tip.evaluate((el) => { window.TIP = el; });
   const p = await drawnAt(light, 'live', 0, 3);
-  await page.mouse.move(p.clientX, p.clientY);
+  await moveTo(page, p.clientX, p.clientY);
   await expect(tip).toBeVisible();
   await expect(tip).not.toHaveText('');
   await page.mouse.move(2, 2);
@@ -248,7 +252,7 @@ test('tooltip is a live region', async ({ page }) => {
   await expect(tip).toHaveText('');
   expect(await tip.evaluate((el) => el === window.TIP), 'same element').toBe(true);
   expect(await tip.evaluate((el) => el.style.padding + el.style.borderWidth), 'hidden by CSS :empty, not inline style').toBe('');
-  await page.mouse.move(p.clientX, p.clientY);
+  await moveTo(page, p.clientX, p.clientY);
   await expect(tip).toBeVisible();
   expect(await tip.evaluate((el) => el === window.TIP), 'same element after re-hover').toBe(true);
   await page.evaluate(() => window.STOP());
@@ -295,7 +299,7 @@ test('tooltip writes only changed text', async ({ page }) => {
   });
   const tip = light.locator('[data-tile="writes"] .eleo-hover__tip');
   const p = await drawnAt(light, 'writes', 0, 3);
-  await page.mouse.move(p.clientX, p.clientY);
+  await moveTo(page, p.clientX, p.clientY);
   await expect(tip).not.toHaveText('');
   const text = await tip.textContent();
   await tip.evaluate((el) => {
@@ -359,7 +363,7 @@ test('two interact calls on one host', async ({ page }) => {
   await expect(host).toHaveClass(/eleo-hover-host/);
   await host.scrollIntoViewIfNeeded();
   const p = await drawnAt(light, tile, 0, 3);
-  await page.mouse.move(p.clientX, p.clientY);
+  await moveTo(page, p.clientX, p.clientY);
   const dot = host.locator('.eleo-hover__dot');
   await expect(dot).toHaveCount(1);
   const at = await dot.evaluate((el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
@@ -535,7 +539,7 @@ async function bind(page, tile, values) {
 async function hoverAt(page, x, y) {
   await page.mouse.move(2, 2);
   await page.evaluate(() => { window.HOVER = []; });
-  await page.mouse.move(x, y);
+  await moveTo(page, x, y);
   return page.evaluate(() => window.HOVER.at(-1) ?? null);
 }
 // The event's (x, y) against the wanted data point, in client px along each axis, using the scales of the mark it was placed on.
@@ -1620,7 +1624,7 @@ test('a lens hover follows the pointer', async ({ page }) => {
     const zs = pts.map((p) => p[0]), z0 = Math.min(...zs), z1 = Math.max(...zs), y1 = Math.max(...pts.map((p) => p[1]));
     let best = null;
     for (let a = 0; a <= 100; a++) for (let b = 0; b <= 100; b++) {
-      const [x, y] = to([z0 + (z1 - z0) * (0.1 + 0.8 * a / 100), y1 * (-0.95 + 1.9 * b / 100)]);
+      const [x, y] = to([z0 + (z1 - z0) * (0.1 + 0.8 * a / 100), y1 * (-0.95 + 1.9 * b / 100)]).map(Math.round); // the pixel the browser delivers (#1030)
       if (document.elementFromPoint(x, y) !== poly || document.elementFromPoint(x + 1, y) !== poly) continue;
       const clear = Math.min(...segs.map((s) => dist([x, y], s)));
       if (!best || clear > best.clear) best = { x, y, clear };
@@ -1801,7 +1805,7 @@ async function pointerEvents(page, picks) {
   for (const [s, i] of picks) {
     const c = await toClient(page, 0, sinePoint(s, i));
     await page.mouse.move(1, 1);
-    await page.mouse.move(c[0], c[1]);
+    await moveTo(page, c[0], c[1]);
     out.push(await page.evaluate(() => window.HOVER.at(-1)));
   }
   await page.mouse.move(1, 1);
