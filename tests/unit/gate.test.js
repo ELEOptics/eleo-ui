@@ -105,3 +105,18 @@ test('projects', async () => {
     assert.equal(listed.length, full.length - list.length, `${browser} skips only its PENDING titles`);
   }
 });
+
+// Plan #1018, issue #1029: no interaction test is pending. Written skipped; #1035 unskips it.
+const SKIP_O3 = 'unskipped by #1035';
+// oracle: each test's own oracle, unchanged (U13: a pointer at a drawn point emits that point); a per-browser tolerance only through a CR the user accepts (O3)
+test('interact runs everywhere', { skip: SKIP_O3 }, () => {
+  const byProject = listing();
+  const wanted = byProject.get('chromium').filter((t) => t.file === 'interact.spec.js' || t.name === 'tooltip on every curve tile');
+  assert.ok(wanted.some((t) => t.file === 'interact.spec.js'), 'chromium lists the interact tests');
+  assert.ok(wanted.some((t) => t.name === 'tooltip on every curve tile'), 'chromium lists the tooltip test');
+  for (const p of ['firefox', 'webkit']) {
+    const listed = new Set(byProject.get(p).map((t) => `${t.file} ${t.name}`));
+    const missing = wanted.filter((t) => !listed.has(`${t.file} ${t.name}`)).map((t) => t.name);
+    assert.deepEqual(missing, [], `${p} lists every interaction test`);
+  }
+});
