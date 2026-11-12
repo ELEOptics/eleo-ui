@@ -11,6 +11,7 @@ function runs(mark) {
   if (mark.points) {
     for (var k = 0; k < mark.points.numberOfItems; k++) {
       var q = mark.points.getItem(k);
+      /* curve draws no polyline with a bad point (it is a path), but a caller's own polyline may hold one: Chromium parses none of its points, other engines may parse a NaN (#889). */
       if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); open = true; } else open = false;
     }
     return { p: p, join: join, off: from };

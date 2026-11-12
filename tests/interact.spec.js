@@ -80,7 +80,7 @@ test('a series mark sits directly in its matrix data group', async ({ page }) =>
 test('non-finite points are skipped', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  // A panels curve draws a <path> that breaks at the gap, so each side reads and the gap reads nothing; Chromium draws nothing of a single-plot <polyline> holding a NaN, so it reads nothing, before the NaN or after.
+  // A panels curve draws a <path> that breaks at the gap, so each side reads and the gap reads nothing; a single-plot series holding a NaN is a <path> too, so it reads as the panel one does.
   const pts = [[0, 1], [1, 2], [2, null], [3, 4], [4, 5]], nan = [[0, 1], [1, 2], [2, NaN], [3, 4], [4, 5]];
   await page.evaluate(([pts, nan]) => {
     const make = (id, top, html) => { const host = document.createElement('div'); host.id = id; host.style.cssText = `position:fixed;left:0;top:${top}px;width:400px;background:#fff;z-index:9`; host.innerHTML = html; document.body.append(host); window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) }); };
@@ -116,10 +116,10 @@ test('non-finite points are skipped', async ({ page }) => {
   }
   // across the gap, between (1, 2) and (3, 4), no segment is drawn: nothing is hovered
   expect((await read('gap-host', 2, 3)).ev, 'gap hovers nothing').toBeNull();
-  // the oracle this rests on: Chromium parses no point of a polyline holding a NaN, and hover reads the browser's parse
-  expect(await page.evaluate(() => document.querySelector('#nan-host polyline').points.numberOfItems), 'Chromium parses no point of the NaN polyline').toBe(0);
-  // Chromium draws nothing of a polyline with a NaN: nothing before it, nothing after it
-  for (const [x, y] of [[0.5, 1.5], [3.5, 4.5]]) expect((await read('nan-host', x, y)).ev, `NaN polyline at ${x} hovers nothing`).toBeNull();
+  // a single plot with a NaN draws a path that breaks there: each finite run reads, the gap reads nothing
+  expect(await page.evaluate(() => document.querySelector('#nan-host path[data-series]') !== null && document.querySelector('#nan-host polyline[data-series]') === null), 'the NaN series is a path').toBe(true);
+  for (const [x, y] of [[0.5, 1.5], [3.5, 4.5]]) expect((await read('nan-host', x, y)).ev, `NaN path at ${x} hovers`).toBeTruthy();
+  expect((await read('nan-host', 2, 3)).ev, 'NaN gap hovers nothing').toBeNull();
 });
 
 // #858: hovering draws a dot on the point and drop lines to the frame's bottom (x axis) and left (y axis) edges, in an overlay on the host.
