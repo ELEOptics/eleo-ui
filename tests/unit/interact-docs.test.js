@@ -2,7 +2,7 @@
 // oracle: spec packages/plots/README.md ### Keyboard (the one home of the key list; interact makes the host tabindex="0" unless set)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(new URL('../../' + path, import.meta.url), 'utf8');
 
@@ -38,7 +38,11 @@ test('plots-svelte README and the svelte changeset name the keys and the tab sto
   const readme = read('packages/plots-svelte/README.md');
   assert.match(readme, /tab stop|tabindex="0"/, 'README says the wrapper box is a tab stop');
   assert.match(readme, /Keyboard/, 'README points to the Keyboard section');
-  const cs = read('.changeset/interact-svelte.md');
+  // `changeset version` deletes the changeset and writes its body into the CHANGELOG as one bullet (#594 pattern).
+  const cs = existsSync(new URL('../../.changeset/interact-svelte.md', import.meta.url))
+    ? read('.changeset/interact-svelte.md')
+    : read('packages/plots-svelte/CHANGELOG.md').split('\n').find((l) => l.startsWith('- ') && l.includes('tabindex="0"'));
+  assert.ok(cs, 'the changeset, or the CHANGELOG entry it became, exists');
   assert.match(cs, /tabindex="0"/, 'changeset names tabindex="0"');
   assert.match(cs, /BarPlot/, 'changeset names BarPlot');
 });
