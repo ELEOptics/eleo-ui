@@ -2059,3 +2059,24 @@ test('keyboard steps only in-frame points and redraws its dot after a zoom', asy
   closeTo(reset[1], home[1], 0.5, 'and y');
   await page.evaluate(() => window.STOP());
 });
+
+// Plan #1018 (agent_docs/plans/1018-cross-browser.md), M2 outcome O5 (issue #1027; #1028 unskips). A single-plot curve series holding a NaN draws its finite runs, as panels do.
+// oracle: reference, the panel path for the same points: it draws the series as a <path> with one run on each side of the gap.
+test.skip('single plot bad point', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const pts = [[0, 0], [1, 1], [NaN, 2], [3, 1], [4, 0]];
+  const runs = await page.evaluate((pts) => {
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9';
+    host.innerHTML = window.ELEO.curve({ series: [{ points: pts, index: 0 }], x: { range: [0, 4] }, y: { range: [0, 6] }, width: 400 });
+    document.body.append(host);
+    const mark = host.querySelector('[data-series]');
+    // The drawn runs: each M starts one; a polyline holding a NaN has none, whatever the browser parses of it.
+    const d = mark.tagName === 'path' ? mark.getAttribute('d') : '';
+    return { tag: mark.tagName, runs: (d.match(/M/g) || []).length, length: mark.tagName === 'path' ? mark.getTotalLength() : 0 };
+  }, pts);
+  expect(runs.tag, 'a series with a bad point is a path').toBe('path');
+  expect(runs.runs, 'two runs').toBe(2);
+  expect(runs.length, 'a total length above 0').toBeGreaterThan(0);
+});
