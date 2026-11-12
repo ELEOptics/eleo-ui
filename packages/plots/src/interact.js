@@ -29,9 +29,9 @@ function runs(mark) {
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
 function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
-/* A data group's matrix, parsed from its own `matrix(a b c d e f)` attribute: reading transform.baseVal.consolidate() makes Firefox re-serialize the attribute with shorter numbers. null where it is not six numbers. */
+/* A data group's matrix, parsed from its own `matrix(a b c d e f)` attribute: reading transform.baseVal.consolidate() makes Firefox re-serialize the attribute with shorter numbers. null where it is not six numbers, or has anything after the matrix. */
 function matrixOf(g) {
-  var m = /^matrix\(([^)]*)\)/.exec(g.getAttribute("transform") || ""), n = m && m[1].trim().split(/[\s,]+/).map(Number);
+  var m = /^matrix\(([^)]*)\)\s*$/.exec(g.getAttribute("transform") || ""), n = m && m[1].trim().split(/[\s,]+/).map(Number);
   return n && n.length === 6 && n.every(isFinite) ? new DOMMatrix(n) : null;
 }
 

@@ -10,7 +10,7 @@ globalThis.ELEO = ELEO;
 
 // The same shape matrixOf accepts: six numbers split on whitespace or commas, all finite.
 function parses(t) {
-  const m = /^matrix\(([^)]*)\)$/.exec(t);
+  const m = /^matrix\(([^)]*)\)\s*$/.exec(t);
   if (!m) return false;
   const n = m[1].trim().split(/[\s,]+/).map(Number);
   return n.length === 6 && n.every(Number.isFinite);
