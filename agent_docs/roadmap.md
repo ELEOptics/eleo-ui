@@ -38,7 +38,7 @@ workflow.md TDD > Oracles). Agents propose the oracles; the user approves the co
 | U10 | `layout3D` takes typed input (phos-core's 3D surface points and normals from `OpticalModel::visualize`, or the 2D layout revolved, as today) with U12's glass fills. The interactive 3D viewport stays in phos (three.js through threlte). | `fixture: recorded phos-core 3D visualize of the sample: projected surface points match an independent projection within 0.5 px` | J |
 | U11 | Cut (review 2026-10-05, finding 2): adapters from phos-core types stay in phos, which already imports `@eleo/aurora-types`, until a second consumer needs them. | n/a | n/a |
 | U12 | Each glass gets its own fill (8 slots by rank in vd in a glass-blue band, pairwise ΔE2000 ≥ 8) and a legend entry; `glass` takes `{name, nd, vd}`. | `property: over designs of up to 8 distinct glasses drawn from a committed table of public catalog values (name, nd, vd), pairwise ΔE2000 ≥ 8 between fills in both themes (culori); the same name gives the same fill; at equal nd, a lower vd never gives a lighter fill` | C |
-| U13 | Every 2D plot emits typed events (hover with the nearest data point, its series role and values; click on a series, surface or field) and the plot shell shows a hover readout; curves, points and maps zoom and pan by redrawing at the zoomed range (`view`), with a reset. Marks carry their data (`data-*`) so hover needs no second pass. eleo-ui handles no app logic: phos decides what a click does. | `property: a synthetic pointer event at a data point's drawn position emits that point (round trip through the inverse transform), in every 2D renderer; zoom, pan and reset restore the original view exactly` | H |
+| U13 | Every 2D plot emits typed hover and click events and shows a hover readout; curves, points and maps zoom, pan and reset by redrawing at `view`. | `property: a synthetic pointer event at a data point's drawn position emits that point (round trip through the inverse transform), in every 2D renderer; zoom, pan and reset restore the original view exactly` | H |
 | U14 | Plots redraw fast enough for live updates during optimization: at reference sizes (10 000 spot points, a 256 × 256 map, 20 curves of 200 points, a 50-surface layout with 3 fields of 21 rays, 50 surfaces × 7 Seidel terms of bars plus the total) each renderer redraws in under 16 ms. | `measurement: performance.now() in the Playwright gallery tests, median of 20 redraws in headless Chromium on the developer's machine, recorded in the plan's Change log by each row that changes a renderer's drawing (not a CI gate)` | D on |
 | U15 | Any plot saves as a standalone SVG (tokens resolved to the current theme through computed styles, as svg-crowbar does, so it renders with no ELEO CSS) and as PNG at a chosen scale (`canvas.toBlob`); canvas plots save as PNG. No new dependency. | `property: an exported SVG opened in a page with no ELEO CSS matches the on-screen plot within 1% of pixels; a PNG's size is the plot's size times the scale` | I |
 | U16 | `layout2D` draws the part of a ray past its last physical point lighter and dotted beside its solid real part, from optional per-ray input in `RecordedLayout`. | `fixture: phos-core visualize_system_2d of the Wandersleb triplet (US 1,073,789, public domain) recorded by scripts/record-phos-core.py: for each ray the solid and dotted polylines share exactly its last alive point and together recover the ray within 0.01 mm`; `property: a layout without the input gives the same SVG for every ray point after the start`; `user: the layout tiles in both themes and palettes` (approved 2026-10-12, plan [#337]) | M |
@@ -72,7 +72,8 @@ Each row converts renderers from the sample's untyped `data` and analysis `kind`
 inputs (C extends the layout format), keeps every gallery tile (rebuilt by gallery adapters from recorded
 phos-core results where phos-core computes them, on sample data otherwise), and updates the Svelte wrappers.
 C follows B (both edit the layout). D splits `renderers.js` into modules, so E, F and G touch disjoint
-renderers and are independent of each other after D; H and I follow them (they touch every renderer).
+renderers and are independent of each other after D; H and I follow them (they touch every renderer). S (cross-browser, the
+user's placement of 2026-11-10) sits between H and I; interaction-polish, H's backlog batched, follows S and is independent of I.
 
 | Row | Plan | Scope | Exit criterion | Status |
 | -- | -- | -- | -- | -- |
@@ -88,9 +89,10 @@ renderers and are independent of each other after D; H and I follow them (they t
 | M | [#337] | Ray status in `layout2D` ([#302]): a ray's non-physical part drawn lighter and dotted from optional per-ray input; Wandersleb and Cassegrain layouts recorded. | - | done 2026-10-30 |
 | F | [#389] | `map2D` on typed grids and polar samples with a colorbar, and its Svelte wrapper; the gallery's wavefront and PSF tiles recorded, irradiance from a Gaussian. | - | done 2026-10-31 |
 | G | [#284] | `bars` (renderer and Svelte wrapper) for recorded Seidel coefficients; limit lines and bands on curves and bars. | - | done |
-| H | [#804] | Interaction (U13): typed hover and click events, `data-*` on marks, a hover dot, drop lines and tooltip drawn by `interact`, zoom, pan and reset by `viewBox` (maps by redrawing the window). It rewrites every renderer and its unit tests, so it absorbs the nits waiting in those files, each in the item that touches its lines: [#585] and [#586] (`curve.js`'s dead `PLOT_L/B/T`, the margins hand-copied by `bars.js`, `map2d.js`, `spot.js` and `scale.js`), [#263] (one bad-point predicate and step rule for `curve.js` and `spot.js`), [#448] and [#450] (`map2d.js`'s range and log-tick branches, which the map window edits), [#803] (`curve` rejects a non-string key label as `layout2D` does: a released-API tightening with its own changeset), [#659] and [#662] (`layout2d.js`'s redundant `virt` field and its mirror-bodies test anchor), [#554] (`fit` measures before drawing, under the gallery's zoom demo), [#588] and [#336] (stale comments and the old-plots stub in `scale`, `bars` and `curve` tests). The plan's Existing issues table confirms each against its Files; one whose file H leaves alone goes back to Deferred. ADR-0004's revisit trigger (hover, zoom and export most of a plan) is weighed at its interview, not re-spiked. Not here: export (I), legend placement outside the plot ([#534], waits for phos), the fan tile's three coincident wavelengths (a gallery data fix, noted at R, no issue). | U13 passes; every tile's Playwright screenshot unchanged; U14 holds for every renderer it touches; the release is planned (changesets). | done 2026-11-11 |
-| cross-browser |  | Run the Playwright tests in Chromium, Firefox and WebKit (user, 2026-11-10, after a Firefox-only drop-line bug at plan [#804]'s M1 re-demo, CR [#872]): one project per browser in `playwright.config.js`, all three installed by `scripts/check.sh` (a security trigger: `merge.sh` won't merge it, the user reviews), then sort the first run's failures into real cross-browser bugs and per-browser tolerances (pixel and text-size oracles such as [#424] and ADR-0003's; loosening an approved oracle is the user's). After H, before I. | `npx playwright test` green in all three browsers; every changed oracle approved by the user. | later |
-| I |  | Export: a small `standalone(svg)` helper modelled on svg-crowbar, PNG through `canvas.toBlob`, a save action in `PlotCard`. | U15 passes. | later |
+| H | [#804] | Interaction (U13): typed hover and click events, `data-*` on marks, the hover readout, zoom, pan and reset by `view`; ten renderer nits absorbed. | - | done 2026-11-11 |
+| S |  | Run the Playwright tests in Chromium, Firefox and WebKit (user, 2026-11-10, after a Firefox-only drop-line bug at plan [#804]'s M1 re-demo, CR [#872]): one project per browser in `playwright.config.js`, all three installed by `scripts/check.sh` and `.github/workflows/ci.yml` (both security triggers: `merge.sh` won't merge it, the user reviews), then sort the first run's failures three ways: real cross-browser bugs, fixed here; per-browser tolerances (pixel and text-size oracles such as [#424] and ADR-0003's; loosening an approved oracle is the user's), set to hold on macOS and on CI's Linux; and Chromium-only specs (the CDP pixel-ratio test in `gallery.spec.js`, `zoom-budget.spec.js`'s trace), kept to the chromium project by `testIgnore` in `playwright.config.js`, never a skip marker. It takes [#884], the backlog's one verified bug (a single-plot `curve` series with one NaN point draws nothing in Chromium, since `curve.js` draws only panels through `seriesPath`: draw the single plot through it too, so every browser breaks the line at a bad point; re-recording `renderers-baseline.json` is the user's, an approved oracle), with [#889] in the same item (once no renderer writes a NaN polyline, `interact.js`'s `isFinite` guard is dropped or commented, no browser run needed), and [#983] (the plots README's mirror-body line, one sentence the issue gives). Not here: H's interaction leftovers (row interaction-polish); [#1007] (waits for PR [#676]). | `npx playwright test` green in all three browsers, on macOS (`scripts/check.sh`) and in CI (Linux); a single-plot series with a bad point draws its finite runs in all three; every changed oracle approved by the user. | next |
+| interaction-polish |  | H's backlog batched (nits never get a row alone; one row once they add up to a plan): the keyboard gaps [#1004] (the pointer sets the current point, `stop()` drops the `tabindex` it added, bars and rays step by arrow), the hover tooltip's live region announcing every interpolated move [#883], dashed limit lines crawling on a pan [#996], and one shared drawn-points parser for the specs [#855]. Independent of I (no shared file), so the pick after S weighs the two. The plan's Existing issues table confirms each against its Files; one it leaves alone goes back to Deferred. Not here: export (I), legend placement outside the tile ([#534], waits for phos), [#850] and [#997] (their triggers, a hover or zoomed-map redraw over budget, have not fired). | Arrow keys step bars and rays and start from the hovered point; `stop()` leaves the host's `tabindex` as it found it; the live region announces only rested or snapped points; dashes hold still on a pan; every tile's Playwright screenshot unchanged; U14 holds for `interact`. | later |
+| I |  | Export: a small `standalone(svg)` helper modelled on svg-crowbar, PNG through `canvas.toBlob`, a save action in `PlotCard`; it exports what the current `view` draws (H's lesson, PR [#840]). | U15 passes. | later |
 | J |  | `layout3D` on typed input with U12's glass fills; then the major release removing `kind` and the sample-shaped `data`. | U10 passes; the major release is on npm. | later |
 
 Not here, owned by phos: workflow management, the design editor, the requirements table builder, the
@@ -133,6 +135,7 @@ Per row, the signal that makes the agent stop and ask the user whether to pivot.
 | -- | -- | -- |
 | D on | A converted tile's Playwright screenshot differs from the baseline captured at the row's start in anything but data (look, labels, layout) | pivot, cut, or continue? |
 | D on / U14 | A renderer's recorded median misses 16 ms at the reference sizes and the fix needs a new dependency or a WebGL path | pivot, cut, or continue? |
+| S | The first Firefox or WebKit run fails more than 20 tests that are neither Chromium-only nor inside a tolerance the user approves | split (land the three projects with the failing specs kept to chromium by `testIgnore`, then a follow-up row), or continue? |
 
 ## Shared tables
 
@@ -149,12 +152,10 @@ it is the only record of a deferral (no issue comments), and `git log -p` is its
 | [#70] | a layout we draw with crowding field labels: the user accepted three fields at plan [#337]'s M1 demo (2026-10-30) and named a legend in place of image-plane labels as the option to weigh then | 2026-10-06 |
 | [#125] | the next plan editing `glass.js` or its tests (J's glass fills) | 2026-10-07 |
 | [#139] | the next plan editing `glass.js` (J) | 2026-10-07 |
-| [#424] | a Chromium bump or CI run that changes the sample map's PNG bytes (a pixel tolerance changes an approved oracle, the user's) | 2026-10-31 |
 | [#639] | row J, which removes the sample canvas path (`map2d.js:184`'s 1 bitmap px wavefront rim, a hairline at dpr 2–3) and makes it moot: R dropped its two gallery tiles, so no tile shows it; a plan editing that path first takes it | 2026-11-05 |
 | [#257] | a consumer passing a typed-array range (outside `index.d.ts`'s contract) | 2026-10-12 |
-| [#281] | a review asking for a shared U14 harness (O re-measured the renderers it touched the existing way) | 2026-10-12 |
+| [#281] | a review asking for a shared U14 harness (O and H measured the renderers they touched the existing way; H added the hover test to `perf.spec.js` the same way) | 2026-10-12 |
 | [#230] | the next plan editing the style lint's exemptions | 2026-10-09 |
-| [#323] | the next plan editing `limits.js` or how `plotCell` takes its body (H's interview buckets it: its hover marks may change `body`; O rewrote `plotCell`'s margins, not its inputs) | 2026-10-12 |
 | [#534] | a consumer (phos) that places a legend outside a tile's footer (user, roadmap review 2026-11-04) | 2026-11-05 |
 | [#671] | the next plan editing `scripts/record-phos-core.py` (tolerance-curve, once ELEOptics/phos-core#372 closes) | 2026-11-10 |
 | [#602] | the user's decision on ADR-0003's wording (the wrappers measure the layout size, `fit` the transformed size), or a consumer that scales a wrapper's ancestor | 2026-11-05 |
@@ -162,11 +163,26 @@ it is the only record of a deferral (no issue comments), and `git log -p` is its
 | [#132] | row J's release (edits `iife.js`) | 2026-10-07 |
 | [#133] | row J's release (edits the classic-build tests) | 2026-10-07 |
 | [#158] | row J (decides whether `--stroke-ray` stays) | 2026-10-08 |
+| [#850] | a hover measurement over 16 ms (U14) on a slower machine or in CI: H measured at most 2.40 ms | 2026-11-11 |
+| [#997] | a zoomed map whose redraw slows as CR [#984]'s did: measured flat from 1x to 1000x on 2026-11-11 | 2026-11-11 |
+| [#1007] | PR [#676] (Version Packages) merged and plots 0.10.0 on npm; the next pick after that takes it, as [#598] went to P | 2026-11-11 |
 
 ## Change log
 
 One bullet per entry (bare lines render as one paragraph).
 
+- 2026-11-11: review (roadmap-reviewer, claude-opus-5-5)
+  - 1: accepted
+  - 2: accepted
+  - 3: accepted
+  - 4: accepted
+  - 5: accepted
+  - 6: accepted
+  - 7: accepted
+  - 8: accepted
+  - 9: accepted
+  - 10: accepted
+- 2026-11-11 next (director): cross-browser is S, next, the order as written: the user's placement of 2026-11-10 (after H, before I). Row H is done (PR [#840] merged); no open plan and no row pin, so the independence rule binds nothing. S takes [#884], the backlog's one verified bug (a single-plot `curve` series with one NaN point draws nothing: `curve.js` draws only panels through `seriesPath`, confirmed against the code; what a browser does with a NaN in a `points` list is the browser's, so it is S's), [#889] in the same item, and the one-line README fix [#983]. After the review, S's scope also names CI's browser install, the Chromium-only specs and tolerances that hold on macOS and Linux, its exit is green in all three with every first-run failure fixed or tolerated, and it has a kill criterion (more than 20 real failures: split or continue; the threshold is the director's guess, the user's to change). Row interaction-polish added, later, after S: H's backlog in `interact.js`, `limits.js` and the specs ([#1004], [#883], [#996], [#855]), which add up to a plan and which neither S, I nor J edits; it is independent of I, so the pick after S weighs the two. Runner-up: I (export), which the user placed after cross-browser; its row now says it exports what the current `view` draws (H's lesson). tolerance-curve still waits on ELEOptics/phos-core#372 (open 2026-11-11); J (the major release) last, as seeded. Newly deferred: [#850] and [#997] (their triggers have not fired) and [#1007] (plots-svelte's peer on plots `>=0.10.0`, waits for PR [#676]). [#323] and [#554] closed with H; [#424] is cited by S, so its Deferred row is dropped. No kill criterion fired: H's redraw medians are 0.95-3.70 ms and hover at most 2.40 ms, under 16 ms. Done row H and outcome U13 cut to one sentence; the Change log trimmed to its newest 10 bullets. 17 issues deferred.
 - 2026-11-11 (orchestrator): row H done: plan [#804] accepted at its M4 demo, PR [#840] ready for review.
 - 2026-11-10 (user): row cross-browser added, later, after H: the Playwright tests in Chromium, Firefox and WebKit, as its own plan after [#804] (the user's choice over folding it into [#804]). Found at [#804]'s M1 re-demo: the drop lines overshot the y axis in Firefox only (CR [#872]), which the Chromium-only tests could not see.
 - 2026-11-10 next (director): H (interaction, U13) next, the order as written. Rows Q (PR [#652]) and R (PR [#702]) are done; no open plan and no row pin, so the independence rule binds nothing. H first because it is the oldest open row the user has not held back, ADR-0004 (2026-11-06, Observable Plot weighed again, not adopted) names hover, zoom and export (H and I) as the point to weigh a library again, and ten nits wait on the renderer files it rewrites ([#263], [#336], [#448], [#450], [#585], [#586], [#588], [#659], [#662], [#803]): named in its row as absorbs, so their Deferred rows are dropped; [#323] and [#554] stay deferred until H's interview says whether it edits `limits.js` and `fit.js`. Runner-up: I (export), which shares `PlotCard` and every renderer with H, so it follows; tolerance-curve still waits on ELEOptics/phos-core#372 (open 2026-11-10); J (the major release) last, as seeded. New backlog since the last pick: [#659], [#662], [#671] (Q's reviews) and [#803] (R's); [#671] is the recorder's, deferred to tolerance-curve. [#639] now waits for J: R dropped the two sample canvas map tiles, so nothing shows its rim until J removes the path. The backlog holds no verified bug ([#803] is hardening: `curve` accepts what `layout2D` rejects, and no consumer sends it; the rest nits). No kill criterion fired: R changed every tile beyond its data at the user's own asks, and no redraw measured over 16 ms. R left two ADR lines to the user (ADR-0002:18's size budget, ADR-0003:74-75's widths) and one gallery data fix with no issue (the fan tile's three wavelengths coincide, so one colour shows under a three-entry key). No row added or moved, so no review. Done rows Q and R and outcomes U17, U19 and U21 cut to one sentence; the Change log trimmed to its newest 10 bullets. 17 issues deferred.
@@ -175,11 +191,9 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-05 next (director): ray-visibility is Q, next, ahead of H. Row P is done (PR [#612]); no open plan, so the independence rule binds nothing. Q is the order as written: the user's ask of 2026-11-01, held only for P, whose recorder and fixtures it shares; five deferred issues wait on its files ([#138], [#160], [#355], [#368], [#385]). It absorbs P's gallery leftovers [#616] and [#617] (both in `gallery/index.html`, which its Cassegrain tile edits), and carries P's lessons (the chief-ray fixtures' `referenceWavelengthNm`, `status_name()`, the tile floor from `minWidth`). Runner-up: H, which the `curve.js`, `limits.js` and `fit.js` cluster ([#323], [#554], [#556], [#585], [#586], [#588]) waits for; tolerance-curve still waits on ELEOptics/phos-core#372 (open). [#630] closed: fixed by CR [#632] in P's M3. [#639] (the sample wavefront rim at high pixel ratios, a `map2d.js` change) joins [#448] and [#450] in waiting for the next plan editing `map2d.js`. The backlog holds no verified bug; no kill criterion fired (P's fan tile changed beyond its data at the user's own asks). No row added or moved, so no review. Done row P cut to one sentence; the Change log trimmed to its newest 10 bullets. 29 issues deferred.
 - 2026-11-05 plan [#603]: row P done (PR [#612]). The ray fans are recorded TransverseRayError for the achromat, the Cooke and a stop-clipped Cooke (dead samples as gaps), drawn from each field's chief ray at the reference wavelength: the user's no-go at M1, since phos-core measures from the paraxial image point (CR [#621]); U6's text and ray-fan oracle say so. `minWidth(name, props)` (a plots minor) sizes every gallery tile, so map tiles count their colorbar ([#587]). At the user's asks the gallery became one tile per line at the page width, light then dark (CR [#622]), its canvas tiles redraw at their width (CR [#632]), and ADR-0003's gallery wording was fixed (CR [#633]). plots-svelte peers plots `>=0.8.0 <1` ([#598]). Left for later: [#616] (the fan tile's footer key), [#617], [#639] (the wavefront rim at high pixel ratios).
 - 2026-11-05 next (director): P (recorded-fans) next, ahead of ray-visibility. Row O is done (PR [#533], ADR-0003 accepted); its plots and plots-svelte minors shipped when the user merged Version Packages (PR [#511], 2026-11-05: plots 0.8.0, plots-svelte 0.5.0). No open plan, so the independence rule binds nothing. P is the order as written: N's continuation and the smallest plan, its wait (ELEOptics/phos-core#2142) closed 2026-11-02, and O's rule now sizes its fan tile, so the tile is approved once. It absorbs the gallery hardening from O's reviews that lives in the files it edits: [#555] (hand-kept `FIT` and tile lists) and [#587] (map `--row-min` without the colorbar), the fixture nit [#356], and [#598] (plots-svelte's peer on plots `>=0.8.0`), whose wait, PR [#511], has merged. Runner-up: ray-visibility (U17), which shares the recorder and `tests/fixtures/phos-core/` with P, so it waits; tolerance-curve still waits on ELEOptics/phos-core#372 (open). The backlog holds no verified bug: [#587] and [#554] are hardening (U18 and U14 hold at every tested size), the rest nits, each deferred to the plan that edits its files (H touches every renderer, so the `curve.js` and `limits.js` cluster [#323], [#556], [#585], [#586] waits for it). [#602] is the user's: an ADR-0003 wording call, deferred until made. No kill criterion fired. No row added or moved, so no review. Done row O and outcome U18 cut to one sentence; the Change log trimmed to its newest 10 bullets. 28 issues deferred.
-- 2026-11-05 plan [#512]: row O done (PR [#533]). ADR-0003 accepted at M1; every framed renderer and `layout2D` draw to it, the gallery sizes rows from `PLOT_SIZES`, plots-svelte's wrappers measure their box, `Legend` takes `values`. Left open: [#598] (plots-svelte peer `>=0.8.0`, waits for the Version packages PR: raising it now breaks `npm ci`) and [#602] (wrappers ignore ancestor transforms; an ADR-0003 wording question).
-- 2026-11-04 plan (user): O planned as [#512] (3 milestones, 21 items). Interview: one ratio 1/18 of the frame width with a 9 px floor; text keeps growing above 13 px by the cube root (layout2D: W/70, √ above 910, labels hidden under 9 px); strokes and dots grow by √ above the band; renderers draw at their rendered width through a new `fit(el, draw)`; ADR-0003 supersedes ADR-0001's 1 px strokes. U18's text and oracle rewritten to match (the knee in place of the ceiling, the table per panel), its kill criterion reworded per panel, and N's footprint test superseded by U18's Playwright test.
-- 2026-11-04 next (director): O (plot-scale, [#498]) next, ahead of ray-visibility and recorded-fans. Row N is done (PR [#470]); its plots minor and plots-svelte patch ship when the user merges Version Packages (PR [#511]). ELEOptics/phos-core#2142 closed 2026-11-02 (phos-core plan ELEOptics/phos-core#2167: each fan sample's ray status in the Python client), so recorded-fans is unblocked and its Status drops the wait; tolerance-curve still waits on ELEOptics/phos-core#372. O first because it is the user's latest ask (N's one tile took seven demo passes for want of a rule) and sets the rule every later tile draws under: recorded-fans' fan tile and ray-visibility's Cassegrain tile would otherwise be approved twice. O absorbs [#156] (layout2D's per-character label room), [#330] (curve's frame-height clamp) and the plots README nits [#311], [#320], [#328]. Runner-up: recorded-fans, the continuation of N and the smallest plan, which shares `gallery/index.html` and `tests/gallery.spec.js` with O, so it waits; ray-visibility third, sharing `layout2d.js` with O and the recorder with recorded-fans. No ADR since 2026-10-31; no kill criterion fired. Done rows and outcomes cut to one line and the Change log trimmed to its newest 10 bullets (the trim rule; `git log -p` keeps the rest). 22 issues deferred.
-- 2026-11-04 plan [#464]: row N done again (PR [#470]). After the first ready, the user reshaped the footprint tile over seven demo passes (CRs [#487], [#492], [#496], [#499], [#502], [#507]): it now draws as the spot tile does, with `spot`'s new `textScale` (Core, user) keeping its caption at the meta's size and tight to the plot, and the tile as wide as its plot. The general rule is row plot-scale ([#498]).
 
+[#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
+[#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#126]: https://github.com/ELEOptics/eleo-ui/issues/126
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
@@ -187,7 +201,6 @@ One bullet per entry (bare lines render as one paragraph).
 [#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
 [#144]: https://github.com/ELEOptics/eleo-ui/issues/144
-[#156]: https://github.com/ELEOptics/eleo-ui/issues/156
 [#158]: https://github.com/ELEOptics/eleo-ui/issues/158
 [#160]: https://github.com/ELEOptics/eleo-ui/issues/160
 [#162]: https://github.com/ELEOptics/eleo-ui/issues/162
@@ -199,11 +212,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#284]: https://github.com/ELEOptics/eleo-ui/issues/284
 [#30]: https://github.com/ELEOptics/eleo-ui/issues/30
 [#302]: https://github.com/ELEOptics/eleo-ui/issues/302
-[#311]: https://github.com/ELEOptics/eleo-ui/issues/311
-[#320]: https://github.com/ELEOptics/eleo-ui/issues/320
 [#323]: https://github.com/ELEOptics/eleo-ui/issues/323
-[#328]: https://github.com/ELEOptics/eleo-ui/issues/328
-[#330]: https://github.com/ELEOptics/eleo-ui/issues/330
 [#336]: https://github.com/ELEOptics/eleo-ui/issues/336
 [#337]: https://github.com/ELEOptics/eleo-ui/issues/337
 [#355]: https://github.com/ELEOptics/eleo-ui/issues/355
@@ -216,14 +225,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#448]: https://github.com/ELEOptics/eleo-ui/issues/448
 [#450]: https://github.com/ELEOptics/eleo-ui/issues/450
 [#464]: https://github.com/ELEOptics/eleo-ui/issues/464
-[#470]: https://github.com/ELEOptics/eleo-ui/issues/470
-[#487]: https://github.com/ELEOptics/eleo-ui/issues/487
-[#492]: https://github.com/ELEOptics/eleo-ui/issues/492
-[#496]: https://github.com/ELEOptics/eleo-ui/issues/496
 [#498]: https://github.com/ELEOptics/eleo-ui/issues/498
-[#499]: https://github.com/ELEOptics/eleo-ui/issues/499
-[#502]: https://github.com/ELEOptics/eleo-ui/issues/502
-[#507]: https://github.com/ELEOptics/eleo-ui/issues/507
 [#511]: https://github.com/ELEOptics/eleo-ui/issues/511
 [#512]: https://github.com/ELEOptics/eleo-ui/issues/512
 [#533]: https://github.com/ELEOptics/eleo-ui/issues/533
@@ -256,6 +258,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#666]: https://github.com/ELEOptics/eleo-ui/issues/666
 [#669]: https://github.com/ELEOptics/eleo-ui/issues/669
 [#671]: https://github.com/ELEOptics/eleo-ui/issues/671
+[#676]: https://github.com/ELEOptics/eleo-ui/pull/676
 [#677]: https://github.com/ELEOptics/eleo-ui/issues/677
 [#70]: https://github.com/ELEOptics/eleo-ui/issues/70
 [#702]: https://github.com/ELEOptics/eleo-ui/pull/702
@@ -263,6 +266,15 @@ One bullet per entry (bare lines render as one paragraph).
 [#803]: https://github.com/ELEOptics/eleo-ui/issues/803
 [#804]: https://github.com/ELEOptics/eleo-ui/issues/804
 [#840]: https://github.com/ELEOptics/eleo-ui/pull/840
+[#850]: https://github.com/ELEOptics/eleo-ui/issues/850
+[#855]: https://github.com/ELEOptics/eleo-ui/issues/855
 [#86]: https://github.com/ELEOptics/eleo-ui/issues/86
 [#872]: https://github.com/ELEOptics/eleo-ui/issues/872
+[#883]: https://github.com/ELEOptics/eleo-ui/issues/883
+[#884]: https://github.com/ELEOptics/eleo-ui/issues/884
+[#889]: https://github.com/ELEOptics/eleo-ui/issues/889
 [#90]: https://github.com/ELEOptics/eleo-ui/issues/90
+[#983]: https://github.com/ELEOptics/eleo-ui/issues/983
+[#984]: https://github.com/ELEOptics/eleo-ui/issues/984
+[#996]: https://github.com/ELEOptics/eleo-ui/issues/996
+[#997]: https://github.com/ELEOptics/eleo-ui/issues/997
