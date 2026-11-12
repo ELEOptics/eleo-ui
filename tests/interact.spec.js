@@ -841,9 +841,9 @@ test('select events', async ({ page }) => {
   ];
   for (const [tile, sel, check] of cases) {
     await bind(page, tile);
+    const before = await page.evaluate(() => window.HOST.querySelector('svg').outerHTML);
     const p = await page.evaluate((sel) => window.T.hit(window.HOST, sel), sel);
     expect(p, `${tile}: a mark matching ${sel} the hit test finds`).not.toBeNull();
-    const before = await page.evaluate(() => window.HOST.querySelector('svg').outerHTML);
     await page.mouse.click(p.x, p.y);
     const got = await page.evaluate(() => window.SELECT);
     expect(got, `${tile}: one select event`).toHaveLength(1);
