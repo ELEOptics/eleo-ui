@@ -10,7 +10,10 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 // project -> [{ file, name }]; a test's name is its describe titles and its title, as PENDING spells it.
 // PERF and SHOTS turn on the opt-in specs, which are all Chromium-only files, so one listing serves every test.
-function listing() {
+// listed once per run: the spawn is the cost, and the three callers only read the result
+let cache;
+const listing = () => (cache ??= list());
+function list() {
   const out = execFileSync('npx', ['playwright', 'test', '--list', '--reporter=json'], {
     cwd: root,
     encoding: 'utf8',
