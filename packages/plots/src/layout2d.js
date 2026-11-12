@@ -5,6 +5,8 @@ import { idx, svg, NS, esc } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
 import { layoutText, layoutWeight } from './scale.js';
 import { keyLayout, keyMarkup } from './key.js';
+import { vertexRadius, thickLensF } from './lens.js';
+import { clipPolyline, clipPolygon, dashOffset } from './clip.js';
 
 // plots.css `.eleo-tick` as presentation attributes, so the standalone entry needs only tokens.css; any CSS rule still wins over them.
 // The size is an inline style on each text (ADR-0003), since the class's size would beat an attribute.
@@ -238,34 +240,86 @@ export function layout2D(o) {
     kl = keyLayout(kents, tx0, { L: KP, R: W - KP, maxRow: 1000 });
   }
   var H = Math.round(Math.round(Hg) + (kl && kl.rows ? tx0 * (1.4 * kl.rows - 0.4) + 0.6 * tx0 : 0));
+  // `view`: { x: [zlo, zhi], y: [ylo, yhi] } in mm, the window the geometry band shows, fitted at the largest one scale and centred in it. The band is the view-less geometry's room: x inside the pads (and the label room), y from
+  // the top label room to above the scale bar, so the labels, the scale bar and the key stay clear. An axis that is not a finite lo < hi pair keeps the box's range, as curve's does; with no valid axis there is no view.
+  // The band rides on the data group, with or without a view, as data-band="x y w h" in viewBox px, and clips the geometry (a clipPath on the group) with a view; the height is the view-less one.
+  var vr = function (a) { return Array.isArray(a) && a.length === 2 && Number.isFinite(a[0]) && Number.isFinite(a[1]) && a[0] < a[1] ? a : null; };
+  var vx = o.view && vr(o.view.x), vy = o.view && vr(o.view.y), s0 = s, band = [PAD, top, W - 2 * PAD - room, (B.yhi - B.ylo) * s0].map(n); // rounded as written, so the fit and interact's window agree
+  if (vx || vy) {
+    var wz = vx || [B.zmin, B.zmax], wy = vy || [B.ylo, B.yhi];
+    s = Math.min(band[2] / (wz[1] - wz[0]), band[3] / (wy[1] - wy[0]));
+    tx = band[0] + band[2] / 2 - (wz[0] + wz[1]) / 2 * s; ty = band[1] + band[3] / 2 + (wy[0] + wy[1]) / 2 * s;
+  }
   function n(v) { return +v.toFixed(3); }
-  function pts(r) { return r.map(function (p) { return n(p[0]) + "," + n(p[1]); }).join(" "); }
+  // Cut geometry is written to 0.001 px at the scale (3 mm decimals are tens of px at a deep zoom), so a cut end stays where the cut put it.
+  var pd = 3; // set below with the cut
+  function np(v) { return +v.toFixed(pd); }
+  function pts(r) { return r.map(function (p) { return np(p[0]) + "," + np(p[1]); }).join(" "); }
   function X(z) { return (z * s + tx).toFixed(2); } function Y(y) { return (ty - y * s).toFixed(2); }
-  function line(z1, y1, z2, y2, rest) { return '<line x1="' + n(z1) + '" y1="' + n(y1) + '" x2="' + n(z2) + '" y2="' + n(y2) + '" ' + rest + " " + NS + "/>"; }
-  var M = +s.toFixed(6), g = '<g transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')">';
-  g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"');
+  // CR #984: with a view the geometry is cut to the band plus 32 px (past REACH and the widest stroke cap, so a cut end is never hovered inside the frame), in mm; without one nothing is cut.
+  // 31.9 px, 0.1 short of 32, so the rounding of the written points and of the matrix never leaves a cut end past 32 px.
+  var cut = null;
+  if (vx || vy) { var sl = 31.9 / s; cut = [(band[0] - tx) / s - sl, (ty - band[1] - band[3]) / s - sl, (band[0] + band[2] - tx) / s + sl, (ty - band[1]) / s + sl]; pd = Math.min(20, Math.max(3, Math.ceil(Math.log10(s)) + 3)); }
+  function line(z1, y1, z2, y2, rest, surf, dash) {
+    if (cut) { var cr = clipPolyline([[z1, y1], [z2, y2]], cut)[0]; if (!cr) return ""; z1 = cr.points[0][0]; y1 = cr.points[0][1]; z2 = cr.points[1][0]; y2 = cr.points[1][1]; rest += dashOffset(dash, cr.cut * s); }
+    return '<line x1="' + np(z1) + '" y1="' + np(y1) + '" x2="' + np(z2) + '" y2="' + np(y2) + '" ' + rest + (surf == null ? "" : ' data-surface="' + surf + '"') + " " + NS + "/>"; }
+  var M = +s.toFixed(6), g = '<g data-view="layout" transform="matrix(' + M + " 0 0 " + -M + " " + +tx.toFixed(3) + " " + +ty.toFixed(3) + ')"';
+  g += ' data-band="' + band.map(n).join(" ") + '"';
+  if (vx || vy) {
+    // The clip is the band in mm (the clipPath is in the group's own space), its id a hash of the band's numbers.
+    var bq = [(band[0] - tx) / s, (ty - band[1] - band[3]) / s, band[2] / s, band[3] / s].map(n).join(" "), bid = "eleo-b";
+    for (var bj = 0, bh = 5381; bj < bq.length; bj++) bh = (bh * 33 ^ bq.charCodeAt(bj)) >>> 0;
+    bid += bh.toString(36);
+    var bm = bq.split(" ");
+    g += ' clip-path="url(#' + bid + ')"><clipPath id="' + bid + '"><rect x="' + bm[0] + '" y="' + bm[1] + '" width="' + bm[2] + '" height="' + bm[3] + '"/></clipPath>';
+  } else g += ">";
+  g += line(B.zmin + 1, 0, B.zmax - 1, 0, 'stroke="var(--plot-axis)" style="stroke-width:var(--stroke-hair)" stroke-dasharray="4 6"', undefined, "4 6");
   // A {name, nd, vd} glass fills per name (glassFill over drawnGlasses, the rule glassLegend uses), through style: a CSS color function
   // in a presentation attribute is not safe. A style with var() is never dropped, so the fill attribute never applies to these;
   // glassFill falls back from the band tokens to crown and flint itself. "crown" and "flint" draw as before.
-  var fills = glassFill(drawnGlasses(S)), bodies = ""; // mirror bodies, drawn after the rays (CR #381)
+  var fills = glassFill(drawnGlasses(S)), bodies = "", element = 0; // mirror bodies, drawn after the rays (CR #381)
+  // CR #958: a glass polygon's element properties as data-* (1-based over glass polygons). r1 and r2 may read "Infinity" (a flat surface); any other non-finite value is left out.
+  function elementAttrs(a, b) {
+    var named = typeof a.glass === "object", name = named ? a.glass.name : a.glass, r1 = vertexRadius(a.profile), r2 = vertexRadius(b.profile), vz = function (p) { return p.reduce(function (v, q) { return Math.abs(q[1]) < Math.abs(v[1]) ? q : v; })[0]; };
+    var ct = vz(b.profile) - vz(a.profile), d = 2 * Math.max.apply(null, a.profile.concat(b.profile).map(function (q) { return Math.abs(q[1]); }));
+    var out = ' data-element="' + ++element + '" data-glass="' + esc(name) + '"';
+    function put(k, v, inf) { if (Number.isFinite(v) || (inf && v === Infinity)) out += " data-" + k + '="' + v + '"'; }
+    if (named) { put("nd", a.glass.nd); put("vd", a.glass.vd); }
+    put("r1", r1, true); put("r2", r2, true); put("ct", ct); put("diameter", d);
+    if (named) put("f", thickLensF(a.glass.nd, r1, r2, ct));
+    return out;
+  }
   S.forEach(function (a, i) {
     var b = S[i + 1], obj = a.glass && typeof a.glass === "object";
-    if (a.glass && b) g += '<polygon points="' + pts(a.profile.concat(b.profile.slice().reverse())) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + "/>";
+    // The element number counts every glass polygon, drawn or not.
+    var ea = a.glass && b ? elementAttrs(a, b) : "", gp = a.glass && b ? (cut ? clipPolygon(a.profile.concat(b.profile.slice().reverse()), cut) : a.profile.concat(b.profile.slice().reverse())) : [];
+    if (gp.length) g += '<polygon points="' + pts(gp) + '" fill="var(--glass-' + (a.glass === "flint" ? "flint" : "crown") + ')" stroke="var(--glass-edge)" style="' + (obj ? "fill:" + fills.get(a.glass.name) + ";" : "") + 'stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '"' + ea + " " + NS + "/>";
     // A mirror is a --mech body with a flat back (CR #371), drawn after the ray group (CR #381), hatched at 45 degrees every 32 px (mock A); its clipPath id is a hash of its points, so it is
     // deterministic and one polygon never gets two ids. An obscuration is an opaque bar from -sd to +sd (CR #360; the image line's ink and width),
     // left out when it lies within a mirror body (its z inside, its sd from the mirror's hole up to the mirror's sd).
     if (a.mirror) mirrorBodies(L, i).forEach(function (b) {
-      var P = pts(b), id = "eleo-m", zs = b.map(function (p) { return p[0]; }), ys = b.map(function (p) { return p[1]; }), z0 = Math.min.apply(null, zs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), d = "";
+      var cb = cut ? clipPolygon(b, cut) : b;
+      if (!cb.length) return;
+      var P = pts(cb), id = "eleo-m", zs = b.map(function (p) { return p[0]; }), ys = b.map(function (p) { return p[1]; }), z0 = Math.min.apply(null, zs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys), d = "";
       for (var j = 0, h = 5381; j < P.length; j++) h = (h * 33 ^ P.charCodeAt(j)) >>> 0;
       id += h.toString(36);
-      for (var k = z0 - (y1 - y0); k <= Math.max.apply(null, zs); k += 32 / s) d += "M" + n(k) + "," + n(y0) + "L" + n(k + y1 - y0) + "," + n(y1);
-      bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" ' + NS + '/>'
+      // With a view only the lines crossing the window are drawn (CR #969): from the grid step at or above the first one that reaches it (the same phase as without), to the last that does not pass it.
+      var kb = z0 - (y1 - y0), kmax = Math.max.apply(null, zs), step = 32 / s, ka = kb, j0 = 0; // lines at kb + j * step: an integer index, since k += step stalls once step is under half an ulp of k (#977)
+      if (vx || vy) {
+        var vzlo = (band[0] - tx) / s, vzhi = (band[0] + band[2] - tx) / s, vylo = (ty - band[1] - band[3]) / s, vyhi = (ty - band[1]) / s;
+        ka = Math.max(kb, vzlo - (Math.min(y1, vyhi) - y0)); kmax = Math.min(kmax, vzhi - (Math.max(y0, vylo) - y0));
+        j0 = Math.ceil((ka - kb) / step - 1e-9);
+      }
+      // The counter runs from 0 so it still advances when j0 is past 2^53, and a body with 1e4 or more lines (or a NaN count) draws no hatch: no drawable window needs that many (#981).
+      var j1 = Math.floor((kmax - kb) / step + 1e-9), nl = j1 - j0;
+      if (nl < 1e4) for (var c = 0; c <= nl; c++) { var k = kb + (j0 + c) * step, h0 = [k, y0], h1 = [k + y1 - y0, y1]; if (cut) { var hr = clipPolyline([h0, h1], cut)[0]; if (!hr) continue; h0 = hr.points[0]; h1 = hr.points[1]; } d += "M" + np(h0[0]) + "," + np(h0[1]) + "L" + np(h1[0]) + "," + np(h1[1]); }
+      bodies += '<clipPath id="' + id + '"><polygon points="' + P + '"/></clipPath><polygon points="' + P + '" fill="var(--mech)" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-edge)" stroke-linejoin="round" data-surface="' + i + '" ' + NS + '/>'
         + '<path d="' + d + '" clip-path="url(#' + id + ')" fill="none" stroke="var(--mech-edge)" style="stroke-width:var(--stroke-hair)" ' + NS + "/>";
     });
-    if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
-    if (a.stop) [1, -1].forEach(function (k) { var m = k * a.sd, e = stopEnd(S, i, k, B); if (e - m) g += line(a.z, m, a.z, e, 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"'); });
+    if (a.obscuration && !S.some(function (m, j) { return m.mirror && Math.abs(a.sd) <= m.sd && Math.abs(a.sd) >= (m.hole || 0) && mirrorBodies(L, j).some(function (b) { return a.z >= Math.min.apply(null, b.map(function (p) { return p[0]; })) - 1e-9 && a.z <= Math.max.apply(null, b.map(function (p) { return p[0]; })) + 1e-9; }); })) g += line(a.z, -a.sd, a.z, a.sd, 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"', i);
+    if (a.stop) [1, -1].forEach(function (k) { var m = k * a.sd, e = stopEnd(S, i, k, B); if (e - m) g += line(a.z, m, a.z, e, 'stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" stroke-linecap="round"', i); });
   });
-  var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0];
+  var RAYS = movedStarts(L), ends = [], img = S.filter(function (x) { return x.image; })[0], imgAt = S.indexOf(img);
   // One group per opacity, so it does not darken where rays cross (a per-polyline stroke-opacity would). With `status`, Virtual and Dead runs go in a faded
   // group placed first, so live light sits on top; a layout without `status` has none and draws as it always did.
   var live = "", faded = "";
@@ -277,26 +331,30 @@ export function layout2D(o) {
       // each run of one status is a polyline with data-status; without it adjacent solid runs (Alive and Dead) join and Virtual runs are dotted (a chief's solid runs keep their 6 4 dash).
       var r = rays[i], st = statusOf(L, k, i), end = L.status || st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead"), runs = [];
       for (var j = 1; j <= end; j++) {
-        var sj = L.status ? st[j - 1] : st[j], last = runs[runs.length - 1], virt = sj === "Virtual";
+        var sj = L.status ? st[j - 1] : st[j], last = runs[runs.length - 1];
         if (show.indexOf(sj) < 0) { runs.push(null); continue; } // a hidden segment is a gap: no run continues over it
-        if (last && (L.status ? last.st === sj : last.virt === virt)) last.q.push(r[j]);
-        else runs.push({ st: sj, virt: virt, q: [r[j - 1], r[j]] });
+        if (last && (L.status ? last.st === sj : (last.st === "Virtual") === (sj === "Virtual"))) last.q.push(r[j]);
+        else runs.push({ st: sj, q: [r[j - 1], r[j]] });
       }
       // Without `status` the legacy head stays: a lone solid point before the dots, or a ray with no segment. With it a run needs a segment.
       runs = runs.filter(Boolean);
-      if (!L.status && st[0] !== "Virtual" && show.indexOf(st[0]) >= 0 && (!runs.length || runs[0].virt)) runs.unshift({ st: st[0], virt: false, q: [r[0]] });
+      if (!L.status && st[0] !== "Virtual" && show.indexOf(st[0]) >= 0 && (!runs.length || runs[0].st === "Virtual")) runs.unshift({ st: st[0], q: [r[0]] });
       // A one-point ray with alive 0 is Virtual throughout: its lone point stays a dotted run, as before the status.
-      if (!L.status && r.length === 1 && st[0] === "Virtual" && show.indexOf("Virtual") >= 0) runs.push({ st: "Virtual", virt: true, q: [r[0]] });
+      if (!L.status && r.length === 1 && st[0] === "Virtual" && show.indexOf("Virtual") >= 0) runs.push({ st: "Virtual", q: [r[0]] });
       runs.forEach(function (u) {
-        var dash = u.virt ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
-        var poly = '<polyline points="' + pts(u.q) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : "") + (L.status ? ' data-status="' + u.st + '"' : "") + " " + NS + "/>";
-        if (L.status && u.st !== "Alive") faded += poly; else live += poly;
+        var dash = u.st === "Virtual" ? "1 3" : i === c && set !== "chief" ? "6 4" : "";
+        // data-from: the uncut run's index of a cut piece's first point, so interact's indices into the drawn polyline map back to the data.
+        var pieces = !cut ? [{ from: 0, points: u.q }] : u.q.length > 1 ? clipPolyline(u.q, cut) : u.q.filter(function (p) { return p[0] >= cut[0] && p[0] <= cut[2] && p[1] >= cut[1] && p[1] <= cut[3]; }).map(function (p) { return { from: 0, points: [p] }; });
+        pieces.forEach(function (pc) {
+          var poly = '<polyline points="' + pts(pc.points) + '" fill="none" stroke="' + idx(k) + '" style="stroke-width:' + n(layoutWeight(W)) + 'px" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' + dashOffset(dash, pc.cut * s) : "") + (L.status ? ' data-status="' + u.st + '"' : "") + ' data-field="' + k + '" data-ray="' + i + '"' + (pc.from ? ' data-from="' + pc.from + '"' : "") + " " + NS + "/>";
+          if (L.status && u.st !== "Alive") faded += poly; else live += poly;
+        });
       });
     });
     ends[k] = rays[c][rays[c].length - 1];
   });
   g += (faded ? '<g opacity=".35">' + faded + "</g>" : "") + '<g opacity=".85">' + live + "</g>" + bodies;
-  if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"');
+  if (img) g += line(img.z, Math.min(img.sd, B.yhi), img.z, Math.max(-img.sd, B.ylo), 'stroke="var(--ink)" style="stroke-width:var(--stroke-curve)" stroke-linecap="round"', imgAt);
   g += "</g>";
   if (!tx0) return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
   var tsz = ' style="font-size:' + n(tx0) + 'px"';
@@ -320,7 +378,10 @@ export function layout2D(o) {
   }
   tags.forEach(function (a) { g += label(a.x, a.py, a.t, "start"); });
   var Hd = Math.round(Hg), by = Hd - 8 * u;
-  g += '<path d="M' + n(8 * u) + "," + n(by - 4 * u) + "v" + n(8 * u) + "m0," + n(-4 * u) + "h" + n(10 * s) + "m0," + n(-4 * u) + "v" + n(8 * u) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + n(10 * s + 16 * u) + '" y="' + n(by + 3 * u) + '"' + tsz + '>10 mm</text>';
+  // 10 mm; zoomed, the longest 1-2-5 mm length no longer than the px that 10 mm takes at the first scale.
+  var bar = 10;
+  if (vx || vy) { var e = Math.floor(Math.log10(10 * s0 / s)); bar = [5, 2, 1].map(function (m) { return m * Math.pow(10, e); }).concat([5 * Math.pow(10, e - 1)]).filter(function (v) { return v * s <= 10 * s0 + 1e-9; })[0]; }
+  g += '<path d="M' + n(8 * u) + "," + n(by - 4 * u) + "v" + n(8 * u) + "m0," + n(-4 * u) + "h" + n(bar * s) + "m0," + n(-4 * u) + "v" + n(8 * u) + '" fill="none" stroke="var(--ink)" style="stroke-width:var(--stroke-edge)" ' + NS + '/><text ' + TICK + ' x="' + n(bar * s + 16 * u) + '" y="' + n(by + 3 * u) + '"' + tsz + '>' + +bar.toPrecision(6) + ' mm</text>';
   if (kl && kl.rows) g += keyMarkup(kl.places, kents, tx0, Hd, { mark: true });
   return svg(W, H, g, "Lens layout, YZ section, true scale, colored by " + colorBy);
 }

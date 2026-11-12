@@ -16,13 +16,14 @@ test('wrappers pass width through on the server', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-'));
   try {
     const stub = (name) => `export const ${name} = (p) => '<svg data-width="' + p.width + '"></svg>';`;
-    writeFileSync(join(dir, 'plots.js'), ['curve', 'rayFan', 'bars', 'spot', 'layout2D'].map(stub).join('\n') + '\nexport const map2D = () => ({ lo: 0, hi: 1 });');
+    writeFileSync(join(dir, 'plots.js'), ['curve', 'rayFan', 'bars', 'spot', 'layout2D'].map(stub).join('\n') + '\nexport const map2D = () => ({ lo: 0, hi: 1 });\nexport const interact = () => () => {};\nexport const readout = () => \'\';');
     writeFileSync(join(dir, 'theme.js'), 'export const themeTick = () => 0;');
+    writeFileSync(join(dir, 'interact.js'), readFileSync(new URL('../../packages/plots-svelte/src/lib/interact.svelte.js', import.meta.url), 'utf8').replaceAll("'@eleoptics/plots'", '"./plots.js"'));
     const load = async (name) => {
       const src = readFileSync(new URL(`../../packages/plots-svelte/src/lib/${name}.svelte`, import.meta.url), 'utf8');
       const js = compile(src, { generate: 'server', filename: `${name}.svelte` }).js.code
         .replaceAll("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')))
-        .replaceAll("'@eleoptics/plots'", '"./plots.js"').replaceAll("'./theme.svelte.js'", '"./theme.js"');
+        .replaceAll("'@eleoptics/plots'", '"./plots.js"').replaceAll("'./theme.svelte.js'", '"./theme.js"').replaceAll("'./interact.svelte.js'", '"./interact.js"');
       writeFileSync(join(dir, `${name}.js`), js);
       return (await import(pathToFileURL(join(dir, `${name}.js`)).href)).default;
     };
@@ -42,5 +43,163 @@ test('wrappers pass width through on the server', async () => {
     assert.match(render(Map2D, { props: { values: [[0, 1], [1, 0]], extent: [-1, 1, -1, 1], width: 300 } }).body, /<div class="eleo-svg"/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Plan #804, outcome O4 (issue #843). oracle: closed-form (binds minus stops is the number of live listeners: one while marks, tooltip or a callback is on, none when marks and tooltip are off and no callback is given; CR #857).
+// The hover action is imported against a stub `interact` that counts binds and stops.
+test('hover binds unless marks and tooltip are off', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-hover-'));
+  try {
+    const count = { binds: 0, stops: 0 };
+    globalThis.__hoverCount = count;
+    writeFileSync(join(dir, 'plots.js'), 'export const interact = () => { globalThis.__hoverCount.binds++; return () => { globalThis.__hoverCount.stops++; }; };');
+    writeFileSync(join(dir, 'interact.js'), readFileSync(new URL('../../packages/plots-svelte/src/lib/interact.svelte.js', import.meta.url), 'utf8').replaceAll("'@eleoptics/plots'", '"./plots.js"'));
+    const { hover } = await import(pathToFileURL(join(dir, 'interact.js')).href);
+    const live = () => count.binds - count.stops;
+    const el = {};
+
+    const off = { marks: false, tooltip: false };
+    const none = hover(el, off);
+    assert.equal(live(), 0, 'marks and tooltip off with no callback still binds');
+    none.update({ ...off, onhover() {} });
+    assert.equal(live(), 1, 'a callback added later does not bind');
+    none.update(off);
+    assert.equal(live(), 0, 'a callback removed later does not stop');
+    none.update({ ...off, onselect() {} });
+    assert.equal(live(), 1, 'onselect added later does not bind');
+    none.update({ ...off, onselect() {}, onhover() {} });
+    assert.equal(live(), 1, 'a changed callback leaks or drops the listener');
+    none.update({ tooltip: false });
+    assert.equal(live(), 1, 'marks on by default does not bind');
+    none.update({ marks: false });
+    assert.equal(live(), 1, 'tooltip on by default does not bind');
+    none.destroy();
+    assert.equal(live(), 0, 'destroy leaves a listener');
+
+    const bare = hover(el, {});
+    assert.equal(live(), 1, 'the default marks and tooltip do not bind without a callback');
+    bare.destroy();
+    assert.equal(live(), 0);
+
+    const undef = hover(el, undefined);
+    assert.equal(live(), 1, 'undefined options do not bind the defaults');
+    undef.destroy();
+    assert.equal(live(), 0);
+  } finally {
+    delete globalThis.__hoverCount;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Plan #804, outcome O5 (issue #948). oracle: closed-form (a data change keeps the one binding: binds stay 1 across updates with new axes, values and callbacks, and the bound options read the latest; interact copies its options at bind time, so the action hands it stable ones).
+test('a data change keeps one interact binding', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-hover-'));
+  try {
+    const count = { binds: 0, stops: 0, opts: null };
+    globalThis.__hoverCount = count;
+    writeFileSync(join(dir, 'plots.js'), 'export const interact = (el, o) => { globalThis.__hoverCount.binds++; globalThis.__hoverCount.opts = o; return () => { globalThis.__hoverCount.stops++; }; };');
+    writeFileSync(join(dir, 'interact.js'), readFileSync(new URL('../../packages/plots-svelte/src/lib/interact.svelte.js', import.meta.url), 'utf8').replaceAll("'@eleoptics/plots'", '"./plots.js"'));
+    const { hover } = await import(pathToFileURL(join(dir, 'interact.js')).href);
+    const live = () => count.binds - count.stops;
+    const seen = [];
+    const a = hover({}, { onhover: (e) => seen.push(['a', e]), onview() {}, values: [[1]], axes: { x: { unit: 'mm' }, y: { unit: 'um' } } });
+    assert.equal(count.binds, 1);
+    const bound = count.opts;
+    a.update({ onhover: (e) => seen.push(['b', e]), onview() {}, values: [[2]], axes: { x: { unit: 'cm' }, y: { unit: 'nm' }, value: { unit: 'V' } } });
+    assert.equal(count.binds, 1, 'a data change rebinds interact');
+    assert.equal(count.stops, 0, 'a data change stops interact');
+    assert.equal(bound.values[0][0], 2, 'the bound options read stale values');
+    assert.equal(bound.axes.x.unit, 'cm', 'the bound options read stale axes');
+    assert.equal(bound.axes.value.unit, 'V');
+    bound.onhover(7);
+    assert.deepEqual(seen, [['b', 7]], 'the bound options call a stale callback');
+    a.update({ onhover: () => {}, onview() {}, values: [[3]] });
+    assert.equal(bound.axes.x, undefined);
+    assert.equal(count.binds, 1);
+    a.update({ onhover: () => {}, onview() {}, values: undefined });
+    assert.equal(count.binds, 2, 'values removed keeps a binding that reads them');
+    assert.equal(live(), 1);
+    a.update({ onhover: () => {}, values: undefined });
+    assert.equal(count.binds, 3, 'onview removed keeps its listeners');
+    assert.equal(live(), 1);
+    a.update({ marks: false, tooltip: false });
+    assert.equal(live(), 0, 'all callbacks and marks off do not stop');
+    a.destroy();
+    assert.equal(live(), 0);
+  } finally {
+    delete globalThis.__hoverCount;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Plan #804 M2 (issue #820). oracle: closed-form (a callback goes to the hover action, never to the renderer: the renderer's props hold no onhover or onselect;
+// the action itself runs in the browser, tests/svelte.spec.js). SpotDiagram's axes are its unit on both x and y; RayFan's are the x and y specs it passes to curve.
+test('spot and fan callbacks', async () => {
+  const { compile } = await import('svelte/compiler');
+  const { render } = await import('svelte/server');
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-cb-'));
+  try {
+    const stub = (name) => `export const ${name} = (p) => '<svg data-keys="' + Object.keys(p).join(',') + '"></svg>';`;
+    writeFileSync(join(dir, 'plots.js'), ['rayFan', 'spot'].map(stub).join('\n') + '\nexport const interact = () => () => {};');
+    writeFileSync(join(dir, 'interact.js'), 'export const hover = () => ({});');
+    for (const name of ['SpotDiagram', 'RayFan']) {
+      const src = readFileSync(new URL(`../../packages/plots-svelte/src/lib/${name}.svelte`, import.meta.url), 'utf8');
+      assert.match(src, /use:hover=\{\{[^}]*onhover,\s*onselect/, `${name} does not pass its callbacks to the hover action`);
+      const js = compile(src, { generate: 'server', filename: `${name}.svelte` }).js.code
+        .replaceAll("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')))
+        .replaceAll("'@eleoptics/plots'", '"./plots.js"').replaceAll("'./interact.svelte.js'", '"./interact.js"');
+      writeFileSync(join(dir, `${name}.js`), js);
+      const Wrapper = (await import(pathToFileURL(join(dir, `${name}.js`)).href)).default;
+      const body = render(Wrapper, { props: { onhover() {}, onselect() {} } }).body;
+      assert.doesNotMatch(body, /onhover|onselect/, `${name} hands a callback to the renderer`);
+    }
+    assert.match(readFileSync(new URL('../../packages/plots-svelte/src/lib/SpotDiagram.svelte', import.meta.url), 'utf8'), /axes: \{ x: \{ unit \}, y: \{ unit \} \}/, 'SpotDiagram axes are not its unit');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Plan #804 M2 (issue #821). oracle: closed-form (as 'spot and fan callbacks': a callback goes to the hover action, never to the renderer; the action runs in the browser, tests/svelte.spec.js).
+// BarPlot's axes are its y spec; Map2D's typed div gets the hover action with its `values` and x/y specs, and its sample canvas none; Layout2D's are mm on both axes.
+test('bar, map and layout callbacks', async () => {
+  const { compile } = await import('svelte/compiler');
+  const { render } = await import('svelte/server');
+  const dir = mkdtempSync(join(tmpdir(), 'plots-svelte-cb2-'));
+  try {
+    const stub = (name) => `export const ${name} = (p) => '<svg data-keys="' + Object.keys(p).join(',') + '"></svg>';`;
+    writeFileSync(join(dir, 'plots.js'), ['bars', 'layout2D', 'map2D'].map(stub).join('\n') + '\nexport const interact = () => () => {};');
+    writeFileSync(join(dir, 'interact.js'), 'export const hover = () => ({});');
+    writeFileSync(join(dir, 'theme.js'), 'export const themeTick = () => 0;');
+    const read = (name) => readFileSync(new URL(`../../packages/plots-svelte/src/lib/${name}.svelte`, import.meta.url), 'utf8');
+    for (const name of ['BarPlot', 'Map2D', 'Layout2D']) {
+      const src = read(name);
+      assert.match(src, /use:hover=\{\{[^}]*onhover,\s*onselect/, `${name} does not pass its callbacks to the hover action`);
+      const js = compile(src, { generate: 'server', filename: `${name}.svelte` }).js.code
+        .replaceAll("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')))
+        .replaceAll("'@eleoptics/plots'", '"./plots.js"').replaceAll("'./interact.svelte.js'", '"./interact.js"').replaceAll("'./theme.svelte.js'", '"./theme.js"');
+      writeFileSync(join(dir, `${name}.js`), js);
+      const Wrapper = (await import(pathToFileURL(join(dir, `${name}.js`)).href)).default;
+      const props = { onhover() {}, onselect() {}, ...(name === 'Map2D' ? { values: [[0, 1], [1, 0]], extent: [-1, 1, -1, 1] } : {}) };
+      const body = render(Wrapper, { props }).body;
+      assert.doesNotMatch(body, /onhover|onselect/, `${name} hands a callback to the renderer`);
+    }
+    assert.match(read('BarPlot'), /axes: \{ y: /, 'BarPlot axes are not its y spec');
+    assert.match(read('Map2D'), /use:hover=\{\{[^}]*values/, 'Map2D does not pass its values to the hover action');
+    assert.match(read('Map2D'), /axes: \{.*\bvalue: .*\(props\)\.value/, 'Map2D axes do not carry its value axis');
+    assert.match(read('Layout2D'), /axes: \{ x: \{ unit: 'mm' \}, y: \{ unit: 'mm' \} \}/, 'Layout2D axes are not mm');
+    // the sample canvas is not hovered: the action sits on the typed div only
+    assert.doesNotMatch(read('Map2D'), /<canvas[^>]*use:hover/, 'the sample canvas takes the hover action');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('wrappers and the hover action type onselect without null (#908)', () => {
+  const dir = new URL('../../packages/plots-svelte/src/lib/', import.meta.url);
+  for (const f of ['CurvePlot', 'SpotDiagram', 'RayFan', 'BarPlot', 'Map2D', 'Layout2D'].map((n) => `${n}.svelte`).concat('interact.svelte.js')) {
+    const src = readFileSync(new URL(f, dir), 'utf8');
+    assert.match(src, /onselect\??: \(event: import\('@eleoptics\/plots'\)\.SelectEvent\) => void|InteractOptions\} \[opts\]/, `${f} does not type onselect`);
+    assert.doesNotMatch(src, /SelectEvent \| null/, `${f} types onselect with | null`);
   }
 });

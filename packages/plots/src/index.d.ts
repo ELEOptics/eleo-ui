@@ -65,6 +65,8 @@ export interface Layout2DProps {
   show?: RayStatus[];
   /** A key row under the scale bar, in the SVG at the layout's text size: entries (a line swatch in idx(`index`), then the label) and `"glass"` (one swatch per distinct drawn glass, as `glassLegend` gives, in first-use order), in one row in the order given, wrapping at the drawing's width. The SVG grows by its lines, to a whole px. Not drawn below a width of 630, with no room kept. Default none. */
   key?: (PlotKeyEntry | "glass")[] | "glass";
+  /** The window in mm the drawing shows, `{ x: [zlo, zhi], y: [ylo, yhi] }`: fitted into the geometry band (inside the pads, below the label room, above the scale bar) at one scale on both axes and centred; geometry beyond it is clipped, text keeps its px size, and the scale bar takes a 1-2-5 mm length at the new scale. An axis that is not a finite increasing pair keeps the box's range, and a view with no valid axis is ignored. The size does not depend on it. `interact`'s `onview` sends it. */
+  view?: PlotView;
 }
 export interface Layout3DProps {
   data?: object;
@@ -99,8 +101,14 @@ export interface SpotPanel {
   /** Extra caption lines under the panel, after the RMS and GEO lines. */
   notes?: string[];
 }
+/** A zoomed and panned window, in data units: what `interact`'s `onview` sends and the renderers' `view` prop takes. A curve, ray fan, typed map or layout2D takes `{ x, y }` (either key optional on input; a map's in extent units; a layout's window is the geometry band, in mm); a spot or through-focus a square window `{ center, half }` shared by every panel. */
+export type PlotView = { x?: [number, number]; y?: [number, number] };
+export type SpotView = { center: [number, number]; half: number };
+export type View = PlotView | SpotView;
 /** Typed call: you give the panels. */
 export interface SpotPanelsProps {
+  /** Zoom window: one square window for every panel, replacing the common half-width and the centre. Ignored when not `{ center: [cx, cy], half }` with finite `half` above 0. */
+  view?: SpotView;
   panels: SpotPanel[];
   /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
   origin?: string;
@@ -158,10 +166,14 @@ export interface SpotSampleProps {
   width?: number;
   /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
   height?: number;
+  /** Zoom window: one square window for every panel, as `SpotPanelsProps.view`. */
+  view?: SpotView;
   panels?: never;
 }
 export interface ThroughFocusProps {
   data?: object;
+  /** Zoom window: one square window for every cell, as `SpotPanelsProps.view`. */
+  view?: SpotView;
   /** Box half-width in the data's unit. */
   half?: number;
   /** The figure's width in px. A panel's side is ADR-0003's frame, solved from it; 92 px without it. */
@@ -172,6 +184,8 @@ export interface ThroughFocusProps {
 export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
 export interface RayFanProps {
   data?: object;
+  /** Zoom window in data units, replacing the drawn ranges of every panel; an absent key keeps that axis's range. */
+  view?: PlotView;
   /** Transverse ray aberration (µm) or optical path difference (waves). Default "tra". */
   kind?: "tra" | "opd";
   /** Field indexes to show. Default all. */
@@ -205,6 +219,8 @@ export interface Map2DProps {
 }
 /** A grid drawn as a map: SVG in curve's frame with the grid as one nearest-neighbour `<image>`. Colors come from `map` read at `el`; there is no color option (ADR-0001). */
 export interface Map2DGridProps {
+  /** Zoom window in extent units, per axis; the image keeps its extent and the frame clips it. An invalid range (not finite, or lo >= hi) is ignored and keeps that axis's extent, as for a curve or spot. */
+  view?: PlotView;
   /** Rows of cells, row 0 at the top. A cell that is not a finite number is masked: it draws no color, so the page's `--surface` shows. Plain arrays. With `polar`, `values[ring][spoke]` are polar samples instead. */
   values: number[][];
   /** Polar samples about the origin of `extent`: `radii` in extent units, `angles` in radians from +x, counter-clockwise (y up). `values[ring][spoke]` is the sample at `radii[ring]`, `angles[spoke]`. */
@@ -330,7 +346,8 @@ export interface CurveKindProps {
   panels?: never;
   limits?: never;
 }
-export type CurvePlotProps = CurveSeriesProps | CurvePanelsProps | CurveKindProps;
+/** `view` overrides the drawn x and y ranges of every panel (an absent key keeps that axis's range); `interact`'s `onview` sends it. */
+export type CurvePlotProps = (CurveSeriesProps | CurvePanelsProps | CurveKindProps) & { view?: PlotView };
 /** One bar series: a value per category, one palette slot. There is no color option (ADR-0001). */
 export interface BarSeries {
   /** One value per category, in `y` units; the bar rises from 0, so a negative value hangs below it. A null (or any value that is not a finite number) is a gap: no bar, no share of the total or the range. A series may be shorter than `categories`. */
@@ -399,8 +416,10 @@ export * from './physics.js';
 interface ScaleRule {
   frameText: typeof frameText; frameWeight: typeof frameWeight; frameOf: typeof frameOf; layoutText: typeof layoutText; layoutWeight: typeof layoutWeight;
   TEXT_MIN: typeof TEXT_MIN; TEXT_MAX: typeof TEXT_MAX; F_LO: typeof F_LO; F_HI: typeof F_HI; W_LO: typeof W_LO; W_HI: typeof W_HI;
-  PLOT_SIZES: typeof PLOT_SIZES;
+  PLOT_SIZES: typeof PLOT_SIZES; CURVE_MARGINS: typeof CURVE_MARGINS;
   minWidth: typeof minWidth;
+  interact: typeof interact;
+  readout: typeof readout;
 }
 declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
@@ -423,6 +442,8 @@ export declare function layoutText(W: number): number | null;
 export declare function layoutWeight(W: number): number;
 /** The rule's breakpoints and text limits, in px. */
 export declare const TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910;
+/** ADR-0003's margins of the curve family (curve, rayFan, bars, map2D), in text units: `L` left, `T` top, `B` bottom (the right one follows the ticks). Multiply by `frameText(F)` for px. */
+export declare const CURVE_MARGINS: Readonly<{ L: 4.6; T: 2.6; B: 3.6 }>;
 /** One renderer's row of PLOT_SIZES, in px. */
 export interface PlotSize {
   /** The default drawing width of one panel (what the renderer draws without `width`). */
@@ -440,3 +461,86 @@ export declare const PLOT_SIZES: {
 };
 /** The narrowest drawing width of a call, in px: its plot frame `F_LO` wide and its text `TEXT_MIN` px, with the margins the renderer draws for these props (a curve's x tick labels, map2D's colorbar and x ticks) and the panel count of `columns`, `panels`, the sample's fields or defocus steps. `props` are the ones you pass the renderer; without them it is `PLOT_SIZES[name]`'s one-panel figure. Throws a `TypeError` for an unknown renderer name. */
 export declare function minWidth(name: keyof typeof PLOT_SIZES, props?: object): number;
+
+/* Pointer interaction (packages/plots/src/interact.js). */
+/** What the pointer is on: a drawn point of a mark, a bar, a map sample or the spot on the line between two consecutive points, in data units. Which keys are present depends on the plot: a curve, spot or bar has `series`; a bar adds `category`; a typed map has `row` and `column` (or `ring` and `spoke`); a layout2D ray run has `field`, `ray` and `status` and no `series`. */
+export interface HoverEvent {
+  /** The data coordinates of the hovered point, or of the interpolated spot on the segment (the pointer projected onto it and clamped to it, so at a segment's end they can equal a data point). */
+  x: number;
+  y: number;
+  /** The mark's identity from the drawing's `data-series`, `data-label` and `data-role`. `index` is the series' position in the `series` array (in its panel, with `panels`), not its `index` palette slot: two series can share a slot. `label` and `role` are absent where the series has none. */
+  series?: { index: number; label?: string; role?: string };
+  /** The panel index from `data-panel`. Absent on a single curve plot (no `panels`); a spot drawing always sends it. */
+  panel?: number;
+  /** A bar's category index (`data-category`; the total's group). Present only on a `bars` hover. */
+  category?: number;
+  /** A bar's category text as drawn on the axis (`data-category-label`; the total's label for the total's group). Present only on a `bars` hover, and `readout` prints it in place of `x`; where it is empty, `readout` prints the category index (`x`) formatted by `x`'s spec. */
+  categoryLabel?: string;
+  /** A typed grid `map2D` sample: its row (top-down, as `values[row][column]`) and column. Present only on a grid map hover. */
+  row?: number;
+  column?: number;
+  /** A typed polar `map2D` sample: indices into `radii` and `angles`. Present only on a polar map hover. */
+  ring?: number;
+  spoke?: number;
+  /** The sample's value, `opts.values[row][column]` (`[ring][spoke]` for polar). Present only on a map hover given `opts.values`; `null` for a masked sample (a cell that is not a finite number). */
+  value?: number | null;
+  /** A layout2D ray run: its field index (`data-field`), its ray index (`data-ray`) and its status (`data-status`, absent where the run has none). */
+  field?: number;
+  ray?: number;
+  status?: string;
+  /** A layout2D glass element, hovered where no ray run is in reach (no `series`, `field` or `ray`; `x`, `y` are the pointer in mm). `element` is 1-based over the glass polygons and `glass` its glass name; `nd`, `vd` and `f` (thick-lens focal length, mm) are present only for a named glass with finite values; `r1`, `r2` (vertex radii, mm; `Infinity` for a flat surface), `ct` (vertex thickness) and `diameter` are in mm. `readout` prints them on five lines. */
+  element?: number;
+  glass?: string;
+  nd?: number;
+  vd?: number;
+  r1?: number;
+  r2?: number;
+  ct?: number;
+  diameter?: number;
+  f?: number;
+  /** `true` when the pointer did not snap to a point (not within 6 px of one): `x` and `y` are then the pointer projected onto the straight line joining two points, clamped to it (within 24 px of it), so at a segment's end they can equal a data point. Absent when the event is a data point itself. */
+  interpolated?: true;
+  /** The data indices `[i, i + 1]` of the two joined points: the drawn indices among the mark's finite points, in order, plus the mark's `data-from` (0 when absent); on a layout2D ray they index its status run, which counts from its own first point. Present only with `interpolated`. */
+  segment?: [number, number];
+}
+/** What a click selected, named by the clicked mark's own identity: a curve, spot or bar names its `series` (with `panel`, and a bar its `category`), a layout2D surface its `surface` (the surface index, `data-surface`), a layout2D ray run its `field` only. eleo-ui does nothing else with it. */
+export interface SelectEvent {
+  series?: { index: number; label?: string; role?: string };
+  panel?: number;
+  category?: number;
+  surface?: number;
+  field?: number;
+}
+export interface InteractOptions {
+  /** Called with the hovered point, or the interpolated spot on the line between two points (see `HoverEvent.interpolated`), nearest the pointer, or `null` when the pointer leaves it or the host. Repeats of the same point are not re-sent. */
+  onhover?: (event: HoverEvent | null) => void;
+  /** Called once per click on a mark, with the mark's identity (see `SelectEvent`). A click on no mark sends nothing. */
+  onselect?: (event: SelectEvent) => void;
+  /** Values of a typed `map2D`, `values[row][column]` (`[ring][spoke]` for polar), read into `HoverEvent.value`. */
+  values?: number[][];
+  /** How the tooltip's `readout` writes each axis (unit, digits). Default: no units, `readout`'s default digits. */
+  axes?: { x?: ReadoutAxis; y?: ReadoutAxis; value?: ReadoutAxis };
+  /** Draw a dot on the hovered point and drop lines to both axes in an overlay on the host. Default `true`. */
+  marks?: boolean;
+  /** Show the readout in a tooltip near the pointer. Default `true`. While marks or the tooltip are on, the host carries the class `eleo-hover-host`. */
+  tooltip?: boolean;
+  /** Turns on zoom and pan. A wheel zooms about the pointer, a drag pans, a double-click resets; each calls `onview` with the new view (`View`: `{ x, y }` for a curve, ray fan, typed map or layout2D, `{ center, half }` for a spot or through-focus; reset sends `null`) and draws nothing: redraw with it as the renderer's `view`, and with none for `null`. The current ranges are read from the drawn markup each time, so the caller's view is the only state. A drag is not also a click (`onselect`). The keys `+`, `=`, `-` and `0` zoom and reset it too: see the plots README's Keyboard section. */
+  onview?: (view: View | null) => void;
+}
+/** `interact`'s stop function: removes the listeners. */
+export interface InteractStop {
+  (): void;
+  /** Calls `onview(null)`, as a double-click does. Does nothing without `onview` or after stop. */
+  reset(): void;
+}
+/** Listen for the pointer on `el`, the element holding the drawn SVG. The listeners sit on `el`, so a redraw that replaces its markup keeps them. Client-only. Returns `stop()`, which removes them, and has a `reset()` method. It makes `el` focusable (`tabindex="0"` unless set) and handles the keys (arrows, `Enter`, `Escape`, `+`, `=`, `-`, `0`): see the plots README's Keyboard section. */
+export declare function interact(el: Element, opts?: InteractOptions): InteractStop;
+/** How `readout` writes one axis's value. */
+export interface ReadoutAxis {
+  /** Appended after the value, e.g. "mm". Default none. */
+  unit?: string;
+  /** Decimals. Default: at most 2, trailing zeros dropped. */
+  digits?: number;
+}
+/** The text of a hover event, `<label> · <x>, <y>[ = <value>]`, each number followed by its axis's unit (no label and dot without a series label; ` = <value>` only when the event's `value` is not null, written with `axes.value`); "" for `null`. */
+export declare function readout(event: HoverEvent | null, axes?: { x?: ReadoutAxis; y?: ReadoutAxis; value?: ReadoutAxis }): string;

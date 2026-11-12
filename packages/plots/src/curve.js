@@ -1,10 +1,11 @@
-import { idx, svg, esc, NS } from "./common.js";
+import { idx, svg, esc, NS, drawn } from "./common.js";
 import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
-import { frameText, frameWeight, frameOf } from "./scale.js";
+import { frameText, frameWeight, frameOf, CURVE_MARGINS } from "./scale.js";
 import { checkLimits, limitValues, limitMarks, limitLabels } from "./limits.js";
 import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
+import { clipPolyline, dashOffset } from "./clip.js";
 
 /* Role to style (ADR-0001, weights ADR-0003). Callers give a role and an index, never a color, font or stroke width; `wt` is the series stroke weight, frameWeight(F). A sagittal dash is in units of `wt` (4 wt, 2.5 wt; CR #726). */
 function roleStyle(s, wt) {
@@ -24,6 +25,11 @@ function axisRange(a, vals) {
   if (!r) { var lo = Infinity, hi = -Infinity; vals.forEach(function (v) { if (isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); r = lo <= hi ? [lo, hi] : [0, 1]; if (lo < hi) { var nr = niceRange(lo, hi, 6); r = [nr.lo, nr.hi]; } }
   return r[0] < r[1] ? [r[0], r[1]] : [r[0] - 1, r[0] + 1];
 }
+/* A view range (`view.x`, `view.y`): two finite increasing numbers, else null and the axis keeps its own range. */
+function viewRange(v) {
+  var r = Array.isArray(v) ? v.map(Number) : null;
+  return r && r.length >= 2 && isFinite(r[0]) && isFinite(r[1]) && r[0] < r[1] ? [r[0], r[1]] : null;
+}
 export function axisTicks(a, r) {
   if (!a.ticks) return niceTicks(r[0], r[1], 6);
   /* The fewest decimals at which every tick prints exactly (within float noise). */
@@ -31,8 +37,6 @@ export function axisTicks(a, r) {
   while (d < 20 && !ts.every(function (v) { return Math.abs(Number(v.toFixed(d)) - v) <= 1e-9 * Math.abs(v); })) d++;
   return { ticks: ts, decimals: d };
 }
-/* Whether a panel point is drawn: not a null entry, no null coordinate, both finite. One rule for the path and the range. */
-function drawn(p) { return !!p && p[0] !== null && p[1] !== null && isFinite(p[0]) && isFinite(p[1]); }
 /* A series as path data in data coordinates: a null entry, or a point with a null or non-finite coordinate, ends the run (and doesn't count toward the range), and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
 function seriesPath(pts) {
   var d = "", run = [];
@@ -41,11 +45,43 @@ function seriesPath(pts) {
   flush();
   return d;
 }
-function seriesMarkup(s, panel, wt) {
+/* CR #984: with a view a series is cut to the plot area plus 32 px. The cut is in px (the axes scale differently): `z` is { sc, pw, ph }, the ranges and the plot area, and px = ((x - xr0) * sx, ph - (y - yr0) * sy) as the group's matrix has it. Each run (a panel's path run, or a single plot's whole polyline) gives its pieces { from, points }: `from` is the uncut index of the piece's first point within its run, and the points are data units, a data point being the caller's own (not a round trip) and a cut point mapped back. 31.9 px, 0.1 short of 32, so the rounding of the written points never leaves a cut end past 32. */
+function cutPieces(run, z) {
+  var xr = z.sc.xr, yr = z.sc.yr, sx = z.pw / (xr[1] - xr[0]), sy = z.ph / (yr[1] - yr[0]), m = 31.9, rect = [-m, -m, z.pw + m, z.ph + m];
+  var px = run.map(function (p) { return [(p[0] - xr[0]) * sx, z.ph - (p[1] - yr[0]) * sy]; }), at = new Map();
+  px.forEach(function (q, i) { at.set(q, run[i]); });
+  if (px.length === 1) return px[0][0] >= rect[0] && px[0][0] <= rect[2] && px[0][1] >= rect[1] && px[0][1] <= rect[3] ? [{ from: 0, points: [run[0]] }] : [];
+  return clipPolyline(px, rect).map(function (c) {
+    return { from: c.from, cut: c.cut, points: c.points.map(function (q) { return at.get(q) || [xr[0] + q[0] / sx, yr[0] + (z.ph - q[1]) / sy]; }) };
+  });
+}
+/* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. `z` (zoomed only, see cutPieces) cuts the series: one mark per piece, each carrying `data-from` (the piece's first uncut index in the mark, omitted when 0) and otherwise the same attributes; a series wholly outside draws nothing. The exception: a single plot's series holding a NaN or infinite coordinate is drawn uncut, as without a `z` (a null coordinate is written as 0, so it is cut like any point). */
+function seriesMarkup(s, panel, wt, si, pi, z) {
   var st = roleStyle(s, wt), pts = s.points || [];
-  var attrs = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") + " " + NS + "/>";
-  if (panel) return '<path d="' + seriesPath(pts) + '"' + attrs;
-  return '<polyline points="' + pts.map(function (p) { return String(+p[0]) + "," + String(+p[1]); }).join(" ") + '"' + attrs;
+  var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label) + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
+  var head = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : ""), attrs = head + " " + NS + "/>";
+  var num = function (p) { return String(+p[0]) + "," + String(+p[1]); };
+  if (!z) {
+    if (panel) return '<path d="' + seriesPath(pts) + '"' + ids + attrs;
+    return '<polyline points="' + pts.map(num).join(" ") + '"' + ids + attrs;
+  }
+  var out = "", base = 0;
+  function emit(piece, off) {
+    var from = off + piece.from;
+    out += (panel ? '<path d="M' + piece.points.map(num).join(" L") + (piece.points.length === 1 ? " h0" : "") + '"' : '<polyline points="' + piece.points.map(num).join(" ") + '"') + ids + (from ? ' data-from="' + from + '"' : "") + head + dashOffset(st.dash, piece.cut) + " " + NS + "/>";
+  }
+  if (panel) {
+    var runs = [], run = [];
+    pts.forEach(function (p) { if (!drawn(p)) { if (run.length) runs.push(run); run = []; } else run.push([+p[0], +p[1]]); });
+    if (run.length) runs.push(run);
+    /* data-from of a piece is its uncut index across the path's runs: the finite points of the runs before it, plus its index in its own run. */
+    runs.forEach(function (r) { cutPieces(r, z).forEach(function (c) { emit(c, base); }); base += r.length; });
+  } else {
+    if (pts.some(function (p) { return !isFinite(+p[0]) || !isFinite(+p[1]); })) return '<polyline points="' + pts.map(num).join(" ") + '"' + ids + attrs; // a non-finite point: the uncut polyline, which the unzoomed drawing makes (a browser may draw none of it)
+    var all = pts.map(function (p) { return [+p[0], +p[1]]; });
+    if (all.length) cutPieces(all, z).forEach(function (c) { emit(c, 0); });
+  }
+  return out;
 }
 /* The ranges and ticks, computed once over every series of every panel, and the right margin they need. */
 export function scales(o, groups, panel) {
@@ -56,27 +92,29 @@ export function scales(o, groups, panel) {
   var lim = o.limits || [];
   var xr = axisRange(x, [].concat.apply(limitValues(lim, "x"), all.map(function (p) { return p.filter(live).map(function (q) { return q[0]; }); })));
   var yr = axisRange(y, [].concat.apply(limitValues(lim, "y"), all.map(function (p) { return p.filter(live).map(function (q) { return q[1]; }); })));
-  var xt = axisTicks(x, xr), yt = axisTicks(y, yr);
-  /* The right margin: 12 px (1.2 text units), or half the rightmost shown x label's width (6 px a character, as layout2D estimates) when that is more. */
-  var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), R = 12, Rt = 1.2, n = 0;
-  if (shown.length) { n = Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length; R = Math.max(R, 3 * n); Rt = Math.max(Rt, 0.3 * n); }
-  /* R in px for the fixed-margin renderers (bars, map2D); Rt the same room in text units (0.6 em a character, halved) for curve. */
-  return { xr: xr, yr: yr, xt: xt, yt: yt, R: R, Rt: Rt };
+  /* `o.view` overrides the ranges (every panel shares it); the ticks of an overridden axis are the nice ticks of the view, not the caller's `ticks`. */
+  var vw = o.view || {}, vx = viewRange(vw.x), vy = viewRange(vw.y);
+  if (vx) xr = vx;
+  if (vy) yr = vy;
+  var xt = axisTicks(vx ? {} : x, xr), yt = axisTicks(vy ? {} : y, yr);
+  /* The right margin Rt, in text units: 1.2, or half the rightmost shown x label's width (0.6 em a character) when that is more. */
+  var shown = xt.ticks.filter(function (v) { return inside(v, xr); }), Rt = 1.2, n = 0;
+  if (shown.length) { n = Array.from(fmt(Math.max.apply(null, shown), xt.decimals)).length; Rt = Math.max(Rt, 0.3 * n); }
+  return { xr: xr, yr: yr, xt: xt, yt: yt, Rt: Rt };
 }
-/* The frame's left and bottom margins in px; bars reads them to place its category labels. */
-export var PLOT_L = 46, PLOT_B = 36, PLOT_T = 26;
 var r2 = function (v) { return +v.toFixed(2); };
+/* The plot area's size in px for a cell of w by h, its top margin T and margins mg: plotCell's, shared with the cut. */
+function plotArea(w, h, T, mg) { return { pw: r2(Math.max(1, w - r2(mg.L) - mg.R)), ph: r2(Math.max(1, h - r2(T) - mg.B)) }; }
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
 /* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
-/* `mg` is the margins in px: { L, B, R, t? }; without it, today's constants. `grid: false` draws the tick text without the grid lines (the frame and the zero axes stay). With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
+/* `mg` is the margins in px: { L, B, R, t? }, required: each renderer passes its own. `grid: false` draws the tick text without the grid lines (the frame and the zero axes stay). With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
 export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
-  mg = mg || { L: PLOT_L, B: PLOT_B, R: sc.R };
   /* The frame is rounded to 2 decimals once, here: everything below derives from these, so the markup is small and doesn't depend on Math.cbrt's last bits. */
   T = r2(T);
-  var L = r2(mg.L), Bm = mg.B, ph = r2(Math.max(1, h - T - Bm)), g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
+  var L = r2(mg.L), Bm = mg.B, ph = plotArea(w, h, T, mg).ph, g = "", xr = sc.xr, yr = sc.yr, xt = sc.xt, yt = sc.yt;
   var grid = mg.grid !== false, u = mg.t ? mg.t / 10 : 1, ts = mg.t ? ' style="font-size:' + +mg.t.toFixed(3) + 'px"' : "", o = function (v) { return +(v * u).toFixed(2); };
-  var pw = r2(Math.max(1, w - L - mg.R)), sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
+  var pw = plotArea(w, h, T, mg).pw, sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   function X(v) { return (L + (v - xr[0]) * sx).toFixed(1); } function Y(v) { return (T + ph - (v - yr[0]) * sy).toFixed(1); }
   var fr = 'x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '"', Bt = r2(T + ph), Rt = r2(L + pw);
   g += '<rect ' + fr + ' fill="none" stroke="var(--plot-grid)"/>';
@@ -97,15 +135,15 @@ export function limitStyle() {
   var st = roleStyle({ role: "limit" }, 1);
   return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
 }
-/* A series group's markup with the limits: bands under `inner`, lines over it. */
-export function limitBody(limits, sc, inner) {
-  var m = limitMarks(limits, sc.xr, sc.yr, limitStyle());
+/* A series group's markup with the limits: bands under `inner`, lines over it. `cut` (zoomed) keeps only the limits inside the ranges (limitMarks). */
+export function limitBody(limits, sc, inner, cut) {
+  var m = limitMarks(limits, sc.xr, sc.yr, limitStyle(), cut);
   return m.under + inner + m.over;
 }
-/* ADR-0003's margins in text units: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
+/* ADR-0003's margins in text units (scale.js CURVE_MARGINS: left, bottom, top), the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
 function curveMargins(sc, w) {
-  var F = frameOf(w, 4.6 + sc.Rt), t = frameText(F);
-  return { L: 4.6 * t, B: 3.6 * t, R: sc.Rt * t, t: t, wt: +frameWeight(F).toFixed(3) };
+  var F = frameOf(w, CURVE_MARGINS.L + sc.Rt), t = frameText(F);
+  return { L: CURVE_MARGINS.L * t, B: CURVE_MARGINS.B * t, R: sc.Rt * t, t: t, wt: +frameWeight(F).toFixed(3) };
 }
 /* The key's entries: `key` when given ({ label, role?, index? }), else one per distinct series `label` (the first use's role and index). A line swatch in the role's dash. Without either: none. */
 function keyEntries(o) {
@@ -119,7 +157,7 @@ function keyEntries(o) {
     });
   }
   return src.map(function (e) {
-    if (e === null || typeof e !== "object" || e.label === undefined || e.label === null) throw new TypeError("curve: a key entry needs a label");
+    if (e === null || typeof e !== "object" || typeof e.label !== "string") throw new TypeError("curve: a key entry needs a string label");
     var st = roleStyle(e, 1);
     return { label: String(e.label), index: e.index === undefined ? 0 : e.index, col: st.col, kind: "line", dash: st.dash, cap: st.cap, src: e };
   });
@@ -151,27 +189,29 @@ function typedCurve(o) {
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var labels = function (mg) { return '<text class="eleo-tick" x="' + r2(W - mg.R) + '" y="' + r2(Hf - 0.4 * mg.t) + '" text-anchor="end" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(x) + '</text><text class="eleo-tick" x="' + r2(0.4 * mg.t) + '" y="' + r2(mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + lab(y) + "</text>"; };
   var sc, g = "", lim = checkLimits(o.limits, "curve");
-  var cell = function (series, w, h, T, panel, mg) { return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s) { return seriesMarkup(s, panel, mg.wt); }).join("")), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
+  /* A valid view axis zooms: the series are cut to the plot area plus 32 px (cutPieces). */
+  var zoomed = !!(o.view && (viewRange(o.view.x) || viewRange(o.view.y)));
+  var cell = function (series, w, h, T, panel, mg, pi) { var z = zoomed && Object.assign({ sc: sc }, plotArea(w, h, T, mg)); return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi, z); }).join(""), zoomed), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
     var cw = W / cols;
-    sc = scales({ x: x, y: y, limits: lim }, panels.map(function (p) { return p.series || []; }), true);
+    sc = scales({ x: x, y: y, limits: lim, view: o.view }, panels.map(function (p) { return p.series || []; }), true);
     var mg = curveMargins(sc, cw), top = 1.4 * mg.t, T = 2.2 * mg.t;
     mg.grid = o.grid;
     if (ents.length && !corner) placeBelow(mg.t, mg.L, W - mg.R, top + T + mg.B);
     var ch = (Hf - top) / rows;
     panels.forEach(function (p, i) {
       var cx = (i % cols) * cw, cy = top + Math.floor(i / cols) * ch;
-      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="' + r2(mg.L) + '" y="' + r2(T - 0.6 * mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true, mg) + "</g>";
+      g += '<g transform="translate(' + +cx.toFixed(2) + " " + +cy.toFixed(2) + ')">' + (p.title ? '<text class="eleo-tick" x="' + r2(mg.L) + '" y="' + r2(T - 0.6 * mg.t) + '" style="font-size:' + +mg.t.toFixed(3) + 'px">' + esc(p.title) + "</text>" : "") + cell(p.series || [], cw, ch, T, true, mg, i) + "</g>";
     });
     return svg(W, Hs, g + labels(mg) + below, lab(y) + " against " + lab(x) + " plot");
   }
-  sc = scales({ x: x, y: y, limits: lim }, [o.series]);
+  sc = scales({ x: x, y: y, limits: lim, view: o.view }, [o.series]);
   var m1 = curveMargins(sc, W);
   m1.grid = o.grid;
-  if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, 2.6 * m1.t + m1.B);
-  g = cell(o.series, W, Hf, 2.6 * m1.t, false, m1) + labels(m1) + below;
+  if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, CURVE_MARGINS.T * m1.t + m1.B);
+  g = cell(o.series, W, Hf, CURVE_MARGINS.T * m1.t, false, m1) + labels(m1) + below;
   return svg(W, Hs, g, lab(y) + " against " + lab(x) + " plot");
 }
 
@@ -201,5 +241,5 @@ export function curve(o) {
   if (o.series || o.panels) return typedCurve(o);
   if (o.limits != null) throw new TypeError("curve: limits need series or panels");
   var a = curveAdapters[Object.prototype.hasOwnProperty.call(curveAdapters, o.kind || "mtf") ? o.kind || "mtf" : "chromaticFocus"](data(o));
-  return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height, grid: o.grid });
+  return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height, grid: o.grid, view: o.view });
 }

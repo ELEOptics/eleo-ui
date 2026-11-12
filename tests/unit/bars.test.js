@@ -215,7 +215,7 @@ test('seidel adapter labels by term name', async () => {
   });
 });
 
-// Plan #284 #309. oracle: property: the key row never takes the frame below TOP + PLOT_B + 1, so every height stays positive.
+// Plan #284 #309. oracle: property: the key row never takes the frame to a height of 1 or less, so every height stays positive.
 test('a small drawing keeps a positive frame', () => {
   const series = ['SI', 'SII', 'SIII', 'SIV', 'SV', 'CL', 'CT'].map((label, index) => ({ label, index, values: [1, -2] }));
   const svg = ELEO.bars({ categories: ['1', '2'], series, total: 'Σ', y: { label: 'n' }, width: 120, height: 120 });
@@ -225,7 +225,7 @@ test('a small drawing keeps a positive frame', () => {
   assert.ok(series.every((s) => svg.includes('>' + s.label + '</text>')), 'every series is still named');
 });
 
-// Plan #284 #312 (CR from the M1 demo). oracle: property: solid dividers at band boundaries 1, 2 and the Σ gap's middle, full frame height, outside the series group; the frame sits at least 14 px under the title baseline; with thinned labels, a divider only every step boundaries.
+// Plan #284 #312 (CR from the M1 demo). oracle: property: solid dividers at band boundaries 1, 2 and the Σ gap's middle, full frame height, outside the series group; the frame sits at least 1.4 t under the title baseline; with thinned labels, a divider only every step boundaries.
 test('group dividers and title room', () => {
   const isVertical = (l) => l.match(/\bx1="([^"]+)"/)[1] === l.match(/\bx2="([^"]+)"/)[1];
   const svg = ELEO.bars({ categories: ['1', '2', '3'], series: [{ values: [1, -2, 3], index: 0 }], total: 'Σ', y: { label: 'Seidel sum', unit: 'mm' }, width: 460, height: 260 });
@@ -380,9 +380,7 @@ test('BarPlot.svelte wraps bars and is exported', () => {
   const lib = new URL('../../packages/plots-svelte/src/lib/', import.meta.url);
   const comp = readFileSync(new URL('BarPlot.svelte', lib), 'utf8');
   assert.match(comp, /import\s*\*\s*as\s+plots\s+from\s*'@eleoptics\/plots'/);
-  assert.doesNotMatch(comp, /import\s*\{[^}]*\bbars\b[^}]*\}\s*from\s*'@eleoptics\/plots'/);
   assert.match(comp, /plots\.bars\b/);
-  assert.match(comp, /BarPlot needs @eleoptics\/plots 0\.5\.0 or later/);
   const index = readFileSync(new URL('index.js', lib), 'utf8');
   assert.match(index, /export\s*\{\s*default as BarPlot\s*\}\s*from\s*'\.\/BarPlot\.svelte'/);
 });
@@ -394,9 +392,10 @@ test('BarPlot throws a named error without bars and renders with it', async () =
   const src = readFileSync(new URL('../../packages/plots-svelte/src/lib/BarPlot.svelte', import.meta.url), 'utf8');
   const dir = mkdtempSync(join(tmpdir(), 'barplot-'));
   try {
-    const stubs = { old: 'export const bars = undefined;', current: "export const bars = () => '<svg></svg>';" };
+    const stubs = { old: 'export {};', current: "export const bars = () => '<svg></svg>';" };
     let js = compile(src, { generate: 'server', filename: 'BarPlot.svelte' }).js.code;
-    js = js.replace("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server')));
+    js = js.replace("'svelte/internal/server'", JSON.stringify(import.meta.resolve('svelte/internal/server'))).replace("'./interact.svelte.js'", '"./interact.js"');
+    writeFileSync(join(dir, 'interact.js'), 'export const hover = () => ({});');
     const load = async (name) => {
       writeFileSync(join(dir, `${name}.js`), stubs[name]);
       writeFileSync(join(dir, `BarPlot-${name}.js`), js.replace("'@eleoptics/plots'", JSON.stringify(`./${name}.js`)));
@@ -409,4 +408,31 @@ test('BarPlot throws a named error without bars and renders with it', async () =
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// oracle: spec, plan #804 O1/O2 (#816). Identity sits on the rect: data-series is the series' position in `series` (not its palette index), data-category the category's index, the Σ group's rects the index n after the last category.
+test('bar data attributes', async () => {
+  const series = [{ values: [1, -2, 3], index: 4, label: 'a' }, { values: [-1, 2, 0.5], index: 1, label: 'b' }];
+  const svg = ELEO.bars({ categories: ['x', 'y', 'z'], series, total: 'Σ', y: { label: 'v' }, width: 460, height: 300 });
+  const got = [...svg.matchAll(/<rect\b[^>]*\bdata-series="([^"]*)"[^>]*>/g)].map((m) => [m[1], /data-category="([^"]*)"/.exec(m[0])?.[1]]);
+  assert.equal(got.length, series.length * 4, 'every bar rect carries both attributes');
+  assert.deepEqual(got, [0, 1, 2, 3].flatMap((c) => [['0', String(c)], ['1', String(c)]]));
+  // A missing value draws no rect, and the others keep their own category.
+  const gap = ELEO.bars({ categories: ['x', 'y'], series: [{ values: [1, NaN], index: 3 }], y: {}, width: 460, height: 300 });
+  assert.deepEqual([...gap.matchAll(/<rect\b[^>]*\bdata-category="([^"]*)"/g)].map((m) => m[1]), ['0']);
+  // Labels: the series' label (escaped, absent when it has none) and the category text as drawn; the Σ group's is the total's label.
+  const lab = ELEO.bars({ categories: ['x<', 'y'], series: [{ values: [1, 2], index: 0, label: 'a&b' }, { values: [3, 4], index: 1 }], total: 'Σ', y: {}, width: 460, height: 300 });
+  const rs = [...lab.matchAll(/<rect\b[^>]*\bdata-series="[^"]*"[^>]*>/g)].map((m) => [/data-label="([^"]*)"/.exec(m[0])?.[1], /data-category-label="([^"]*)"/.exec(m[0])?.[1]]);
+  assert.deepEqual(rs, [['a&amp;b', 'x&lt;'], [undefined, 'x&lt;'], ['a&amp;b', 'y'], [undefined, 'y'], ['a&amp;b', 'Σ'], [undefined, 'Σ']]);
+  // The Seidel bars: SI at surface 2 reads "SI", "2".
+  globalThis.ELEO = ELEO;
+  await import('../fixtures/phos-core/adapters.js');
+  const sei = globalThis.ELEOAdapters.seidel(fixture('achromat-seidel'));
+  const sv = ELEO.bars({ ...sei, width: 460, height: 300 });
+  const sr = [...sv.matchAll(/<rect\b[^>]*\bdata-series="([^"]*)"[^>]*>/g)].map((m) => [m[1], /data-label="([^"]*)"/.exec(m[0])?.[1], /data-category="([^"]*)"/.exec(m[0])?.[1], /data-category-label="([^"]*)"/.exec(m[0])?.[1]]);
+  assert.equal(sr.length, 7 * (sei.categories.length + 1));
+  sr.forEach(([j, l, c, cl]) => {
+    assert.equal(l, sei.series[+j].label);
+    assert.equal(cl, +c === sei.categories.length ? 'Σ' : sei.categories[+c]);
+  });
 });

@@ -911,3 +911,255 @@ test('layout keys',async ({ page }) => {
     }
   }
 });
+
+// Where data point `index` of a series mark is drawn, in client px, from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
+// The drawn points: parse the attribute string (strip M/L and h<n>, split on commas and spaces) and drop non-finite pairs only. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
+const drawnPoint = (mark, index) => mark.evaluate((m, index) => {
+  const g = m.parentNode, [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+  const n = (m.getAttribute('points') || m.getAttribute('d') || '').replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
+  const pts = [];
+  for (let i = 0; i + 1 < n.length; i += 2) if (Number.isFinite(n[i]) && Number.isFinite(n[i + 1])) pts.push([n[i], n[i + 1]]);
+  const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+  return { label: m.dataset.label, x: box.left + ((+vp.getAttribute('x') || 0) + a * pts[index][0] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * pts[index][1] + f) * k };
+}, index);
+
+// Plan #804 (agent_docs/plans/804-interaction.md), issue #811, CR #857: every curve tile shows a tooltip near the pointer from its own interact + readout, per theme.
+// oracle: closed-form `readout()`: `<label> · <x> <unit>, <y>` for the series label on the hovered mark; a tile with none of a series mark, a typed map's `image[data-extent]` or a layout ray run shows nothing (a map's readout is the next test's).
+// The pointer is placed at a point's drawn position from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
+test('tooltip on every curve tile', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['dark', 'light']) {
+    for (const tile of ['mtf', 'mtf-limits', 'fieldCurvature', 'distortion']) {
+      const sel = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
+      const mark = page.locator(`${sel} polyline[data-series], ${sel} path[data-series]`).first();
+      await mark.scrollIntoViewIfNeeded();
+      const at = await drawnPoint(mark, 0);
+      const tip = page.locator(`${sel} .eleo-hover__tip`);
+      await page.mouse.move(at.x, at.y);
+      await expect(tip, `${theme} ${tile} tooltip`).toHaveText(new RegExp(`^${at.label} · `));
+      await expect(tip).toBeVisible();
+      await page.mouse.move(2, 2);
+      await expect(tip, `${theme} ${tile} tooltip hides on leave`).toBeHidden();
+    }
+  }
+  // The pointer sits over each non-curve tile's centre in turn (the loop above ends with it at (2, 2), over nothing), so a tile that showed a tooltip would show it here.
+  // The overlay and its tip exist from interact() to stop() and are hidden when nothing is hovered, so "none" means no visible, non-empty tip in the tile.
+  for (const theme of ['dark', 'light']) {
+    // Tiles with neither a `[data-series]` mark nor a typed map's `image[data-extent]` nor a layout2D ray run's `[data-ray]` have no hover yet; any tile with a series mark (every curve, rayFan, chromaticFocus) hovers by where its curve passes, a map tile by its sample (#817) and a layout tile by its ray runs (#894).
+    const tiles = await page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.filter((e) => !e.querySelector('[data-series], image[data-extent], [data-ray]')).map((e) => e.dataset.tile));
+    expect(tiles.length, `${theme} tiles without a series mark`).toBeGreaterThan(0);
+    for (const tile of tiles) {
+      const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="${tile}"]`);
+      await el.scrollIntoViewIfNeeded();
+      const box = await el.boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const shown = await el.locator('.eleo-hover__tip').evaluateAll((tips) => tips.filter((t) => t.textContent.trim() !== '' && t.getClientRects().length > 0 && getComputedStyle(t).visibility !== 'hidden').map((t) => t.textContent));
+      expect(shown, `${theme} ${tile} shows no tooltip`).toEqual([]);
+    }
+  }
+});
+
+// Plan #804, issue #847, CR #857: the tooltip takes its units from the tile's own recording (REC's x and y specs), not a hand-kept table.
+// oracle: the field curvature adapter's axes (x unit `mm`, y unit `°`) and closed-form `readout()`: `<label> · <x> mm, <y> °`.
+test('readout units from each tile\'s recording', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const sel = '.theme[data-theme="light"] [data-tile="fieldCurvature"]';
+  const mark = page.locator(`${sel} polyline[data-series], ${sel} path[data-series]`).first();
+  await mark.scrollIntoViewIfNeeded();
+  const at = await drawnPoint(mark, 0);
+  await page.mouse.move(at.x, at.y);
+  await expect(page.locator(`${sel} .eleo-hover__tip`)).toHaveText(/^(Tangential|Sagittal) · −?[\d.]+ mm, −?[\d.]+ °$/);
+});
+
+// Plan #804, issue #903, CR #898: a typed map tile's tooltip shows the hovered sample's recorded value, with units, from the same values the tile draws.
+// oracle: fixtures tests/fixtures/phos-core/cooke-psf.json (the gallery draws it divided by its peak, in `relative`) and cooke-wavefront.json (polar, in `waves`): `<x> mm, <y> mm = <value> <unit>`.
+// The pointer is placed from the <image>'s data-extent and data-rows/data-columns (or data-radii/data-angles) and its drawn box (never getScreenCTM).
+test('map tiles show their value', async ({ page }) => {
+  const psf = JSON.parse(readFileSync(new URL('./fixtures/phos-core/cooke-psf.json', import.meta.url), 'utf8'));
+  const wf = JSON.parse(readFileSync(new URL('./fixtures/phos-core/cooke-wavefront.json', import.meta.url), 'utf8'));
+  const peak = Math.max(...psf.values.flat());
+  const [row, col] = [70, 100], [ring, spoke] = [40, 10];
+  // The log tile spans 4 decades, so most of its cells are below 5e-4 of the peak: one of them (first in 1e-4..4e-4) reads its value to 5 decimals, not 0.000.
+  const faint = psf.values.flatMap((r, i) => r.map((v, j) => [i, j, v / peak])).find(([, , v]) => v > 1e-4 && v < 4e-4);
+  expect(faint, 'the fixture has a faint cell').toBeTruthy();
+  const cases = [
+    ['psf-recorded', psf.values[row][col] / peak, 'relative', row, col, 1e-3],
+    ['wavefront-recorded', wf.values[ring][spoke], 'waves', row, col, 1e-3],
+    ['psf-log', faint[2], 'relative', faint[0], faint[1], 1e-5],
+  ];
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['dark', 'light']) {
+    for (const [tile, want, unit, row, col, tol] of cases) {
+      const sel = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
+      const img = page.locator(`${sel} image[data-extent]`);
+      await img.scrollIntoViewIfNeeded();
+      const at = await img.evaluate((im, [row, col, ring, spoke]) => {
+        const e = im.dataset.extent.split(' ').map(Number), b = im.getBoundingClientRect();
+        let x, y;
+        if (im.dataset.radii) {
+          const r = im.dataset.radii.split(' ').map(Number)[ring], a = im.dataset.angles.split(' ').map(Number)[spoke];
+          x = r * Math.cos(a); y = r * Math.sin(a);
+        } else {
+          x = e[0] + (col + 0.5) / +im.dataset.columns * (e[1] - e[0]); y = e[3] - (row + 0.5) / +im.dataset.rows * (e[3] - e[2]);
+        }
+        return { x: b.left + (x - e[0]) / (e[1] - e[0]) * b.width, y: b.top + (e[3] - y) / (e[3] - e[2]) * b.height };
+      }, [row, col, ring, spoke]);
+      await page.mouse.move(at.x, at.y);
+      const tip = page.locator(`${sel} .eleo-hover__tip`);
+      await expect(tip, `${theme} ${tile} tooltip`).toContainText(' = ');
+      const text = (await tip.textContent()).replace(/\u2212/g, '-');
+      const m = text.match(/^(-?[\d.]+) mm, (-?[\d.]+) mm = (-?[\d.]+) (\S+)$/);
+      expect(m, `${theme} ${tile} reads "${text}"`).not.toBeNull();
+      expect(m[4], `${theme} ${tile} unit`).toBe(unit);
+      expect(Math.abs(+m[3] - want), `${theme} ${tile} value ${m[3]} vs ${want}`).toBeLessThan(tol);
+      await page.mouse.move(2, 2);
+    }
+  }
+});
+
+// Plan #804, issue #925, CR #921: the spot, footprint and throughFocus tiles take their units from their recording, the layout tiles read in mm.
+// oracle: closed-form `readout()`: a spot reads `<label> · <x> µm, <y> µm`; a layout ray point reads `field <f> · ray <r> · <x> mm, <y> mm` (#924).
+// The pointer is placed at a point's drawn position from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
+test('gallery tooltips carry units', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  // SVG and tileAxes are page globals: every recTile tile (an SVG entry with a `rec`) resolves an axis unit.
+  const bare = await page.evaluate(() => Object.keys(SVG).filter((t) => {
+    const a = tileAxes(t);
+    return SVG[t].rec && !(a && ((a.x && a.x.unit) || (a.y && a.y.unit)));
+  }));
+  expect(bare, 'recorded tiles with no axis unit').toEqual([]);
+  for (const theme of ['dark', 'light']) {
+    const spot = `.theme[data-theme="${theme}"] [data-tile="spot"]`;
+    const dot = page.locator(`${spot} path[data-series], ${spot} polyline[data-series]`).first();
+    await dot.scrollIntoViewIfNeeded();
+    const at = await drawnPoint(dot, 0);
+    await page.mouse.move(at.x, at.y);
+    await expect(page.locator(`${spot} .eleo-hover__tip`), `${theme} spot tooltip`).toHaveText(/µm, −?[\d.]+ µm$/);
+    await page.mouse.move(2, 2);
+
+    const lay = `.theme[data-theme="${theme}"] [data-tile="layout2D-wandersleb"]`;
+    const ray = page.locator(`${lay} polyline[data-field="0"][data-ray="0"]`).first();
+    await ray.scrollIntoViewIfNeeded();
+    // The layout's geometry sits in one matrix(...) group above its runs, not directly over them: find it, then place point 2 as drawnPoint does.
+    const pt = await ray.evaluate((m) => {
+      const g = m.closest('g[transform^="matrix"]'), [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+      const n = m.getAttribute('points').split(/[\s,]+/).filter(Boolean).map(Number), root = g.ownerSVGElement, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      return { x: box.left + (a * n[4] + e) * k, y: box.top + (d * n[5] + f) * k };
+    });
+    await page.mouse.move(pt.x, pt.y);
+    await expect(page.locator(`${lay} .eleo-hover__tip`), `${theme} layout tooltip`).toHaveText(/^field \d+ · ray \d+ · −?[\d.]+ mm, −?[\d.]+ mm$/);
+    await page.mouse.move(2, 2);
+
+    // Footprint reads in its recording's unit (cooke-footprint's adapter: mm), throughFocus in the µm it draws.
+    for (const [tile, unit] of [['footprint', 'mm'], ['throughFocus', 'µm']]) {
+      const sel = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
+      const mark = page.locator(`${sel} path[data-series], ${sel} polyline[data-series]`).first();
+      await mark.scrollIntoViewIfNeeded();
+      let p = await drawnPoint(mark, 0);
+      // A tall tile's first point can sit above or below the viewport: scroll it to the middle, then place the pointer again.
+      await page.evaluate((y) => window.scrollBy(0, y - window.innerHeight / 2), p.y);
+      p = await drawnPoint(mark, 0);
+      await page.mouse.move(p.x, p.y);
+      await expect(page.locator(`${sel} .eleo-hover__tip`), `${theme} ${tile} tooltip`).toHaveText(new RegExp(`${unit}, −?[\\d.]+ ${unit}$`));
+      await page.mouse.move(2, 2);
+    }
+
+    // Seidel bars (sums and terms): a bar reads `<series> · <category>, <value> mm`; the pointer sits at the centre of the bar's drawn box.
+    for (const tile of ['seidel', 'seidel-terms']) {
+      const bars = `.theme[data-theme="${theme}"] [data-tile="${tile}"]`;
+      const bar = page.locator(`${bars} rect[data-series][data-category]`).first();
+      await bar.scrollIntoViewIfNeeded();
+      const bb = await bar.boundingBox();
+      await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await expect(page.locator(`${bars} .eleo-hover__tip`), `${theme} ${tile} tooltip`).toHaveText(/ mm$/);
+      await page.mouse.move(2, 2);
+    }
+  }
+});
+
+// Plan #804 (agent_docs/plans/804-interaction.md), outcome O5, issue #831: the live-update toggle redraws the MTF tile's data every frame and the tile keeps the caller's zoom.
+// oracle: property, a data redraw that passes the kept view leaves the drawn x range unchanged while the drawn series changes; double-click returns the default range (the first draw's).
+// The pointer is placed from the data group's matrix(...) attribute, the nested viewport's x/y/width/height and the SVG's box, never getScreenCTM.
+test('zoom survives live update', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tile = page.locator('.theme[data-theme="light"] [data-tile="mtf"]');
+  await tile.scrollIntoViewIfNeeded();
+  const read = () => tile.evaluate((t) => {
+    const mark = t.querySelector('[data-series]'), g = mark.parentNode, vp = g.closest('svg'), root = vp.ownerSVGElement || vp;
+    const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width, vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0), vw = +vp.getAttribute('width'), vh = +vp.getAttribute('height');
+    return { x: [(0 - e) / a, (vw - e) / a], series: mark.getAttribute('points') || mark.getAttribute('d'), cx: box.left + (vx + vw / 2) * k, cy: box.top + (vy + vh / 2) * k };
+  });
+  const near = (got, want, what) => { for (const i of [0, 1]) expect(Math.abs(got[i] - want[i]), `${what} [${i}]`).toBeLessThanOrEqual(1e-6 * Math.max(1, Math.abs(want[1] - want[0]))); };
+  const first = await read();
+  await page.mouse.move(first.cx, first.cy);
+  await page.mouse.wheel(0, -300);
+  const zoomed = await read();
+  expect(zoomed.x[1] - zoomed.x[0], 'the wheel zoomed in').toBeLessThan((first.x[1] - first.x[0]) * 0.9);
+
+  await page.locator('#live').check();
+  await expect.poll(async () => (await read()).series, { message: 'live update changes the drawn data' }).not.toBe(zoomed.series);
+  await page.waitForTimeout(150); // a few more frames
+  near((await read()).x, zoomed.x, 'x range after live frames');
+
+  await tile.scrollIntoViewIfNeeded(); // checking the box scrolled the page back to the header
+  const at = await read();
+  await page.mouse.dblclick(at.cx, at.cy);
+  near((await read()).x, first.x, 'x range after double-click');
+  await page.locator('#live').uncheck();
+});
+
+// Plan #804 (agent_docs/plans/804-interaction.md), outcome O1 and O5, issue #967 (CRs #957, #958): every layout tile zooms through the tile's kept view, and the Cooke glass tile reads a lens element in its tooltip.
+// oracle: property, a wheel notch over a layout tile changes its data group's matrix(...) (zoom about the pointer), a double-click restores the markup it first drew; a pointer on a glass polygon's rim, away from the rays, shows a tooltip whose first line starts `element ` (the five-line readout of #963, tests/interact.spec.js).
+test('layout tiles zoom and read lenses', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tiles = ['layout2D', 'layout2D-fan', 'layout2D-glasses', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden'];
+  const theme = 'light';
+  for (const name of tiles) {
+    const tile = page.locator(`.theme[data-theme="${theme}"] [data-tile="${name}"]`);
+    await tile.scrollIntoViewIfNeeded();
+    const svg = tile.locator('svg').first();
+    const matrix = () => svg.evaluate((s) => s.querySelector('g[transform^="matrix"]').getAttribute('transform'));
+    const markup = () => svg.evaluate((s) => s.outerHTML);
+    const first = { matrix: await matrix(), markup: await markup() };
+    const box = await svg.boundingBox();
+    const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(matrix, { message: `${name} wheel changes the drawn matrix` }).not.toBe(first.matrix);
+    await page.mouse.dblclick(cx, cy);
+    await expect.poll(markup, { message: `${name} double-click restores the markup` }).toBe(first.markup);
+    await page.mouse.move(2, 2);
+  }
+
+  const glass = page.locator(`.theme[data-theme="${theme}"] [data-tile="layout2D-glasses"]`);
+  await glass.scrollIntoViewIfNeeded();
+  const poly = glass.locator('polygon[data-element]').first();
+  const bb = await poly.boundingBox();
+  // The point of the first element farthest from every ray run (data units; the tile's scale is uniform): the 24 px reach of a ray never touches it.
+  const at = await poly.evaluate((p) => {
+    const pairs = (el) => el.getAttribute('points').trim().split(/\s+/).map((q) => q.split(',').map(Number));
+    const pts = pairs(p), xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const segs = [...p.ownerSVGElement.querySelectorAll('polyline[data-ray]')].flatMap((l) => { const r = pairs(l); return r.slice(1).map((q, i) => [r[i], q]); });
+    const inside = (x, y) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) if ((pts[i][1] > y) !== (pts[j][1] > y) && x < (pts[j][0] - pts[i][0]) * (y - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0]) c = !c; return c; };
+    const dist = (x, y, [a, b]) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy); };
+    let best = { d: -1 };
+    for (let i = 1; i < 20; i++) for (let k = 1; k < 40; k++) {
+      const x = x0 + (x1 - x0) * i / 20, y = y0 + (y1 - y0) * k / 40;
+      if (!inside(x, y)) continue;
+      const d = Math.min(...segs.map((g) => dist(x, y, g)));
+      if (d > best.d) best = { d, fx: (x - x0) / (x1 - x0), fy: (y1 - y) / (y1 - y0) };
+    }
+    return best;
+  });
+  await page.mouse.move(bb.x + at.fx * bb.width, bb.y + at.fy * bb.height);
+  await expect(glass.locator('.eleo-hover__tip'), 'lens tooltip').toHaveText(/^element /);
+  await page.mouse.move(2, 2);
+});

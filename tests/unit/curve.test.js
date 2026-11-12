@@ -9,7 +9,7 @@ import { niceRange } from '../../packages/plots/src/axis.js';
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-import { TOL_PX, SIZES, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
+import { TOL_PX, SIZES, subpaths, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
 
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
@@ -147,7 +147,7 @@ test('frame geometry has at most 2 decimals', () => {
   }
 });
 
-// Plan #284 #329 (CR from the M2 demo). oracle: property: a single plot's frame top sits at least 14 px under the y-axis title's baseline (y = 10), as bars.test.js checks for bars.
+// Plan #284 #329 (CR from the M2 demo). oracle: property: a single plot's frame top sits at least 14 px under the y-axis title's baseline (y = 10); bars.test.js checks the same room as 1.4 t.
 test('the y-axis title has room above the frame', () => {
   const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], index: 0 }], x: { label: 'Frequency', unit: 'cy/mm' }, y: { label: 'Modulus' }, width: 460, height: 260 });
   const T = Number(/<svg\b[^>]*\by="([\d.]+)"[^>]*>\s*<g\b[^>]*transform="matrix/.exec(svg)[1]);
@@ -891,7 +891,7 @@ test('corner key stays in the plot', async () => {
 // Plan #677, issue #691. oracle: property: grid: false removes exactly the tick grid lines; the tick text and everything else stay, and without it the output is byte-identical.
 test('plotCell without grid', async () => {
   const { plotCell } = await import('../../packages/plots/src/curve.js');
-  const sc = { xr: [0, 10], yr: [0, 1], xt: { ticks: [0, 5, 10], decimals: 0 }, yt: { ticks: [0, 0.5, 1], decimals: 1 }, R: 10, Rt: 1 };
+  const sc = { xr: [0, 10], yr: [0, 1], xt: { ticks: [0, 5, 10], decimals: 0 }, yt: { ticks: [0, 0.5, 1], decimals: 1 }, Rt: 1 };
   const mg = { L: 40, B: 30, R: 10, t: 10 };
   const on = plotCell(sc, [], 300, 200, 10, false, '', undefined, mg);
   const off = plotCell(sc, [], 300, 200, 10, false, '', undefined, { ...mg, grid: false });
@@ -936,4 +936,191 @@ test('grid false', async () => {
   const fan = rayFan({ grid: false }), fanOn = rayFan({});
   assert.ok(count(fanOn) > 0 && count(fan) === 0, 'rayFan: no grid lines with grid: false');
   assert.deepEqual(texts(fan), texts(fanOn), 'rayFan: tick text unchanged');
+});
+
+// Plan #804 M1 (#806): each curve mark names its series, so a hover or click can say which one.
+// oracle: closed-form the series index, role, label and panel index the caller passed
+test('series data attributes', () => {
+  const series = [{ points: [[0, 0], [1, 1]], label: 'A<&"', role: 'tangential', index: 1 }, { points: [[0, 1], [1, 0]] }];
+  const one = ELEO.curve({ series });
+  const marks1 = one.match(/<polyline [^>]*>/g);
+  assert.equal(marks1.length, 2);
+  assert.match(marks1[0], /data-series="0"/);
+  assert.match(marks1[0], /data-role="tangential"/);
+  assert.match(marks1[0], /data-label="A&lt;&amp;&quot;"/);
+  assert.doesNotMatch(marks1[0], /data-panel/);
+  assert.match(marks1[1], /data-series="1"/);
+  assert.doesNotMatch(marks1[1], /data-role|data-label/);
+  const many = ELEO.curve({ panels: [{ series: [series[0]] }, { series: [series[1], series[0]] }] });
+  const marks2 = many.match(/<path [^>]*data-series[^>]*>/g);
+  assert.deepEqual(marks2.map((m) => [m.match(/data-panel="(\d+)"/)[1], m.match(/data-series="(\d+)"/)[1]]), [['0', '0'], ['1', '0'], ['1', '1']]);
+});
+
+// CR #841 (#851): data-label is escaped exactly once.
+// oracle: closed-form the label a"b&c escapes to a&quot;b&amp;c, never a double escape (&amp;quot;)
+test('series data-label escapes once', () => {
+  const out = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], label: 'a"b&c' }] });
+  assert.match(out, /data-label="a&quot;b&amp;c"/);
+  assert.doesNotMatch(out, /&amp;quot;/);
+});
+
+// Plan #804, issue #585. oracle: property: every renderer passes its own margins, so plotCell has no default for them, scales() returns no px right margin and the PLOT_L/B/T constants are gone.
+test('plotCell requires margins', async () => {
+  const curve = await import('../../packages/plots/src/curve.js');
+  const sc = curve.scales({ x: {}, y: {} }, [[{ points: [[0, 0], [10, 1]] }]]);
+  assert.ok(!('R' in sc), 'scales() has no px R');
+  assert.ok('Rt' in sc, 'scales() keeps Rt');
+  for (const k of ['PLOT_L', 'PLOT_B', 'PLOT_T']) assert.ok(!(k in curve), `${k} is not exported`);
+  assert.throws(() => curve.plotCell(sc, [], 300, 200, 10, false, ''), TypeError, 'no margins, no default');
+});
+
+// Plan #804, issue #803. oracle: property: a key entry's label must be a string, as layout2D's is; a number, null or missing label throws.
+test('key label must be a string', () => {
+  const series = [{ points: [[0, 0], [1, 1]], index: 0 }];
+  for (const label of [5, null, undefined, {}, true]) {
+    assert.throws(() => ELEO.curve({ series, key: [{ label }] }), { name: 'TypeError', message: 'curve: a key entry needs a string label' }, String(label));
+  }
+  assert.ok(ELEO.curve({ series, key: [{ label: 'S' }] }).includes('>S<'), 'a string label still draws');
+});
+
+// Plan #804, M3 (#826): `view` overrides the drawn ranges; without it the markup is unchanged.
+// oracle: closed-form: the view's ends map to the frame's edges (px = M * data), and every drawn tick lies inside the view.
+test('view overrides the range', () => {
+  const series = [{ points: [[0, 0], [1, 2], [2, 1], [3, 5], [4, 3], [5, 4]], index: 0 }];
+  const base = ELEO.curve({ series, width: 460, height: 300 });
+  assert.equal(ELEO.curve({ series, width: 460, height: 300, view: undefined }), base, 'no view: the markup is unchanged');
+  assert.equal(ELEO.curve({ series, width: 460, height: 300, view: {} }), base, 'an empty view: the markup is unchanged');
+  const view = { x: [2, 4], y: [1, 3] };
+  for (const [name, spec] of [['series', { series }], ['panels', { panels: [{ series }, { series }], columns: 2 }]]) {
+    const svg = ELEO.curve({ ...spec, x: { range: [0, 5], ticks: [0, 1, 2, 3, 4, 5] }, width: 460, height: 300, view });
+    const groups = name === 'series' ? [{ ...seriesGroup(svg), box: null }] : panelGroups(svg);
+    assert.equal(groups.length, name === 'series' ? 1 : 2);
+    for (const g of groups) {
+      const { ph, pw } = name === 'series' ? frame(svg) : { ph: g.box.ph, pw: g.box.pw };
+      const [x0, y0] = toPx(g.M, [2, 1]), [x1, y1] = toPx(g.M, [4, 3]);
+      assert.ok(Math.hypot(x0, y0 - ph) <= TOL_PX && Math.hypot(x1 - pw, y1) <= TOL_PX, `${name}: view ends map to the frame corners, got [${x0}, ${y0}] [${x1}, ${y1}]`);
+    }
+    const xs = [...svg.matchAll(/<text class="eleo-tick" x="[\d.]+" y="[\d.]+" text-anchor="middle"[^>]*>([^<]*)<\/text>/g)].map((m) => Number(m[1].replace(/−/g, '-')));
+    assert.ok(xs.length >= 2 && xs.every((v) => v >= 2 && v <= 4), `${name}: x ticks inside [2, 4], got ${xs}`);
+  }
+  // One key alone overrides one axis; the other keeps the caller's range.
+  const half = ELEO.curve({ series, x: { range: [0, 5] }, y: { range: [0, 5] }, width: 460, height: 300, view: { x: [2, 4] } });
+  const M = seriesGroup(half).M, { ph } = frame(half);
+  assert.ok(Math.abs(toPx(M, [0, 0])[1] - ph) <= TOL_PX && Math.abs(toPx(M, [0, 5])[1]) <= TOL_PX, 'y keeps its range');
+  // A view that is not two finite increasing numbers is dropped.
+  assert.equal(ELEO.curve({ series, width: 460, height: 300, view: { x: [4, 2], y: [NaN, 1] } }), base, 'a bad view is ignored');
+  // rayFan passes it through.
+  const fan = ELEO.rayFan({ width: 600, view: { x: [-0.5, 0.5], y: [-10, 10] } });
+  const first = panelGroups(fan)[0];
+  assert.ok(Math.hypot(...toPx(first.M, [-0.5, -10]).map((v, i) => v - [0, first.box.ph][i])) <= TOL_PX, 'rayFan: view reaches the panels');
+});
+
+// Plan #804 M3 (#989, CR #984): with a view each series (and each run of a panel's path) is cut to the plot area plus 32 px, a cut piece carries data-from.
+// oracle: property - every drawn point, through the group's matrix, lies within the plot area widened by 32 px; metamorphic - the interior points of a piece are the uncut series' points from data-from on
+test('a zoomed curve draws only its window', () => {
+  const sine = Array.from({ length: 2000 }, (_, i) => [i * 0.5, Math.sin(i * 0.05)]);
+  const view = { x: [0, 400], y: [-0.3, 0.3] }, x = { range: [0, 1000] }, y = { range: [-1, 1] };
+  const tags = (svg, tag) => [...svg.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'g'))].map((m) => Object.fromEntries([...m[0].matchAll(/([\w-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
+  const check = (svg, tag, live, M, pw, ph, label) => {
+    const pieces = tags(svg, tag).filter((a) => a['data-series'] !== undefined);
+    assert.ok(pieces.length >= 3, `${label}: the series leaves the window and returns, so it is several pieces`);
+    assert.ok(pieces.some((a) => a['data-from'] !== undefined && +a['data-from'] > 0), `${label}: a cut piece carries data-from`);
+    assert.ok(pieces.every((a) => a['data-from'] !== '0'), `${label}: data-from is left out when 0`);
+    let total = 0, interior = 0;
+    for (const a of pieces) {
+      const p = subpaths(tag === 'path' ? a.d : `M${a.points.trim().replace(/ /g, ' L')}`)[0], from = +(a['data-from'] || 0);
+      total += p.length;
+      for (const q of p) {
+        const [px, py] = toPx(M, q);
+        assert.ok(px >= -32 - 1e-3 && px <= pw + 32 + 1e-3 && py >= -32 - 1e-3 && py <= ph + 32 + 1e-3, `${label}: point ${q} is within the plot area plus 32 px`);
+      }
+      for (let j = 1; j + 1 < p.length; j++) { interior++; assert.deepEqual(p[j], live[from + j], `${label}: interior point ${j} is data point ${from + j}`); }
+    }
+    assert.ok(total < live.length / 4, `${label}: ${total} of ${live.length} points drawn`);
+    assert.ok(interior > 0, `${label}: some piece has interior data points`);
+  };
+  const single = ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300, view });
+  const { M } = seriesGroup(single), { pw, ph } = frame(single);
+  check(single, 'polyline', sine, M, pw, ph, 'single');
+  // panels: a null splits the series, and data-from counts the finite points across its runs
+  const gap = sine.map((p, i) => (i === 700 ? null : p)), live = gap.filter((p) => p);
+  const panels = ELEO.curve({ panels: [{ title: 'a', series: [{ points: gap, index: 0 }] }], x, y, width: 460, height: 300, view });
+  const g = panelGroups(panels)[0];
+  check(panels, 'path', live, g.M, g.box.pw, g.box.ph, 'panels');
+  // a series wholly outside the window draws nothing; without a view nothing is cut and nothing carries data-from
+  assert.equal(tags(ELEO.curve({ series: [{ points: [[600, 0], [700, 0.1]], index: 0 }], x, y, width: 460, height: 300, view }), 'polyline').filter((a) => a['data-series'] !== undefined).length, 0);
+  assert.ok(!/data-from/.test(ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300 })), 'no view, no data-from');
+});
+
+// Plan #804 M3 (#998, round 9 finding 2): a zoomed single plot whose series holds a non-finite point draws the uncut polyline, as the unzoomed drawing does, so zooming never makes a line appear.
+// oracle: metamorphic - the zoomed polyline's points are the unzoomed polyline's
+test('a zoomed series with a NaN draws as the unzoomed one', () => {
+  const points = [[0, 0], [100, 0.2], [200, NaN], [300, 0.4], [400, 0.5]], x = { range: [0, 1000] }, y = { range: [-1, 1] };
+  const poly = (svg) => [...svg.matchAll(/<polyline\b[^>]*>/g)].map((m) => m[0]).filter((t) => /data-series/.test(t));
+  const plain = poly(ELEO.curve({ series: [{ points, index: 0 }], x, y, width: 460, height: 300 }));
+  const zoomed = poly(ELEO.curve({ series: [{ points, index: 0 }], x, y, width: 460, height: 300, view: { x: [0, 500], y: [-1, 1] } }));
+  assert.equal(plain.length, 1);
+  assert.deepEqual(zoomed, plain);
+});
+
+// Plan #804 M3 (#990, CR #984): a cut dashed series carries stroke-dashoffset, its cut-off length in px modulo the dash period, so its dashes sit where the uncut line's do.
+// oracle: metamorphic - for views panned apart at one scale, the dash phase at a piece's first point equals the uncut series' arc length (px, from its run's start) modulo the period
+test('a cut dash keeps its phase', () => {
+  const sine = Array.from({ length: 2000 }, (_, i) => [i * 0.5, Math.sin(i * 0.05)]);
+  const x = { range: [0, 1000] }, y = { range: [-1, 1] }, views = [{ x: [0, 400], y: [-0.3, 0.3] }, { x: [150, 550], y: [-0.3, 0.3] }, { x: [300, 700], y: [-0.3, 0.3] }];
+  const tags = (svg, tag) => [...svg.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'g'))].map((m) => Object.fromEntries([...m[0].matchAll(/([\w-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
+  const period = (d) => { const a = d.split(' ').map(Number); return (a.length % 2 ? a.concat(a) : a).reduce((u, v) => u + v, 0); };
+  let shifted = 0, checked = 0;
+  const check = (svg, tag, M, live, starts, label) => {
+    for (const a of tags(svg, tag).filter((t) => t['data-series'] !== undefined)) {
+      const P = period(a['stroke-dasharray']), from = +(a['data-from'] || 0), run = starts.filter((r) => r <= from).pop();
+      const p = subpaths(tag === 'path' ? a.d : `M${a.points.trim().replace(/ /g, ' L')}`)[0], U = live.slice(run).map((q) => toPx(M, q)), q0 = toPx(M, p[0]);
+      let len = Math.hypot(q0[0] - U[from - run][0], q0[1] - U[from - run][1]);
+      for (let j = 0; j < from - run; j++) len += Math.hypot(U[j + 1][0] - U[j][0], U[j + 1][1] - U[j][1]);
+      const off = +(a['stroke-dashoffset'] || 0), d = Math.abs((off - len) % P), want = len % P;
+      assert.ok(off >= 0 && off < P, `${label}: the offset is within one period, got ${off}`);
+      assert.ok(Math.min(d, P - d) < 0.02, `${label}: dash phase ${off} should be ${want}`);
+      checked++; if (off) shifted++;
+    }
+  };
+  const gap = sine.map((p, i) => (i === 700 ? null : p)), live = gap.filter((p) => p);
+  for (const role of ['sagittal', 'reference']) for (const [i, view] of views.entries()) {
+    const single = ELEO.curve({ series: [{ points: sine, index: 0, role }], x, y, width: 460, height: 300, view });
+    check(single, 'polyline', seriesGroup(single).M, sine, [0], `${role} single ${i}`);
+    const panels = ELEO.curve({ panels: [{ title: 'a', series: [{ points: gap, index: 0, role }] }], x, y, width: 460, height: 300, view });
+    const g = panelGroups(panels)[0];
+    check(panels, 'path', g.M, live, [0, 700], `${role} panels ${i}`);
+  }
+  assert.ok(checked > 0 && shifted > 0, `some dashed piece is cut (${checked} checked, ${shifted} shifted)`);
+  // without a view, and for a solid series, no dashoffset
+  assert.ok(!/dashoffset/.test(ELEO.curve({ series: [{ points: sine, index: 0, role: 'sagittal' }], x, y, width: 460, height: 300 })), 'no view, no dashoffset');
+  assert.ok(!/dashoffset/.test(ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300, view: views[1] })), 'a solid series has none');
+});
+
+// Plan #804 M3 (#994, CR #993): with a view a limit line outside the view's range is not drawn, a band is clamped to the range (one wholly outside draws nothing); no view, same markup.
+// oracle: property - every limit mark, through the group's matrix, lies within the plot area widened by 32 px; metamorphic - a limit inside the view draws as without a view
+test('a zoomed curve draws its limits only in its window', () => {
+  const series = [{ points: [[0, 0], [1000, 1]], index: 0 }], x = { range: [0, 1000] }, y = { range: [0, 1] };
+  const limits = [{ x: 50 }, { y: 0.3 }, { x: [10, 30] }, { y: [0.1, 0.2] }, { x: [190, 260] }, { y: [0.45, 0.9] }, { x: 150 }, { y: 0.6 }];
+  const view = { x: [100, 200], y: [0.5, 0.7] };
+  const marks = (svg) => [...svg.matchAll(/<(line|rect) class="eleo-limit"[^>]*>/g)].map((m) => ({ tag: m[1], ...Object.fromEntries([...m[0].matchAll(/([\w-]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])) }));
+  const zoomed = ELEO.curve({ series, x, y, width: 460, height: 300, limits, view });
+  const { M } = seriesGroup(zoomed), { pw, ph } = frame(zoomed), ms = marks(zoomed);
+  for (const m of ms) {
+    const pts = m.tag === 'line' ? [[+m.x1, +m.y1], [+m.x2, +m.y2]] : [[+m.x, +m.y], [+m.x + +m.width, +m.y + +m.height]];
+    for (const q of pts) {
+      const [px, py] = toPx(M, q);
+      assert.ok(px >= -32 - 1e-3 && px <= pw + 32 + 1e-3 && py >= -32 - 1e-3 && py <= ph + 32 + 1e-3, `mark ${JSON.stringify(m)} reaches ${q} -> ${px},${py}, outside the plot area plus 32 px`);
+    }
+  }
+  // two lines inside the view, and the two bands that overlap it (clamped); the rest are left out
+  assert.equal(ms.filter((m) => m.tag === 'line').length, 2, 'only the lines at x=150 and y=0.6');
+  assert.equal(ms.filter((m) => m.tag === 'rect').length, 2, 'only the bands that overlap the view');
+  // without a view the marks are all there, unchanged
+  assert.equal(marks(ELEO.curve({ series, x, y, width: 460, height: 300, limits })).length, limits.length);
+  // a limit inside the view draws as without a view
+  const inside = [{ x: 150 }, { y: 0.6 }];
+  const a = ELEO.curve({ series, x, y, width: 460, height: 300, limits: inside, view: { x: [0, 1000], y: [0, 1] } });
+  assert.equal(a, ELEO.curve({ series, x, y, width: 460, height: 300, limits: inside, view: { x: [0, 1000], y: [0, 1] } }));
+  assert.equal(marks(a).length, 2, 'a full-range view keeps its limits');
 });

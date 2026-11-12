@@ -16,6 +16,7 @@
     header h1 { margin: 0 0 4px; font-size: 28px; line-height: 34px; }
     header p { margin: 0; color: var(--ink-muted); max-width: 72ch; }
     header .palette { margin-top: 12px; }
+    header .live { display: inline-block; margin-top: 12px; color: var(--ink-muted); }
     .themes { display: grid; grid-template-columns: minmax(0, 1fr); }
     .theme { min-width: 0; background: var(--ground); color: var(--ink); padding: 24px 32px 48px; display: grid; gap: 12px; align-content: start; }
     .theme > h2 { margin: 0; font-size: 16px; }
@@ -31,6 +32,7 @@
     <h1>ELEO plots</h1>
     <p>Every renderer in @eleoptics/plots, drawn from the sample achromat, in both themes. Check this page after any change to a renderer or a token.</p>
     <form class="palette"><div class="eleo-seg" role="radiogroup" aria-label="Palette"><label><input type="radio" name="palette" value="standard" checked><span>Standard</span></label><label><input type="radio" name="palette" value="red-green"><span>Red-green</span></label><label><input type="radio" name="palette" value="blue-yellow"><span>Blue-yellow</span></label></div></form>
+    <label class="live"><input type="checkbox" id="live"> Live update (redraws the MTF tile every frame, keeping its zoom)</label>
   </header>
   <main class="themes">
     <section class="theme" data-theme="light"><h2>Light</h2></section>
@@ -92,31 +94,32 @@
     function fieldKey(d) { return d.rays.map(function (_, i) { return { label: 'F' + (i + 1), index: i }; }).concat('glass'); }
     // A recorded tile: draws REC[k] (the adapter's result) through the renderer `render`; blank while REC[k] is unset.
     // draw(data, w) gets the body's content width; every framed tile passes it on as `width` (ADR-0003).
-    function recTile(k, render) { return { need: function () { return REC[k]; }, draw: function (d, w) { return render(d, w); } }; }
-    function atWidth(d, w, more) { return Object.assign({}, d, more, { width: w }); }
+    // A zoomable tile also gets the tile's view (v: undefined until the first gesture, null after a reset) and passes it to the renderer as `view`.
+    function recTile(k, render) { return { rec: k, need: function () { return REC[k]; }, draw: function (d, w, v) { return render(d, w, v); } }; }
+    function atWidth(d, w, more, v) { return Object.assign({}, d, more, v ? { view: v } : {}, { width: w }); }
     var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50, label: '50 cycles/mm' }, { y: [0, 0.3] }];
     var SVG = {
-      'layout2D': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, key: legendKey('field') }); } },
-      'layout2D-fan': { need: sampleBox, draw: function (box, w) { return ELEO.layout2D({ width: w, box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }); } },
-      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w) { return ELEO.layout2D({ data: d, width: w, marks: false, key: fieldKey(d) }); } },
-      'layout2D-wandersleb': recTile('layout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
-      'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w)); }),
-      'layout2D-cassegrain-dead-hidden': recTile('cassegrainLayout', function (d, w) { return ELEO.layout2D(atWidth(d, w, { show: ['Alive', 'Virtual'] })); }),
-      'spot': recTile('spot', function (d, w) { return ELEO.spot(atWidth(d, w)); }),
-      'footprint': recTile('footprint', function (d, w) { return ELEO.spot(atWidth(d, w)); }),
+      'layout2D': { need: sampleBox, draw: function (box, w, v) { return ELEO.layout2D(atWidth({}, w, { box: box, key: legendKey('field') }, v)); } },
+      'layout2D-fan': { need: sampleBox, draw: function (box, w, v) { return ELEO.layout2D(atWidth({}, w, { box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }, v)); } },
+      'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w, v) { return ELEO.layout2D({ data: d, width: w, marks: false, key: fieldKey(d), view: v || undefined }); } },
+      'layout2D-wandersleb': recTile('layout', function (d, w, v) { return ELEO.layout2D(atWidth(d, w, null, v)); }),
+      'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w, v) { return ELEO.layout2D(atWidth(d, w, null, v)); }),
+      'layout2D-cassegrain-dead-hidden': recTile('cassegrainLayout', function (d, w, v) { return ELEO.layout2D(atWidth(d, w, { show: ['Alive', 'Virtual'] }, v)); }),
+      'spot': recTile('spot', function (d, w, v) { return ELEO.spot(atWidth(d, w, null, v)); }),
+      'footprint': recTile('footprint', function (d, w, v) { return ELEO.spot(atWidth(d, w, null, v)); }),
       // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
       'seidel': recTile('seidel', function (d, w) { return ELEO.bars(atWidth(d, w, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', function (d, w) { return ELEO.bars(atWidth(d, w)); }),
-      'throughFocus': { need: sampleBox, draw: function (_, w) { return ELEO.throughFocus({ width: w }); } },
+      'throughFocus': { need: sampleBox, draw: function (_, w, v) { return ELEO.throughFocus(atWidth({}, w, null, v)); } },
       // The recorded achromat's fans through curve, as tall as rayFan's panels are (PLOT_SIZES.rayFan.aspect) over its columns.
-      'rayFan': recTile('rayFan', function (d, w) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns })); }),
-      'rayFan-opd': { need: sampleBox, draw: function (_, w) { return ELEO.rayFan({ kind: 'opd', key: true, width: w }); } },
-      'mtf': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
+      'rayFan': recTile('rayFan', function (d, w, v) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns }, v)); }),
+      'rayFan-opd': { need: sampleBox, draw: function (_, w, v) { return ELEO.rayFan(atWidth({}, w, { kind: 'opd', key: true }, v)); } },
+      'mtf': recTile('mtf', function (d, w, v) { return ELEO.curve(atWidth(d, w, null, v)); }),
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
-      'mtf-limits': recTile('mtf', function (d, w) { return ELEO.curve(atWidth(d, w, { limits: MTF_LIMITS })); }),
-      'fieldCurvature': recTile('fieldCurvature', function (d, w) { return ELEO.curve(atWidth(d, w)); }),
-      'distortion': recTile('distortion', function (d, w) { return ELEO.curve(atWidth(d, w, { keyAt: 'top-right' })); }),
-      'chromaticFocus': { need: sampleBox, draw: function (_, w) { return ELEO.curve({ kind: 'chromaticFocus', width: w }); } }
+      'mtf-limits': recTile('mtf', function (d, w, v) { return ELEO.curve(atWidth(d, w, { limits: MTF_LIMITS }, v)); }),
+      'fieldCurvature': recTile('fieldCurvature', function (d, w, v) { return ELEO.curve(atWidth(d, w, null, v)); }),
+      'distortion': recTile('distortion', function (d, w, v) { return ELEO.curve(atWidth(d, w, { keyAt: 'top-right' }, v)); }),
+      'chromaticFocus': { need: sampleBox, draw: function (_, w, v) { return ELEO.curve(atWidth({}, w, { kind: 'chromaticFocus' }, v)); } }
     };
     function airyTile(canvas, n) {
       canvas.width = canvas.height = n;
@@ -156,7 +159,7 @@
       body.innerHTML = '';
       var props = MAPS[body.dataset.map];
       if (!props) return;
-      try { body.innerHTML = ELEO.map2D(Object.assign({}, props, { el: body.parentNode, width: body._w })); }
+      try { body.innerHTML = ELEO.map2D(Object.assign({}, props, { el: body.parentNode, width: body._w }, body._view ? { view: body._view } : {})); }
       catch (e) { console.error('gallery: ' + body.dataset.map + ' tile skipped:', e); }
     }
     function drawMaps() {
@@ -201,16 +204,63 @@
     function tileMins(theme) {
       theme.querySelectorAll('[data-size]').forEach(function (t) { t.style.setProperty('--tile-min', (tileMin(t) + 26) + 'px'); });
     }
+    // Axis specs for the tooltip's units. A recorded tile reads its recording's axes (recTile keeps the recording key as `rec`); a spot or footprint tile reads in its recording's unit, throughFocus in the µm it draws, a layout tile in mm; a map tile gets its axes from mapInteract. A tile with none of these reads bare numbers.
+    function tileAxes(tile) {
+      var u = tile === 'throughFocus' ? 'µm' : (tile === 'spot' || tile === 'footprint') && REC[tile] && REC[tile].unit;
+      if (tile.indexOf('layout2D') === 0) u = 'mm';
+      return u ? { x: { unit: u }, y: { unit: u } } : REC[(SVG[tile] || {}).rec];
+    }
+    // A typed map tile's interact options: the values the tile draws and its own axis specs (x, y, value), each with enough digits to tell neighbouring samples apart (the PSF's extent is hundredths of a mm, so its x and y read to 4 decimals; the rest to 2, the value to 3; a log map's value to its decades plus one, so its faint cells do not all read 0.000).
+    function mapInteract(props) {
+      var e = props.extent, small = Math.min(e[1] - e[0], e[3] - e[2]) < 1, d = small ? 4 : 2;
+      return {
+        values: props.values,
+        axes: { x: Object.assign({ digits: d }, props.x), y: Object.assign({ digits: d }, props.y), value: Object.assign({ digits: props.scale === 'log' ? (props.decades || 4) + 1 : 3 }, props.value) }
+      };
+    }
+    // One interact per tile body: the hover dot, drop lines and tooltip, with the units from the tile's recording. A curve tile hovers by its marks, a typed map tile by its sample (` = <value>` from its own values), a layout tile by its ray runs; a tile with none of those shows nothing.
+    function tileInteract(theme) {
+      theme.querySelectorAll('[data-tile]').forEach(function (tile) {
+        var body = tile.querySelector('.eleo-plot__body'), map = body && body.dataset.map && MAPS[body.dataset.map];
+        if (!body) return;
+        var opts = map ? mapInteract(map) : { axes: tileAxes(tile.dataset.tile) };
+        // A zoomable tile (curve, spot, layout and typed-map tiles, ray fans, through focus) keeps its view on the body: onview stores it (null after a reset) and redraws the tile through its own draw path, so fit's width still applies.
+        if (map || (body.dataset.svg && SVG[body.dataset.svg] && !/^seidel/.test(body.dataset.svg))) opts.onview = function (v) { body._view = v || undefined; body._redraw(); };
+        ELEO.interact(body, opts);
+        // A press holds the live redraw until it is released: a redraw between mousedown and mouseup removes the pressed element, and the browser then sends no click or double-click.
+        body.addEventListener('pointerdown', function () { body._held = true; });
+        ['pointerup', 'pointercancel'].forEach(function (n) { window.addEventListener(n, function () { body._held = false; }); });
+      });
+    }
+    // Live update: while the header's checkbox is on, every animation frame redraws the MTF tiles with a deterministic phase on their curves, through the tile's draw path with the view it keeps.
+    function liveData(d, phase) {
+      return Object.assign({}, d, { series: d.series.map(function (s, i) {
+        return Object.assign({}, s, { points: s.points.map(function (p) { return [p[0], p[1] * (0.85 + 0.15 * Math.sin(phase + i + p[0] / 20))]; }) });
+      }) });
+    }
+    var liveFrame = 0;
+    function liveTick(t) {
+      var on = document.getElementById('live').checked;
+      document.querySelectorAll('.theme [data-svg="mtf"]').forEach(function (el) {
+        el._live = on && REC.mtf ? liveData(REC.mtf, t / 400) : null;
+        if ((on || el._wasLive) && !el._held) el._redraw();
+        el._wasLive = on;
+      });
+      liveFrame = on ? requestAnimationFrame(liveTick) : 0;
+    }
+    document.getElementById('live').addEventListener('change', function () { if (this.checked && !liveFrame) liveFrame = requestAnimationFrame(liveTick); });
     function draw() {
       document.querySelectorAll('.theme').forEach(function (theme) {
         theme.appendChild(document.getElementById('tiles').content.cloneNode(true));
         tileMins(theme);
+        tileInteract(theme);
         theme.querySelectorAll('[data-svg]').forEach(function (el) {
           var tile = SVG[el.dataset.svg], need = tile.need();
+          el._redraw = function () { if (el._w) el.innerHTML = tile.draw(el._live || need, el._w, el._view); };
           if (!need) el.innerHTML = '';
-          else ELEO.fit(el, function (w) { el.innerHTML = tile.draw(need, w); });
+          else ELEO.fit(el, function (w) { el._w = w; el._redraw(); });
         });
-        theme.querySelectorAll('[data-map]').forEach(function (el) { ELEO.fit(el, function (w) { el._w = w; drawMap(el); }); });
+        theme.querySelectorAll('[data-map]').forEach(function (el) { el._redraw = function () { drawMap(el); }; ELEO.fit(el, function (w) { el._w = w; drawMap(el); }); });
         fitCanvases(theme);
         var icons = ELEO.icons.optical.map(function (i) { return ELEO.icon(i.name, { style: 'glass', size: 32, label: i.title }); })
           .concat(ELEO.icons.interface.map(function (i) { return ELEO.icon(i.name, { size: 24, label: i.title }); }));

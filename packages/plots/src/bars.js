@@ -1,6 +1,6 @@
 import { idx, svg, esc } from "./common.js";
 import { scales, plotCell, limitBody } from "./curve.js";
-import { frameText, frameOf } from "./scale.js";
+import { frameText, frameOf, CURVE_MARGINS } from "./scale.js";
 import { checkLimits } from "./limits.js";
 import { keyLayout, keyMarkup } from "./key.js";
 
@@ -9,7 +9,7 @@ var r2 = function (v) { return +v.toFixed(2); };
 
 /* Signed grouped bars in curve's frame (ADR-0001: roles and indexes, no colors; text, margins and the key to ADR-0003, in units of the text size t(F) of the plot frame's width F). Category k occupies x in [k, k + 1] in data units;
    bars fill 80 % of it, split among the series; `total` appends a group of per-series sums after a half-band gap.
-   Each bar is a <rect> in the data-space group with y = min(0, v) and height = |v|, so the transform inverts to the value. */
+   Each bar is a <rect> in the data-space group with y = min(0, v) and height = |v|, so the transform inverts to the value; data-series is the series' position and data-category the category's index (the total group's is n, after the last category); data-label is the series' label (when it has one) and data-category-label the category's text as drawn on the axis (the total's label for the total group). */
 export function bars(o) {
   o = o || {};
   var cats = o.categories || [], series = o.series || [], y = o.y || {}, W = o.width || 460, H = o.height || Math.round(W * 260 / 460), m = series.length;
@@ -30,8 +30,8 @@ export function bars(o) {
   var all = [0].concat(hasTotal ? sums : []);
   series.forEach(function (s) { cats.forEach(function (_, c) { all.push(val((s.values || [])[c])); }); });
   var sc = scales({ x: { range: [0, span], ticks: [] }, y: y, limits: lim }, [[{ points: all.map(function (v) { return [0, v]; }) }]], false);
-  /* ADR-0003's margins in text units, as curve's: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks (none here). */
-  var F = frameOf(W, 4.6 + sc.Rt), t = frameText(F), L = r2(4.6 * t), T = r2(2.6 * t), Bm = 3.6 * t, R = sc.Rt * t, KEY_LINE = 1.4 * t, MIN_BAND_PX = 1.4 * t;
+  /* ADR-0003's margins in text units, as curve's (CURVE_MARGINS): left, bottom and top, the right one from the ticks (none here). */
+  var F = frameOf(W, CURVE_MARGINS.L + sc.Rt), t = frameText(F), L = r2(CURVE_MARGINS.L * t), T = r2(CURVE_MARGINS.T * t), Bm = CURVE_MARGINS.B * t, R = sc.Rt * t, KEY_LINE = 1.4 * t, MIN_BAND_PX = 1.4 * t;
   var ts = ' style="font-size:' + +t.toFixed(3) + 'px"';
   /* The key row starts a new line when an entry would pass the frame's right edge; each extra line takes KEY_LINE from the frame, down to a frame 1 px tall; past that the row runs on. */
   var maxRow = Math.max(0, Math.floor((H - T - Bm - 1) / KEY_LINE));
@@ -39,13 +39,13 @@ export function bars(o) {
   var kl = keyLayout(keyed, t, { L: L, R: W - R, maxRow: maxRow }), row = kl.rows ? kl.rows - 1 : 0;
   var Hf = r2(H - KEY_LINE * row);
   var rects = "";
-  function bar(x0, s, j, v) {
+  function bar(x0, s, j, v, c, cl) {
     if (!num(v)) return;
     var w = FILL / m;
-    rects += '<rect x="' + +(x0 + (1 - FILL) / 2 + j * w).toFixed(9) + '" y="' + +Math.min(0, v).toFixed(12) + '" width="' + +w.toFixed(9) + '" height="' + +Math.abs(v).toFixed(12) + '" fill="' + idx(s.index || 0) + '"/>';
+    rects += '<rect x="' + +(x0 + (1 - FILL) / 2 + j * w).toFixed(9) + '" y="' + +Math.min(0, v).toFixed(12) + '" width="' + +w.toFixed(9) + '" height="' + +Math.abs(v).toFixed(12) + '" fill="' + idx(s.index || 0) + '" data-series="' + j + '"' + (s.label ? ' data-label="' + esc(s.label) + '"' : "") + ' data-category="' + c + '" data-category-label="' + esc(cl) + '"/>';
   }
-  cats.forEach(function (_, c) { series.forEach(function (s, j) { bar(c, s, j, (s.values || [])[c]); }); });
-  if (hasTotal) series.forEach(function (s, j) { bar(n + GAP, s, j, sums[j]); });
+  cats.forEach(function (_, c) { series.forEach(function (s, j) { bar(c, s, j, (s.values || [])[c], c, _); }); });
+  if (hasTotal) series.forEach(function (s, j) { bar(n + GAP, s, j, sums[j], n, o.total); });
   /* Category labels in px at each band centre, every k-th when a band is under 1.4 text units; the total's label is always drawn. */
   var pw = r2(Math.max(1, W - L - R)), px = pw / span, ph = r2(Math.max(1, Hf - T - Bm)), step = Math.max(1, Math.ceil(MIN_BAND_PX / px));
   /* Solid dividers, frame decoration in px outside the data group, drawn before plotCell so they sit with the gridlines under the data and the limit labels: at every step-th boundary between category groups (each separates labelled groups) and mid-gap before the total. */

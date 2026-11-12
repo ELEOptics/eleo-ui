@@ -8,8 +8,9 @@ import * as layout from './layout2d.js';
 import * as glass from './glass.js';
 import * as scale from './scale.js';
 import { minWidth } from './sizes.js';
+import { interact, readout } from './interact.js';
 
-Object.assign(ELEO, physics, scale, { minWidth, layoutBounds: layout.layoutBounds, glassLegend: glass.glassLegend });
+Object.assign(ELEO, physics, scale, { minWidth, interact, readout, layoutBounds: layout.layoutBounds, glassLegend: glass.glassLegend });
 
 export default ELEO;
 export const {
@@ -17,4 +18,4 @@ export const {
 } = ELEO;
 export * from './physics.js';
 export * from './scale.js';
-export { minWidth };
+export { minWidth, interact, readout };

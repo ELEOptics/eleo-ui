@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELEO from '../../packages/plots/src/index.js';
 import { idx } from '../../packages/plots/src/common.js';
+import * as common from '../../packages/plots/src/common.js';
+import { readFileSync } from 'node:fs';
 import { frameText } from '../../packages/plots/src/scale.js';
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
@@ -677,3 +679,82 @@ test('throughFocus tick labels', async () => {
   }
 });
 function near2(a, b, m) { assert.ok(Math.abs(a - b) <= 0.02, `${m}: ${a} against ${b}`); }
+
+test('shared drawn-point rule', () => {
+  assert.equal(typeof common.drawn, 'function', 'common.js exports the drawn-point predicate');
+  assert.equal(typeof common.niceHalf, 'function', 'common.js exports the step rule');
+  const d = common.drawn;
+  assert.equal(d([1, 2]), true);
+  [null, undefined, [null, 1], [1, null], [NaN, 1], [1, Infinity]].forEach((p) => assert.equal(d(p), false, JSON.stringify(p)));
+  assert.deepEqual([0, 0.3, 1.1, 2.2, 3, 7, 11].map(common.niceHalf), [1, 0.4, 2, 2.5, 4, 10, 20]);
+  const src = (f) => readFileSync(new URL(`../../packages/plots/src/${f}`, import.meta.url), 'utf8');
+  assert.ok(!/var live = /.test(src('spot.js')) && !/function niceHalf/.test(src('spot.js')), 'spot.js keeps no copy');
+  assert.ok(!/function drawn\(/.test(src('curve.js')), 'curve.js keeps no copy');
+  const svg = ELEO.spot({ panels: [{ series: [{ points: [[1, 1], null, [null, 2], [NaN, 0], [-1, -1]] }] }] });
+  assert.equal((svg.match(/ h0/g) || []).length, 2, 'only the two drawn points become dots');
+});
+
+// Plan #804 M2 (#814): each series path names its series (position in the array), its panel and, in throughFocus, its cell.
+test('series data attributes', () => {
+  const paths = (svg) => [...svg.matchAll(/<path d="(M[^"]* h0)"([^>]*)\/>/g)].map((m) => Object.fromEntries([...m[2].matchAll(/ (data-[a-z]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
+  const s = ELEO.spot({ width: 400, panels: [
+    { series: [{ index: 3, label: 'a & b', points: [[0, 0], [1, 1]] }, { index: 0, points: [[1, 0]] }] },
+    { series: [{ index: 1, points: [[0, 1]] }] }] });
+  assert.deepEqual(paths(s), [
+    { 'data-series': '0', 'data-label': 'a &amp; b', 'data-panel': '0' },
+    { 'data-series': '1', 'data-panel': '0' },
+    { 'data-series': '0', 'data-panel': '1' }], 'position, label and panel; the colour index is not the identity');
+  const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const T = sample.throughFocus, cols = T.defocus.length, rows = T.spots.length;
+  const tf = paths(ELEO.throughFocus({ data: sample }));
+  const per = T.spots[0][0].pts.length;
+  assert.equal(tf.length, rows * cols * per, 'a path per series per cell');
+  tf.forEach((a, k) => {
+    const cell = Math.floor(k / per), r = Math.floor(cell / cols), c = cell % cols;
+    assert.deepEqual(a, { 'data-series': String(k % per), 'data-panel': String(cell), 'data-cell': `${r},${c}` }, `path ${k}`);
+  });
+});
+
+// Plan #804 M3 (#827): `view: { center, half }` is one square window for every panel (spot and throughFocus).
+// oracle: closed form: with view { center: [5, -3], half: 2 } each panel's data group maps x 3 and 7 to its frame's edges and y -5 and -1 to the bottom and top; the ticks lie in the window; no view (or an invalid one) draws the markup unchanged.
+test('view windows every panel', () => {
+  const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const view = { center: [5, -3], half: 2 };
+  const edges = (svg, n) => {
+    const gs = panelGroups(svg);
+    assert.equal(gs.length, n, `${n} panels`);
+    gs.forEach((g, i) => {
+      const e = (p) => toPx(g.M, p);
+      assert.ok(Math.abs(e([3, -3])[0]) < 1e-6 && Math.abs(e([7, -3])[0] - g.box.pw) < 1e-6, `panel ${i}: x 3 and 7 on the left and right edges`);
+      assert.ok(Math.abs(e([5, -1])[1]) < 1e-6 && Math.abs(e([5, -5])[1] - g.box.ph) < 1e-6, `panel ${i}: y -1 and -5 on the top and bottom edges`);
+    });
+  };
+  const panels = [{ series: [{ points: [[5, -3], [6, -2]] }] }, { series: [{ points: [[4, -4]] }] }];
+  const base = ELEO.spot({ width: 400, panels });
+  edges(ELEO.spot({ width: 400, panels, view }), 2);
+  edges(ELEO.spot({ width: 400, panels, view, scale: 'auto' }), 2);
+  edges(ELEO.throughFocus({ data: sample, view }), sample.throughFocus.spots.length * sample.throughFocus.defocus.length);
+  const labels = (svg) => [...svg.matchAll(/<text class="eleo-tick"[^>]*>(\S+)<\/text>/g)].map((m) => +m[1].replace('−', '-')).filter(Number.isFinite);
+  assert.ok(labels(ELEO.spot({ width: 400, panels, view })).every((v) => (v > 3 && v < 7) || (v > -5 && v < -1)), 'tick labels lie inside the window');
+  assert.equal(ELEO.spot({ width: 400, panels, view: undefined }), base, 'no view: markup unchanged');
+  [{ center: [0, 0], half: 0 }, { center: [0, 0], half: -1 }, { center: [NaN, 0], half: 1 }, { center: [0], half: 1 }, null, 3].forEach((v) => assert.equal(ELEO.spot({ width: 400, panels, view: v }), base, `invalid view ${JSON.stringify(v)} is ignored`));
+  assert.equal(ELEO.throughFocus({ data: sample, view: { center: [0, 0], half: 0 } }), ELEO.throughFocus({ data: sample }), 'throughFocus ignores an invalid view');
+});
+
+test('auto-scale margin ignores panel order', () => {
+  const big = { series: [{ points: [[1, 1], [-1, -1]] }] }, small = { series: [{ points: [[0.01, 0.01], [-0.01, -0.01]] }] };
+  const x0 = (panels) => panelGroups(ELEO.spot({ width: 400, panels, scale: 'auto' }))[0].box.x;
+  assert.equal(x0([big, small]), x0([small, big]), 'the first frame sits at the same x in both panel orders');
+});
+
+// oracle: closed form: the sample call with view { center: [0, 0], half: 2 } differs from the call without, and its data group maps x -2 and 2 to the frame's left and right edges.
+test('the sample spot takes view', () => {
+  const view = { center: [0, 0], half: 2 };
+  const base = ELEO.spot({ width: 500 }), zoomed = ELEO.spot({ width: 500, view });
+  assert.notEqual(zoomed, base, 'view changes the sample spot');
+  panelGroups(zoomed).forEach((g, i) => {
+    const e = (p) => toPx(g.M, p);
+    assert.ok(Math.abs(e([-2, 0])[0]) < 1e-6 && Math.abs(e([2, 0])[0] - g.box.pw) < 1e-6, `panel ${i}: x -2 and 2 on the left and right edges`);
+    assert.ok(Math.abs(e([0, 2])[1]) < 1e-6 && Math.abs(e([0, -2])[1] - g.box.ph) < 1e-6, `panel ${i}: y 2 and -2 on the top and bottom edges`);
+  });
+});

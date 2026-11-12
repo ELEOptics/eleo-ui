@@ -5,12 +5,17 @@
 <script>
   import { map2D } from '@eleoptics/plots';
   import { themeTick } from './theme.svelte.js';
+  import { hover } from './interact.svelte.js';
   /**
-   * @typedef {Omit<import('@eleoptics/plots').Map2DProps, 'map'> & Omit<import('@eleoptics/plots').Map2DGridProps, 'range' | 'el'> & { label?: string, range?: [number, number] }} TypedProps
-   * @typedef {Omit<import('@eleoptics/plots').Map2DProps, 'map'> & Partial<Omit<import('@eleoptics/plots').Map2DGridProps, 'range' | 'el' | 'values'>> & { values?: undefined, label?: string, range?: { lo: number, hi: number } }} SampleProps
+   * @typedef {{ onhover?: (event: import('@eleoptics/plots').HoverEvent | null) => void, onselect?: (event: import('@eleoptics/plots').SelectEvent) => void, onview?: (view: import('@eleoptics/plots').PlotView | null) => void, view?: import('@eleoptics/plots').PlotView | null }} HoverProps
+   * @typedef {Omit<import('@eleoptics/plots').Map2DProps, 'map'> & Omit<import('@eleoptics/plots').Map2DGridProps, 'range' | 'el'> & { label?: string, range?: [number, number] } & HoverProps} TypedProps
+   * @typedef {Omit<import('@eleoptics/plots').Map2DProps, 'map'> & Partial<Omit<import('@eleoptics/plots').Map2DGridProps, 'range' | 'el' | 'values'>> & { values?: undefined, label?: string, range?: { lo: number, hi: number } } & HoverProps} SampleProps
    */
   /** @type {TypedProps | SampleProps} */
-  let { label, width, range = $bindable(), ...props } = $props();
+  let { label, width, onhover, onselect, onview, view: viewProp, range = $bindable(), ...props } = $props();
+  let inner = $state(null); // the zoom the typed map keeps across data changes until reset; a `view` prop given by the caller controls it instead
+  const view = $derived(viewProp !== undefined ? viewProp : inner);
+  const setView = (/** @type {any} */ v) => { inner = v; onview?.(v); };
   let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
   /** @type {HTMLCanvasElement | undefined} */
   let canvas = $state();
@@ -22,7 +27,7 @@
     themeTick();
     if (typed) {
       if (!host) return;
-      const grid = /** @type {import('@eleoptics/plots').Map2DGridProps} */ ({ ...props, width: width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined), range, el: host });
+      const grid = /** @type {import('@eleoptics/plots').Map2DGridProps} */ ({ ...props, width: width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined), range, el: host, view });
       svg = map2D(grid);
     } else if (canvas) {
       range = map2D(canvas, { ...props });
@@ -31,7 +36,7 @@
 </script>
 
 {#if typed}
-  <div class="eleo-svg" bind:this={host} bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
+  <div class="eleo-svg" use:hover={{ onhover, onselect, onview: setView, values: props.values, axes: { x: /** @type {any} */ (props).x, y: /** @type {any} */ (props).y, value: /** @type {any} */ (props).value } }} bind:this={host} bind:contentRect={rect} role={label ? 'img' : undefined} aria-label={label}>{@html svg}</div>
 {:else}
   <canvas bind:this={canvas} role={label ? 'img' : undefined} aria-label={label}></canvas>
 {/if}

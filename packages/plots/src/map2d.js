@@ -3,7 +3,7 @@ import { css, rgb, ramp, mapStops, fmt } from "./color.js";
 import { svg, esc } from "./common.js";
 import { niceTicks } from "./axis.js";
 import { scales, axisTicks, plotCell } from "./curve.js";
-import { frameText, frameOf, frameWeight } from "./scale.js";
+import { frameText, frameOf, frameWeight, CURVE_MARGINS } from "./scale.js";
 import { colormap } from "./physics.js";
 
 var r2 = function (v) { return +v.toFixed(2); };
@@ -35,17 +35,18 @@ function margins(o, W, H) {
   rows.forEach(function (r) { r.forEach(function (v) { if (live(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
   /* Value range: the data's, symmetric about 0 for "wave" (a diverging map's middle step means 0); `range` overrides. */
   if (o.map === "wave" && lo <= hi) { var mx = Math.max(Math.abs(lo), Math.abs(hi)); lo = -mx; hi = mx; }
-  if (Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1])) { lo = o.range[0]; hi = o.range[1]; }
+  var rg = Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1]);
+  if (rg) { lo = o.range[0]; hi = o.range[1]; }
   var log = o.scale === "log", dec = o.decades > 0 ? o.decades : 4;
   /* A log scale with a range 0 < lo < hi spans exactly [lo, hi]; otherwise it spans `decades` below hi. */
-  if (log && lo > 0 && lo < hi && Array.isArray(o.range) && o.range.length === 2 && live(o.range[0]) && live(o.range[1])) dec = Math.log10(hi / lo);
+  if (log && lo > 0 && lo < hi && rg) dec = Math.log10(hi / lo);
   /* Colorbar (only with `value`): ticks over the color scale, whole decades on log. Its width joins the right margin, in text units: 1.2 gap, 1 bar, 0.4, the widest label (0.6 a character), 0.4. */
   var vb = o.value, cbt = null, CB = 0;
   if (vb) {
     var cl = log ? hi * Math.pow(10, -dec) : lo, vt;
     if (!(log ? hi > 0 : lo < hi)) vt = { ticks: [], decimals: 0 };
     else if (vb.ticks) vt = axisTicks(vb, [cl, hi]);
-    else if (log) { vt = { ticks: [], decimals: 0 }; if (hi > 0) for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = null; }
+    else if (log) { vt = { ticks: [], decimals: 0 }; for (var k = Math.ceil(Math.log10(cl) - 1e-9); k <= Math.floor(Math.log10(hi) + 1e-9); k++) vt.ticks.push(Math.pow(10, k)); vt.decimals = null; }
     else {
       /* niceTicks rounds its step up, so a span like [0.01, 1.2] can leave two ticks inside: ask for more labels until three fall in the range (a step of a tenth of the span is within the limit). */
       var inside = function (v) { return v >= cl - 1e-9 * (hi - cl) && v <= hi + 1e-9 * (hi - cl); };
@@ -55,18 +56,20 @@ function margins(o, W, H) {
     cbt = vt.ticks.filter(function (v) { var t = cbpos(v); return t >= -1e-9 && t <= 1 + 1e-9; }).map(function (v) { return { t: cbpos(v), s: fmt(v, vt.decimals == null ? (v < 1 ? Math.max(0, -Math.floor(Math.log10(v) + 1e-9)) : 0) : vt.decimals) }; });
     CB = 3 + 0.6 * Math.max.apply(null, [0].concat(cbt.map(function (q) { return Array.from(q.s).length; })));
   }
-  /* Ranges: the extent padded on the shorter side so the plot area's px per unit are equal. The right margin (text units) is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. The text size follows the margin, since it follows the frame. */
-  var Rt0 = scales({ x: { range: [e[0], e[1]], ticks: withMajor(x, gx, [e[0], e[1]]).ticks }, y: { range: [e[2], e[3]] } }, [[]]).Rt + CB, Rt = Rt0, F, t, L, T, Bm, R, pw, ph, dx = e[1] - e[0], dy = e[3] - e[2], xr, yr;
+  /* The drawn window: the extent, or `view`'s ranges (extent units) per axis; padded below like the extent. */
+  var vw = o.view || {}, bx = vw.x || [e[0], e[1]], by = vw.y || [e[2], e[3]];
+  /* Ranges: the window (the extent without a `view`) padded on the shorter side so the plot area's px per unit are equal. The right margin (text units) is the one the extent's x ticks need, repeated until it stops growing: the padded range's ticks (the ones drawn) can need a wider margin than the extent's, and a wider margin narrows the padded range (pads x less), so the ticks are measured again. The text size follows the margin, since it follows the frame. */
+  var Rt0 = scales({ x: { range: [e[0], e[1]], ticks: withMajor(x, gx, bx).ticks }, y: { range: by } }, [[]]).Rt + CB, Rt = Rt0, F, t, L, T, Bm, R, pw, ph, dx = bx[1] - bx[0], dy = by[1] - by[0], xr, yr;
   for (var it = 0; it < 8; it++) {
-    F = frameOf(W, 4.6 + Rt); t = frameText(F); L = r2(4.6 * t); T = r2(2.6 * t); Bm = 3.6 * t; R = Rt * t;
-    pw = r2(Math.max(1, W - L - R)); ph = r2(Math.max(1, H - T - Bm)); xr = [e[0], e[1]]; yr = [e[2], e[3]];
-    if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [e[0] - (px - dx) / 2, e[1] + (px - dx) / 2]; }
-    else { var py = dx * ph / pw; yr = [e[2] - (py - dy) / 2, e[3] + (py - dy) / 2]; }
+    F = frameOf(W, CURVE_MARGINS.L + Rt); t = frameText(F); L = r2(CURVE_MARGINS.L * t); T = r2(CURVE_MARGINS.T * t); Bm = CURVE_MARGINS.B * t; R = Rt * t;
+    pw = r2(Math.max(1, W - L - R)); ph = r2(Math.max(1, H - T - Bm)); xr = [bx[0], bx[1]]; yr = [by[0], by[1]];
+    if (dx / dy < pw / ph) { var px = dy * pw / ph; xr = [bx[0] - (px - dx) / 2, bx[1] + (px - dx) / 2]; }
+    else { var py = dx * ph / pw; yr = [by[0] - (py - dy) / 2, by[1] + (py - dy) / 2]; }
     var need = Math.max(Rt0, scales({ x: { range: xr, ticks: withMajor(x, gx, xr).ticks }, y: { range: yr } }, [[]]).Rt + CB);
     if (need <= Rt + 1e-9) break;
     Rt = need;
   }
-  return { L: 4.6, R: Rt, F: F, t: t, T: T, Bm: Bm, pw: pw, ph: ph, xr: xr, yr: yr, lo: lo, hi: hi, log: log, dec: dec, cbt: cbt, CB: CB, Rt: Rt };
+  return { L: CURVE_MARGINS.L, R: Rt, F: F, t: t, T: T, Bm: Bm, pw: pw, ph: ph, xr: xr, yr: yr, lo: lo, hi: hi, log: log, dec: dec, cbt: cbt, CB: CB, Rt: Rt };
 }
 
 export function mapMargins(o) {
@@ -74,7 +77,7 @@ export function mapMargins(o) {
   return { L: m.L, R: m.R };
 }
 
-/* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px. Text, margins and the colorbar follow ADR-0003, in units of the text size t(F) of the plot frame's width F (curve's margins: 4.6 left, 3.6 bottom, 2.6 top, the right one from the ticks and the colorbar); the aperture ring grows by frameWeight(F).
+/* The typed map (Map2DGridProps): the frame, ticks and axis labels of a plot, and the cells as one pixelated <image> in px. Text, margins and the colorbar follow ADR-0003, in units of the text size t(F) of the plot frame's width F (curve's margins, scale.js CURVE_MARGINS: left, bottom, top, the right one from the ticks and the colorbar); the aperture ring grows by frameWeight(F).
    Not in plotCell's data group: that group flips y and would draw row 0 at the bottom. Masked cells are alpha 0. */
 function typedMap(o) {
   var W = o.width || 460, H = o.height || Math.round(W * 360 / 460), x = o.x || {}, y = o.y || {}, e = o.extent, rows = o.values, nr = rows && rows.length, nc = nr && rows[0] ? rows[0].length : 0;
@@ -82,16 +85,23 @@ function typedMap(o) {
   if (!Array.isArray(rows) || !nr || !Array.isArray(rows[0]) || !nc) throw new TypeError("map2D: values must be a non-empty array of non-empty rows");
   if (rows.some(function (r) { return !Array.isArray(r) || r.length !== nc; })) throw new TypeError("map2D: every row of values must have the same length");
   if (!Array.isArray(e) || e.length !== 4 || !e.every(live) || !(e[0] < e[1]) || !(e[2] < e[3])) throw new TypeError("map2D: extent must be [x0, x1, y0, y1] with x0 < x1 and y0 < y1");
+  /* An invalid view axis (absent, not a finite lo < hi pair) is ignored and keeps the extent's range, as curve's does; no valid axis is no view. */
+  var vw = o.view, okr = function (a) { return Array.isArray(a) && a.length === 2 && live(a[0]) && live(a[1]) && a[0] < a[1] ? a : undefined; };
+  if (vw && typeof vw === "object") {
+    var vx = okr(vw.x), vy = okr(vw.y);
+    vw = vx || vy ? { x: vx, y: vy } : undefined;
+  } else vw = undefined;
+  o = Object.assign({}, o, { view: vw });
   var pol = o.polar, pr, pa;
   if (pol) {
     pr = pol.radii; pa = pol.angles;
     if (!Array.isArray(pr) || !Array.isArray(pa) || !pr.length || !pa.length || !pr.every(live) || !pa.every(live) || pr[0] < 0 || pr.some(function (q, i) { return i && !(q > pr[i - 1]); }) || pa.some(function (q, i) { return i && q < pa[i - 1]; }) || pa[pa.length - 1] - pa[0] > 2 * Math.PI * (1 + 1e-12)) throw new TypeError("map2D: polar needs non-empty radii (finite, increasing, from 0 up) and angles (finite, sorted, within one turn)");
     if (nr !== pr.length || nc !== pa.length) throw new TypeError("map2D: polar values need one row per radius and one value per angle");
   }
-  var M = margins(o, W, H), vb = o.value, lo = M.lo, hi = M.hi, log = M.log, dec = M.dec, cbt = M.cbt, CB = M.CB, Rt = M.Rt, F = M.F, t = M.t, T = M.T, Bm = M.Bm, pw = M.pw, ph = M.ph, xr = M.xr, yr = M.yr, L = r2(4.6 * t), R = Rt * t;
+  var M = margins(o, W, H), vb = o.value, lo = M.lo, hi = M.hi, log = M.log, dec = M.dec, cbt = M.cbt, CB = M.CB, Rt = M.Rt, F = M.F, t = M.t, T = M.T, Bm = M.Bm, pw = M.pw, ph = M.ph, xr = M.xr, yr = M.yr, L = r2(CURVE_MARGINS.L * t), R = Rt * t;
   var ts = ' style="font-size:' + +t.toFixed(3) + 'px"', wt = +frameWeight(F).toFixed(3);
   var gx = gridOf(o.grid, "x"), gy = gridOf(o.grid, "y");
-  var sc = { xr: xr, yr: yr, xt: axisTicks(withMajor(x, gx, xr), xr), yt: axisTicks(withMajor(y, gy, yr), yr), R: R, Rt: Rt };
+  var sc = { xr: xr, yr: yr, xt: axisTicks(withMajor(x, gx, xr), xr), yt: axisTicks(withMajor(y, gy, yr), yr), Rt: Rt };
   var lut = colormap(o.map || "ember", o.el), cv = document.createElement("canvas"), span = hi - lo;
   var sx = pw / (xr[1] - xr[0]), sy = ph / (yr[1] - yr[0]);
   /* The cell's color: the value's step on the scale, null for a masked value. */
@@ -103,7 +113,9 @@ function typedMap(o) {
   var bw = nc, bh = nr;
   if (pol) {
     /* Polar: the bitmap has one pixel per px the image shows (the plot area's px, so never more), which resolves a sector wherever it is at least a pixel wide at the outer ring. */
-    bw = Math.max(1, Math.round((e[1] - e[0]) * sx)); bh = Math.max(1, Math.round((e[3] - e[2]) * sy));
+    /* A view does not re-bake: the bitmap is sized at the scale without it. */
+    var M0 = vw ? margins(Object.assign({}, o, { view: undefined }), W, H) : M, sx0 = M0.pw / (M0.xr[1] - M0.xr[0]), sy0 = M0.ph / (M0.yr[1] - M0.yr[0]);
+    bw = Math.max(1, Math.round((e[1] - e[0]) * sx0)); bh = Math.max(1, Math.round((e[3] - e[2]) * sy0));
   }
   cv.width = bw; cv.height = bh;
   var ctx = cv.getContext("2d"), im = ctx.createImageData(bw, bh), put = function (k, c) {
@@ -129,7 +141,11 @@ function typedMap(o) {
   var X = function (v) { return +(L + (v - xr[0]) * sx).toFixed(2); }, Y = function (v) { return +(T + ph - (v - yr[0]) * sy).toFixed(2); };
   var lab = function (a) { return esc(a.label || "") + (a.unit ? ", " + esc(a.unit) : ""); };
   var g = plotCell(sc, [], W, H, T, false, "", undefined, { L: L, B: Bm, R: R, t: t, grid: false });
-  g += '<image x="' + X(e[0]) + '" y="' + Y(e[3]) + '" width="' + +((e[1] - e[0]) * sx).toFixed(2) + '" height="' + +((e[3] - e[2]) * sy).toFixed(2) + '" preserveAspectRatio="none" style="image-rendering: pixelated" href="' + cv.toDataURL("image/png") + '"/>';
+  /* What interact reads off the image: the extent in data units and the grid's shape, or the polar map's radii and angles. */
+  var shape = ' data-range="' + [xr[0], xr[1], yr[0], yr[1]].map(function (v) { return +v.toFixed(9); }).join(" ") + '" data-extent="' + e.join(" ") + '"' + (pol ? ' data-radii="' + pr.join(" ") + '" data-angles="' + pa.join(" ") + '"' : ' data-rows="' + nr + '" data-columns="' + nc + '"');
+  var vp = o.view && (o.view.x || o.view.y);
+  if (vp) g += '<svg x="' + L + '" y="' + T + '" width="' + pw + '" height="' + ph + '" viewBox="' + L + " " + T + " " + pw + " " + ph + '">';
+  g += '<image x="' + X(e[0]) + '" y="' + Y(e[3]) + '" width="' + +((e[1] - e[0]) * sx).toFixed(2) + '" height="' + +((e[3] - e[2]) * sy).toFixed(2) + '" preserveAspectRatio="none" style="image-rendering: pixelated"' + shape + ' href="' + cv.toDataURL("image/png") + '"/>';
   /* The grid, over the image and under the aperture: a line at each major tick inside the image, `minor` evenly spaced lines in each interval between ticks, in the grid tokens of the map colormap draws (an unknown map falls back to ember, as colormap does). */
   {
     var gm = ["ember", "wave", "viridis", "gray"].indexOf(o.map) < 0 ? "ember" : o.map, majS = ' stroke="var(--map-grid-' + gm + ')"/>', minS = ' stroke="var(--map-grid-' + gm + '-minor)"/>';
@@ -149,6 +165,7 @@ function typedMap(o) {
     g += '<path fill-rule="evenodd" fill="var(--surface)" d="M' + ix0 + " " + iy0 + "H" + ix1 + "V" + iy1 + "H" + ix0 + "ZM" + +(ax - ar).toFixed(2) + " " + ay + "a" + ar + " " + ar + " 0 1 0 " + 2 * ar + " 0a" + ar + " " + ar + " 0 1 0 " + -2 * ar + ' 0Z"/>';
     g += '<circle cx="' + ax + '" cy="' + ay + '" r="' + ar + '" fill="none" stroke="var(--plot-axis)" stroke-width="' + wt + '"/>';
   }
+  if (vp) g += "</svg>";
   if (cbt) {
     var bc = document.createElement("canvas"); bc.width = 1; bc.height = 256;
     var bctx = bc.getContext("2d"), bim = bctx.createImageData(1, 256);

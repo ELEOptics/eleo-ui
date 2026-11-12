@@ -111,3 +111,17 @@ test('index exports fit and the scale rule at runtime', () => {
     assert.equal(ELEO[name], v, 'ELEO.' + name);
   }
 });
+
+test('measure before draw', () => {
+  const log = [];
+  const mk = (name, width) => ({ width, getBoundingClientRect() { log.push('measure ' + name); return { width: this.width }; } });
+  const a = mk('a', 100), b = mk('b', 200), c = mk('c', 300);
+  const stops = [a, b, c].map((el) => fit(el, (w) => log.push('draw ' + el.width)));
+  log.length = 0;
+  a.width = 110; b.width = 210; c.width = 310;
+  notify([{ target: a }, { target: b }, { target: c }]); flush();
+  const firstDraw = log.findIndex((s) => s.startsWith('draw'));
+  assert.equal(log.filter((s) => s.startsWith('draw')).length, 3, 'every changed element draws');
+  assert.ok(log.slice(firstDraw).every((s) => s.startsWith('draw')), 'no measure after a draw in the frame: ' + log.join(', '));
+  stops.forEach((s) => s());
+});

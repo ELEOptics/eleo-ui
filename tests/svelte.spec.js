@@ -11,19 +11,19 @@ import { test, expect } from '@playwright/test';
 const lib = fileURLToPath(new URL('../packages/plots-svelte/src/lib/', import.meta.url));
 const NAMES = ['CurvePlot', 'RayFan', 'BarPlot', 'Map2D', 'SpotDiagram', 'Layout2D'];
 
-const bundle = async () => {
+const bundle = async (extra = '') => {
   const svelte = {
     name: 'svelte',
     setup(b) {
       b.onResolve({ filter: /^@eleoptics\/plots$/ }, () => ({ path: 'eleo', namespace: 'eleo' }));
       b.onLoad({ filter: /.*/, namespace: 'eleo' }, () => ({
-        contents: 'const E = window.ELEO; export const { curve, rayFan, bars, spot, layout2D, map2D } = E;', loader: 'js',
+        contents: 'const E = window.ELEO; export const { curve, rayFan, bars, spot, layout2D, map2D, interact, readout } = E;', loader: 'js',
       }));
       b.onLoad({ filter: /\.svelte$/ }, (a) => ({ contents: compile(readFileSync(a.path, 'utf8'), { generate: 'client', filename: a.path }).js.code, loader: 'js' }));
       b.onLoad({ filter: /\.svelte\.js$/ }, (a) => ({ contents: compileModule(readFileSync(a.path, 'utf8'), { generate: 'client', filename: a.path }).js.code, loader: 'js' }));
     },
   };
-  const entry = `import { mount } from 'svelte';\n${NAMES.map((n) => `import ${n} from './${n}.svelte';`).join('\n')}\nwindow.WRAPPERS = { mount, ${NAMES.join(', ')} };`;
+  const entry = `import { mount } from 'svelte';\n${NAMES.map((n) => `import ${n} from './${n}.svelte';`).join('\n')}\nwindow.WRAPPERS = { mount, ${NAMES.join(', ')} };\n${extra}`;
   const out = await build({ stdin: { contents: entry, resolveDir: lib, loader: 'js' }, bundle: true, write: false, format: 'iife', platform: 'browser', plugins: [svelte] });
   return out.outputFiles[0].text;
 };
@@ -98,4 +98,153 @@ test('Layout2D in a narrow box draws its default', async ({ page }) => {
   });
   expect(errors).toEqual([]);
   expect(widths).toEqual({ 3: 1000, 5: 1000, 8: 1000, 9: 9 });
+});
+
+// Plan #804 (agent_docs/plans/804-interaction.md), outcome O3 (issue #805; #812 unskips). oracle: closed-form `readout()` of the event's fields and the caller's axis specs.
+// The harness (tests/fixtures/svelte/ReadoutHarness.svelte, #811) holds a CurvePlot with no callback in a PlotCard; its tooltip `.eleo-hover__tip` shows `readout(event, { x, y })` (CR #857).
+const harness = fileURLToPath(new URL('./fixtures/svelte/ReadoutHarness.svelte', import.meta.url));
+test('CurvePlot hover tooltip', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.addScriptTag({ content: await bundle(`import ReadoutHarness from ${JSON.stringify(harness)};\nwindow.WRAPPERS.ReadoutHarness = ReadoutHarness;`) });
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'harness';
+    host.style.width = '600px';
+    document.body.append(host);
+    window.WRAPPERS.mount(window.WRAPPERS.ReadoutHarness, { target: host, props: {} });
+  });
+  // The harness draws one series, label 'Tangential', points [[0, 1], [120, 0.62], [240, 0.3]], x 'cycles/mm', y unitless.
+  const poly = page.locator('#harness polyline[data-series="0"]');
+  await expect(poly).toBeVisible();
+  await poly.scrollIntoViewIfNeeded(); // the harness sits below the gallery's tiles, far under the viewport
+  const g = poly.locator('xpath=..');
+  const at = await g.evaluate((el) => {
+    const [a, , , d, e, f] = el.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const vp = el.closest('svg');
+    const root = vp.ownerSVGElement || vp;
+    const box = root.getBoundingClientRect();
+    const k = box.width / root.viewBox.baseVal.width;
+    const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
+    return { x: box.left + (vx + a * 120 + e) * k, y: box.top + (vy + d * 0.62 + f) * k };
+  });
+  await page.mouse.move(at.x, at.y);
+  await expect(page.locator('#harness .eleo-hover__tip')).toHaveText('Tangential · 120 cycles/mm, 0.62');
+});
+
+// Plan #804, outcome O5 (issue #830; #833 unskips; #951 runs it for every zoomable wrapper). oracle: the axis text drawn after the data change equals the zoomed axis text before it, and a double-click restores the default axis text.
+// The harness (tests/fixtures/svelte/ViewHarness.svelte) holds the wrapper given as `component` with `props`; `window.setProps(patch)` changes them.
+const viewHarness = fileURLToPath(new URL('./fixtures/svelte/ViewHarness.svelte', import.meta.url));
+const mountHarness = async (page, id, name, props, controlled = false) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.addScriptTag({ content: await bundle(`import ViewHarness from ${JSON.stringify(viewHarness)};\nwindow.WRAPPERS.ViewHarness = ViewHarness;`) });
+  await page.evaluate(([id, name, props, controlled]) => {
+    const host = document.createElement('div');
+    host.id = id;
+    host.style.width = '600px';
+    document.body.append(host);
+    window.WRAPPERS.mount(window.WRAPPERS.ViewHarness, { target: host, props: { component: window.WRAPPERS[name], props, controlled } });
+  }, [id, name, props, controlled]);
+  const host = page.locator(`#${id}`); // the host div is stable; the svg inside is replaced by a redraw
+  await expect(host.locator('svg').first()).toBeVisible();
+  await host.scrollIntoViewIfNeeded();
+  return host;
+};
+const axisText = (s) => (s.match(/<text[^>]*>[^<]*<\/text>/g) ?? [s]).join(''); // a drawing without axis text (Layout2D) compares whole
+// Each wrapper's props, and a patch that changes its data and keeps the default view's axis text (new data, same extent).
+const spotPanels = (sign) => [{ title: '0.0°', series: [{ points: [[0.1 * sign, -0.2], [0.3 * sign, 0.4], [-0.2 * sign, 0.1]], index: 0 }], airy: 2.4 }];
+const ZOOMABLE = {
+  CurvePlot: { props: { series: [{ points: [[0, 1], [120, 0.62], [240, 0.3]], index: 0, role: 'tangential' }], x: { label: 'f' }, y: { label: 'm' } },
+    patch: { series: [{ points: [[0, 1], [120, 0.5], [240, 0.3]], index: 0, role: 'tangential' }] } },
+  RayFan: { at: [115, 60], props: {}, patch: { data: 'sample copy' } },
+  Layout2D: { props: {}, patch: { data: 'sample copy' } },
+  SpotDiagram: { props: { panels: spotPanels(1), half: 5, unit: 'µm' }, patch: { panels: spotPanels(-1) } },
+  Map2D: { props: { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1], x: { label: 'x' }, y: { label: 'y' } }, patch: { values: [[3, 2, 1, 0], [4, 3, 2, 1]] } },
+};
+for (const [name, { props, patch, at }] of Object.entries(ZOOMABLE)) {
+  test(`view survives a data redraw (${name})`, async ({ page }) => {
+    const host = await mountHarness(page, 'vh', name, props);
+    const ticks = () => host.evaluate((el) => el.querySelector('svg').innerHTML);
+    const first = await ticks();
+    const box = await host.boundingBox();
+    const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
+    await page.mouse.move(px, py);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
+    const zoomed = await ticks();
+    // new data with the same extent: the default view would redraw as `first`
+    await page.evaluate((patch) => window.setProps(patch.data === 'sample copy' ? { data: { ...window.ELEO.sample } } : patch), patch);
+    await page.waitForTimeout(100);
+    expect(axisText(await ticks())).toBe(axisText(zoomed));
+    expect(axisText(await ticks())).not.toBe(axisText(first));
+    await page.mouse.dblclick(px, py);
+    await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
+  });
+}
+
+// Plan #804, outcome O5 (issue #946, CR #941). oracle: the axis text after `view = null` equals the default view's axis text.
+for (const [name, { props, at }] of Object.entries(ZOOMABLE)) {
+  test(`a controlled view resets with null (${name})`, async ({ page }) => {
+    const host = await mountHarness(page, 'vc', name, props, true);
+    const ticks = () => host.evaluate((el) => el.querySelector('svg').innerHTML);
+    const first = await ticks();
+    const box = await host.boundingBox();
+    const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
+    await page.mouse.move(px, py);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
+    await page.evaluate(() => window.setView(null));
+    await expect.poll(async () => axisText(await ticks())).toBe(axisText(first));
+  });
+}
+
+// Plan #804, outcome O6 (issue #1011, CR #1008). oracle: closed-form (the dot sits where the data group's matrix puts the current point, x = 14 / 4 of the test's own sine data).
+// The wrapper redraws a microtask after onview (its view is $state), so the dot is placed once the caller's markup has been replaced.
+test('a wrapper re-shows the keyboard dot after + and 0', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.addScriptTag({ content: await bundle() });
+  await page.evaluate(async () => {
+    const host = document.createElement('div');
+    host.style.width = '600px';
+    document.body.prepend(host);
+    window.BOX = host;
+    const points = Array.from({ length: 21 }, (_, i) => [i / 4, Math.sin(i / 4)]);
+    window.WRAPPERS.mount(window.WRAPPERS.CurvePlot, { target: host, props: { series: [{ points, index: 0, label: 'a' }], x: { label: 'x' }, y: { label: 'y' } } });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    host.querySelector('.eleo-svg').focus();
+  });
+  for (let n = 0; n < 15; n++) await page.keyboard.press('ArrowRight'); // point 14
+  const gap = () => page.evaluate(async () => {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const h = window.BOX.querySelector('.eleo-svg'), dot = h.querySelector('.eleo-hover__dot'), hb = h.getBoundingClientRect();
+    const m = h.querySelector('[data-series]');
+    const pt = new DOMPoint(14 / 4, Math.sin(14 / 4)).matrixTransform(m.closest('g[transform^="matrix("]').getScreenCTM());
+    return { hidden: dot.hidden, dx: parseFloat(dot.style.left) - (pt.x - hb.left - h.clientLeft), dy: parseFloat(dot.style.top) - (pt.y - hb.top - h.clientTop), tip: h.querySelector('.eleo-hover__tip').textContent };
+  });
+  const before = await gap();
+  expect(before.hidden, 'a dot before the zoom').toBe(false);
+  for (const key of ['+', '+', '+', '0']) {
+    await page.keyboard.press(key);
+    const g = await gap();
+    expect(g.hidden, `a dot after ${key}`).toBe(false);
+    expect(Math.abs(g.dx), `after ${key} the dot is on the point (x)`).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(g.dy), `after ${key} the dot is on the point (y)`).toBeLessThanOrEqual(0.5);
+    expect(g.tip, `after ${key} the tooltip is shown`).not.toBe('');
+  }
+});
+
+// Plan #804, outcome O5 (issue #955). oracle: the tooltip reads the unit and value the props hold at event time, so a data change shows in the next hover.
+test('a data change updates the tooltip', async ({ page }) => {
+  const grid = (v) => Array.from({ length: 4 }, () => Array.from({ length: 6 }, () => v));
+  const host = await mountHarness(page, 'vu', 'Map2D', { values: grid(1), extent: [-2, 2, -1, 1], x: { label: 'x' }, y: { label: 'y' }, value: { unit: 'qa' } });
+  const box = await host.boundingBox();
+  const tip = host.locator('.eleo-hover__tip');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(tip).toContainText('= 1 qa');
+  await page.evaluate((values) => window.setProps({ values, value: { unit: 'qb' } }), grid(9));
+  await page.mouse.move(box.x + box.width / 2 + 3, box.y + box.height / 2 + 3); // a nudge off the sample and back, so the hover recomputes
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(tip).toContainText('= 9 qb');
 });

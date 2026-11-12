@@ -1,7 +1,7 @@
 /* The narrowest figure a call can draw at ADR-0003's floor: its plot frame F_LO wide and its text at TEXT_MIN px.
    F_LO + TEXT_MIN * (L + R) + (panels - 1) * panelStep, with the margins the renderer draws with (L and R in text units).
    Its own file because scale.js is imported by map2d.js and curve.js; importing them back from scale.js would be a cycle. */
-import { F_LO, TEXT_MIN, PLOT_SIZES, SPOT_LABEL_M } from "./scale.js";
+import { F_LO, TEXT_MIN, PLOT_SIZES, SPOT_LABEL_M, CURVE_MARGINS } from "./scale.js";
 import { data, state } from "./data.js";
 import { mapMargins } from "./map2d.js";
 import { scales } from "./curve.js";
@@ -27,7 +27,7 @@ export function minWidth(name, props) {
     var c = null;
     if (name === "rayFan") { if (o.data || state.sample) { var f = fanPanels(data(o), o); c = curveShape({ panels: f.panels, columns: f.columns, x: f.x, y: f.y }); } }
     else c = curveShape(o);
-    if (c) { base = F_LO + TEXT_MIN * (4.6 + c.Rt); step = name === "rayFan" || o.panels ? base : 0; panels = c.cols; }
+    if (c) { base = F_LO + TEXT_MIN * (CURVE_MARGINS.L + c.Rt); step = name === "rayFan" || o.panels ? base : 0; panels = c.cols; }
   } else if (name === "spot") {
     var sp = o.panels ? o : o.data || state.sample ? spotPanels(data(o), o) : null;
     panels = sp ? sp.panels.length : 1;
