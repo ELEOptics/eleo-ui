@@ -1,7 +1,7 @@
 # Plan [#1018]: The gallery tests run in Chromium, Firefox and WebKit
 
 Status: approved 2026-11-12
-Branch: `plan/1018-cross-browser` PR: opened at publish Depends on: none Roadmap: `agent_docs/roadmap.md`, row S
+Branch: `plan/1018-cross-browser` PR: [#1041] Depends on: none Roadmap: `agent_docs/roadmap.md`, row S
 
 ## Problem
 
@@ -287,6 +287,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1038]: https://github.com/ELEOptics/eleo-ui/issues/1038
 [#1039]: https://github.com/ELEOptics/eleo-ui/issues/1039
 [#1040]: https://github.com/ELEOptics/eleo-ui/issues/1040
+[#1041]: https://github.com/ELEOptics/eleo-ui/issues/1041
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#676]: https://github.com/ELEOptics/eleo-ui/issues/676
 [#804]: https://github.com/ELEOptics/eleo-ui/issues/804
