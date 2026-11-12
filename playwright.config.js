@@ -11,8 +11,6 @@ export const PENDING = {
     'fan and footprint keys',
     'recorded PSF cells (U8)',
     'standalone label style (#112)',
-    // fails on Linux only (CI runs 43273034181, 43316866519): the delivered pixel misses the 1 px ray at the fan vertex (#1031)
-    'layout zoom pan and reset',
   ],
 };
 

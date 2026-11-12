@@ -1507,12 +1507,25 @@ test('layout zoom pan and reset', async ({ page }) => {
   const pv = fan[drawn.indexOf(true)];
   const f0 = await lframe(page), c0 = await page.evaluate((p) => window.L.frame().at(p), pv);
   expect([f0.b, f0.c, Math.abs(f0.a) - Math.abs(f0.d)], 'one scale on both axes, no skew').toEqual([0, 0, 0]);
-  // the pointer rests on the pixel the browser delivers (#1030), and the browser zooms about that pixel: the ray is probed there
-  const d0 = pixel(...c0);
-  expect(await onRay(page, d0), 'a ray is drawn at the pixel the pointer is delivered at').toBe(true);
+  // the pointer rests on a whole pixel (#1030) the browser's hit test finds on the 1 px ray, within 2 px of the vertex (the vertex itself may fall beside it on some engines); the browser zooms about that pixel.
+  // Of those, the one whose eight neighbours are most often on the ray (then nearest the vertex) is taken, so a sub-pixel shift of the pivot after the zoom stays on the ray.
+  const d0 = await page.evaluate((c) => {
+    const [bx, by] = c.map(Math.round);
+    let best = null;
+    for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+      const x = bx + dx, y = by + dy;
+      if (!window.L.ray([x, y])) continue;
+      let near = 0;
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) if ((i || j) && window.L.ray([x + i, y + j])) near++;
+      const dist = Math.hypot(x - c[0], y - c[1]);
+      if (!best || near > best.near || (near === best.near && dist < best.dist)) best = { x, y, near, dist };
+    }
+    return best && [best.x, best.y];
+  }, c0);
+  expect(d0, 'a pixel on the ray within 2 px of the fan vertex').not.toBeNull();
 
   // wheel in: the pixel under the pointer stays fixed, the vertex moves to d0 + (c0 - d0) * k, and the range is p + (range - p) / k
-  await moveTo(page, c0[0], c0[1]);
+  await moveTo(page, d0[0], d0[1]);
   const scrollBefore = await page.evaluate(() => window.scrollY);
   await wheel(page, -100);
   expect(await views(page), 'one view event per notch').toHaveLength(1);
@@ -1568,7 +1581,7 @@ test('layout zoom pan and reset', async ({ page }) => {
   expect(await markup(page), 'double-click restores the original markup').toBe(await page.evaluate(() => window.ORIG));
 
   // reset() does the same from code
-  await moveTo(page, c0[0], c0[1]);
+  await moveTo(page, d0[0], d0[1]);
   await wheel(page, -100);
   expect(await markup(page) !== (await page.evaluate(() => window.ORIG)), 'zoomed again').toBe(true);
   await page.evaluate(() => window.STOP.reset());
