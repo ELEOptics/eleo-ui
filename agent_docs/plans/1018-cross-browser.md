@@ -222,6 +222,9 @@ projects; the pending list holds no interaction test; CI is green. Proves: O3
 | [#1034] | The keyboard zoom factor is the same on x and y in Firefox: `+ - 0 zoom about the current point and reset` leaves `PENDING` (3.4e-6 off against 1.2e-6). Stop and return a CR with the numbers if the difference is Firefox's own layout arithmetic | fix the factor's arithmetic first, forced (Constraints: tolerances stay tight) | `packages/plots/src/interact.js`, `playwright.config.js` (title removed) | the named test under `--project=firefox` | [#1058] |
 | [#1035] | Unskip O3 acceptance test | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/gate.test.js` | `::interact runs everywhere` | all above |
 | [#1059] | `CurvePlot hover tooltip` scrolls the harness host into view, not the series mark, and reads the mark once the drawing is stable: it raced the harness's redraw (gate on c7e200c, 1 in 60 runs) | scroll the host because the mark is replaced when the card measures its width; considered `retries`, which hides the race | `tests/svelte.spec.js` | `CurvePlot hover tooltip` 60 of 60 with `--repeat-each=20` | [#1035] |
+| [#1061] | `layout zoom pan and reset` expects the zoom's range about q, the data point under the delivered pixel d0, in both `rangeIs` lines (CR [#1060], review M3 round 1) | pivot on d0 because the pointer sits there since [#1031], up to 2 px from the vertex, and the stale pivot used up to 0.57 px of `TOL_PX`; considered a wider search radius cap, which still leaves the offset in the oracle | `tests/interact.spec.js` | `layout zoom pan and reset` in the three projects; CI green | [#1059] |
+| [#1062] | `select events` snapshots its markup before `T.hit(...)` again, so "markup unchanged" covers a hover the hit probe's scroll fires (review M3 round 1, backlog) | restore the order because [#1033] moved it with no reason and the scroll's hover is CR [#1057]'s path; considered a separate hover test per tile, more code for the same claim | `tests/interact.spec.js` | `select events` in the three projects | [#1061] |
+| [#1063] | A unit test pins that curve's, layout2D's and spot's data-group `transform` is `matrix(` six space-separated finite numbers `)`, the shape `matrixOf` parses (review M3 round 1, backlog) | pin the writers' format because `matrixOf` returns null on any other shape and the hover frame drops silently; considered a full SVG transform parser in `interact.js`, which no writer needs | `tests/unit/` (one test file) | the new test; red on a scratch `matrix(1,2,3,4,5,6) translate(1)` | [#1062] |
 
 ### M4: Keys and maps in Firefox, nothing pending GitHub: `P1018 M4: Keys and maps in Firefox, nothing pending`
 
@@ -296,6 +299,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 CR [#1057] (orchestrator): accepted. Once [#1033] clicked the right mark, `select events` failed `markup unchanged` in Firefox: `interact.js`' `consolidate()` rewrites the `transform` attribute there with shortened numbers. Item [#1058] fixes it in code; the worker's 5-digit normalisation in the test was not committed (Constraints: tolerances stay tight). [#1033] landed the probe fix and leaves `select events` in Firefox's `PENDING` until [#1058].
 - 2026-11-12 [#1031]'s last title, `layout zoom pan and reset`, failed twice on Linux Firefox (CI runs 43273034181, 43316866519: the delivered pixel beside the fan vertex is off the 1 px ray); back in `PENDING` (e50cd9c). (user): the test searches a whole pixel on the ray near the vertex (`elementFromPoint`, within ±2 px) and wheels and drags there; no tolerance change.
 - 2026-11-12: the full gate on c7e200c failed `CurvePlot hover tooltip` (chromium, element detached); 1 in 60 with `--repeat-each=20`, a spec this plan never touched. Item [#1059] in M3 (orchestrator: test-only, the gate must be green to push). c7e200c was pushed past the red gate by a chained command; its CI run decides nothing about this flake.
+- 2026-11-12 Review M3 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, 3 backlog. CR [#1060] (accepted by the orchestrator: test-only, it tightens an oracle back) becomes item [#1061]; backlog [#1062] and [#1063] into M3 (small, named, in files M3 changed); backlog [#1064] (about 30 fractional pointer moves in three specs) stays a plain issue. Round 2 follows.
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
@@ -340,6 +344,11 @@ One bullet per entry (bare lines render as one paragraph).
 [#1057]: https://github.com/ELEOptics/eleo-ui/issues/1057
 [#1058]: https://github.com/ELEOptics/eleo-ui/issues/1058
 [#1059]: https://github.com/ELEOptics/eleo-ui/issues/1059
+[#1060]: https://github.com/ELEOptics/eleo-ui/issues/1060
+[#1061]: https://github.com/ELEOptics/eleo-ui/issues/1061
+[#1062]: https://github.com/ELEOptics/eleo-ui/issues/1062
+[#1063]: https://github.com/ELEOptics/eleo-ui/issues/1063
+[#1064]: https://github.com/ELEOptics/eleo-ui/issues/1064
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#676]: https://github.com/ELEOptics/eleo-ui/issues/676
 [#804]: https://github.com/ELEOptics/eleo-ui/issues/804
