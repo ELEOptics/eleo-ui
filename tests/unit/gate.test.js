@@ -7,7 +7,6 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 const root = new URL('../../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
-const SKIP = 'unskipped by #1026';
 
 // project name -> the spec files it lists; PERF and SHOTS turn on the opt-in specs, so the listing holds them
 function listing() {
@@ -32,7 +31,7 @@ function listing() {
 }
 
 // oracle: user roadmap row S (2026-11-10): Chromium, Firefox and WebKit; spec Playwright projects (playwright.dev/docs/test-projects) (O1)
-test('three browsers', { skip: SKIP }, () => {
+test('three browsers', () => {
   assert.deepEqual([...listing().keys()].sort(), ['chromium', 'firefox', 'webkit']);
   for (const path of ['scripts/check.sh', '.github/workflows/ci.yml']) {
     const line = read(path).split('\n').find((l) => /playwright install/.test(l));
@@ -42,7 +41,7 @@ test('three browsers', { skip: SKIP }, () => {
 });
 
 // oracle: spec Playwright: CDPSession and browser.startTracing are Chromium only (playwright.dev/docs/api/class-cdpsession); measurement roadmap U14: headless Chromium; user round 2 (2026-11-12): the PNG recording stays Chromium's (O2)
-test('chromium-only specs', { skip: SKIP }, () => {
+test('chromium-only specs', () => {
   const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'map2d-sample'].map((n) => `${n}.spec.js`);
   const files = listing();
   for (const f of only) assert.ok(files.get('chromium')?.has(f), `chromium lists ${f}`);
