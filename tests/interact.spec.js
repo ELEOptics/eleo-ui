@@ -1289,7 +1289,7 @@ test('zoomed plots hover only inside the frame', async ({ page }) => {
     for (const [x, y] of outs) expect(await hoverAt(page, x, y), `${kind}: ${x.toFixed(0)},${y.toFixed(0)} is outside the frame`).toBeNull();
     await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
   }
-  // #1065: matrixOf parses only a lone matrix(...). A data group whose transform has more after it (here a no-op translate) yields no frame and fails closed (#1066): it hovers nothing, not the clipped point and not the first matrix's window.
+  // #1065: matrixOf parses only a lone matrix(...). A data group whose transform has more after it (here a no-op translate) yields no frame and fails closed (#1066): it hovers nothing, not the clipped point and not the first matrix's window. The rule (inFrameOf): a group whose transform does not parse hovers nothing; one that parses with no clipping viewport hovers everything.
   await page.evaluate(() => {
     const host = document.createElement('div');
     host.style.cssText = 'width:600px;margin:20px auto';
