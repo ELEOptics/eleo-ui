@@ -106,10 +106,9 @@ test('projects', async () => {
   }
 });
 
-// Plan #1018, issue #1029: no interaction test is pending. Written skipped; #1035 unskips it.
-const SKIP_O3 = 'unskipped by #1035';
+// Plan #1018, issue #1029: no interaction test is pending. Written skipped; #1035 unskipped it.
 // oracle: each test's own oracle, unchanged (U13: a pointer at a drawn point emits that point); a per-browser tolerance only through a CR the user accepts (O3)
-test('interact runs everywhere', { skip: SKIP_O3 }, () => {
+test('interact runs everywhere', () => {
   const byProject = listing();
   const wanted = byProject.get('chromium').filter((t) => t.file === 'interact.spec.js' || t.name === 'tooltip on every curve tile');
   assert.ok(wanted.some((t) => t.file === 'interact.spec.js'), 'chromium lists the interact tests');
