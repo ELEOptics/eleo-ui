@@ -1507,10 +1507,12 @@ test('layout zoom pan and reset', async ({ page }) => {
   const pv = fan[drawn.indexOf(true)];
   const f0 = await lframe(page), c0 = await page.evaluate((p) => window.L.frame().at(p), pv);
   expect([f0.b, f0.c, Math.abs(f0.a) - Math.abs(f0.d)], 'one scale on both axes, no skew').toEqual([0, 0, 0]);
-  expect(await onRay(page, c0), 'the pointer rests on the fan vertex').toBe(true);
+  // the pointer rests on the pixel the browser delivers (#1030), and the browser zooms about that pixel: the ray is probed there
+  const d0 = pixel(...c0);
+  expect(await onRay(page, d0), 'a ray is drawn at the pixel the pointer is delivered at').toBe(true);
 
-  // wheel in: the point under the pointer stays under it, and the range is p + (range - p) / k
-  await page.mouse.move(c0[0], c0[1]);
+  // wheel in: the pixel under the pointer stays fixed, the vertex moves to d0 + (c0 - d0) * k, and the range is p + (range - p) / k
+  await moveTo(page, c0[0], c0[1]);
   const scrollBefore = await page.evaluate(() => window.scrollY);
   await wheel(page, -100);
   expect(await views(page), 'one view event per notch').toHaveLength(1);
@@ -1521,13 +1523,13 @@ test('layout zoom pan and reset', async ({ page }) => {
   rangeIs(f1.x, [pv[0] + (f0.x[0] - pv[0]) / k, pv[0] + (f0.x[1] - pv[0]) / k], s1, 'x range');
   rangeIs(f1.y, [pv[1] + (f0.y[0] - pv[1]) / k, pv[1] + (f0.y[1] - pv[1]) / k], s1, 'y range');
   const under = await page.evaluate((p) => window.L.frame().at(p), pv);
-  closeTo(under[0], c0[0], TOL_PX, 'the vertex stays under the pointer in x');
-  closeTo(under[1], c0[1], TOL_PX, 'and in y');
+  closeTo(under[0], d0[0] + (c0[0] - d0[0]) * k, TOL_PX, 'the vertex is zoomed about the pointer in x');
+  closeTo(under[1], d0[1] + (c0[1] - d0[1]) * k, TOL_PX, 'and in y');
   const v1 = (await views(page))[0];
   rangeIs(v1.x, f1.x, s1, 'event x');
   rangeIs(v1.y, f1.y, s1, 'event y');
   // the drawn glass and rays follow: the fan vertex is still a ray under the pointer, and element 2 sits where the fixture puts it
-  expect(await onRay(page, c0), 'a ray is still drawn at the fan vertex').toBe(true);
+  expect(await onRay(page, d0), 'a ray is still drawn under the pointer').toBe(true);
   const el = [2, 3].flatMap((i) => layout.surfaces[i].profile);
   const box = await page.evaluate(() => { const r = window.HOST.querySelector('polygon[data-element="2"]').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; });
   const lo = await page.evaluate(([zs, ys]) => { const F = window.L.frame(); return [F.at([Math.min(...zs), Math.max(...ys)]), F.at([Math.max(...zs), Math.min(...ys)])]; }, [el.map((p) => p[0]), el.map((p) => p[1])]);
@@ -1544,15 +1546,17 @@ test('layout zoom pan and reset', async ({ page }) => {
   // zoom in again, then drag: the vertex grabbed stays under the pointer, the scale does not change
   await wheel(page, -100);
   const f3 = await lframe(page), start = await page.evaluate((p) => window.L.frame().at(p), pv);
-  await page.mouse.move(start[0], start[1]);
+  // the drag grabs the pixel the pointer rests on (d0, still on a ray: the zoom pivots on it); the vertex moves with it
+  expect(await onRay(page, d0), 'a ray is drawn under the pointer before the drag').toBe(true);
+  await moveTo(page, d0[0], d0[1]);
   await page.mouse.down();
-  await page.mouse.move(start[0] + 20, start[1] - 10, { steps: 4 });
-  await page.mouse.move(start[0] + 40, start[1] - 25, { steps: 4 });
+  await page.mouse.move(d0[0] + 20, d0[1] - 10, { steps: 4 });
+  await page.mouse.move(d0[0] + 40, d0[1] - 25, { steps: 4 });
   await page.mouse.up();
-  const f4 = await lframe(page), end = [start[0] + 40, start[1] - 25], now = await page.evaluate((p) => window.L.frame().at(p), pv);
+  const f4 = await lframe(page), end = [d0[0] + 40, d0[1] - 25], now = await page.evaluate((p) => window.L.frame().at(p), pv);
   closeTo(f4.a, f3.a, 1e-9 * f3.a, 'a drag keeps the scale');
-  closeTo(now[0], end[0], TOL_PX, 'the grabbed vertex is under the pointer in x');
-  closeTo(now[1], end[1], TOL_PX, 'and in y');
+  closeTo(now[0], start[0] + 40, TOL_PX, 'the grabbed vertex moved with the pointer in x');
+  closeTo(now[1], start[1] - 25, TOL_PX, 'and in y');
   closeTo(f4.x[0] - f3.x[0], -40 / (f3.a * f3.k), 2 * TOL_PX / (f3.a * f3.k), 'x shifted by the drag distance in data units');
   closeTo(f4.y[0] - f3.y[0], 25 / (f3.d * f3.k), 2 * TOL_PX / (f3.a * f3.k), 'y shifted by the drag distance in data units');
   expect(await onRay(page, end), 'the rays moved with the drag').toBe(true);
@@ -1564,7 +1568,7 @@ test('layout zoom pan and reset', async ({ page }) => {
   expect(await markup(page), 'double-click restores the original markup').toBe(await page.evaluate(() => window.ORIG));
 
   // reset() does the same from code
-  await page.mouse.move(c0[0], c0[1]);
+  await moveTo(page, c0[0], c0[1]);
   await wheel(page, -100);
   expect(await markup(page) !== (await page.evaluate(() => window.ORIG)), 'zoomed again').toBe(true);
   await page.evaluate(() => window.STOP.reset());
