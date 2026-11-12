@@ -1075,6 +1075,10 @@ test('a zoomed series with a NaN draws as the panel one', () => {
   assert.ok(single.length >= 2, 'the NaN breaks the series into marks');
   assert.deepEqual(single, panel);
   assert.ok(single.some((t) => /data-from="2"/.test(t)), 'the second run starts at the finite index 2');
+  for (const t of single) {
+    const xs = subpaths(/ d="([^"]*)"/.exec(t)[1]).flat().map((q) => q[0]);
+    assert.ok(xs.length > 0 && (xs.every((v) => v <= 200) || xs.every((v) => v >= 200)), `no mark spans the bad point at x = 200: ${xs}`);
+  }
 });
 
 // Plan #804 M3 (#990, CR #984): a cut dashed series carries stroke-dashoffset, its cut-off length in px modulo the dash period, so its dashes sit where the uncut line's do.

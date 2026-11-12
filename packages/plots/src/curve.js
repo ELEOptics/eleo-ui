@@ -45,7 +45,7 @@ function seriesPath(pts) {
   flush();
   return d;
 }
-/* CR #984: with a view a series is cut to the plot area plus 32 px. The cut is in px (the axes scale differently): `z` is { sc, pw, ph }, the ranges and the plot area, and px = ((x - xr0) * sx, ph - (y - yr0) * sy) as the group's matrix has it. Each run (a panel's path run, or a single plot's whole polyline) gives its pieces { from, points }: `from` is the uncut index of the piece's first point within its run, and the points are data units, a data point being the caller's own (not a round trip) and a cut point mapped back. 31.9 px, 0.1 short of 32, so the rounding of the written points never leaves a cut end past 32. */
+/* CR #984: with a view a series is cut to the plot area plus 32 px. The cut is in px (the axes scale differently): `z` is { sc, pw, ph }, the ranges and the plot area, and px = ((x - xr0) * sx, ph - (y - yr0) * sy) as the group's matrix has it. Each run (a path's run, in a panel or a single plot's series with a bad point, or a clean single plot's whole polyline) gives its pieces { from, points }: `from` is the uncut index of the piece's first point within its run, and the points are data units, a data point being the caller's own (not a round trip) and a cut point mapped back. 31.9 px, 0.1 short of 32, so the rounding of the written points never leaves a cut end past 32. */
 function cutPieces(run, z) {
   var xr = z.sc.xr, yr = z.sc.yr, sx = z.pw / (xr[1] - xr[0]), sy = z.ph / (yr[1] - yr[0]), m = 31.9, rect = [-m, -m, z.pw + m, z.ph + m];
   var px = run.map(function (p) { return [(p[0] - xr[0]) * sx, z.ph - (p[1] - yr[0]) * sy]; }), at = new Map();
