@@ -9,7 +9,6 @@ export const PENDING = {
   firefox: [
     'curve keys',
     'fan and footprint keys',
-    'keyboard + - 0 zoom about the current point and reset',
     'recorded PSF cells (U8)',
     'standalone label style (#112)',
     // fails on Linux only (CI run 43273034181); #1031's rounding helper is not shown to fix it
