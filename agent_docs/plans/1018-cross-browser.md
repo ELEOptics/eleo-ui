@@ -164,7 +164,7 @@ extended by each later item that changes `packages/plots/src`.
 
 ### M1: Three browsers in the gate GitHub: `P1018 M1: Three browsers in the gate`
 
-Done 2026-11-12: review round 4 (Review M1: 0 blocking, nothing pulled in); full gate green on 3c86004 (412 passed: chromium 147, firefox 129, webkit 136; 14 pending in Firefox, 7 in WebKit); CI green on c7b3d69, pending on 3c86004 at the tick. Demo pending.
+Done 2026-11-12: review round 4 (Review M1: 0 blocking, nothing pulled in); full gate green on 3c86004 (412 passed: chromium 147, firefox 129, webkit 136; 14 pending in Firefox, 7 in WebKit); CI green on c7b3d69, pending on 3c86004 at the tick. Demo: go (user, 2026-11-12).
 
 Demo: `npx playwright test` prints passes under chromium, firefox and webkit and 0 failed, with the number of
 pending titles per browser beside it; `npx playwright test --list` shows the Chromium-only specs under chromium
@@ -281,6 +281,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 Review M1 round 2: 0 blocking, 2 backlog; carried CRs [#1042], [#1044], [#1046], [#1048] resolved. Backlog [#1053] and [#1054] into M1 (orchestrator: small, named, in `gate.test.js`); round 3 follows.
 - 2026-11-12 Review M1 round 3: 0 blocking, 1 backlog; backlog [#1055] into M1 (orchestrator: a one-character fix in `gate.test.js`); round 4 follows.
 - 2026-11-12 Review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. Per-round count (blocking + pulled in): 4, 2, 1, 0. M1 ticked; demo pending.
+- 2026-11-12 (user): M1 demo go; M2 starts. The user skipped the start gate (`scripts/check.sh` was green on 3c86004 at the tick).
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
