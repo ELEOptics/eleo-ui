@@ -53,6 +53,8 @@ No open issue tracks export itself.
 
 ### M1: `standalone` and `png` on one tile in three browsers GitHub: `P1076 M1: standalone SVG and PNG`
 
+Done 2026-11-13: review round 5 (Review M1: 0 blocking, nothing pulled in); full gate green on 84e399e (469 passed, none skipped); CI pending on 84e399e at the tick. Demo pending.
+
 Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved as `mtf.svg`, renders like the tile in Fira in all three browsers; `await ELEO.png(svg, { scale: 2 })` returns a `Blob` of type `image/png` twice the plot's size. The Change log lists every SVG tile's embedded font bytes. Proves: O1 and O2 on one tile, the kill criterion measured on every tile.
 
 | Issue | Work item | Approach | Files | Test | After |
@@ -121,6 +123,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-13 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, CRs [#1089] and [#1091] resolved; three small backlog findings in `export.js` pulled in as one item [#1099].
 - 2026-11-13 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking. Finding 1 (vendor system-font names) pulled in as [#1100]. Finding 2: the [#1099] row's Files gains `tests/unit/style-lint.test.js`, its U5 exemption.
 - 2026-11-13 review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, one test-only finding pulled in as [#1101]. Per round, blocking plus pulled in: 6, 3, 1, 1.
+- 2026-11-13 review M1 round 5 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. Per round, blocking plus pulled in: 6, 3, 1, 1, 0. M1 ticked; demo pending.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
