@@ -43,7 +43,6 @@ const diffFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
 
 // #1077 (plan #1076 O1). oracle: U15's 1% pixel rule; every (family, weight, style) the text uses has an embedded face that loads as a FontFace with the network blocked.
 test('standalone matches', async ({ page, context }) => {
-  test.skip(true, 'unskipped by #1083; ELEO.standalone arrives in #1078 and #1079');
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const svg = page.locator(TILE).first();
@@ -86,7 +85,6 @@ test('standalone matches', async ({ page, context }) => {
 
 // #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); its pixels match the standalone SVG drawn at that scale within 1%.
 test('png size and pixels', async ({ page }) => {
-  test.skip(true, 'unskipped by #1083; ELEO.png arrives in #1080');
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const svg = page.locator(TILE).first();

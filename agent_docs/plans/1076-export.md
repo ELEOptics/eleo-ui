@@ -107,6 +107,8 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 
 - 2026-11-13 CR [#1089] (user): accepted, tolerance > 16 with the 1% budget unchanged. O1's pixel rule failed in Firefox only (1.09%, edge anti-aliasing, equal ink); new item [#1090] before [#1083].
 
+- 2026-11-13 #1083 font bytes (kill criterion, `ELEO.standalone` on every SVG tile, `[data-svg] > svg` and `[data-map] > svg`, light and dark identical; 23 tiles per theme): 19 tiles embed one face (Fira Code 400 latin), about 48 KB base64 / 36 KB woff2, the 4 map tiles among them. `layout2D-fan`, `seidel` and `seidel-terms` embed two (latin plus greek 18.4 KB base64 / 13.8 KB woff2), 66.8 KB base64 / 50.1 KB woff2. `icons` has no text and embeds none. The largest is 66.8 KB, under the 100 KB ask.
+
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
 [#1077]: https://github.com/ELEOptics/eleo-ui/issues/1077
