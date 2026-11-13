@@ -277,6 +277,25 @@ The values are `standard` (the default), `red-green` (protanopia and deuteranopi
 
 `--series-1` to `--series-8` are the index colors for any chart on the page. They follow the palette and theme. The token number is not the index.
 
+## Export
+
+`standalone` and `png` turn a plot's SVG into a file. Client-only; the caller owns the button.
+
+```js
+import { standalone, png } from '@eleoptics/plots';
+
+const svg = host.querySelector('svg');
+const text = await standalone(svg);                // a self-contained SVG string
+const blob = await png(svg, { scale: 2 });         // a PNG Blob, twice the plot's size
+```
+
+- `standalone(svg)` resolves an SVG string of what the plot draws now: computed styles inlined for the current theme and palette, the current view, a background rect of the tile's `--surface`, and the Fira faces its text uses embedded as `@font-face` data URLs. It opens in a browser, Inkscape or PowerPoint with no ELEO CSS. Pass `{ fonts: false }` to skip the fonts.
+- `png(svg, { scale = 1 })` resolves an `image/png` `Blob` of the plot's size times `scale`.
+
+Fonts are read from the page's stylesheets. A cross-origin stylesheet, such as Google Fonts, is readable only with `crossorigin="anonymous"` on its `<link>` (and on its `preconnect`); without it the faces are skipped, a `console.warn` names their families, and the export falls back to the viewer's fonts.
+
+There is no theme option. For a light export (a paper or a slide), redraw the plot in a light container, either under `data-theme="light"` or in `PlotCard`'s `paper`, then export that SVG. A typed `map2D` bakes its cells at draw time, so switching the theme only on export would draw dark cells in a light frame.
+
 ## Physics helpers
 
 ```js
