@@ -80,6 +80,7 @@ Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved
 | [#1103] | `png` at scale k draws strokes k times as wide (CR [#1102]) | `png` lays the clone out at box × scale (viewBox kept), multiplies only the `non-scaling-stroke` elements' `stroke-width`, `stroke-dasharray` and `stroke-dashoffset` by scale, and draws the image at its own size, because a scaled `drawImage` keeps those strokes at screen width in Chromium and Firefox; considered baking group transforms into points in `standalone`, which reorders elements and throws on other tags. `standalone`'s output is unchanged. The test follows CR [#1104] | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::png size and pixels` | [#1101] |
 | [#1107] | Export tests: `tileShot` idempotent, O2's `oracle:` line per CR [#1104], the standalone diff at scale 1 only (CRs [#1105], [#1106]) | add the correction to the current offset because the second call reset `top` to 0 and blurred the scale-2 reference (review M1 round 6); considered one shot reused for both scales, which hides the bug from later callers such as [#1084] | `tests/export.spec.js` | `export.spec.js::tileShot is idempotent`, `png size and pixels` | [#1103] |
 | [#1108] | `png` scales only px or unitless non-scaling strokes | leave `%` and `em` values as they are because `parseFloat` then `px` gets both number and unit wrong (review M1 round 6, finding 3); considered resolving them to px, which needs the element's font size and viewport | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::png scales px strokes only` | [#1107] |
+| [#1110] | `png`: dashoffset px-gated, header comment per CR [#1109], test awaits its promise and skips the unused scale-2 build | one item for review M1 round 7's four findings because they touch the same lines; the dashoffset goes through `PX` like its siblings; considered leaving it, since `clip.js` writes px only | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::png scales px strokes only` | [#1108] |
 
 ### M2: every tile and the gallery's save buttons GitHub: `P1076 M2: every tile and save`
 
@@ -130,6 +131,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-13 orchestrator, preparing the M1 demo: `png` at scale 2 draws `non-scaling-stroke` curves at half weight (O2's test compares against the same scaled draw). CR [#1102] accepted (a defect inside plan scope), item [#1103]; M1 reopened.
 - 2026-11-13 CR [#1104] (user): accepted option (a). At scale k, O2 compares the PNG box-averaged to 1× with the on-screen tile, using a 1-px neighbourhood match. The first [#1103] attempt baked transforms into points; it was re-scoped to a `png`-only fix.
 - 2026-11-13 review M1 round 6 (code-reviewer, claude-opus-5-5): 2 blocking. CR [#1105] (`tileShot` not idempotent; #1103's 'WebKit snaps' reason measured that blur) and CR [#1106] (stale O2 oracle text in the test and U15), both accepted by the orchestrator. U15's oracle in the roadmap gains the user's CR [#1104] clause. Items [#1107] (with backlog finding 4) and [#1108] (backlog finding 3).
+- 2026-11-13 review M1 round 7 (code-reviewer, claude-opus-5-5): 1 blocking (CR [#1109], a stale comment, accepted) and 3 backlog. The breaker tripped. Per round, blocking plus items pulled in: 6, 1, 1, 1, 0, 3, 4 (rounds 2-4 were miscounted as findings, 3, 1, 1, so the breaker should already have tripped at round 4). The user answered 'continue'; all four findings go in item [#1110].
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
@@ -168,3 +170,5 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 [#1106]: https://github.com/ELEOptics/eleo-ui/issues/1106
 [#1107]: https://github.com/ELEOptics/eleo-ui/issues/1107
 [#1108]: https://github.com/ELEOptics/eleo-ui/issues/1108
+[#1109]: https://github.com/ELEOptics/eleo-ui/issues/1109
+[#1110]: https://github.com/ELEOptics/eleo-ui/issues/1110
