@@ -19,8 +19,10 @@ const KEYWORD_WEIGHT = { normal: 400, bold: 700 };
 const weightOf = (v) => KEYWORD_WEIGHT[v.toLowerCase()] ?? Number(v);
 const inWeight = (w, spec) => {
   const [lo, hi = lo] = spec.trim().split(/\s+/).map(weightOf);
-  return Number.isNaN(lo) ? spec.trim() === String(w) : w >= lo && w <= hi;
+  return w >= lo && w <= hi;
 };
+// Generic families resolve to system fonts and never have an @font-face.
+const GENERIC = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-[a-z-]+|math|emoji|fangsong)$/i;
 const covers = (range, chars) => {
   if (!range) return true;
   const spans = range.split(',').map((u) => {
@@ -55,7 +57,8 @@ async function embedFonts(clone) {
       if (u.fam.toLowerCase() === fam.toLowerCase() && inWeight(u.wt, wt) && u.sty === sty && covers(range, u.chars)) { kept.add(r); served.add(u.fam); }
     }
   }
-  const lost = new Set(uses.map((u) => u.fam).filter((f) => !served.has(f)));
+  const lost = new Set(uses.map((u) => u.fam).filter((f) => !served.has(f) && !GENERIC.test(f)));
+  const failed = new Set(), embedded = new Set();
   const css = (await Promise.all([...kept].map(async (r) => {
     const base = r.parentStyleSheet.href || document.baseURI;
     let text = r.cssText;
@@ -64,12 +67,18 @@ async function embedFonts(clone) {
         if (!m.startsWith('data:')) text = text.split(m).join(await toDataUrl(new URL(m, base).href));
       }
     } catch {
-      lost.add(unquote(r.style.getPropertyValue('font-family')));
+      failed.add(unquote(r.style.getPropertyValue('font-family')));
       return null;
     }
+    embedded.add(unquote(r.style.getPropertyValue('font-family')).toLowerCase());
     return text;
   }))).filter(Boolean);
-  if (lost.size) console.warn(`standalone: no readable @font-face for these fonts, so they are not embedded: ${[...lost].join(', ')}`);
+  const partly = [...failed].filter((f) => embedded.has(f.toLowerCase()));
+  for (const f of failed) if (!embedded.has(f.toLowerCase())) lost.add(f);
+  const parts = [];
+  if (lost.size) parts.push(`no readable @font-face for these fonts, so they are not embedded: ${[...lost].join(', ')}`);
+  if (partly.length) parts.push(`some faces failed to load for these fonts, so they are only partly embedded: ${partly.join(', ')}`);
+  if (parts.length) console.warn(`standalone: ${parts.join('; ')}`);
   if (!css.length) return;
   const style = document.createElementNS(NS, 'style');
   style.textContent = css.join('\n');

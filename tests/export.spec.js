@@ -261,6 +261,31 @@ test('failed font fetch', async ({ page }) => {
   expect(ours[0]).not.toContain('ProbeOk');
 });
 
+// #1099 (plan #1076 O1). oracle: generic families never warn; a family with one face embedded and one failed is named as partly embedded, not as not embedded.
+test('warning names only missing faces', async ({ page }) => {
+  const warns = [];
+  page.on('console', (m) => m.type() === 'warning' && warns.push(m.text()));
+  await page.route('**/probe-greek.woff2', (r) => r.fulfill({ status: 404, body: 'nope' }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(async () => {
+    const st = document.createElement('style');
+    st.textContent = '@font-face { font-family: ProbePart; font-weight: 400; unicode-range: U+0000-00FF; src: url(data:font/woff2;base64,eHg=); } @font-face { font-family: ProbePart; font-weight: 400; unicode-range: U+0370-03FF; src: url(/probe-greek.woff2); }';
+    document.head.prepend(st);
+    const host = document.createElement('div');
+    document.body.append(host);
+    host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: sans-serif">a</text></svg>';
+    await window.ELEO.standalone(host.firstChild);
+    host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: ProbePart">a\u03bc</text></svg>';
+    await window.ELEO.standalone(host.firstChild);
+  });
+  const ours = warns.filter((w) => w.includes('standalone'));
+  expect(ours).toHaveLength(1);
+  expect(ours[0]).not.toContain('sans-serif');
+  expect(ours[0]).toMatch(/partly embedded[^]*ProbePart/);
+  expect(ours[0]).not.toMatch(/not embedded[^]*ProbePart/);
+});
+
 // #1079: the Google Fonts link must be CORS-readable so its cssRules can be read.
 test('gallery fonts link is crossorigin', async ({ page }) => {
   await page.goto('/gallery/');
