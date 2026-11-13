@@ -7,7 +7,6 @@ const CHROMIUM_ONLY = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'm
 export const PENDING = {
   webkit: [],
   firefox: [
-    'recorded PSF cells (U8)',
     'standalone label style (#112)',
   ],
 };

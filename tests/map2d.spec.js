@@ -195,6 +195,12 @@ test('recorded PSF cells (U8)', async ({ page }) => {
     // Draw the recorded grid, and a copy with two cells masked, into the theme column.
     const r = await page.locator(sel).evaluate(async (el, p) => {
       const ELEO = window.ELEO;
+      // The frame rect is stroked, and Firefox's client box includes the stroke: measure its fill box through the screen matrix.
+      const fillBox = (rect) => {
+        const b = rect.getBBox(), m = rect.getScreenCTM();
+        const q = [[b.x, b.y], [b.x + b.width, b.y + b.height]].map(([x, y]) => ({ x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f }));
+        return { left: q[0].x, right: q[1].x, top: q[0].y, bottom: q[1].y, width: q[1].x - q[0].x, height: q[1].y - q[0].y };
+      };
       const props = (values) => ({ values, extent: p.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', el });
       el.insertAdjacentHTML('beforeend', ELEO.map2D(props(p.values)));
       const svg = el.lastElementChild, img = svg.querySelector('image');
@@ -206,7 +212,7 @@ test('recorded PSF cells (U8)', async ({ page }) => {
       const flat = p.values.flat().filter((v) => v !== null && !Number.isNaN(v));
       const lo = Math.min(...flat), hi = Math.max(...flat);
       const steps = p.values.map((row) => row.map((v) => Math.round(((v - lo) / (hi - lo)) * 255)));
-      const box = img.getBoundingClientRect(), frame = svg.querySelector('rect').getBoundingClientRect(), [x0, x1, y0, y1] = p.extent;
+      const box = img.getBoundingClientRect(), frame = fillBox(svg.querySelector('rect')), [x0, x1, y0, y1] = p.extent;
       // The masked copy: tagged so the page can be screenshotted at its cells.
       const copy = p.values.map((row) => row.slice());
       p.mask.forEach(([r, k]) => { copy[r][k] = null; });
