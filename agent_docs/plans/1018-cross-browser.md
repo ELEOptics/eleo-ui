@@ -89,7 +89,8 @@ What is observably true when this plan is done. Each one has an acceptance test.
 Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agents/workflow.md`, Oracles).
 
 The `gate.test.js` tests do not read the config back: they run `npx playwright test --list --reporter=json`
-and assert on what each project resolves.
+and assert on what each project resolves, except `nothing pending`'s check that the config exports no list (an empty
+list would not show in the listing).
 
 | ID | Outcome | Acceptance test (given / when / then) | Oracle | Test |
 | -- | -- | -- | -- | -- |
@@ -243,7 +244,8 @@ Proves: O4
 | [#1037] | Key entries do not overlap in Firefox: `curve keys` (the MTF key at 1440 px) and `fan and footprint keys` (the footprint key at `minWidth`) leave `PENDING`. Re-scoped by CR [#1070]: `key.js` is right; the overlap was Firefox's taller text line box | remove the titles once [#1071]'s oracle lands because the cause is the line box, not the width (CR [#1070]); considered a taller row pitch, which moves every key in Chromium | `playwright.config.js` (titles removed) | the two named tests under `--project=firefox` | [#1036], [#1071] |
 | [#1038] | The recorded PSF's axes fill the plot area in Firefox: `recorded PSF cells (U8)` leaves `PENDING`. Re-scoped by CR [#1072]: the image sits identically in both browsers; Firefox's client box of the stroked frame `rect` includes the stroke, so the test measures the frame's fill box | measure the fill box because Firefox's client box includes the stroke while the image sits within 0.02 px of Chromium's (CR [#1072]); considered a Firefox tolerance of 1.5 px, which Constraints forbid | `tests/map2d.spec.js`, `playwright.config.js` (title removed) | the named test under `--project=firefox`; green in chromium and webkit | [#1037] |
 | [#1043] | `standalone label style (#112)` leaves Firefox's `PENDING`. Re-scoped by CR [#1073]: Firefox quantises computed `font-size` to 1/60 px, so the assertion becomes `|computed − layoutText(1000)| ≤ 1/120 + 0.0005` px in every browser; no code changes | allow half an app unit plus the emitted rounding because no emitted value passes 0.005 (CR [#1073], user: option b); considered comparing in 1/60 units, which `toFixed(3)` near a boundary can split | `tests/gallery.spec.js`, `playwright.config.js` (title removed) | the named test under `--project=firefox`; green in chromium and webkit | [#1038] |
-| [#1039] | The pending list is gone: `PENDING` and `grepInvert` leave `playwright.config.js`; firefox and webkit differ from chromium only by `CHROMIUM_ONLY`. `scripts/check.sh`'s header says the gate runs three browsers | delete the list, not empty it, because O4's test then cannot pass with a leftover title; considered keeping an empty list for later failures, which invites the next one in | `playwright.config.js`, `scripts/check.sh` (header) | `tests/unit/gate.test.js::projects` (no pending title left) | [#1043] |
+| [#1039] | The pending list is gone: `PENDING` and `grepInvert` leave `playwright.config.js`; firefox and webkit differ from chromium only by `CHROMIUM_ONLY`. `scripts/check.sh`'s header says the gate runs three browsers | delete the list, not empty it, because O4's test then cannot pass with a leftover title; considered keeping an empty list for later failures, which invites the next one in | `playwright.config.js`, `scripts/check.sh` (header) | `tests/unit/gate.test.js::nothing pending` (no pending title left) | [#1043] |
+| [#1074] | `gate.test.js`: `projects` is deleted (it repeats `three browsers`), `nothing pending` imports the config once, and the header names `nothing pending`'s config read (review M4 round 1, backlog 1-3) | delete the duplicate because `three browsers` already asserts the three projects; considered keeping it with a corrected plan cell, a second test of the same claim | `tests/unit/gate.test.js` | `node --test tests/unit/gate.test.js`; a scratch `PENDING` export makes `nothing pending` red | [#1040] |
 | [#1040] | Unskip O4 acceptance test | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/gate.test.js` | `::nothing pending` | all above |
 
 ## Risks and spikes
@@ -314,6 +316,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-12 CR [#1070] (user): accepted, option (b). [#1037]'s premise was wrong: Firefox's key text has Chromium's advance (0.5999 t against 0.5998 t) and row y, but its SVG text box is 1.46 t tall against 1.29 t, so rows 1.4 t apart overlap by 1.5 px. Item [#1071] makes the two key overlap checks measure the em box; [#1037] only removes the titles from `PENDING`. `key.js` and `.changeset/cross-browser.md` leave its Files.
 - 2026-11-12 CR [#1072] (orchestrator): accepted, test-only, U8's oracle and its 0.5 px unchanged. The recorded PSF image sits within 0.02 px in Firefox and Chromium; Firefox's `getBoundingClientRect` on the stroked frame includes the stroke (1.5 px a side). [#1038] measures the frame's fill box in `tests/map2d.spec.js`; `map2d.js` leaves its Files.
 - 2026-11-12 CR [#1073] (user): accepted, option (b). Firefox quantises computed `font-size` to 1/60 px: our 13.628px reads 13.6333 (818/60), 0.0056 from `layoutText(1000)` against 0.005, and no emitted value can pass. `standalone label style (#112)` allows 1/120 + 0.0005 px in every browser; [#1043] drops `layout2D.js` and the changeset from its Files.
+- 2026-11-12 Review M4 round 1 (code-reviewer, claude-opus-5-5): 0 blocking, 3 backlog, all in `tests/unit/gate.test.js` and this plan. Pulled into M4 as one item, [#1074] (orchestrator: small, named, in a file M4 changed); the Outcomes preamble and [#1039]'s Test cell fixed here. Per-round count (blocking + pulled in): 1. Round 2 follows.
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
@@ -372,6 +375,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1071]: https://github.com/ELEOptics/eleo-ui/issues/1071
 [#1072]: https://github.com/ELEOptics/eleo-ui/issues/1072
 [#1073]: https://github.com/ELEOptics/eleo-ui/issues/1073
+[#1074]: https://github.com/ELEOptics/eleo-ui/issues/1074
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#676]: https://github.com/ELEOptics/eleo-ui/issues/676
 [#804]: https://github.com/ELEOptics/eleo-ui/issues/804
