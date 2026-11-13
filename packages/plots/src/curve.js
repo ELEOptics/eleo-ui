@@ -45,7 +45,7 @@ function seriesPath(pts) {
   flush();
   return d;
 }
-/* CR #984: with a view a series is cut to the plot area plus 32 px. The cut is in px (the axes scale differently): `z` is { sc, pw, ph }, the ranges and the plot area, and px = ((x - xr0) * sx, ph - (y - yr0) * sy) as the group's matrix has it. Each run (a panel's path run, or a single plot's whole polyline) gives its pieces { from, points }: `from` is the uncut index of the piece's first point within its run, and the points are data units, a data point being the caller's own (not a round trip) and a cut point mapped back. 31.9 px, 0.1 short of 32, so the rounding of the written points never leaves a cut end past 32. */
+/* CR #984: with a view a series is cut to the plot area plus 32 px. The cut is in px (the axes scale differently): `z` is { sc, pw, ph }, the ranges and the plot area, and px = ((x - xr0) * sx, ph - (y - yr0) * sy) as the group's matrix has it. Each run (a path's run, in a panel or a single plot's series with a bad point, or a clean single plot's whole polyline) gives its pieces { from, points }: `from` is the uncut index of the piece's first point within its run, and the points are data units, a data point being the caller's own (not a round trip) and a cut point mapped back. 31.9 px, 0.1 short of 32, so the rounding of the written points never leaves a cut end past 32. */
 function cutPieces(run, z) {
   var xr = z.sc.xr, yr = z.sc.yr, sx = z.pw / (xr[1] - xr[0]), sy = z.ph / (yr[1] - yr[0]), m = 31.9, rect = [-m, -m, z.pw + m, z.ph + m];
   var px = run.map(function (p) { return [(p[0] - xr[0]) * sx, z.ph - (p[1] - yr[0]) * sy]; }), at = new Map();
@@ -55,29 +55,32 @@ function cutPieces(run, z) {
     return { from: c.from, cut: c.cut, points: c.points.map(function (q) { return at.get(q) || [xr[0] + q[0] / sx, yr[0] + (z.ph - q[1]) / sy]; }) };
   });
 }
-/* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. `z` (zoomed only, see cutPieces) cuts the series: one mark per piece, each carrying `data-from` (the piece's first uncut index in the mark, omitted when 0) and otherwise the same attributes; a series wholly outside draws nothing. The exception: a single plot's series holding a NaN or infinite coordinate is drawn uncut, as without a `z` (a null coordinate is written as 0, so it is cut like any point). */
+/* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. `z` (zoomed only, see cutPieces) cuts the series: one mark per piece, each carrying `data-from` (the piece's first uncut index in the mark, omitted when 0) and otherwise the same attributes; a series wholly outside draws nothing. A single plot's series holding a NaN or infinite coordinate is a path cut run by run, as a panel's is. */
 function seriesMarkup(s, panel, wt, si, pi, z) {
   var st = roleStyle(s, wt), pts = s.points || [];
+  /* A single plot's series holding a NaN or infinite coordinate is a path, broken at the bad point as in panels (a polyline with one is dropped whole by Chromium); its points are numbers first, a null coordinate being 0 there. A clean series stays a polyline. */
+  var bad = !panel && pts.some(function (p) { return !isFinite(+p[0]) || !isFinite(+p[1]); });
+  if (bad) pts = pts.map(function (p) { return [+p[0], +p[1]]; });
+  var asPath = panel || bad;
   var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label) + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
   var head = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : ""), attrs = head + " " + NS + "/>";
   var num = function (p) { return String(+p[0]) + "," + String(+p[1]); };
   if (!z) {
-    if (panel) return '<path d="' + seriesPath(pts) + '"' + ids + attrs;
+    if (asPath) return '<path d="' + seriesPath(pts) + '"' + ids + attrs;
     return '<polyline points="' + pts.map(num).join(" ") + '"' + ids + attrs;
   }
   var out = "", base = 0;
   function emit(piece, off) {
     var from = off + piece.from;
-    out += (panel ? '<path d="M' + piece.points.map(num).join(" L") + (piece.points.length === 1 ? " h0" : "") + '"' : '<polyline points="' + piece.points.map(num).join(" ") + '"') + ids + (from ? ' data-from="' + from + '"' : "") + head + dashOffset(st.dash, piece.cut) + " " + NS + "/>";
+    out += (asPath ? '<path d="M' + piece.points.map(num).join(" L") + (piece.points.length === 1 ? " h0" : "") + '"' : '<polyline points="' + piece.points.map(num).join(" ") + '"') + ids + (from ? ' data-from="' + from + '"' : "") + head + dashOffset(st.dash, piece.cut) + " " + NS + "/>";
   }
-  if (panel) {
+  if (asPath) {
     var runs = [], run = [];
     pts.forEach(function (p) { if (!drawn(p)) { if (run.length) runs.push(run); run = []; } else run.push([+p[0], +p[1]]); });
     if (run.length) runs.push(run);
     /* data-from of a piece is its uncut index across the path's runs: the finite points of the runs before it, plus its index in its own run. */
     runs.forEach(function (r) { cutPieces(r, z).forEach(function (c) { emit(c, base); }); base += r.length; });
   } else {
-    if (pts.some(function (p) { return !isFinite(+p[0]) || !isFinite(+p[1]); })) return '<polyline points="' + pts.map(num).join(" ") + '"' + ids + attrs; // a non-finite point: the uncut polyline, which the unzoomed drawing makes (a browser may draw none of it)
     var all = pts.map(function (p) { return [+p[0], +p[1]]; });
     if (all.length) cutPieces(all, z).forEach(function (c) { emit(c, 0); });
   }

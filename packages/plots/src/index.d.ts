@@ -255,7 +255,7 @@ export interface Map2DGridProps {
 }
 /** One curve. Every role draws the same stroke, 1 px up to a 234 px frame and `sqrt(F / 234)` px above it (F is the plot frame's width, ADR-0003); there is no color, width or dash option (ADR-0001). */
 export interface CurveSeries {
-  /** [x, y] in data units. Points outside the axis ranges are clipped by the plot area. */
+  /** [x, y] in data units. Points outside the axis ranges are clipped by the plot area. A NaN or infinite coordinate breaks the line there, as in a panel. */
   points: [number, number][];
   /** Palette slot: the series color follows idx(index). Default 0. */
   index?: number;

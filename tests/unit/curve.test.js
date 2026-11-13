@@ -474,6 +474,19 @@ test('non-finite points break panel series', () => {
   assert.equal((two.match(/<path d="([^"]*)"/)[1].match(/M/g) || []).length, 2, 'a null entry breaks the run');
 });
 
+// Plan #1018 M2 (#884): a single plot breaks a series at a NaN or infinite point, as panels do.
+// oracle: metamorphic - the single plot's runs are the panel path's runs for the same points
+test('non-finite points break a single-plot series', () => {
+  const pts = [[-1, 1], [-0.5, NaN], [0, 2], [0.25, Infinity], [0.5, 3], [0.75, 4], [NaN, 5], [1, 6], [-Infinity, 7]];
+  const o = { x: { range: [-1, 1] }, y: { range: [0, 8] }, width: 460, height: 260 };
+  const panel = ELEO.curve({ ...o, panels: [{ title: 'a', series: [{ points: pts, index: 0 }] }] }).match(/<path d="([^"]*)"/)[1];
+  const single = ELEO.curve({ ...o, series: [{ points: pts, index: 0 }] });
+  assert.ok(!/<polyline[^>]*data-series/.test(single), 'a series with a bad point is no polyline');
+  assert.equal(single.match(/<path d="([^"]*)"[^>]*data-series/)[1], panel, 'the same runs as the panel path');
+  // a clean series stays a polyline; a null coordinate is still 0
+  assert.match(ELEO.curve({ ...o, series: [{ points: [[0, 1], [1, null]], index: 0 }] }), /<polyline points="0,1 1,0"[^>]*data-series/);
+});
+
 test('single plot range unchanged by nulls', () => {
   const base = { x: { range: [0, 2] }, width: 460, height: 260 };
   const withNull = ELEO.curve({ ...base, series: [{ points: [[0, 5], [1, null], [2, 7]], index: 0 }] });
@@ -1052,15 +1065,20 @@ test('a zoomed curve draws only its window', () => {
   assert.ok(!/data-from/.test(ELEO.curve({ series: [{ points: sine, index: 0 }], x, y, width: 460, height: 300 })), 'no view, no data-from');
 });
 
-// Plan #804 M3 (#998, round 9 finding 2): a zoomed single plot whose series holds a non-finite point draws the uncut polyline, as the unzoomed drawing does, so zooming never makes a line appear.
-// oracle: metamorphic - the zoomed polyline's points are the unzoomed polyline's
-test('a zoomed series with a NaN draws as the unzoomed one', () => {
-  const points = [[0, 0], [100, 0.2], [200, NaN], [300, 0.4], [400, 0.5]], x = { range: [0, 1000] }, y = { range: [-1, 1] };
-  const poly = (svg) => [...svg.matchAll(/<polyline\b[^>]*>/g)].map((m) => m[0]).filter((t) => /data-series/.test(t));
-  const plain = poly(ELEO.curve({ series: [{ points, index: 0 }], x, y, width: 460, height: 300 }));
-  const zoomed = poly(ELEO.curve({ series: [{ points, index: 0 }], x, y, width: 460, height: 300, view: { x: [0, 500], y: [-1, 1] } }));
-  assert.equal(plain.length, 1);
-  assert.deepEqual(zoomed, plain);
+// Plan #804 M3 (#998), rewritten by plan #1018 M2 (#884): a zoomed single plot whose series holds a non-finite point draws the panel branch's runs, cut to the view.
+// oracle: metamorphic - the zoomed single plot's marks are the panel's marks for the same points
+test('a zoomed series with a NaN draws as the panel one', () => {
+  const points = [[0, 0], [100, 0.2], [200, NaN], [300, 0.4], [400, 0.5], [450, 0.6]], x = { range: [0, 1000] }, y = { range: [-1, 1] }, view = { x: [0, 500], y: [-1, 1] };
+  const marks = (svg) => [...svg.matchAll(/<path\b[^>]*data-series[^>]*>/g)].map((m) => m[0].replace(/ data-panel="\d+"/, ''));
+  const single = marks(ELEO.curve({ series: [{ points, index: 0 }], x, y, width: 460, height: 300, view }));
+  const panel = marks(ELEO.curve({ panels: [{ series: [{ points, index: 0 }] }], x, y, width: 460, height: 300, view }));
+  assert.ok(single.length >= 2, 'the NaN breaks the series into marks');
+  assert.deepEqual(single, panel);
+  assert.ok(single.some((t) => /data-from="2"/.test(t)), 'the second run starts at the finite index 2');
+  for (const t of single) {
+    const xs = subpaths(/ d="([^"]*)"/.exec(t)[1]).flat().map((q) => q[0]);
+    assert.ok(xs.length > 0 && (xs.every((v) => v <= 200) || xs.every((v) => v >= 200)), `no mark spans the bad point at x = 200: ${xs}`);
+  }
 });
 
 // Plan #804 M3 (#990, CR #984): a cut dashed series carries stroke-dashoffset, its cut-off length in px modulo the dash period, so its dashes sit where the uncut line's do.

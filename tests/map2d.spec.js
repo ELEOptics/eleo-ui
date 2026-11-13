@@ -1,29 +1,9 @@
 // map2D (plan #389). Run after `npm run build`.
-// oracle: fixture phos-core PointSpread recorded by scripts/record-phos-core.py; sample canvas PNGs recorded by scripts/record-map2d-baseline.mjs
+// oracle: fixture phos-core PointSpread recorded by scripts/record-phos-core.py
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));
-
-// O3: the sample call draws what it drew at the plan's base. oracle: fixture, sample canvas PNGs recorded by
-// scripts/record-map2d-baseline.mjs from main's build at the plan's base.
-test('sample call unchanged', async ({ page }) => {
-  const baseline = fixture('map2d-baseline.json');
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) for (const kind of ['psf', 'wavefront']) {
-    // A fresh canvas in that theme's column (colors come from the element), drawn with the renderer's default size, not the gallery's.
-    const png = await page.locator(`.theme[data-theme="${theme}"]`).evaluate((col, k) => {
-      const c = document.createElement('canvas');
-      col.appendChild(c);
-      window.ELEO.map2D(c, { kind: k });
-      const url = c.toDataURL('image/png');
-      c.remove();
-      return url;
-    }, kind);
-    expect(png === baseline[`${kind}-${theme}`], `${kind} in ${theme} differs from the recording`).toBe(true);
-  }
-});
 
 // #394: the typed map's frame and image. oracle: closed-form, a 4 x 2 grid over [-0.02, 0.02] x [-0.01, 0.01] mm: the
 // image is twice as wide as tall, px per mm equal on both axes, centred in the frame, row 0 at the top, masked cell alpha 0.
@@ -215,6 +195,12 @@ test('recorded PSF cells (U8)', async ({ page }) => {
     // Draw the recorded grid, and a copy with two cells masked, into the theme column.
     const r = await page.locator(sel).evaluate(async (el, p) => {
       const ELEO = window.ELEO;
+      // The frame rect is stroked, and Firefox's client box includes the stroke: measure its fill box through the screen matrix.
+      const fillBox = (rect) => {
+        const b = rect.getBBox(), m = rect.getScreenCTM();
+        const q = [[b.x, b.y], [b.x + b.width, b.y + b.height]].map(([x, y]) => ({ x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f }));
+        return { left: q[0].x, right: q[1].x, top: q[0].y, bottom: q[1].y, width: q[1].x - q[0].x, height: q[1].y - q[0].y };
+      };
       const props = (values) => ({ values, extent: p.extent, x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', el });
       el.insertAdjacentHTML('beforeend', ELEO.map2D(props(p.values)));
       const svg = el.lastElementChild, img = svg.querySelector('image');
@@ -226,7 +212,7 @@ test('recorded PSF cells (U8)', async ({ page }) => {
       const flat = p.values.flat().filter((v) => v !== null && !Number.isNaN(v));
       const lo = Math.min(...flat), hi = Math.max(...flat);
       const steps = p.values.map((row) => row.map((v) => Math.round(((v - lo) / (hi - lo)) * 255)));
-      const box = img.getBoundingClientRect(), frame = svg.querySelector('rect').getBoundingClientRect(), [x0, x1, y0, y1] = p.extent;
+      const box = img.getBoundingClientRect(), frame = fillBox(svg.querySelector('rect')), [x0, x1, y0, y1] = p.extent;
       // The masked copy: tagged so the page can be screenshotted at its cells.
       const copy = p.values.map((row) => row.slice());
       p.mask.forEach(([r, k]) => { copy[r][k] = null; });

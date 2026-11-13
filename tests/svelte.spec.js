@@ -115,19 +115,28 @@ test('CurvePlot hover tooltip', async ({ page }) => {
     window.WRAPPERS.mount(window.WRAPPERS.ReadoutHarness, { target: host, props: {} });
   });
   // The harness draws one series, label 'Tangential', points [[0, 1], [120, 0.62], [240, 0.3]], x 'cycles/mm', y unitless.
-  const poly = page.locator('#harness polyline[data-series="0"]');
-  await expect(poly).toBeVisible();
-  await poly.scrollIntoViewIfNeeded(); // the harness sits below the gallery's tiles, far under the viewport
-  const g = poly.locator('xpath=..');
-  const at = await g.evaluate((el) => {
-    const [a, , , d, e, f] = el.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
-    const vp = el.closest('svg');
+  await expect(page.locator('#harness polyline[data-series="0"]')).toBeVisible();
+  await page.locator('#harness').scrollIntoViewIfNeeded(); // the harness sits below the gallery's tiles; the host div is stable, the polyline is replaced by a redraw
+  // Read the mark's position from the live DOM until two reads 50 ms apart agree: the drawing is stable.
+  const read = () => page.evaluate(() => {
+    const g = document.querySelector('#harness polyline[data-series="0"]')?.parentElement;
+    if (!g) return null;
+    const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const vp = g.closest('svg');
     const root = vp.ownerSVGElement || vp;
     const box = root.getBoundingClientRect();
     const k = box.width / root.viewBox.baseVal.width;
     const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
     return { x: box.left + (vx + a * 120 + e) * k, y: box.top + (vy + d * 0.62 + f) * k };
   });
+  let at;
+  await expect.poll(async () => {
+    const first = await read();
+    await page.waitForTimeout(50);
+    const second = await read();
+    at = second;
+    return first && second && first.x === second.x && first.y === second.y;
+  }).toBe(true);
   await page.mouse.move(at.x, at.y);
   await expect(page.locator('#harness .eleo-hover__tip')).toHaveText('Tangential · 120 cycles/mm, 0.62');
 });

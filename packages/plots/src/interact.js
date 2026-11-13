@@ -11,6 +11,7 @@ function runs(mark) {
   if (mark.points) {
     for (var k = 0; k < mark.points.numberOfItems; k++) {
       var q = mark.points.getItem(k);
+      /* curve draws no polyline with a bad point (it is a path), but a caller's own polyline may hold one: Chromium parses none of its points, other engines may parse a NaN (#889). */
       if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); open = true; } else open = false;
     }
     return { p: p, join: join, off: from };
@@ -28,20 +29,26 @@ function runs(mark) {
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
 function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
+/* A data group's matrix, parsed from its own `matrix(a b c d e f)` attribute: reading transform.baseVal.consolidate() makes Firefox re-serialize the attribute with shorter numbers. null where it is not six numbers, or has anything after the matrix. */
+function matrixOf(g) {
+  var m = /^matrix\(([^)]*)\)\s*$/.exec(g.getAttribute("transform") || ""), n = m && m[1].trim().split(/[\s,]+/).map(Number);
+  return n && n.length === 6 && n.every(isFinite) ? new DOMMatrix(n) : null;
+}
+
 /* The data window a data group's clipping viewport shows: { x: [lo, hi], y: [lo, hi] }, read from the group's matrix and the viewport's width and height (a layout group, marked data-view="layout", has no nested frame: its viewport is the geometry band it carries as data-band="x y w h" in viewBox px, else the root viewBox); null where there is no matrix or no finite viewport. The one place that says what window a group is clipped to. */
 function windowOf(g) {
-  var vp = g.closest("svg"), t = g.transform.baseVal.consolidate(), layout = g.getAttribute("data-view") === "layout";
+  var vp = g.closest("svg"), t = matrixOf(g), layout = g.getAttribute("data-view") === "layout";
   if (!vp || !t || !(layout || vp.hasAttribute("width"))) return null;
-  var vb = layout && vp.viewBox.baseVal, bd = layout && (g.getAttribute("data-band") || "").split(" ").map(Number), a = t.matrix.a, d = t.matrix.d, e = t.matrix.e, f = t.matrix.f;
+  var vb = layout && vp.viewBox.baseVal, bd = layout && (g.getAttribute("data-band") || "").split(" ").map(Number), a = t.a, d = t.d, e = t.e, f = t.f;
   var x0 = bd && bd.length === 4 ? bd[0] : 0, y0 = bd && bd.length === 4 ? bd[1] : 0, w = bd && bd.length === 4 ? bd[2] : layout ? vb.width : +vp.getAttribute("width"), h = bd && bd.length === 4 ? bd[3] : layout ? vb.height : +vp.getAttribute("height");
   if (!(a && d && isFinite(a + d + e + f + w + h + x0 + y0))) return null;
   return { x: [(x0 - e) / a, (x0 + w - e) / a].sort(function (u, v) { return u - v; }), y: [(y0 - f) / d, (y0 + h - f) / d].sort(function (u, v) { return u - v; }) };
 }
 
-/* The data window a group's viewport clips to, as a test on a data point (windowOf). Half a client px of slack keeps a point on the frame's edge in. Always true where there is no window. */
+/* The data window a group's viewport clips to, as a test on a data point (windowOf). Half a client px of slack keeps a point on the frame's edge in. Where there is no window: false for a group whose `transform` does not parse (matrixOf null), so nothing on it hovers; true where it parses but there is no clipping viewport. */
 function inFrameOf(g, m) {
   var win = windowOf(g);
-  if (!win) return function () { return true; };
+  if (!win) { var open = !!matrixOf(g); return function () { return open; }; }
   var ex = 0.5 / Math.abs(m.a), ey = 0.5 / Math.abs(m.d);
   return function (x, y) { return x >= win.x[0] - ex && x <= win.x[1] + ex && y >= win.y[0] - ey && y <= win.y[1] + ey; };
 }
@@ -132,10 +139,10 @@ function showTip(host, layer, text, cx, cy) {
 
 /* Puts the dot on the hovered point and the drop lines from it to the plot frame's bottom and left edges (the nested viewport's box). The layer is re-added when a redraw replaced the host's markup. */
 function showMarks(host, layer, b) {
-  var g = dataGroup(b.mark), m = g.getScreenCTM(), vp = g.closest("svg"), t = g.transform.baseVal.consolidate();
+  var g = dataGroup(b.mark), m = g.getScreenCTM(), vp = g.closest("svg"), t = matrixOf(g);
   if (!m || !vp) return;
   /* The viewport's own matrix is taken from the data group's, undoing the group's transform: an <svg>'s getScreenCTM leaves out its x/y in Firefox and Safari. */
-  var vm = t ? m.multiply(t.matrix.inverse()) : m;
+  var vm = t ? new DOMMatrix([m.a, m.b, m.c, m.d, m.e, m.f]).multiply(t.inverse()) : m; /* a DOMMatrix: Chromium's SVGMatrix multiplies only an SVGMatrix */
   var hb = host.getBoundingClientRect(), ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop;
   var pt = new DOMPoint(b.bar ? b.px : b.x, b.y).matrixTransform(m), x = pt.x - ox, y = pt.y - oy;
   var left = new DOMPoint(0, 0).matrixTransform(vm).x - ox, bottom = new DOMPoint(0, vp.height.baseVal.value).matrixTransform(vm).y - oy;

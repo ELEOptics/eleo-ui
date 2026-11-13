@@ -51,11 +51,11 @@ A typed grid draws as SVG with axes and a colorbar: `<Map2D values={grid} extent
 npm install
 npm run build          # all three packages
 npm run gallery        # http://localhost:4173/gallery/: every renderer in both themes
-npm test               # unit tests (physics, tokens) and the gallery check in Chromium
+npm test               # unit tests (physics, tokens) and the gallery check in three browsers (Chromium, Firefox, WebKit)
 npm run check          # Svelte type check
 ```
 
-First time only: `npx playwright install chromium` for the gallery check.
+First time only: `npx playwright install chromium firefox webkit` for the gallery check. To run one browser: `npx playwright test --project=firefox`.
 
 `npm audit --omit=dev` checks what ships to users; plain `npm audit` also covers dev tooling.
 
