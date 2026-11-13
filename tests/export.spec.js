@@ -171,3 +171,26 @@ test('gallery fonts link is crossorigin', async ({ page }) => {
   expect(attrs.length).toBeGreaterThan(0);
   expect(attrs.every((a) => a === 'anonymous')).toBe(true);
 });
+
+// #1080 (plan #1076 O2, type and size only). oracle: U15's size rule (the PNG is the plot's size times the scale, within 1 px); every map tile's plot svg resolves a non-empty image/png (no canvas taint).
+test('png resolves a PNG of the plot\'s size times scale', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const scale of [1, 2]) {
+    const r = await page.locator(TILE).first().evaluate(async (el, scale) => {
+      const blob = await window.ELEO.png(el, { scale });
+      const bmp = await createImageBitmap(blob);
+      const box = el.getBoundingClientRect();
+      return { type: blob.type, dw: Math.abs(bmp.width - box.width * scale), dh: Math.abs(bmp.height - box.height * scale) };
+    }, scale);
+    expect(r.type).toBe('image/png');
+    expect(r.dw).toBeLessThanOrEqual(1);
+    expect(r.dh).toBeLessThanOrEqual(1);
+  }
+  const maps = await page.locator('[data-map] > svg').evaluateAll((els) => Promise.all(els.map(async (el) => {
+    const b = await window.ELEO.png(el);
+    return { type: b.type, size: b.size };
+  })));
+  expect(maps.length).toBeGreaterThan(0);
+  for (const m of maps) { expect(m.type).toBe('image/png'); expect(m.size).toBeGreaterThan(0); }
+});

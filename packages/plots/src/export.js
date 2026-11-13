@@ -92,3 +92,24 @@ export async function standalone(svg, options) {
   if (!options || options.fonts !== false) await embedFonts(clone);
   return new XMLSerializer().serializeToString(clone);
 }
+
+/* PNG of the plot: the standalone string drawn on a canvas of the plot's size times `scale`. `img.decode()` runs before drawing because WebKit can fire
+   `onload` before the data-URL fonts are ready. A tainted canvas makes toBlob throw; that is not handled here (plan #1076, escalate). */
+export async function png(svg, options) {
+  const scale = (options && options.scale) || 1;
+  const str = await standalone(svg, options);
+  const box = svg.getBoundingClientRect();
+  const url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(box.width * scale);
+    canvas.height = Math.round(box.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return await new Promise((ok, no) => canvas.toBlob((b) => (b ? ok(b) : no(new Error('png: toBlob gave no blob'))), 'image/png'));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
