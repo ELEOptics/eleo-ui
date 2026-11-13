@@ -278,6 +278,8 @@ test('warning names only missing faces', async ({ page }) => {
     await window.ELEO.standalone(host.firstChild);
     host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: -apple-system, BlinkMacSystemFont, sans-serif">a</text></svg>';
     await window.ELEO.standalone(host.firstChild);
+    host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: BlinkMacSystemFont, sans-serif">a</text></svg>';
+    await window.ELEO.standalone(host.firstChild);
     host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: ProbePart">a\u03bc</text></svg>';
     await window.ELEO.standalone(host.firstChild);
   });
