@@ -276,12 +276,15 @@ test('warning names only missing faces', async ({ page }) => {
     document.body.append(host);
     host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: sans-serif">a</text></svg>';
     await window.ELEO.standalone(host.firstChild);
+    host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: -apple-system, BlinkMacSystemFont, sans-serif">a</text></svg>';
+    await window.ELEO.standalone(host.firstChild);
     host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: ProbePart">a\u03bc</text></svg>';
     await window.ELEO.standalone(host.firstChild);
   });
   const ours = warns.filter((w) => w.includes('standalone'));
   expect(ours).toHaveLength(1);
   expect(ours[0]).not.toContain('sans-serif');
+  expect(ours[0]).not.toMatch(/apple-system|BlinkMacSystemFont/);
   expect(ours[0]).toMatch(/partly embedded[^]*ProbePart/);
   expect(ours[0]).not.toMatch(/not embedded[^]*ProbePart/);
 });

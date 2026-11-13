@@ -22,7 +22,7 @@ const inWeight = (w, spec) => {
   return w >= lo && w <= hi;
 };
 // Generic families resolve to system fonts and never have an @font-face.
-const GENERIC = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-[a-z-]+|math|emoji|fangsong)$/i;
+const GENERIC = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-[a-z-]+|math|emoji|fangsong|-apple-system|BlinkMacSystemFont)$/i;
 const covers = (range, chars) => {
   if (!range) return true;
   const spans = range.split(',').map((u) => {
