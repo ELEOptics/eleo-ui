@@ -1,5 +1,36 @@
 # @eleoptics/plots
 
+## 0.10.0
+
+### Minor Changes
+
+- 6fce5cd: `curve` keys its series: a `label` per series, or a `key` of `{ label, role?, index? }` entries, drawn under the x label or, by `keyAt`, in a plot corner.
+- 5762087: New: `interact(el, opts)` makes a rendered 2D plot interactive, for `curve`, `rayFan`, `spot`, `throughFocus`, `bars`, typed `map2D` and `layout2D`. Hovering emits `onhover(HoverEvent)`: the nearest data point with its series, panel and values, or, between points on a drawn line, the linearly interpolated reading flagged `interpolated` with its `segment`; a map reports the sample's indices and, given `values`, its value; a `layout2D` lens element reports its glass and properties. While a point is hovered, `interact` draws a dot on it, dashed drop lines to both axes and a tooltip near the pointer. Clicking a series, bar, surface or field fan emits `onselect(SelectEvent)`. The wheel zooms about the pointer, a drag pans and a double-click or `reset()` resets, reported by `onview(view)`; the caller redraws with `view`. The host takes focus: ←/→ step points, ↑/↓ series, Enter selects, Escape clears, + (or =) and - zoom, 0 resets. New: `readout(event, { x, y })` is the tooltip's text, `<label> · <x> <unit>, <y> <unit>`. New: `view` on `curve`, `rayFan`, `spot`, `throughFocus`, typed `map2D` and `layout2D` draws that window (`{ x?, y? }` on a curve, `{ center, half }` on a spot, `{ x, y }` on a layout, which fits it at one scale; a map redraws its frame over the same bitmap); a zoomed `curve` or `layout2D` draws only its window plus 32 px, with `data-from` giving a cut run's data index. Marks carry `data-*` identity attributes (`data-series`, `data-role`, `data-label`, `data-panel`, `data-category`, `data-cell`, `data-field`, `data-ray`, `data-surface`) that `interact` reads; a layout's glass polygons carry their element's properties. Without `interact` or `view`, the drawing is unchanged apart from these attributes.
+- 146bbf4: New: a layout's per-point `status` (`Alive`, `Virtual`, `Dead`) is drawn, and `layout2D` takes `show`, an array of the statuses to draw (default all three). With `status`, a ray is drawn to its last point. Virtual (dotted) and Dead (solid) runs are drawn faded, at opacity .35, under the Alive runs, and each segment takes its start point's status. Layouts without `status` draw their rays as before.
+- dce7a9d: `layout2D` takes a `key`: entries (a line swatch in the palette slot `index`) and `"glass"` (the swatches `glassLegend` gives) in one row under the drawing, at the layout's text size. Not drawn below a width of 630. A `key` that is not `"glass"` or an array, an entry that is neither `"glass"` nor an object, an object without a string `label`, or an `index` that is not a non-negative integer throws a `TypeError`.
+- a65f860: Changed: `map2D` draws no grid unless asked (a continuous color wants none): no `grid`, `grid: null` or `grid: false` draws no lines, over or under the image, and keeps the tick labels. New: `grid: true` draws the default majors over the image, in the map's `--map-grid-<map>` token (the grid was drawn under the image, hidden), and `grid: { x: { major, minor }, y: { ... } }` sets the labelled ticks (`major`) and the minor lines per interval (`minor`, a count; `minor: false` draws no minors, as does leaving it out); in an object an axis set to `false` draws no lines on that axis, and an axis set to `null` or left out has the default majors.
+- 0990a16: New: `grid: false` on `curve` (a single plot, `panels` or the `kind` call), `rayFan` and `bars` draws no grid lines, as it already does on `map2D`; the tick labels, frame, zero axes and `bars`' category dividers stay. Without it the SVG is unchanged. `CurvePlot`, `RayFan` and `BarPlot` pass it through.
+- c92aa58: `rayFan` takes `key: true`: one key per sample wavelength ("486.1 nm", ...) below the fans. `keyAt` puts the key in a corner box of each panel instead.
+- 7bcfcdc: New: `spot` draws a grid at the nice ticks strictly inside (-half, half) in each panel (the frame draws the edges), under the dots (the spot diagram and the footprint); `grid: false` draws none.
+- f404267: `spot` series take a `label`: each distinct label is keyed with a dot swatch below the captions. `keyAt` puts the key in a panel corner instead.
+- cd0c203: `spot` panels label their grid ticks (x under the panel, y left of it, also with `grid: false`) and drop the `±half` label; with a `unit` the caption gains "x, y in <unit>". Each panel has a left margin for the labels, so the panel side shrinks to keep `width`, and the `spot` minimum width in `PLOT_SIZES` grows by 21.6 px per panel.
+- 1f5b7ce: Changed: `throughFocus` draws each cell as `spot` draws a panel: a grid under the dots, a centre cross and round-cap dots; `grid: false` draws no grid lines. It labels its outer edges' ticks (x under the bottom row, y left of the left column) and captions the figure "x, y in µm"; the row label gains 2.4 text units of room for the y labels (more when the labels are longer than three characters), so a panel is a little narrower at a given `width`, and the `throughFocus` minimum width in `PLOT_SIZES` grows by 21.6 px.
+
+### Patch Changes
+
+- 41001ec: `curve`: a single plot's series with a NaN or infinite coordinate is drawn as a path that breaks at the bad point, as in panels, instead of nothing at all in Chromium.
+  
+  `interact`: a hover or click no longer rewrites the plot's `transform` attribute in Firefox, which shortened its numbers.
+- 064f4c1: `curve` throws a `TypeError` for a key entry whose `label` is not a string, as `layout2D` does; it used to draw a number or other value. Series labels must be strings too: a series with a non-string `label` and no `key` now throws "curve: a key entry needs a string label", where it used to draw the label as text. Only a truthy label makes a key entry, so a series with a falsy label (`label: 0` or `false`) is skipped, not thrown on; a non-empty non-string label throws.
+- 400d7f4: Fix: a field label stays at least 1 em below the top of a cropping `box`. A glass before an image whose profile is missing, empty or non-finite now throws a named `layout2D: surface i` error.
+- a2bb5a0: Fix: `layout2D` field labels that a cropping `box` clamps to the top no longer stack on one spot; they keep the drawing's top-to-bottom order and sit 1 em apart.
+- 9d2f64b: Fix: `layout2D` draws a stop bar at every stop it labels STO, including a stop on a glass surface (it ended at the glass before).
+  It also no longer draws a zero-length stop bar for a glass stop cropped below its aperture.
+- fdd86a4: Fixed: `layout3D` paints the image plane before the outgoing rays, so the rays that end on it are drawn over it (the plane was drawn last and hid them).
+- 038fc3e: Fix: limit labels' offsets from their line and the frame scale with the label's text size, as the tick labels' do (they were fixed pixels, which crowded the text at wide widths).
+- f7b9180: Fix: a linear `map2D` colorbar draws at least 3 ticks inside its range (it could draw fewer).
+- 408fa60: Fix: a sagittal curve's dash scales with its stroke weight (4 and 2.5 strokes, was a fixed `5 3`), so it reads as a dash at wide widths; a curve key's line swatch is 2 text units long, with its curve's line cap.
+
 ## 0.9.0
 
 ### Minor Changes
