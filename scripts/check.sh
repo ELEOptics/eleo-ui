@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
-# Everything CI runs, in one place (the full gate also builds the developer site). Green here = green in CI (modulo OS).
+# Everything CI runs, in one place (the full gate also builds the developer site, and runs the gallery tests in three browsers:
+# Chromium, Firefox and WebKit). Green here = green in CI (modulo OS).
 # --fast: per work item, only what the uncommitted change affects (seconds, not minutes).
 #         The orchestrator runs the full gate after each wave (agent_docs/agents/workflow.md).
 set -eu

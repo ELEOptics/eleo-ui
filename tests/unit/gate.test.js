@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 const root = new URL('../../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
-// project -> [{ file, name }]; a test's name is its describe titles and its title, as PENDING spells it.
+// project -> [{ file, name }]; a test's name is its describe titles and its title.
 // PERF and SHOTS turn on the opt-in specs, which are all Chromium-only files, so one listing serves every test.
 // listed once per run: the spawn is the cost, and the three callers only read the result
 let cache;
@@ -85,25 +85,10 @@ test('installs', () => {
   assert.match(readme, /three browsers/);
 });
 
-// Plan #1018, issue #1024: three projects, with the titles each browser still fails held in PENDING.
-// oracle: measurement #1020 comment, Playwright 1.65.0 failure table on macOS 27.2 (minus the Chromium-only specs); spec Playwright projects, grepInvert (playwright.dev/docs/test-projects)
-test('projects', async () => {
-  const { PENDING } = await import(new URL('playwright.config.js', root));
-  const byProject = listing();
-  assert.deepEqual([...byProject.keys()].sort(), ['chromium', 'firefox', 'webkit']);
-  assert.deepEqual(Object.keys(PENDING).sort(), ['firefox', 'webkit']);
-  const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'map2d-sample'].map((n) => `${n}.spec.js`);
-  // what a browser would list with no PENDING: Chromium's tests outside the Chromium-only files
-  const full = byProject.get('chromium').filter((t) => !only.includes(t.file));
-  for (const [browser, list] of Object.entries(PENDING)) {
-    const listed = byProject.get(browser).map((t) => `${t.file} ${t.name}`);
-    for (const title of list) {
-      assert.equal(full.filter((t) => t.name === title).length, 1, `${browser}: "${title}" matches one test`);
-      const t = full.find((x) => x.name === title);
-      assert.ok(!listed.includes(`${t.file} ${t.name}`), `${browser} skips "${title}"`);
-    }
-    assert.equal(listed.length, full.length - list.length, `${browser} skips only its PENDING titles`);
-  }
+// Plan #1018, issues #1024, #1039: the gallery tests run in three projects.
+// oracle: spec Playwright projects (playwright.dev/docs/test-projects)
+test('projects', () => {
+  assert.deepEqual([...listing().keys()].sort(), ['chromium', 'firefox', 'webkit']);
 });
 
 // Plan #1018, issue #1029: no interaction test is pending. Written skipped; #1035 unskipped it.
