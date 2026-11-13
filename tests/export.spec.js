@@ -399,7 +399,7 @@ test('png resolves a PNG of the plot\'s size times scale', async ({ page }) => {
   for (const m of maps) { expect(m.type).toBe('image/png'); expect(m.size).toBeGreaterThan(0); }
 });
 
-// #1108 (plan #1076 O2). oracle: png multiplies a non-scaling stroke's px or unitless stroke-width and stroke-dasharray by scale; a % value is left as it is (browsers keep % in computed style; em and rem arrive as px).
+// #1108 (plan #1076 O2). oracle: png multiplies a non-scaling stroke's px or unitless stroke-width, stroke-dasharray and stroke-dashoffset by scale; a % value is left as it is (browsers keep % in computed style; em and rem arrive as px).
 test('png scales px strokes only', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
