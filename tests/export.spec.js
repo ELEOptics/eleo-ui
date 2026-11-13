@@ -94,3 +94,37 @@ test('png size and pixels', async ({ page }) => {
     expect(r.diff).toBeLessThan(0.01);
   }
 });
+
+// #1078 (plan #1076 O1, styles only). oracle: the string has no var( and its background rect and tick fills equal the tile's computed values; drawn in a page with no ELEO CSS.
+test('styles resolve without ELEO CSS', async ({ page, context }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const svg = page.locator(TILE).first();
+  const out = await svg.evaluate((el) => window.ELEO.standalone(el, { fonts: false }));
+  const want = await svg.evaluate((el) => {
+    const t = el.querySelector('text');
+    const r = el.getBoundingClientRect();
+    return { surface: getComputedStyle(el).getPropertyValue('--surface').trim(), tick: getComputedStyle(t).fill, w: r.width, h: r.height };
+  });
+  expect(out).not.toContain('var(');
+
+  const bare = await context.newPage();
+  await bare.goto('about:blank');
+  const got = await bare.evaluate(async (s) => {
+    const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
+    const root = doc.documentElement;
+    const probe = document.createElement('div');
+    const norm = (c) => { probe.style.color = ''; probe.style.color = c; document.body.append(probe); const v = getComputedStyle(probe).color; probe.remove(); return v; };
+    const img = new Image();
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(s)}`;
+    await img.decode();
+    return { ns: root.namespaceURI, w: root.getAttribute('width'), h: root.getAttribute('height'), rect: norm(root.firstElementChild.style.fill || root.firstElementChild.getAttribute('fill')), tick: norm(root.querySelector('text').style.fill), tag: root.firstElementChild.tagName };
+  }, out);
+  const norm = await bare.evaluate((c) => { const d = document.createElement('div'); d.style.color = c; document.body.append(d); return getComputedStyle(d).color; }, want.surface);
+  expect(got.ns).toBe('http://www.w3.org/2000/svg');
+  expect(got.tag).toBe('rect');
+  expect(got.rect).toBe(norm);
+  expect(got.tick).toBe(want.tick);
+  expect(got.w).toBe(`${want.w}px`);
+  expect(got.h).toBe(`${want.h}px`);
+});
