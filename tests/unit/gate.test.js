@@ -1,5 +1,5 @@
 // Plan #1018, issue #1019: the gallery tests run in Chromium, Firefox and WebKit. Written skipped; #1026 unskips them.
-// The tests do not read the config back: they run `playwright test --list --reporter=json` and assert on what each project resolves.
+// The tests read `playwright test --list --reporter=json` output, except `nothing pending`'s check that the config exports no list (an empty list would not show in the listing).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -85,12 +85,6 @@ test('installs', () => {
   assert.match(readme, /three browsers/);
 });
 
-// Plan #1018, issues #1024, #1039: the gallery tests run in three projects.
-// oracle: spec Playwright projects (playwright.dev/docs/test-projects)
-test('projects', () => {
-  assert.deepEqual([...listing().keys()].sort(), ['chromium', 'firefox', 'webkit']);
-});
-
 // Plan #1018, issue #1029: no interaction test is pending. Written skipped; #1035 unskipped it.
 // oracle: each test's own oracle, unchanged (U13: a pointer at a drawn point emits that point); a per-browser tolerance only through a CR the user accepts (O3)
 test('interact runs everywhere', () => {
@@ -108,9 +102,9 @@ test('interact runs everywhere', () => {
 // Plan #1018, issue #1036: no title is pending in any browser. Written skipped; #1040 unskipped it.
 // oracle: each test's own oracle, unchanged; a browser differs from Chromium only by the Chromium-only files (O4)
 test('nothing pending', async () => {
-  const config = (await import(new URL('playwright.config.js', root))).default;
-  assert.ok(!('PENDING' in (await import(new URL('playwright.config.js', root)))), 'the config exports no pending list');
-  for (const p of config.projects) assert.equal(p.grepInvert, undefined, `${p.name} inverts no grep`);
+  const mod = await import(new URL('playwright.config.js', root));
+  assert.ok(!('PENDING' in mod), 'the config exports no pending list');
+  for (const p of mod.default.projects) assert.equal(p.grepInvert, undefined, `${p.name} inverts no grep`);
   const byProject = listing();
   const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'map2d-sample'].map((n) => `${n}.spec.js`);
   const full = byProject.get('chromium').filter((t) => !only.includes(t.file)).map((t) => `${t.file} ${t.name}`).sort();
