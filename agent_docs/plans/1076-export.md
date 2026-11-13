@@ -53,7 +53,7 @@ No open issue tracks export itself.
 
 ### M1: `standalone` and `png` on one tile in three browsers GitHub: `P1076 M1: standalone SVG and PNG`
 
-Done 2026-11-13: review round 5 (Review M1: 0 blocking, nothing pulled in); full gate green on 84e399e (469 passed, none skipped); CI pending on 84e399e at the tick. Demo pending.
+Reopened 2026-11-13: ticked at 31216e9 after review round 5, then CR [#1102] (found while preparing the demo) added [#1103]. It ticks again after [#1103] and a clean review.
 
 Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved as `mtf.svg`, renders like the tile in Fira in all three browsers; `await ELEO.png(svg, { scale: 2 })` returns a `Blob` of type `image/png` twice the plot's size. The Change log lists every SVG tile's embedded font bytes. Proves: O1 and O2 on one tile, the kill criterion measured on every tile.
 
@@ -77,6 +77,7 @@ Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved
 | [#1099] | `standalone`'s warning skips generic families and names partly embedded ones; `inWeight`'s dead branch goes | one item for review M1 round 2's findings 1-3 because they touch the same lines; generic keywords left out because they never have an `@font-face`; considered warning on them, which every system-font consumer would see on each export | `packages/plots/src/export.js`, `tests/export.spec.js`, `tests/unit/style-lint.test.js` | `export.spec.js::warning names only missing faces` | [#1097] |
 | [#1100] | `standalone`'s warning leaves out `-apple-system` and `BlinkMacSystemFont` | added to `GENERIC` because they are vendor system-font names with no `@font-face`, and the common GitHub-style stack starts with them (review M1 round 3, finding 1); considered skipping every family that starts with a hyphen, which is broader than the evidence | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::warning names only missing faces` | [#1099] |
 | [#1101] | The warning test pins `BlinkMacSystemFont` as the first family | a second call with it first, because `embedFonts` reads only the first family, so the `-apple-system` stack never reached it (review M1 round 4, finding 1); considered reading every family in the stack, which changes behaviour for one test | `tests/export.spec.js` | `export.spec.js::warning names only missing faces` | [#1100] |
+| [#1103] | `png` at scale k draws strokes k times as wide (CR [#1102]) | `standalone` turns each `non-scaling-stroke` into user-unit `stroke-width` and `stroke-dasharray` (times viewBox width over box width) and drops the attribute, because a scaled `drawImage` keeps non-scaling strokes at screen width; considered `ctx.scale` before `drawImage`, whose handling of `vector-effect` differs between browsers | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::png size and pixels` | [#1101] |
 
 ### M2: every tile and the gallery's save buttons GitHub: `P1076 M2: every tile and save`
 
@@ -124,6 +125,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-13 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking. Finding 1 (vendor system-font names) pulled in as [#1100]. Finding 2: the [#1099] row's Files gains `tests/unit/style-lint.test.js`, its U5 exemption.
 - 2026-11-13 review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, one test-only finding pulled in as [#1101]. Per round, blocking plus pulled in: 6, 3, 1, 1.
 - 2026-11-13 review M1 round 5 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. Per round, blocking plus pulled in: 6, 3, 1, 1, 0. M1 ticked; demo pending.
+- 2026-11-13 orchestrator, preparing the M1 demo: `png` at scale 2 draws `non-scaling-stroke` curves at half weight (O2's test compares against the same scaled draw). CR [#1102] accepted (a defect inside plan scope), item [#1103]; M1 reopened.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
@@ -155,3 +157,5 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 [#1099]: https://github.com/ELEOptics/eleo-ui/issues/1099
 [#1100]: https://github.com/ELEOptics/eleo-ui/issues/1100
 [#1101]: https://github.com/ELEOptics/eleo-ui/issues/1101
+[#1102]: https://github.com/ELEOptics/eleo-ui/issues/1102
+[#1103]: https://github.com/ELEOptics/eleo-ui/issues/1103
