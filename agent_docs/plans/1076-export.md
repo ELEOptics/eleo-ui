@@ -72,7 +72,8 @@ Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved
 | [#1095] | `standalone` skips a font that fails to fetch and warns | throw on `!res.ok`, then catch per rule because one bad face should not fail the export (review M1, finding 4); considered failing the whole call, which the README's fallback promise rules out | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::failed font fetch` | [#1094] |
 | [#1096] | `png` at scale 1 matches the on-screen tile within 1% | compare with `tileShot` because the reference image is built the way `png` builds its own, so a font-load race would hit both (review M1, finding 5); considered correcting the risk row instead | `tests/export.spec.js` | `export.spec.js::png size and pixels` | [#1095] |
 | [#1097] | `standalone` drops `stop-color` and `stop-opacity` | no renderer draws a gradient, so they only add declarations (review M1, finding 7); considered keeping them for a future gradient, which can add them back | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::styles resolve without ELEO CSS` | [#1096] |
-| [#1099] | `standalone`'s warning skips generic families and names partly embedded ones; `inWeight`'s dead branch goes | one item for review M1 round 2's findings 1-3 because they touch the same lines; generic keywords left out because they never have an `@font-face`; considered warning on them, which every system-font consumer would see on each export | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::warning names only missing faces` | [#1097] |
+| [#1099] | `standalone`'s warning skips generic families and names partly embedded ones; `inWeight`'s dead branch goes | one item for review M1 round 2's findings 1-3 because they touch the same lines; generic keywords left out because they never have an `@font-face`; considered warning on them, which every system-font consumer would see on each export | `packages/plots/src/export.js`, `tests/export.spec.js`, `tests/unit/style-lint.test.js` | `export.spec.js::warning names only missing faces` | [#1097] |
+| [#1100] | `standalone`'s warning leaves out `-apple-system` and `BlinkMacSystemFont` | added to `GENERIC` because they are vendor system-font names with no `@font-face`, and the common GitHub-style stack starts with them (review M1 round 3, finding 1); considered skipping every family that starts with a hyphen, which is broader than the evidence | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::warning names only missing faces` | [#1099] |
 
 ### M2: every tile and the gallery's save buttons GitHub: `P1076 M2: every tile and save`
 
@@ -117,6 +118,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-13 #1083 font bytes (kill criterion, `ELEO.standalone` on every SVG tile, `[data-svg] > svg` and `[data-map] > svg`, light and dark identical; 23 tiles per theme): 19 tiles embed one face (Fira Code 400 latin), about 48 KB base64 / 36 KB woff2, the 4 map tiles among them. `layout2D-fan`, `seidel` and `seidel-terms` embed two (latin plus greek 18.4 KB base64 / 13.8 KB woff2), 66.8 KB base64 / 50.1 KB woff2. `icons` has no text and embeds none. The largest is 66.8 KB, under the 100 KB ask.
 - 2026-11-13 review M1 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, filed as CR [#1091] and accepted by the orchestrator (a doc-comment wording fix in Core, no signature change), item [#1092]. Backlog findings 2, 3, 4, 5 and 7 are small and named in files M1 changed, so they are pulled in as [#1093]-[#1097]. Finding 6 (shared test helpers) stays [#1098], for [#1084].
 - 2026-11-13 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, CRs [#1089] and [#1091] resolved; three small backlog findings in `export.js` pulled in as one item [#1099].
+- 2026-11-13 review M1 round 3 (code-reviewer, claude-opus-5-5): 0 blocking. Finding 1 (vendor system-font names) pulled in as [#1100]. Finding 2: the [#1099] row's Files gains `tests/unit/style-lint.test.js`, its U5 exemption.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
@@ -146,3 +148,4 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 [#1097]: https://github.com/ELEOptics/eleo-ui/issues/1097
 [#1098]: https://github.com/ELEOptics/eleo-ui/issues/1098
 [#1099]: https://github.com/ELEOptics/eleo-ui/issues/1099
+[#1100]: https://github.com/ELEOptics/eleo-ui/issues/1100
