@@ -132,6 +132,7 @@ test('styles resolve without ELEO CSS', async ({ page, context }) => {
     return { surface: getComputedStyle(el).getPropertyValue('--surface').trim(), tick: getComputedStyle(t).fill, w: r.width, h: r.height };
   });
   expect(out).not.toContain('var(');
+  expect(out).not.toMatch(/stop-(color|opacity)/);
 
   const bare = await context.newPage();
   await bare.goto('about:blank');

@@ -5,7 +5,7 @@
 const NS = 'http://www.w3.org/2000/svg';
 const PROPS = [
   'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style',
-  'font-variant-numeric', 'text-anchor', 'dominant-baseline', 'paint-order', 'image-rendering', 'stop-color', 'stop-opacity',
+  'font-variant-numeric', 'text-anchor', 'dominant-baseline', 'paint-order', 'image-rendering',
 ];
 
 const toDataUrl = async (url) => {
