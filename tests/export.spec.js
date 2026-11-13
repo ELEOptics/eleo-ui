@@ -41,6 +41,35 @@ const diffFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
   return n / (p.w * p.h);
 }, [a, b, CHANNEL_TOL]);
 
+// Like diffFraction, but a pixel of a matches when any pixel within one pixel of it in b is within CHANNEL_TOL. WebKit and Firefox snap thin lines on
+// the page at 1x, and a PNG drawn at scale 2 and halved lands them up to a pixel away; a stroke of the wrong weight still differs in its centre pixels.
+const nearFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
+  const px = async (s) => {
+    const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob());
+    const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
+    g.drawImage(bmp, 0, 0);
+    return { w: bmp.width, h: bmp.height, d: g.getImageData(0, 0, bmp.width, bmp.height).data };
+  };
+  const [p, q] = [await px(a), await px(b)];
+  if (p.w !== q.w || p.h !== q.h) return 1;
+  const far = (i, j) => Math.max(Math.abs(p.d[i] - q.d[j]), Math.abs(p.d[i + 1] - q.d[j + 1]), Math.abs(p.d[i + 2] - q.d[j + 2]), Math.abs(p.d[i + 3] - q.d[j + 3])) > tol;
+  let n = 0;
+  for (let y = 0; y < p.h; y++) {
+    for (let x = 0; x < p.w; x++) {
+      const i = (y * p.w + x) * 4;
+      let miss = true;
+      for (let dy = -1; dy <= 1 && miss; dy++) {
+        for (let dx = -1; dx <= 1 && miss; dx++) {
+          const u = x + dx, v = y + dy;
+          if (u >= 0 && v >= 0 && u < p.w && v < p.h && !far(i, (v * p.w + u) * 4)) miss = false;
+        }
+      }
+      if (miss) n++;
+    }
+  }
+  return n / (p.w * p.h);
+}, [a, b, CHANNEL_TOL]);
+
 // #1077 (plan #1076 O1). oracle: U15's 1% pixel rule; every (family, weight, style) the text uses has an embedded face that loads as a FontFace with the network blocked.
 test('standalone matches', async ({ page, context }) => {
   await page.goto('/gallery/');
@@ -110,11 +139,40 @@ test('png size and pixels', async ({ page }) => {
     expect(r.type).toBe('image/png');
     expect(Math.abs(r.w - r.bw)).toBeLessThanOrEqual(1);
     expect(Math.abs(r.h - r.bh)).toBeLessThanOrEqual(1);
-    expect(r.diff).toBeLessThan(0.01);
+    // The standalone string keeps its screen-space strokes, so only at scale 1 does it draw like the PNG; scale 2 is checked against the tile below (CR #1102).
+    if (scale === 1) expect(r.diff).toBeLessThan(0.01);
     // Against the on-screen tile too, so a font-load race in png cannot pass by hitting the reference image as well. Taken after png() has read the element: tileShot moves it.
     if (scale === 1) {
       const shot = await tileShot(page, svg);
       const d = await diffFraction(page, shot.toString('base64'), r.b64);
+      expect(d).toBeLessThan(0.01);
+    } else {
+      // Scale 2 drawn into a canvas of half its size must still match the tile: strokes (curves with vector-effect included) scale with the PNG (CR #1102).
+      const shot = await tileShot(page, svg);
+      const half = await page.evaluate(async (b64) => {
+        const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+        // A 2x2 box average: drawImage's own downscale skips pixels in WebKit and Firefox, which moves every thin line.
+        const big = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+        big.drawImage(bmp, 0, 0);
+        const src = big.getImageData(0, 0, bmp.width, bmp.height).data;
+        const c = new OffscreenCanvas(Math.round(bmp.width / 2), Math.round(bmp.height / 2));
+        const g = c.getContext('2d'), out = g.createImageData(c.width, c.height);
+        for (let y = 0; y < c.height; y++) {
+          for (let x = 0; x < c.width; x++) {
+            for (let ch = 0; ch < 4; ch++) {
+              let t = 0;
+              for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) t += src[(Math.min(2 * y + dy, bmp.height - 1) * bmp.width + Math.min(2 * x + dx, bmp.width - 1)) * 4 + ch];
+              out.data[(y * c.width + x) * 4 + ch] = t / 4;
+            }
+          }
+        }
+        g.putImageData(out, 0, 0);
+        const bytes = new Uint8Array(await (await c.convertToBlob({ type: 'image/png' })).arrayBuffer());
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        return btoa(bin);
+      }, r.b64);
+      const d = await nearFraction(page, shot.toString('base64'), half);
       expect(d).toBeLessThan(0.01);
     }
   }
