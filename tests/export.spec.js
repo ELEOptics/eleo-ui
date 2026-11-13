@@ -397,3 +397,35 @@ test('png resolves a PNG of the plot\'s size times scale', async ({ page }) => {
   expect(maps.length).toBeGreaterThan(0);
   for (const m of maps) { expect(m.type).toBe('image/png'); expect(m.size).toBeGreaterThan(0); }
 });
+
+// #1108 (plan #1076 O2). oracle: png multiplies a non-scaling stroke's px or unitless stroke-width and stroke-dasharray by scale; a % value is left as it is (browsers keep % in computed style; em and rem arrive as px).
+test('png scales px strokes only', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.evaluate(async () => {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('width', 40); svg.setAttribute('height', 40);
+    const mk = (id, width, dash) => {
+      const l = document.createElementNS(NS, 'line');
+      l.id = id; l.setAttribute('vector-effect', 'non-scaling-stroke');
+      l.style.strokeWidth = width; l.style.strokeDasharray = dash;
+      svg.appendChild(l);
+    };
+    mk('px', '2px', '2px 3px');
+    mk('pct', '1%', '1% 2%');
+    mk('mixed', '3', '4px 5%');
+    document.body.appendChild(svg);
+    const real = URL.createObjectURL;
+    let text = '';
+    URL.createObjectURL = (b) => { b.text().then((t) => { text = t; }); return real(b); };
+    try { await window.ELEO.png(svg, { scale: 2, fonts: false }); } finally { URL.createObjectURL = real; svg.remove(); }
+    await new Promise((ok) => setTimeout(ok, 50));
+    const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+    const get = (id) => { const s = doc.getElementById(id).style; return [s.getPropertyValue('stroke-width'), s.getPropertyValue('stroke-dasharray')]; };
+    return { px: get('px'), pct: get('pct'), mixed: get('mixed') };
+  });
+  expect(r.px).toEqual(['4px', '4px, 6px']);
+  expect(r.pct).toEqual(['1%', '1%, 2%']);
+  expect(r.mixed).toEqual(['6px', '8px, 5%']);
+});

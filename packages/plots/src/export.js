@@ -118,6 +118,9 @@ export async function standalone(svg, options) {
   return new XMLSerializer().serializeToString((await build(svg, options)).clone);
 }
 
+// Computed style keeps % as %, and only px or unitless values are screen pixels; em and rem arrive as px.
+const PX = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?(px)?$/i;
+
 /* PNG of the plot: the standalone clone with its root sized box times `scale` (viewBox unchanged), drawn at its intrinsic size on a canvas of that size, so every
    browser rasterises at the target size. A vector-effect="non-scaling-stroke" stroke stays in screen pixels, so its width, dasharray and dashoffset are multiplied
    by `scale` here (CR #1102); the SVG that standalone returns keeps them. `img.decode()` runs before drawing because WebKit can fire
@@ -127,10 +130,10 @@ export async function png(svg, options) {
   const { clone, src, dst, box } = await build(svg, options);
   src.forEach((el, i) => {
     if (getComputedStyle(el).getPropertyValue('vector-effect') !== 'non-scaling-stroke') return;
-    const to = dst[i], sw = parseFloat(to.style.getPropertyValue('stroke-width'));
-    if (Number.isFinite(sw)) to.style.setProperty('stroke-width', `${sw * scale}px`);
+    const to = dst[i], sw = to.style.getPropertyValue('stroke-width');
+    if (PX.test(sw)) to.style.setProperty('stroke-width', `${parseFloat(sw) * scale}px`);
     const da = to.style.getPropertyValue('stroke-dasharray');
-    if (da && da !== 'none') to.style.setProperty('stroke-dasharray', da.split(/[\s,]+/).map((v) => `${parseFloat(v) * scale}px`).join(', '));
+    if (da && da !== 'none') to.style.setProperty('stroke-dasharray', da.split(/[\s,]+/).map((v) => (PX.test(v) ? `${parseFloat(v) * scale}px` : v)).join(', '));
     const off = parseFloat(to.getAttribute('stroke-dashoffset'));
     if (Number.isFinite(off)) to.setAttribute('stroke-dashoffset', String(off * scale));
   });
