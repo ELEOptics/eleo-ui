@@ -5,9 +5,27 @@ import { test, expect } from '@playwright/test';
 
 const TILE = '.theme[data-theme="light"] [data-tile="mtf"] svg';
 
-// Fraction of pixels whose channels differ by more than 8 between two images, decoded in the page with createImageBitmap and getImageData
+// A pixel differs when any channel differs by more than this (CR #1089; the 1% budget is unchanged).
+const CHANNEL_TOL = 16;
+
+// Screenshot of a tile at its own size. The tile sits at a fractional offset, so locator.screenshot() rounds its box up a pixel
+// and the half-pixel offset blurs every glyph against the export. Move it onto the pixel grid, then clip to its width and height.
+const tileShot = async (page, locator) => {
+  await locator.scrollIntoViewIfNeeded();
+  await locator.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    el.style.position = 'relative';
+    el.style.left = `${Math.round(r.x) - r.x}px`;
+    el.style.top = `${Math.round(r.y) - r.y}px`;
+  });
+  const size = await locator.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.width, r.height]; });
+  const box = await locator.boundingBox();
+  return page.screenshot({ clip: { x: box.x, y: box.y, width: size[0], height: size[1] } });
+};
+
+// Fraction of pixels whose channels differ by more than CHANNEL_TOL between two images, decoded in the page with createImageBitmap and getImageData
 // (as map2d.spec.js:20 reads a canvas; no pixelmatch). Images of different sizes differ completely (1). a and b are base64 PNGs.
-const diffFraction = (page, a, b) => page.evaluate(async ([a, b]) => {
+const diffFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
   const px = async (s) => {
     const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob());
     const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
@@ -18,10 +36,10 @@ const diffFraction = (page, a, b) => page.evaluate(async ([a, b]) => {
   if (p.w !== q.w || p.h !== q.h) return 1;
   let n = 0;
   for (let i = 0; i < p.d.length; i += 4) {
-    if (Math.max(Math.abs(p.d[i] - q.d[i]), Math.abs(p.d[i + 1] - q.d[i + 1]), Math.abs(p.d[i + 2] - q.d[i + 2]), Math.abs(p.d[i + 3] - q.d[i + 3])) > 8) n++;
+    if (Math.max(Math.abs(p.d[i] - q.d[i]), Math.abs(p.d[i + 1] - q.d[i + 1]), Math.abs(p.d[i + 2] - q.d[i + 2]), Math.abs(p.d[i + 3] - q.d[i + 3])) > tol) n++;
   }
   return n / (p.w * p.h);
-}, [a, b]);
+}, [a, b, CHANNEL_TOL]);
 
 // #1077 (plan #1076 O1). oracle: U15's 1% pixel rule; every (family, weight, style) the text uses has an embedded face that loads as a FontFace with the network blocked.
 test('standalone matches', async ({ page, context }) => {
@@ -29,9 +47,9 @@ test('standalone matches', async ({ page, context }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const svg = page.locator(TILE).first();
-  const shot = await svg.screenshot();
   const out = await svg.evaluate((el) => window.ELEO.standalone(el));
   const size = await svg.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.width, r.height]; });
+  const shot = await tileShot(page, svg);
 
   // A page with no ELEO CSS and font requests blocked.
   const bare = await context.newPage();
@@ -73,7 +91,7 @@ test('png size and pixels', async ({ page }) => {
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const svg = page.locator(TILE).first();
   for (const scale of [1, 2]) {
-    const r = await svg.evaluate(async (el, scale) => {
+    const r = await svg.evaluate(async (el, [scale, tol]) => {
       const blob = await window.ELEO.png(el, { scale });
       const str = await window.ELEO.standalone(el);
       const box = el.getBoundingClientRect();
@@ -85,9 +103,9 @@ test('png size and pixels', async ({ page }) => {
       const a = grab((g) => g.drawImage(bmp, 0, 0), bmp.width, bmp.height);
       const b = grab((g) => g.drawImage(img, 0, 0, bmp.width, bmp.height), bmp.width, bmp.height);
       let n = 0;
-      for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3])) > 8) n++;
+      for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3])) > tol) n++;
       return { type: blob.type, w: bmp.width, h: bmp.height, bw: box.width * scale, bh: box.height * scale, diff: n / (bmp.width * bmp.height) };
-    }, scale);
+    }, [scale, CHANNEL_TOL]);
     expect(r.type).toBe('image/png');
     expect(Math.abs(r.w - r.bw)).toBeLessThanOrEqual(1);
     expect(Math.abs(r.h - r.bh)).toBeLessThanOrEqual(1);
