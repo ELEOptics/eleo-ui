@@ -102,12 +102,21 @@ test('png size and pixels', async ({ page }) => {
       const b = grab((g) => g.drawImage(img, 0, 0, bmp.width, bmp.height), bmp.width, bmp.height);
       let n = 0;
       for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3])) > tol) n++;
-      return { type: blob.type, w: bmp.width, h: bmp.height, bw: box.width * scale, bh: box.height * scale, diff: n / (bmp.width * bmp.height) };
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      return { b64: btoa(bin), type: blob.type, w: bmp.width, h: bmp.height, bw: box.width * scale, bh: box.height * scale, diff: n / (bmp.width * bmp.height) };
     }, [scale, CHANNEL_TOL]);
     expect(r.type).toBe('image/png');
     expect(Math.abs(r.w - r.bw)).toBeLessThanOrEqual(1);
     expect(Math.abs(r.h - r.bh)).toBeLessThanOrEqual(1);
     expect(r.diff).toBeLessThan(0.01);
+    // Against the on-screen tile too, so a font-load race in png cannot pass by hitting the reference image as well. Taken after png() has read the element: tileShot moves it.
+    if (scale === 1) {
+      const shot = await tileShot(page, svg);
+      const d = await diffFraction(page, shot.toString('base64'), r.b64);
+      expect(d).toBeLessThan(0.01);
+    }
   }
 });
 
