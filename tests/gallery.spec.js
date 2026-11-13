@@ -428,7 +428,9 @@ test('standalone label style (#112)', async ({ page }) => {
     const bare = await ref.locator('#bare text').evaluate(props);
     const { fontSize, ...rest } = drawn, { fontSize: _bare, ...bareRest } = bare;
     expect(rest).toEqual(bareRest);
-    expect(parseFloat(fontSize)).toBeCloseTo(layoutText(1000), 2);
+    // CR #1073: Firefox stores font sizes in 1/60 px app units, so its computed value can sit half a unit (1/120) from
+    // the emitted one, plus 0.0005 for the emitted toFixed(3) rounding. Every browser gets the same bound.
+    expect(Math.abs(parseFloat(fontSize) - layoutText(1000))).toBeLessThanOrEqual(1 / 120 + 0.0005);
   } finally {
     await ref.close();
   }

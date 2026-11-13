@@ -6,9 +6,7 @@ const CHROMIUM_ONLY = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'm
 // Titles each browser still fails, from #1020's table (Playwright 1.65.0). Each fix removes its title here.
 export const PENDING = {
   webkit: [],
-  firefox: [
-    'standalone label style (#112)',
-  ],
+  firefox: [],
 };
 
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
