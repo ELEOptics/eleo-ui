@@ -44,7 +44,9 @@ const diffFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
 // Like diffFraction, but a pixel of a matches when any pixel within one pixel of it in b is within CHANNEL_TOL. Even against a tile shot on the pixel grid,
 // Firefox's exact match is 1.34% (over the 1% budget): its on-screen rasterisation of thin lines and glyph edges differs from a PNG drawn at scale 2 and box-averaged
 // by up to a pixel. A stroke of the wrong weight still differs in its centre pixels.
-const nearFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
+// Pixels inside a mask rect ([left, top, right, bottom] in image pixels, already padded) are never counted as misses (CR #1112); the budget stays all pixels.
+// Returns { d: missed fraction, masked: masked fraction }.
+const nearFraction = (page, a, b, mask = []) => page.evaluate(async ([a, b, tol, mask]) => {
   const px = async (s) => {
     const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob());
     const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
@@ -54,9 +56,10 @@ const nearFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
   const [p, q] = [await px(a), await px(b)];
   if (p.w !== q.w || p.h !== q.h) return 1;
   const far = (i, j) => Math.max(Math.abs(p.d[i] - q.d[j]), Math.abs(p.d[i + 1] - q.d[j + 1]), Math.abs(p.d[i + 2] - q.d[j + 2]), Math.abs(p.d[i + 3] - q.d[j + 3])) > tol;
-  let n = 0;
+  let n = 0, masked = 0;
   for (let y = 0; y < p.h; y++) {
     for (let x = 0; x < p.w; x++) {
+      if (mask.some(([l, t, r, bt]) => x >= l && x < r && y >= t && y < bt)) { masked++; continue; }
       const i = (y * p.w + x) * 4;
       let miss = true;
       for (let dy = -1; dy <= 1 && miss; dy++) {
@@ -68,8 +71,8 @@ const nearFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
       if (miss) n++;
     }
   }
-  return n / (p.w * p.h);
-}, [a, b, CHANNEL_TOL]);
+  return { d: n / (p.w * p.h), masked: masked / (p.w * p.h) };
+}, [a, b, CHANNEL_TOL, mask]);
 
 // #1107 (plan #1076 O2). oracle: a second tileShot leaves the tile where the first put it, on the pixel grid, so the screenshots are identical.
 test('tileShot is idempotent', async ({ page }) => {
@@ -167,6 +170,16 @@ test('png size and pixels', async ({ page }) => {
       expect(d).toBeLessThan(0.01);
     } else {
       // Scale 2 drawn into a canvas of half its size must still match the tile: strokes (curves with vector-effect included) scale with the PNG (CR #1102).
+      // Text is left out of this comparison (CR #1112): Linux Chromium draws on-screen text with subpixel AA and hinted widths that a canvas never matches.
+      // Boxes are read relative to the SVG's own rect before tileShot moves it, padded by 1 px; text against the tile stays covered at 1x above.
+      const mask = await svg.evaluate((el) => {
+        const o = el.getBoundingClientRect();
+        return [...el.querySelectorAll('text')].map((t) => {
+          const r = t.getBoundingClientRect();
+          return [Math.floor(r.left - o.left) - 1, Math.floor(r.top - o.top) - 1, Math.ceil(r.right - o.left) + 1, Math.ceil(r.bottom - o.top) + 1];
+        });
+      });
+      expect(mask.length).toBeGreaterThan(0);
       const shot = await tileShot(page, svg);
       const half = await page.evaluate(async (b64) => {
         const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
@@ -191,7 +204,8 @@ test('png size and pixels', async ({ page }) => {
         for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
         return btoa(bin);
       }, r.b64);
-      const d = await nearFraction(page, shot.toString('base64'), half);
+      const { d, masked } = await nearFraction(page, shot.toString('base64'), half, mask);
+      console.log(`scale-k masked fraction ${masked.toFixed(4)}, unmasked misses ${d.toFixed(4)}`);
       expect(d).toBeLessThan(0.01);
     }
   }
