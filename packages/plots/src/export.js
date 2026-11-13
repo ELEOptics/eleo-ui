@@ -122,8 +122,8 @@ export async function standalone(svg, options) {
 const PX = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?(px)?$/i;
 
 /* PNG of the plot: the standalone clone with its root sized box times `scale` (viewBox unchanged), drawn at its intrinsic size on a canvas of that size, so every
-   browser rasterises at the target size. A vector-effect="non-scaling-stroke" stroke stays in screen pixels, so its width, dasharray and dashoffset are multiplied
-   by `scale` here (CR #1102); the SVG that standalone returns keeps them. `img.decode()` runs before drawing because WebKit can fire
+   browser rasterises at the target size. A vector-effect="non-scaling-stroke" stroke stays in screen pixels, so its width, dasharray and dashoffset values that are px or unitless
+   (PX) are multiplied by `scale` here and any other unit is left as is (CR #1102); the SVG that standalone returns keeps them. `img.decode()` runs before drawing because WebKit can fire
    `onload` before the data-URL fonts are ready. A tainted canvas makes toBlob throw; that is not handled here (plan #1076, escalate). */
 export async function png(svg, options) {
   const scale = (options && options.scale) || 1;
@@ -134,8 +134,8 @@ export async function png(svg, options) {
     if (PX.test(sw)) to.style.setProperty('stroke-width', `${parseFloat(sw) * scale}px`);
     const da = to.style.getPropertyValue('stroke-dasharray');
     if (da && da !== 'none') to.style.setProperty('stroke-dasharray', da.split(/[\s,]+/).map((v) => (PX.test(v) ? `${parseFloat(v) * scale}px` : v)).join(', '));
-    const off = parseFloat(to.getAttribute('stroke-dashoffset'));
-    if (Number.isFinite(off)) to.setAttribute('stroke-dashoffset', String(off * scale));
+    const off = to.getAttribute('stroke-dashoffset');
+    if (off !== null && PX.test(off.trim())) to.setAttribute('stroke-dashoffset', String(parseFloat(off) * scale));
   });
   const width = Math.round(box.width * scale), height = Math.round(box.height * scale);
   clone.setAttribute('width', `${width}px`);

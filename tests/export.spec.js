@@ -134,16 +134,17 @@ test('png size and pixels', async ({ page }) => {
   for (const scale of [1, 2]) {
     const r = await svg.evaluate(async (el, [scale, tol]) => {
       const blob = await window.ELEO.png(el, { scale });
-      const str = await window.ELEO.standalone(el);
       const box = el.getBoundingClientRect();
-      const img = new Image();
-      img.src = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml' }));
-      await img.decode();
       const bmp = await createImageBitmap(blob);
       const grab = (draw, w, h) => { const c = new OffscreenCanvas(w, h), g = c.getContext('2d'); draw(g); return g.getImageData(0, 0, w, h).data; };
       // The standalone string keeps its screen-space strokes, so only at scale 1 does it draw like the PNG: compare there only (CR #1102).
       let diff = null;
       if (scale === 1) {
+        const str = await window.ELEO.standalone(el);
+        const url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml' }));
+        const img = new Image();
+        img.src = url;
+        try { await img.decode(); } finally { URL.revokeObjectURL(url); }
         const a = grab((g) => g.drawImage(bmp, 0, 0), bmp.width, bmp.height);
         const b = grab((g) => g.drawImage(img, 0, 0, bmp.width, bmp.height), bmp.width, bmp.height);
         let n = 0;
@@ -406,26 +407,27 @@ test('png scales px strokes only', async ({ page }) => {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('width', 40); svg.setAttribute('height', 40);
-    const mk = (id, width, dash) => {
+    const mk = (id, width, dash, off) => {
       const l = document.createElementNS(NS, 'line');
       l.id = id; l.setAttribute('vector-effect', 'non-scaling-stroke');
       l.style.strokeWidth = width; l.style.strokeDasharray = dash;
+      l.setAttribute('stroke-dashoffset', off);
       svg.appendChild(l);
     };
-    mk('px', '2px', '2px 3px');
-    mk('pct', '1%', '1% 2%');
-    mk('mixed', '3', '4px 5%');
+    mk('px', '2px', '2px 3px', '1');
+    mk('pct', '1%', '1% 2%', '1%');
+    mk('mixed', '3', '4px 5%', '2px');
     document.body.appendChild(svg);
     const real = URL.createObjectURL;
-    let text = '';
-    URL.createObjectURL = (b) => { b.text().then((t) => { text = t; }); return real(b); };
+    let pending;
+    URL.createObjectURL = (b) => { pending = b.text(); return real(b); };
     try { await window.ELEO.png(svg, { scale: 2, fonts: false }); } finally { URL.createObjectURL = real; svg.remove(); }
-    await new Promise((ok) => setTimeout(ok, 50));
+    const text = await pending;
     const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
-    const get = (id) => { const s = doc.getElementById(id).style; return [s.getPropertyValue('stroke-width'), s.getPropertyValue('stroke-dasharray')]; };
+    const get = (id) => { const e = doc.getElementById(id), s = e.style; return [s.getPropertyValue('stroke-width'), s.getPropertyValue('stroke-dasharray'), e.getAttribute('stroke-dashoffset')]; };
     return { px: get('px'), pct: get('pct'), mixed: get('mixed') };
   });
-  expect(r.px).toEqual(['4px', '4px, 6px']);
-  expect(r.pct).toEqual(['1%', '1%, 2%']);
-  expect(r.mixed).toEqual(['6px', '8px, 5%']);
+  expect(r.px).toEqual(['4px', '4px, 6px', '2']);
+  expect(r.pct).toEqual(['1%', '1%, 2%', '1%']);
+  expect(r.mixed).toEqual(['6px', '8px, 5%', '4']);
 });
