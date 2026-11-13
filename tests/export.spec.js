@@ -180,6 +180,34 @@ test('used faces embedded', async ({ page, context }) => {
   expect(r.unloadable).toEqual([]);
 });
 
+// #1093 (plan #1076 O1, O2). oracle: faces in @import, @layer and @media are embedded; each used family left without a face is named in one console.warn.
+test('nested and unmatched faces', async ({ page }) => {
+  const warns = [];
+  page.on('console', (m) => m.type() === 'warning' && warns.push(m.text()));
+  const face = (fam) => `@font-face { font-family: ${fam}; font-weight: 400; src: url(data:font/woff2;base64,eHg=); }`;
+  await page.route('**/probe-import.css', (r) => r.fulfill({ contentType: 'text/css', body: face('ProbeImp') }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const out = await page.evaluate(async ([layer, media]) => {
+    const st = document.createElement('style');
+    st.textContent = `@import url(/probe-import.css); @layer a { ${layer} } @media screen { ${media} }`;
+    document.head.prepend(st);
+    await new Promise((ok) => setTimeout(ok, 300));
+    const host = document.createElement('div');
+    document.body.append(host);
+    host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10">' + ['ProbeImp', 'ProbeLayer', 'ProbeMedia', 'ProbeNone'].map((f) => `<text style="font-family: ${f}">a</text>`).join('') + '</svg>';
+    return window.ELEO.standalone(host.firstChild);
+  }, [face('ProbeLayer'), face('ProbeMedia')]);
+  const sty = (out.match(/<style[\s\S]*?<\/style>/) || [''])[0];
+  expect(sty).toContain('ProbeImp');
+  expect(sty).toContain('ProbeLayer');
+  expect(sty).toContain('ProbeMedia');
+  const ours = warns.filter((w) => w.includes('standalone'));
+  expect(ours).toHaveLength(1);
+  expect(ours[0]).toContain('ProbeNone');
+  expect(ours[0]).not.toMatch(/ProbeImp|ProbeLayer|ProbeMedia/);
+});
+
 // #1079: the Google Fonts link must be CORS-readable so its cssRules can be read.
 test('gallery fonts link is crossorigin', async ({ page }) => {
   await page.goto('/gallery/');

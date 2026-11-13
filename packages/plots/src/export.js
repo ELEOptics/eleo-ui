@@ -32,11 +32,15 @@ async function embedFonts(clone) {
     chars: [...(t.textContent || '')].map((c) => c.codePointAt(0)),
   })).filter((u) => u.fam && u.chars.length);
   const rules = [];
-  let blocked = false;
+  const walk = (list) => {
+    for (const r of list) {
+      if (r.type === CSSRule.FONT_FACE_RULE) { rules.push(r); continue; }
+      if (r.media && !matchMedia(r.media.mediaText).matches) continue;
+      if (r.styleSheet) { try { walk(r.styleSheet.cssRules); } catch { /* unreadable import: its faces are warned about below */ } } else if (r.cssRules) walk(r.cssRules);
+    }
+  };
   for (const sheet of document.styleSheets) {
-    let list;
-    try { list = sheet.cssRules; } catch { blocked = true; continue; }
-    for (const r of list) if (r.type === CSSRule.FONT_FACE_RULE) rules.push(r);
+    try { walk(sheet.cssRules); } catch { /* cross-origin sheet: its faces are warned about below */ }
   }
   const kept = new Set(), served = new Set();
   for (const r of rules) {
@@ -47,10 +51,8 @@ async function embedFonts(clone) {
       if (u.fam === fam && inWeight(u.wt, wt) && u.sty === sty && covers(range, u.chars)) { kept.add(r); served.add(u.fam); }
     }
   }
-  if (blocked) {
-    const lost = [...new Set(uses.map((u) => u.fam))].filter((f) => !served.has(f));
-    if (lost.length) console.warn(`standalone: a stylesheet could not be read, so these fonts are not embedded: ${lost.join(', ')}`);
-  }
+  const lost = [...new Set(uses.map((u) => u.fam))].filter((f) => !served.has(f));
+  if (lost.length) console.warn(`standalone: no readable @font-face for these fonts, so they are not embedded: ${lost.join(', ')}`);
   if (!kept.size) return;
   const css = await Promise.all([...kept].map(async (r) => {
     const base = r.parentStyleSheet.href || document.baseURI;
