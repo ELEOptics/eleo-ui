@@ -13,8 +13,10 @@ const toDataUrl = async (url) => {
   return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
 };
 const unquote = (v) => v.trim().replace(/^["']|["']$/g, '');
+const KEYWORD_WEIGHT = { normal: 400, bold: 700 };
+const weightOf = (v) => KEYWORD_WEIGHT[v.toLowerCase()] ?? Number(v);
 const inWeight = (w, spec) => {
-  const [lo, hi = lo] = spec.trim().split(/\s+/).map(Number);
+  const [lo, hi = lo] = spec.trim().split(/\s+/).map(weightOf);
   return Number.isNaN(lo) ? spec.trim() === String(w) : w >= lo && w <= hi;
 };
 const covers = (range, chars) => {
@@ -28,7 +30,7 @@ const covers = (range, chars) => {
 
 async function embedFonts(clone) {
   const uses = [...clone.querySelectorAll('text, tspan')].map((t) => ({
-    fam: unquote(t.style.fontFamily.split(',')[0] || ''), wt: Number(t.style.fontWeight) || 400, sty: t.style.fontStyle || 'normal',
+    fam: unquote(t.style.fontFamily.split(',')[0] || ''), wt: weightOf(t.style.fontWeight) || 400, sty: t.style.fontStyle || 'normal',
     chars: [...(t.textContent || '')].map((c) => c.codePointAt(0)),
   })).filter((u) => u.fam && u.chars.length);
   const rules = [];
@@ -48,7 +50,7 @@ async function embedFonts(clone) {
     const wt = r.style.getPropertyValue('font-weight') || '400', sty = r.style.getPropertyValue('font-style') || 'normal';
     const range = r.style.getPropertyValue('unicode-range');
     for (const u of uses) {
-      if (u.fam === fam && inWeight(u.wt, wt) && u.sty === sty && covers(range, u.chars)) { kept.add(r); served.add(u.fam); }
+      if (u.fam.toLowerCase() === fam.toLowerCase() && inWeight(u.wt, wt) && u.sty === sty && covers(range, u.chars)) { kept.add(r); served.add(u.fam); }
     }
   }
   const lost = [...new Set(uses.map((u) => u.fam))].filter((f) => !served.has(f));

@@ -208,6 +208,24 @@ test('nested and unmatched faces', async ({ page }) => {
   expect(ours[0]).not.toMatch(/ProbeImp|ProbeLayer|ProbeMedia/);
 });
 
+// #1094: keyword weights read as 400 and 700, and families compare case-insensitively.
+test('keyword weights and family case', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const out = await page.evaluate(async () => {
+    const face = (fam, wt) => `@font-face { font-family: ${fam}; font-weight: ${wt}; src: url(data:font/woff2;base64,eHg=); }`;
+    const st = document.createElement('style');
+    st.textContent = face('ProbeNorm', 'normal') + face('ProbeBld', 'bold') + face('ProbeNum', 400);
+    document.head.prepend(st);
+    const host = document.createElement('div');
+    document.body.append(host);
+    host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: ProbeNorm; font-weight: 400">a</text><text style="font-family: ProbeBld; font-weight: bold">a</text><text style="font-family: probenum">a</text></svg>';
+    return window.ELEO.standalone(host.firstChild);
+  });
+  const sty = (out.match(/<style[\s\S]*?<\/style>/) || [''])[0];
+  for (const f of ['ProbeNorm', 'ProbeBld', 'ProbeNum']) expect(sty).toContain(f);
+});
+
 // #1079: the Google Fonts link must be CORS-readable so its cssRules can be read.
 test('gallery fonts link is crossorigin', async ({ page }) => {
   await page.goto('/gallery/');
