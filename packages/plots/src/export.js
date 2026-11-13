@@ -9,7 +9,9 @@ const PROPS = [
 ];
 
 const toDataUrl = async (url) => {
-  const blob = await (await fetch(url)).blob();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: ${res.status}`);
+  const blob = await res.blob();
   return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
 };
 const unquote = (v) => v.trim().replace(/^["']|["']$/g, '');
@@ -53,17 +55,22 @@ async function embedFonts(clone) {
       if (u.fam.toLowerCase() === fam.toLowerCase() && inWeight(u.wt, wt) && u.sty === sty && covers(range, u.chars)) { kept.add(r); served.add(u.fam); }
     }
   }
-  const lost = [...new Set(uses.map((u) => u.fam))].filter((f) => !served.has(f));
-  if (lost.length) console.warn(`standalone: no readable @font-face for these fonts, so they are not embedded: ${lost.join(', ')}`);
-  if (!kept.size) return;
-  const css = await Promise.all([...kept].map(async (r) => {
+  const lost = new Set(uses.map((u) => u.fam).filter((f) => !served.has(f)));
+  const css = (await Promise.all([...kept].map(async (r) => {
     const base = r.parentStyleSheet.href || document.baseURI;
     let text = r.cssText;
-    for (const m of [...new Set([...text.matchAll(/url\(\s*["']?([^"')]+?)["']?\s*\)/g)].map((x) => x[1]))]) {
-      if (!m.startsWith('data:')) text = text.split(m).join(await toDataUrl(new URL(m, base).href));
+    try {
+      for (const m of [...new Set([...text.matchAll(/url\(\s*["']?([^"')]+?)["']?\s*\)/g)].map((x) => x[1]))]) {
+        if (!m.startsWith('data:')) text = text.split(m).join(await toDataUrl(new URL(m, base).href));
+      }
+    } catch {
+      lost.add(unquote(r.style.getPropertyValue('font-family')));
+      return null;
     }
     return text;
-  }));
+  }))).filter(Boolean);
+  if (lost.size) console.warn(`standalone: no readable @font-face for these fonts, so they are not embedded: ${[...lost].join(', ')}`);
+  if (!css.length) return;
   const style = document.createElementNS(NS, 'style');
   style.textContent = css.join('\n');
   clone.insertBefore(style, clone.firstChild);

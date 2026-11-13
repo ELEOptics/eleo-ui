@@ -226,6 +226,31 @@ test('keyword weights and family case', async ({ page }) => {
   for (const f of ['ProbeNorm', 'ProbeBld', 'ProbeNum']) expect(sty).toContain(f);
 });
 
+// #1095 (plan #1076 O1, O2). oracle: a face whose URL fails is not embedded, its family is named in the one warning, and standalone still resolves.
+test('failed font fetch', async ({ page }) => {
+  const warns = [];
+  page.on('console', (m) => m.type() === 'warning' && warns.push(m.text()));
+  await page.route('**/probe-missing.woff2', (r) => r.fulfill({ status: 404, body: 'nope' }));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const out = await page.evaluate(async () => {
+    const st = document.createElement('style');
+    st.textContent = '@font-face { font-family: ProbeGone; font-weight: 400; src: url(/probe-missing.woff2); } @font-face { font-family: ProbeOk; font-weight: 400; src: url(data:font/woff2;base64,eHg=); }';
+    document.head.prepend(st);
+    const host = document.createElement('div');
+    document.body.append(host);
+    host.innerHTML = '<svg viewBox="0 0 10 10" width="10" height="10"><text style="font-family: ProbeGone">a</text><text style="font-family: ProbeOk">a</text></svg>';
+    return window.ELEO.standalone(host.firstChild);
+  });
+  const sty = (out.match(/<style[\s\S]*?<\/style>/) || [''])[0];
+  expect(sty).toContain('ProbeOk');
+  expect(sty).not.toContain('ProbeGone');
+  const ours = warns.filter((w) => w.includes('standalone'));
+  expect(ours).toHaveLength(1);
+  expect(ours[0]).toContain('ProbeGone');
+  expect(ours[0]).not.toContain('ProbeOk');
+});
+
 // #1079: the Google Fonts link must be CORS-readable so its cssRules can be read.
 test('gallery fonts link is crossorigin', async ({ page }) => {
   await page.goto('/gallery/');
