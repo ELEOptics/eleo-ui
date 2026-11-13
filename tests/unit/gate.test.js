@@ -105,10 +105,9 @@ test('interact runs everywhere', () => {
   }
 });
 
-// Plan #1018, issue #1036: no title is pending in any browser. Written skipped; #1040 unskips it.
+// Plan #1018, issue #1036: no title is pending in any browser. Written skipped; #1040 unskipped it.
 // oracle: each test's own oracle, unchanged; a browser differs from Chromium only by the Chromium-only files (O4)
-const SKIP_O4 = 'unskipped by #1040';
-test('nothing pending', { skip: SKIP_O4 }, async () => {
+test('nothing pending', async () => {
   const config = (await import(new URL('playwright.config.js', root))).default;
   assert.ok(!('PENDING' in (await import(new URL('playwright.config.js', root)))), 'the config exports no pending list');
   for (const p of config.projects) assert.equal(p.grepInvert, undefined, `${p.name} inverts no grep`);
