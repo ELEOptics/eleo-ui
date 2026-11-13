@@ -1,14 +1,71 @@
 /* Export a plot as a standalone SVG string (plan #1076). The clone carries each element's computed values as a style attribute, so it draws
    without ELEO's CSS or tokens: Inkscape, PowerPoint and rsvg do not resolve var(), so only resolved values travel. The background rect is the
-   tile's computed --surface, in the theme the plot is drawn under. Fonts arrive in a later item: `fonts` is accepted and not used yet. */
+   tile's computed --surface, in the theme the plot is drawn under. Fonts: each readable @font-face rule matching the clone's text (family, weight, style,
+   unicode-range) is embedded as its cssText with url() swapped for a data URL; `{ fonts: false }` skips it. */
 const NS = 'http://www.w3.org/2000/svg';
 const PROPS = [
   'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style',
   'font-variant-numeric', 'text-anchor', 'dominant-baseline', 'paint-order', 'image-rendering', 'stop-color', 'stop-opacity',
 ];
 
+const toDataUrl = async (url) => {
+  const blob = await (await fetch(url)).blob();
+  return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
+};
+const unquote = (v) => v.trim().replace(/^["']|["']$/g, '');
+const inWeight = (w, spec) => {
+  const [lo, hi = lo] = spec.trim().split(/\s+/).map(Number);
+  return Number.isNaN(lo) ? spec.trim() === String(w) : w >= lo && w <= hi;
+};
+const covers = (range, chars) => {
+  if (!range) return true;
+  const spans = range.split(',').map((u) => {
+    const [a, b = a] = u.trim().replace(/^U\+/i, '').split('-');
+    return a.includes('?') ? [parseInt(a.replace(/\?/g, '0'), 16), parseInt(a.replace(/\?/g, 'F'), 16)] : [parseInt(a, 16), parseInt(b, 16)];
+  });
+  return chars.some((c) => spans.some(([lo, hi]) => c >= lo && c <= hi));
+};
+
+async function embedFonts(clone) {
+  const uses = [...clone.querySelectorAll('text, tspan')].map((t) => ({
+    fam: unquote(t.style.fontFamily.split(',')[0] || ''), wt: Number(t.style.fontWeight) || 400, sty: t.style.fontStyle || 'normal',
+    chars: [...(t.textContent || '')].map((c) => c.codePointAt(0)),
+  })).filter((u) => u.fam && u.chars.length);
+  const rules = [];
+  let blocked = false;
+  for (const sheet of document.styleSheets) {
+    let list;
+    try { list = sheet.cssRules; } catch { blocked = true; continue; }
+    for (const r of list) if (r.type === CSSRule.FONT_FACE_RULE) rules.push(r);
+  }
+  const kept = new Set(), served = new Set();
+  for (const r of rules) {
+    const fam = unquote(r.style.getPropertyValue('font-family'));
+    const wt = r.style.getPropertyValue('font-weight') || '400', sty = r.style.getPropertyValue('font-style') || 'normal';
+    const range = r.style.getPropertyValue('unicode-range');
+    for (const u of uses) {
+      if (u.fam === fam && inWeight(u.wt, wt) && u.sty === sty && covers(range, u.chars)) { kept.add(r); served.add(u.fam); }
+    }
+  }
+  if (blocked) {
+    const lost = [...new Set(uses.map((u) => u.fam))].filter((f) => !served.has(f));
+    if (lost.length) console.warn(`standalone: a stylesheet could not be read, so these fonts are not embedded: ${lost.join(', ')}`);
+  }
+  if (!kept.size) return;
+  const css = await Promise.all([...kept].map(async (r) => {
+    const base = r.parentStyleSheet.href || document.baseURI;
+    let text = r.cssText;
+    for (const m of [...new Set([...text.matchAll(/url\(\s*["']?([^"')]+?)["']?\s*\)/g)].map((x) => x[1]))]) {
+      if (!m.startsWith('data:')) text = text.split(m).join(await toDataUrl(new URL(m, base).href));
+    }
+    return text;
+  }));
+  const style = document.createElementNS(NS, 'style');
+  style.textContent = css.join('\n');
+  clone.insertBefore(style, clone.firstChild);
+}
+
 export async function standalone(svg, options) {
-  void options;
   const clone = svg.cloneNode(true);
   const src = [svg, ...svg.querySelectorAll('*')];
   const dst = [clone, ...clone.querySelectorAll('*')];
@@ -32,5 +89,6 @@ export async function standalone(svg, options) {
   bg.setAttribute('x', x); bg.setAttribute('y', y); bg.setAttribute('width', w); bg.setAttribute('height', h);
   bg.setAttribute('fill', getComputedStyle(svg).getPropertyValue('--surface').trim());
   clone.insertBefore(bg, clone.firstChild);
+  if (!options || options.fonts !== false) await embedFonts(clone);
   return new XMLSerializer().serializeToString(clone);
 }

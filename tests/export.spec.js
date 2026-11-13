@@ -128,3 +128,46 @@ test('styles resolve without ELEO CSS', async ({ page, context }) => {
   expect(got.w).toBe(`${want.w}px`);
   expect(got.h).toBe(`${want.h}px`);
 });
+
+// #1079 (plan #1076 O1, fonts only). oracle: every (family, weight, style) the text uses has an embedded @font-face rule whose url() is a data URL and that loads as a FontFace with font requests blocked.
+test('used faces embedded', async ({ page, context }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const svg = page.locator(TILE).first();
+  const out = await svg.evaluate((el) => window.ELEO.standalone(el));
+
+  const bare = await context.newPage();
+  await bare.route('**/*', (route) => (route.request().resourceType() === 'font' || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.abort() : route.continue()));
+  await bare.goto('about:blank');
+  const r = await bare.evaluate(async (s) => {
+    const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
+    const used = new Set();
+    doc.querySelectorAll('text').forEach((t) => {
+      const st = t.style;
+      used.add(`${st.fontFamily.split(',')[0].replace(/["']/g, '').trim()}|${st.fontWeight || '400'}|${st.fontStyle || 'normal'}`);
+    });
+    const rules = [...doc.querySelectorAll('style')].flatMap((e) => [...e.textContent.matchAll(/@font-face\s*{[^}]*}/g)].map((m) => m[0]));
+    const remote = rules.filter((x) => /url\(\s*(?!["']?data:)/.test(x));
+    const missing = [], unloadable = [];
+    for (const u of used) {
+      const [fam, wt, sty] = u.split('|');
+      const rule = rules.find((x) => x.includes(fam) && new RegExp(`font-weight:\\s*${wt}`).test(x) && new RegExp(`font-style:\\s*${sty}`).test(x));
+      if (!rule) { missing.push(u); continue; }
+      const src = /url\(([^)]+)\)/.exec(rule)[1].replace(/["']/g, '');
+      try { await new FontFace(fam, `url(${src})`, { weight: wt, style: sty }).load(); } catch { unloadable.push(u); }
+    }
+    return { n: used.size, rules: rules.length, remote: remote.length, missing, unloadable };
+  }, out);
+  expect(r.n).toBeGreaterThan(0);
+  expect(r.remote).toBe(0);
+  expect(r.missing).toEqual([]);
+  expect(r.unloadable).toEqual([]);
+});
+
+// #1079: the Google Fonts link must be CORS-readable so its cssRules can be read.
+test('gallery fonts link is crossorigin', async ({ page }) => {
+  await page.goto('/gallery/');
+  const attrs = await page.evaluate(() => [...document.querySelectorAll('link[href*="fonts.googleapis.com"]')].map((l) => l.crossOrigin));
+  expect(attrs.length).toBeGreaterThan(0);
+  expect(attrs.every((a) => a === 'anonymous')).toBe(true);
+});
