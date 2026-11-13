@@ -1,6 +1,6 @@
 // Export a plot as SVG and PNG (plan #1076). Run after `npm run build`.
-// oracle: property U15's 1% pixel rule (the export matches the on-screen tile within 1% of pixels), U15's size rule (the PNG is the plot's size times the scale),
-// every used face embedded and loadable with the network blocked
+// oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG within 1%; at scale k, the PNG box-averaged to 1x matches the on-screen tile within 1%
+// (a pixel matches when one within 1 px is within the channel tolerance); every used face embedded and loadable with the network blocked
 import { test, expect } from '@playwright/test';
 
 const TILE = '.theme[data-theme="light"] [data-tile="mtf"] svg';
@@ -15,8 +15,8 @@ const tileShot = async (page, locator) => {
   await locator.evaluate((el) => {
     const r = el.getBoundingClientRect();
     el.style.position = 'relative';
-    el.style.left = `${Math.round(r.x) - r.x}px`;
-    el.style.top = `${Math.round(r.y) - r.y}px`;
+    el.style.left = `${(parseFloat(el.style.left) || 0) + Math.round(r.x) - r.x}px`;
+    el.style.top = `${(parseFloat(el.style.top) || 0) + Math.round(r.y) - r.y}px`;
   });
   const size = await locator.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.width, r.height]; });
   const box = await locator.boundingBox();
@@ -41,8 +41,9 @@ const diffFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
   return n / (p.w * p.h);
 }, [a, b, CHANNEL_TOL]);
 
-// Like diffFraction, but a pixel of a matches when any pixel within one pixel of it in b is within CHANNEL_TOL. WebKit and Firefox snap thin lines on
-// the page at 1x, and a PNG drawn at scale 2 and halved lands them up to a pixel away; a stroke of the wrong weight still differs in its centre pixels.
+// Like diffFraction, but a pixel of a matches when any pixel within one pixel of it in b is within CHANNEL_TOL. Even against a tile shot on the pixel grid,
+// Firefox's exact match is 1.34% (over the 1% budget): its on-screen rasterisation of thin lines and glyph edges differs from a PNG drawn at scale 2 and box-averaged
+// by up to a pixel. A stroke of the wrong weight still differs in its centre pixels.
 const nearFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
   const px = async (s) => {
     const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob());
@@ -69,6 +70,19 @@ const nearFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
   }
   return n / (p.w * p.h);
 }, [a, b, CHANNEL_TOL]);
+
+// #1107 (plan #1076 O2). oracle: a second tileShot leaves the tile where the first put it, on the pixel grid, so the screenshots are identical.
+test('tileShot is idempotent', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const svg = page.locator(TILE).first();
+  const first = await tileShot(page, svg);
+  const second = await tileShot(page, svg);
+  const pos = await svg.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.x, r.y]; });
+  expect(Number.isInteger(pos[0])).toBe(true);
+  expect(Number.isInteger(pos[1])).toBe(true);
+  expect(second.equals(first)).toBe(true);
+});
 
 // #1077 (plan #1076 O1). oracle: U15's 1% pixel rule; every (family, weight, style) the text uses has an embedded face that loads as a FontFace with the network blocked.
 test('standalone matches', async ({ page, context }) => {
@@ -112,7 +126,7 @@ test('standalone matches', async ({ page, context }) => {
   expect(faces.unloadable).toEqual([]);
 });
 
-// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); its pixels match the standalone SVG drawn at that scale within 1%.
+// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 1%, at scale k box-averaged to 1x the on-screen tile within 1% (1-px neighbourhood).
 test('png size and pixels', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -127,19 +141,23 @@ test('png size and pixels', async ({ page }) => {
       await img.decode();
       const bmp = await createImageBitmap(blob);
       const grab = (draw, w, h) => { const c = new OffscreenCanvas(w, h), g = c.getContext('2d'); draw(g); return g.getImageData(0, 0, w, h).data; };
-      const a = grab((g) => g.drawImage(bmp, 0, 0), bmp.width, bmp.height);
-      const b = grab((g) => g.drawImage(img, 0, 0, bmp.width, bmp.height), bmp.width, bmp.height);
-      let n = 0;
-      for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3])) > tol) n++;
+      // The standalone string keeps its screen-space strokes, so only at scale 1 does it draw like the PNG: compare there only (CR #1102).
+      let diff = null;
+      if (scale === 1) {
+        const a = grab((g) => g.drawImage(bmp, 0, 0), bmp.width, bmp.height);
+        const b = grab((g) => g.drawImage(img, 0, 0, bmp.width, bmp.height), bmp.width, bmp.height);
+        let n = 0;
+        for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3])) > tol) n++;
+        diff = n / (bmp.width * bmp.height);
+      }
       const bytes = new Uint8Array(await blob.arrayBuffer());
       let bin = '';
       for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-      return { b64: btoa(bin), type: blob.type, w: bmp.width, h: bmp.height, bw: box.width * scale, bh: box.height * scale, diff: n / (bmp.width * bmp.height) };
+      return { b64: btoa(bin), type: blob.type, w: bmp.width, h: bmp.height, bw: box.width * scale, bh: box.height * scale, diff };
     }, [scale, CHANNEL_TOL]);
     expect(r.type).toBe('image/png');
     expect(Math.abs(r.w - r.bw)).toBeLessThanOrEqual(1);
     expect(Math.abs(r.h - r.bh)).toBeLessThanOrEqual(1);
-    // The standalone string keeps its screen-space strokes, so only at scale 1 does it draw like the PNG; scale 2 is checked against the tile below (CR #1102).
     if (scale === 1) expect(r.diff).toBeLessThan(0.01);
     // Against the on-screen tile too, so a font-load race in png cannot pass by hitting the reference image as well. Taken after png() has read the element: tileShot moves it.
     if (scale === 1) {
