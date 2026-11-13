@@ -32,4 +32,6 @@ test('README documents export', () => {
   assert.match(s, /crossorigin="anonymous"/, 'has the crossorigin note');
   assert.match(s, /data-theme="light"/, 'has the light-theme recipe');
   assert.match(s, /paper/, 'names PlotCard paper');
+  assert.doesNotMatch(s, /\bopens?\b[^.\n]*(Inkscape|PowerPoint)|(Inkscape|PowerPoint)[^.\n]*\bopens?\b/i, 'does not claim Inkscape or PowerPoint open the file with the fonts');
+  assert.match(s, /installed fonts?|installed Fira/i, 'says other apps use installed fonts');
 });
