@@ -692,14 +692,16 @@ test('curve keys', async ({ page }) => {
     const svg = tile.querySelector('.eleo-plot__body svg');
     const frame = svg.querySelector('rect[stroke="var(--plot-grid)"]');
     const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    // CR #1070: the overlap checks take a text's vertical extent as its em box (baseline - 0.8 em to baseline + 0.2 em; the baseline is the first glyph's, so a dy counts), because Firefox's SVG text line box (1.46 em) is taller than Chromium's (1.29 em) with the same glyphs, advance and baselines. A rotated text keeps its bounding box.
+    const em = (el) => { const m = el.getScreenCTM(), b = box(el); if (Math.abs(m.b) > 1e-6 || Math.abs(m.c) > 1e-6) return { et: b.t, eb: b.b }; const base = m.d * el.getStartPositionOfChar(0).y + m.f, s = parseFloat(getComputedStyle(el).fontSize) * m.d; return { et: base - 0.8 * s, eb: base + 0.2 * s }; };
     const keys = [...svg.querySelectorAll('text[data-key]')];
     return {
       tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg), frame: box(frame),
-      keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
-      others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x) })),
+      keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k), ...em(k) })),
+      others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x), ...em(x) })),
     };
   }), [theme, Object.keys(CURVE_KEYS)]);
-  const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
+  const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.et < b.eb - 0.5 && b.et < a.eb - 0.5;
   const check = (rows, at) => {
     for (const r of rows) {
       const w = `${at} ${r.tile}`;
@@ -759,15 +761,17 @@ test('fan and footprint keys', async ({ page }) => {
     const svg = tile.querySelector('.eleo-plot__body svg');
     const frame = svg.querySelector('rect[stroke="var(--plot-grid)"]');
     const box = (el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+    // CR #1070: the overlap checks take a text's vertical extent as its em box (baseline - 0.8 em to baseline + 0.2 em; the baseline is the first glyph's, so a dy counts), because Firefox's SVG text line box (1.46 em) is taller than Chromium's (1.29 em) with the same glyphs, advance and baselines. A rotated text keeps its bounding box.
+    const em = (el) => { const m = el.getScreenCTM(), b = box(el); if (Math.abs(m.b) > 1e-6 || Math.abs(m.c) > 1e-6) return { et: b.t, eb: b.b }; const base = m.d * el.getStartPositionOfChar(0).y + m.f, s = parseFloat(getComputedStyle(el).fontSize) * m.d; return { et: base - 0.8 * s, eb: base + 0.2 * s }; };
     const keys = [...svg.querySelectorAll('text[data-key]')];
     return {
       tile: name, F: frame.getBoundingClientRect().width + (frame.getAttribute('rx') === '3' ? 1 : 0), svg: box(svg),
       footers: tile.querySelectorAll('.eleo-plot__ft').length,
-      keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k) })),
-      others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x) })),
+      keys: keys.map((k) => ({ text: k.textContent, size: parseFloat(getComputedStyle(k).fontSize) * k.getScreenCTM().a, ...box(k), ...em(k) })),
+      others: [...svg.querySelectorAll('text:not([data-key])')].map((x) => ({ text: x.textContent, ...box(x), ...em(x) })),
     };
   }), [theme, Object.keys(FAN_FOOT_KEYS)]);
-  const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
+  const overlap = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.et < b.eb - 0.5 && b.et < a.eb - 0.5;
   const check = (rows, at) => {
     for (const r of rows) {
       const w = `${at} ${r.tile}`;
