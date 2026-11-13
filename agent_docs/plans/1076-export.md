@@ -66,6 +66,12 @@ Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved
 | [#1007] reuse | plots-svelte peers `"@eleoptics/plots": ">=0.10.0 <1"` | forced ([#1007]: the wrappers import `interact`, first in plots 0.10.0, on npm since PR [#676]; [#598]'s precedent): the peer, the lock's peer line, `release.test.js` (lines 383, 457) renamed and raised, a plots-svelte patch changeset | `packages/plots-svelte/package.json`, `package-lock.json`, `.changeset/svelte-peer.md` | `tests/unit/release.test.js::plots-svelte peers plots >=0.10.0` |  |
 | [#1090] | The export tests count a channel difference above 16 and align the tile screenshot to the pixel grid (CR [#1089]) | one constant for both comparisons because CR [#1089] measured Firefox's inline-versus-`<img>` anti-aliasing at 1.09% under > 8 and 0.84% under > 16 with equal ink; considered a 2% budget, which gives a real defect twice the room. A shared `tileShot` helper (`position:relative` offset, then a `page.screenshot` clip) because `svg.screenshot()` rounds a fractional box one pixel taller and [#1084] needs the same; considered a `translate` offset, measured at 2.7-3.6% | `tests/export.spec.js` | `standalone matches` (a temporary unskipped run) | [#1082] |
 | [#1083] | Unskip O1 and O2 for the MTF tile; log every SVG tile's embedded font bytes in the Change log | forced (`workflow.md`, TDD: the last item unskips them); the bytes for every tile because the kill criterion is per export | `tests/export.spec.js` | `standalone matches`, `png size and pixels` | all above |
+| [#1092] | Export docs say what is tested: browsers draw the embedded Fira, other apps use installed fonts (CR [#1091]) | forced (CR [#1091], review M1 round 1: the Inkscape, PowerPoint and rsvg claims are untested, and those apps don't load `@font-face`); the README and the `standalone` doc comment | `packages/plots/README.md`, `packages/plots/src/index.d.ts`, `tests/unit/headers.test.js` | `headers.test.js::README documents export` | [#1083] |
+| [#1093] | `standalone` finds faces in `@import`, `@layer` and `@media`, and warns for every used family left without one | recurse into `rule.styleSheet` and `rule.cssRules` because consumers load Google Fonts by CSS `@import` and layer their CSS (review M1, finding 2); considered documenting top-level rules only, which breaks the README's warn promise | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::nested and unmatched faces` | [#1092] |
+| [#1094] | `standalone` matches keyword weights and family names in any case | `normal` as 400 and `bold` as 700, families lowercased, as CSS matches them (review M1, finding 3); considered numeric weights only, which drops hand-written desktop faces | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::keyword weights and family case` | [#1093] |
+| [#1095] | `standalone` skips a font that fails to fetch and warns | throw on `!res.ok`, then catch per rule because one bad face should not fail the export (review M1, finding 4); considered failing the whole call, which the README's fallback promise rules out | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::failed font fetch` | [#1094] |
+| [#1096] | `png` at scale 1 matches the on-screen tile within 1% | compare with `tileShot` because the reference image is built the way `png` builds its own, so a font-load race would hit both (review M1, finding 5); considered correcting the risk row instead | `tests/export.spec.js` | `export.spec.js::png size and pixels` | [#1095] |
+| [#1097] | `standalone` drops `stop-color` and `stop-opacity` | no renderer draws a gradient, so they only add declarations (review M1, finding 7); considered keeping them for a future gradient, which can add them back | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::styles resolve without ELEO CSS` | [#1096] |
 
 ### M2: every tile and the gallery's save buttons GitHub: `P1076 M2: every tile and save`
 
@@ -108,6 +114,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-13 CR [#1089] (user): accepted, tolerance > 16 with the 1% budget unchanged. O1's pixel rule failed in Firefox only (1.09%, edge anti-aliasing, equal ink); new item [#1090] before [#1083].
 
 - 2026-11-13 #1083 font bytes (kill criterion, `ELEO.standalone` on every SVG tile, `[data-svg] > svg` and `[data-map] > svg`, light and dark identical; 23 tiles per theme): 19 tiles embed one face (Fira Code 400 latin), about 48 KB base64 / 36 KB woff2, the 4 map tiles among them. `layout2D-fan`, `seidel` and `seidel-terms` embed two (latin plus greek 18.4 KB base64 / 13.8 KB woff2), 66.8 KB base64 / 50.1 KB woff2. `icons` has no text and embeds none. The largest is 66.8 KB, under the 100 KB ask.
+- 2026-11-13 review M1 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, filed as CR [#1091] and accepted by the orchestrator (a doc-comment wording fix in Core, no signature change), item [#1092]. Backlog findings 2, 3, 4, 5 and 7 are small and named in files M1 changed, so they are pulled in as [#1093]-[#1097]. Finding 6 (shared test helpers) stays [#1098], for [#1084].
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
@@ -128,3 +135,11 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 [#534]: https://github.com/ELEOptics/eleo-ui/issues/534
 [#598]: https://github.com/ELEOptics/eleo-ui/issues/598
 [#676]: https://github.com/ELEOptics/eleo-ui/issues/676
+[#1091]: https://github.com/ELEOptics/eleo-ui/issues/1091
+[#1092]: https://github.com/ELEOptics/eleo-ui/issues/1092
+[#1093]: https://github.com/ELEOptics/eleo-ui/issues/1093
+[#1094]: https://github.com/ELEOptics/eleo-ui/issues/1094
+[#1095]: https://github.com/ELEOptics/eleo-ui/issues/1095
+[#1096]: https://github.com/ELEOptics/eleo-ui/issues/1096
+[#1097]: https://github.com/ELEOptics/eleo-ui/issues/1097
+[#1098]: https://github.com/ELEOptics/eleo-ui/issues/1098
