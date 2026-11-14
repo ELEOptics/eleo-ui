@@ -376,7 +376,6 @@ test('png size and pixels (every tile)', async ({ page }) => {
 
 // #1084 (plan #1076 O3). oracle: property the SVG and PNG x2 buttons in the MTF tile's .eleo-plot__actions download files equal to standalone()'s string and a PNG twice the plot's size.
 test('gallery save', async ({ page }) => {
-  test.skip(true, 'unskipped by #1087; the buttons arrive in #1086');
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const tile = page.locator('.theme[data-theme="light"] [data-tile="mtf"]');
