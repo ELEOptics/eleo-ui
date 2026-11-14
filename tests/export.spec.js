@@ -1,6 +1,7 @@
 // Export a plot as SVG and PNG (plan #1076). Run after `npm run build`.
 // oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG within 1%; at scale k, the PNG box-averaged to 1x matches the on-screen tile outside text within 1%
 // (a pixel matches when one within 1 px is within the channel tolerance); every used face embedded and loadable with the network blocked
+import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 
 const TILE = '.theme[data-theme="light"] [data-tile="mtf"] svg';
@@ -87,22 +88,18 @@ test('tileShot is idempotent', async ({ page }) => {
   expect(second.equals(first)).toBe(true);
 });
 
-// #1077 (plan #1076 O1). oracle: U15's 1% pixel rule; every (family, weight, style) the text uses has an embedded face that loads as a FontFace with the network blocked.
-test('standalone matches', async ({ page, context }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  const svg = page.locator(TILE).first();
+// Drawn in a page with no ELEO CSS and font requests blocked, `svg`'s standalone string matches the on-screen tile within 1% and every used face loads (O1).
+// bare is that page: a context.newPage() with its font requests aborted.
+const checkStandalone = async (page, bare, svg) => {
   const out = await svg.evaluate((el) => window.ELEO.standalone(el));
   const size = await svg.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.width, r.height]; });
+  const hasText = await svg.evaluate((el) => el.querySelector('text') !== null);
   const shot = await tileShot(page, svg);
 
-  // A page with no ELEO CSS and font requests blocked.
-  const bare = await context.newPage();
-  await bare.route('**/*', (route) => (route.request().resourceType() === 'font' || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.abort() : route.continue()));
   await bare.goto('about:blank');
   await bare.setContent(`<body style="margin:0;background:#fff"><img id="i" width="${size[0]}" height="${size[1]}" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(out)}"></body>`);
   await bare.locator('#i').evaluate((i) => i.decode());
-  const drawn = await bare.locator('#i').screenshot();
+  const drawn = await bare.screenshot({ clip: { x: 0, y: 0, width: size[0], height: size[1] } });
   expect(await diffFraction(bare, shot.toString('base64'), drawn.toString('base64'))).toBeLessThan(0.01);
 
   // Every used face is embedded and loads.
@@ -124,16 +121,39 @@ test('standalone matches', async ({ page, context }) => {
     }
     return { n: used.size, missing, unloadable };
   }, out);
-  expect(faces.n).toBeGreaterThan(0);
+  // A tile with no text (the icons) uses no face.
+  if (hasText) expect(faces.n).toBeGreaterThan(0);
   expect(faces.missing).toEqual([]);
   expect(faces.unloadable).toEqual([]);
-});
+};
 
-// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 1%, at scale k box-averaged to 1x the on-screen tile outside text within 1% (1-px neighbourhood).
-test('png size and pixels', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  const svg = page.locator(TILE).first();
+// The PNG b64 box-averaged 2x2 to half its size, as base64 PNG. drawImage's own downscale skips pixels in WebKit and Firefox, which moves every thin line.
+const halve = (page, b64) => page.evaluate(async (b64) => {
+  const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+  const big = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+  big.drawImage(bmp, 0, 0);
+  const src = big.getImageData(0, 0, bmp.width, bmp.height).data;
+  const c = new OffscreenCanvas(Math.round(bmp.width / 2), Math.round(bmp.height / 2));
+  const g = c.getContext('2d'), out = g.createImageData(c.width, c.height);
+  for (let y = 0; y < c.height; y++) {
+    for (let x = 0; x < c.width; x++) {
+      for (let ch = 0; ch < 4; ch++) {
+        let t = 0;
+        for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) t += src[(Math.min(2 * y + dy, bmp.height - 1) * bmp.width + Math.min(2 * x + dx, bmp.width - 1)) * 4 + ch];
+        out.data[(y * c.width + x) * 4 + ch] = t / 4;
+      }
+    }
+  }
+  g.putImageData(out, 0, 0);
+  const bytes = new Uint8Array(await (await c.convertToBlob({ type: 'image/png' })).arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}, b64);
+
+// `svg`'s png at scale 1 and 2 is the plot's size times the scale; at scale 1 its pixels match the standalone SVG and the on-screen tile, at scale 2 box-averaged to 1x
+// the on-screen tile outside the text boxes (O2).
+const checkPng = async (page, svg) => {
   for (const scale of [1, 2]) {
     const r = await svg.evaluate(async (el, [scale, tol]) => {
       const blob = await window.ELEO.png(el, { scale });
@@ -179,38 +199,134 @@ test('png size and pixels', async ({ page }) => {
           return [Math.floor(r.left - o.left) - 1, Math.floor(r.top - o.top) - 1, Math.ceil(r.right - o.left) + 1, Math.ceil(r.bottom - o.top) + 1];
         });
       });
-      expect(mask.length).toBeGreaterThan(0);
+      // A tile with no text (the icons) has no mask to check.
+      if (await svg.evaluate((el) => el.querySelector('text') !== null)) expect(mask.length).toBeGreaterThan(0);
       const shot = await tileShot(page, svg);
-      const half = await page.evaluate(async (b64) => {
-        const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
-        // A 2x2 box average: drawImage's own downscale skips pixels in WebKit and Firefox, which moves every thin line.
-        const big = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
-        big.drawImage(bmp, 0, 0);
-        const src = big.getImageData(0, 0, bmp.width, bmp.height).data;
-        const c = new OffscreenCanvas(Math.round(bmp.width / 2), Math.round(bmp.height / 2));
-        const g = c.getContext('2d'), out = g.createImageData(c.width, c.height);
-        for (let y = 0; y < c.height; y++) {
-          for (let x = 0; x < c.width; x++) {
-            for (let ch = 0; ch < 4; ch++) {
-              let t = 0;
-              for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) t += src[(Math.min(2 * y + dy, bmp.height - 1) * bmp.width + Math.min(2 * x + dx, bmp.width - 1)) * 4 + ch];
-              out.data[(y * c.width + x) * 4 + ch] = t / 4;
-            }
-          }
-        }
-        g.putImageData(out, 0, 0);
-        const bytes = new Uint8Array(await (await c.convertToBlob({ type: 'image/png' })).arrayBuffer());
-        let bin = '';
-        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-        return btoa(bin);
-      }, r.b64);
-      const { d, masked } = await nearFraction(page, shot.toString('base64'), half, mask);
+      const { d, masked } = await nearFraction(page, shot.toString('base64'), await halve(page, r.b64), mask);
       console.log(`scale-k masked fraction ${masked.toFixed(4)}, unmasked misses ${d.toFixed(4)}`);
       expect(d).toBeLessThan(0.01);
       // An oversized text box cannot hide most of the tile.
       expect(masked).toBeLessThan(0.1);
     }
   }
+};
+
+// A page with no ELEO CSS and font requests blocked.
+const blockedPage = async (context) => {
+  const bare = await context.newPage();
+  // As large as the gallery's page, so a clip of the drawn image is not cut by the default 1280 x 720 viewport.
+  await bare.setViewportSize({ width: 1440, height: 1400 });
+  await bare.route('**/*', (route) => (route.request().resourceType() === 'font' || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.abort() : route.continue()));
+  return bare;
+};
+
+// Every SVG tile ([data-svg] > svg, [data-map] > svg) in both themes, plus the light MTF-limits tile zoomed and the light distortion tile hovered (O1, O2).
+const SVG_TILE = ':is([data-svg], [data-map]) > svg';
+const everyTile = async (page) => {
+  const found = await page.evaluate((sel) => [...document.querySelectorAll('.theme[data-theme]')].flatMap((col) => [...col.querySelectorAll('[data-tile]')]
+    .filter((s) => s.querySelector(sel)).map((s) => ({ theme: col.dataset.theme, tile: s.dataset.tile }))), SVG_TILE);
+  const cases = found.map((c) => ({ ...c, state: 'plain', name: `${c.theme} ${c.tile}` }));
+  cases.push({ theme: 'light', tile: 'mtf-limits', state: 'zoomed', name: 'light mtf-limits zoomed' }, { theme: 'light', tile: 'distortion', state: 'hovered', name: 'light distortion hovered' });
+  return cases;
+};
+const caseSvg = (page, c) => page.locator(`.theme[data-theme="${c.theme}"] [data-tile="${c.tile}"] ${SVG_TILE}`).first();
+
+// Put the case's tile in its state. Zoomed: a wheel notch over the plot redraws the data group's matrix(...). Hovered: the pointer on the first point of a series shows the tip;
+// the hover layer is then hidden (display) so the screenshot holds the plot alone, the pointer stays where it is.
+const setState = async (page, c, svg) => {
+  await svg.scrollIntoViewIfNeeded();
+  if (c.state === 'plain') return;
+  const matrix = () => svg.evaluate((el) => el.querySelector('[data-series]').parentNode.getAttribute('transform'));
+  if (c.state === 'zoomed') {
+    const before = await matrix();
+    const box = await svg.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -300);
+    await expect.poll(matrix, { message: `${c.name}: the wheel zoomed` }).not.toBe(before);
+  } else {
+    const at = await svg.evaluate((el) => {
+      const m = el.querySelector('[data-series]'), p = m.getPointAtLength(0), q = new DOMPoint(p.x, p.y).matrixTransform(m.getScreenCTM());
+      return { x: q.x, y: q.y };
+    });
+    await page.mouse.move(Math.round(at.x), Math.round(at.y)); // whole pixels: Firefox and WebKit truncate (#1030)
+    const tip = page.locator(`.theme[data-theme="${c.theme}"] [data-tile="${c.tile}"] .eleo-hover__tip`);
+    await expect(tip, `${c.name}: the pointer shows the tip`).toBeVisible();
+    await expect(tip).not.toHaveText('');
+  }
+  await svg.evaluate((el) => el.closest('[data-tile]').querySelectorAll('.eleo-hover').forEach((l) => { l.style.display = 'none'; }));
+  if (c.state === 'zoomed') await page.mouse.move(2, 2);
+};
+
+// Run `check(svg)` on every case; the failures are collected so one run names every tile that breaks.
+const eachTile = async (page, check) => {
+  // Tall enough for the tallest tile: a clip past the viewport's bottom is cut short.
+  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const cases = await everyTile(page);
+  expect(cases.length).toBeGreaterThan(20);
+  const failed = [];
+  for (const c of cases) {
+    try {
+      // A fresh load per case: a tile moved onto the pixel grid, zoomed or hovered would otherwise leak into the next.
+      await page.goto('/gallery/');
+      await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+      const svg = caseSvg(page, c);
+      await setState(page, c, svg);
+      await check(svg);
+    } catch (e) {
+      failed.push(`${c.name}: ${String(e.message).split('\n').filter(Boolean).slice(0, 3).join(' | ')}`);
+    }
+  }
+  expect(failed).toEqual([]);
+};
+
+// #1077 (plan #1076 O1). oracle: U15's 1% pixel rule; every (family, weight, style) the text uses has an embedded face that loads as a FontFace with the network blocked.
+test('standalone matches', async ({ page, context }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await checkStandalone(page, await blockedPage(context), page.locator(TILE).first());
+});
+
+// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 1%, at scale k box-averaged to 1x the on-screen tile outside text within 1% (1-px neighbourhood).
+test('png size and pixels', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await checkPng(page, page.locator(TILE).first());
+});
+
+// #1084 (plan #1076 O1). oracle: U15's 1% pixel rule and every used face embedded and loadable, on every SVG tile in both themes, one zoomed and one hovered (the hover layer is not part of the plot).
+test('standalone matches (every tile)', async ({ page, context }) => {
+  test.skip(true, 'unskipped by #1085; the failing tiles are fixed there');
+  test.setTimeout(300000);
+  const bare = await blockedPage(context);
+  await eachTile(page, (svg) => checkStandalone(page, bare, svg));
+});
+
+// #1084 (plan #1076 O2). oracle: U15's size rule and the scale 1 and scale k pixel rules of `png size and pixels`, on every SVG tile in both themes, one zoomed and one hovered.
+test('png size and pixels (every tile)', async ({ page }) => {
+  test.skip(true, 'unskipped by #1085; the failing tiles are fixed there');
+  test.setTimeout(300000);
+  await eachTile(page, (svg) => checkPng(page, svg));
+});
+
+// #1084 (plan #1076 O3). oracle: property the SVG and PNG x2 buttons in the MTF tile's .eleo-plot__actions download files equal to standalone()'s string and a PNG twice the plot's size.
+test('gallery save', async ({ page }) => {
+  test.skip(true, 'unskipped by #1087; the buttons arrive in #1086');
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tile = page.locator('.theme[data-theme="light"] [data-tile="mtf"]');
+  const svg = tile.locator('svg').first();
+  await tile.scrollIntoViewIfNeeded();
+  const [svgDl] = await Promise.all([page.waitForEvent('download'), tile.locator('.eleo-plot__hd .eleo-plot__actions button', { hasText: /^SVG$/ }).click()]);
+  const saved = await readFile(await svgDl.path(), 'utf8');
+  expect(saved).toBe(await svg.evaluate((el) => window.ELEO.standalone(el)));
+  const [pngDl] = await Promise.all([page.waitForEvent('download'), tile.locator('.eleo-plot__hd .eleo-plot__actions button', { hasText: /^PNG ×2$/ }).click()]);
+  const png = await readFile(await pngDl.path());
+  // IHDR: bytes 16-19 width, 20-23 height, big endian.
+  const size = await svg.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.width, r.height]; });
+  expect(Math.abs(png.readUInt32BE(16) - size[0] * 2)).toBeLessThanOrEqual(1);
+  expect(Math.abs(png.readUInt32BE(20) - size[1] * 2)).toBeLessThanOrEqual(1);
 });
 
 // #1078 (plan #1076 O1, styles only). oracle: the string has no var( and its background rect and tick fills equal the tile's computed values; drawn in a page with no ELEO CSS.
@@ -256,6 +372,8 @@ test('used faces embedded', async ({ page, context }) => {
   const out = await svg.evaluate((el) => window.ELEO.standalone(el));
 
   const bare = await context.newPage();
+  // As large as the gallery's page, so a clip of the drawn image is not cut by the default 1280 x 720 viewport.
+  await bare.setViewportSize({ width: 1440, height: 1400 });
   await bare.route('**/*', (route) => (route.request().resourceType() === 'font' || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.abort() : route.continue()));
   await bare.goto('about:blank');
   const r = await bare.evaluate(async (s) => {
