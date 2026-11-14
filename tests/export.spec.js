@@ -667,15 +667,33 @@ test('png scales px strokes only', async ({ page }) => {
   expect(r.mixed).toEqual(['6px', '8px, 5%', '4']);
 });
 
-// #1130 (plan #1076 O2; CR #1127). oracle: a letterboxed SVG exports as it draws: the png of `<svg viewBox="0 0 100 100" width="200" height="100">` puts a rect over x 0..50 at 50..100 (times scale), as on screen,
-// and with preserveAspectRatio="none" at 0..100 (times scale).
+// #1130, #1133 (plan #1076 O2; CR #1127). oracle: a letterboxed SVG exports as it draws: the png of `<svg viewBox="0 0 100 100" width="200" height="100">` puts a rect over x 0..50 at 50..100 (times scale), as on screen,
+// at xMaxYMax meet at 100..150, at xMidYMid slice (k 2, content 200x200 shifted up 50) at 0..100, and with preserveAspectRatio="none" at 0..100 (times scale). Every pixel is opaque (no transparent band) and the top left
+// and bottom right corners are the analytic colour (surface white for a band or empty content, red where the rect reaches), and the background rect is the inverse fit of the viewport in user units (x, y, width, height above), for png at both scales and for standalone's string drawn as an <img>.
+const FITS = {
+  'xMidYMid meet': { bg: [-50, 0, 200, 100], red: [50, 100], tl: [255, 255, 255, 255], br: [255, 255, 255, 255] },
+  'xMaxYMax meet': { bg: [-100, 0, 200, 100], red: [100, 150], tl: [255, 255, 255, 255], br: [255, 255, 255, 255] },
+  'xMidYMid slice': { bg: [0, 25, 100, 50], red: [0, 100], tl: [255, 0, 0, 255], br: [255, 255, 255, 255] },
+  none: { bg: [0, 0, 100, 100], red: [0, 100], tl: [255, 0, 0, 255], br: [255, 255, 255, 255] },
+};
 test('png keeps a letterboxed SVG\'s fit', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  const r = await page.evaluate(async () => {
+  const r = await page.evaluate(async (pars) => {
     const NS = 'http://www.w3.org/2000/svg';
     const out = {};
-    for (const par of ['xMidYMid meet', 'none']) {
+    const read = (bmp) => {
+      const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
+      g.drawImage(bmp, 0, 0);
+      const row = g.getImageData(0, Math.floor(bmp.height / 2), bmp.width, 1).data;
+      const red = [];
+      for (let x = 0; x < bmp.width; x++) if (row[x * 4] > 200 && row[x * 4 + 1] < 60) red.push(x);
+      const all = g.getImageData(0, 0, bmp.width, bmp.height).data;
+      let clear = 0;
+      for (let i = 3; i < all.length; i += 4) if (all[i] !== 255) clear++;
+      return { red: [red[0], red[red.length - 1] + 1], clear, tl: Array.from(g.getImageData(0, 0, 1, 1).data), br: Array.from(g.getImageData(bmp.width - 1, bmp.height - 1, 1, 1).data) };
+    };
+    for (const par of pars) {
       const svg = document.createElementNS(NS, 'svg');
       svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('width', 200); svg.setAttribute('height', 100);
       svg.setAttribute('preserveAspectRatio', par);
@@ -684,32 +702,32 @@ test('png keeps a letterboxed SVG\'s fit', async ({ page }) => {
       rect.setAttribute('width', 50); rect.setAttribute('height', 100); rect.setAttribute('fill', '#f00');
       svg.appendChild(rect);
       document.body.appendChild(svg);
-      const res = { screen: [rect.getBoundingClientRect().left - svg.getBoundingClientRect().left, rect.getBoundingClientRect().right - svg.getBoundingClientRect().left] };
-      for (const scale of [1, 2]) {
-        const bmp = await createImageBitmap(await window.ELEO.png(svg, { scale, fonts: false }));
-        const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
-        g.drawImage(bmp, 0, 0);
-        const row = g.getImageData(0, Math.floor(bmp.height / 2), bmp.width, 1).data;
-        const red = [];
-        for (let x = 0; x < bmp.width; x++) if (row[x * 4] > 200 && row[x * 4 + 1] < 60) red.push(x);
-        res[scale] = [red[0], red[red.length - 1] + 1];
-        const all = g.getImageData(0, 0, bmp.width, bmp.height).data;
-        let clear = 0;
-        for (let i = 3; i < all.length; i += 4) if (all[i] !== 255) clear++;
-        res['clear' + scale] = clear;
-        res['edge' + scale] = Array.from(g.getImageData(0, 0, 1, 1).data);
-      }
+      const res = {};
+      for (const scale of [1, 2]) res[scale] = read(await createImageBitmap(await window.ELEO.png(svg, { scale, fonts: false })));
+      const str = await window.ELEO.standalone(svg, { fonts: false });
+      const img = new Image();
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(str);
+      await img.decode();
+      const bg = new DOMParser().parseFromString(str, 'image/svg+xml').querySelector('rect');
+      res.bg = ['x', 'y', 'width', 'height'].map((n) => +bg.getAttribute(n));
+      res.standalone = read(await createImageBitmap(img, { resizeWidth: 200, resizeHeight: 100 }));
       svg.remove();
       out[par] = res;
     }
     return out;
-  });
-  expect(r['xMidYMid meet'].screen).toEqual([50, 100]);
-  expect(r['none'].screen).toEqual([0, 100]);
-  for (const par of Object.keys(r)) for (const scale of [1, 2]) expect(r[par][scale]).toEqual(r[par].screen.map((v) => v * scale));
-  // No transparent bands: every pixel is opaque and the corner (a band in the meet case) is the surface colour.
-  for (const par of Object.keys(r)) for (const scale of [1, 2]) {
-    expect(r[par]['clear' + scale]).toBe(0);
-    expect(r[par]['edge' + scale]).toEqual(par === 'none' ? [255, 0, 0, 255] : [255, 255, 255, 255]);
+  }, Object.keys(FITS));
+  for (const [par, want] of Object.entries(FITS)) {
+    for (const scale of [1, 2]) {
+      expect(r[par][scale].red, `${par} x${scale}`).toEqual(want.red.map((v) => v * scale));
+      expect(r[par][scale].clear, `${par} x${scale} clear`).toBe(0);
+      expect(r[par][scale].tl, `${par} x${scale} tl`).toEqual(want.tl);
+      expect(r[par][scale].br, `${par} x${scale} br`).toEqual(want.br);
+    }
+    expect(r[par].bg, `${par} bg rect`).toEqual(want.bg);
+    const s = r[par].standalone;
+    expect(s.red, `${par} standalone`).toEqual(want.red);
+    expect(s.clear, `${par} standalone clear`).toBe(0);
+    expect(s.tl, `${par} standalone tl`).toEqual(want.tl);
+    expect(s.br, `${par} standalone br`).toEqual(want.br);
   }
 });
