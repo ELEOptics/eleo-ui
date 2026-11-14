@@ -1,6 +1,6 @@
 // Export a plot as SVG and PNG (plan #1076). Run after `npm run build`.
-// oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG within 1%; at scale k, the PNG box-averaged to 1x matches the on-screen tile outside text within 1%
-// (a pixel matches when one within 1 px is within the channel tolerance); every used face embedded and loadable with the network blocked
+// oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG and the tile within 1%; at scale k, the PNG box-averaged to 1x matches a DPR-k tile shot box-averaged to 1x outside text within 1%
+// (CR #1116; a pixel matches when one within 1 px is within the channel tolerance); every used face embedded and loadable with the network blocked
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 
@@ -24,27 +24,10 @@ const tileShot = async (page, locator) => {
   return page.screenshot({ clip: { x: box.x, y: box.y, width: size[0], height: size[1] } });
 };
 
-// Fraction of pixels whose channels differ by more than CHANNEL_TOL between two images, decoded in the page with createImageBitmap and getImageData
-// (as map2d.spec.js:20 reads a canvas; no pixelmatch). Images of different sizes differ completely (1). a and b are base64 PNGs.
-const diffFraction = (page, a, b) => page.evaluate(async ([a, b, tol]) => {
-  const px = async (s) => {
-    const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob());
-    const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
-    g.drawImage(bmp, 0, 0);
-    return { w: bmp.width, h: bmp.height, d: g.getImageData(0, 0, bmp.width, bmp.height).data };
-  };
-  const [p, q] = [await px(a), await px(b)];
-  if (p.w !== q.w || p.h !== q.h) return 1;
-  let n = 0;
-  for (let i = 0; i < p.d.length; i += 4) {
-    if (Math.max(Math.abs(p.d[i] - q.d[i]), Math.abs(p.d[i + 1] - q.d[i + 1]), Math.abs(p.d[i + 2] - q.d[i + 2]), Math.abs(p.d[i + 3] - q.d[i + 3])) > tol) n++;
-  }
-  return n / (p.w * p.h);
-}, [a, b, CHANNEL_TOL]);
-
-// Like diffFraction, but a pixel of a matches when any pixel within one pixel of it in b is within CHANNEL_TOL. Even against a tile shot on the pixel grid,
-// Firefox's exact match is 1.34% (over the 1% budget): its on-screen rasterisation of thin lines and glyph edges differs from a PNG drawn at scale 2 and box-averaged
-// by up to a pixel. A stroke of the wrong weight still differs in its centre pixels.
+// Fraction of pixels of a that miss b, both base64 PNGs decoded in the page with createImageBitmap and getImageData (as map2d.spec.js:20 reads a canvas; no pixelmatch).
+// A pixel of a matches when any pixel within one pixel of it in b is within CHANNEL_TOL (a channel differs by more than that). Images of different sizes differ completely (1).
+// An exact match is too strict (CR #1116): Firefox's is 1.34% against a tile shot on the pixel grid, and Chromium's on the ray tiles is 1.05-1.45% at scale 2. The on-screen
+// rasterisation of thin lines and glyph edges differs from a drawn image by up to a pixel. A stroke of the wrong weight still differs in its centre pixels.
 // Pixels inside a mask rect ([left, top, right, bottom] in image pixels, already padded) are never counted as misses (CR #1112); the budget stays all pixels.
 // Returns { d: missed fraction, masked: masked fraction }.
 const nearFraction = (page, a, b, mask = []) => page.evaluate(async ([a, b, tol, mask]) => {
@@ -100,7 +83,7 @@ const checkStandalone = async (page, bare, svg) => {
   await bare.setContent(`<body style="margin:0;background:#fff"><img id="i" width="${size[0]}" height="${size[1]}" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(out)}"></body>`);
   await bare.locator('#i').evaluate((i) => i.decode());
   const drawn = await bare.screenshot({ clip: { x: 0, y: 0, width: size[0], height: size[1] } });
-  expect(await diffFraction(bare, shot.toString('base64'), drawn.toString('base64'))).toBeLessThan(0.01);
+  expect((await nearFraction(bare, shot.toString('base64'), drawn.toString('base64'))).d).toBeLessThan(0.01);
 
   // Every used face is embedded and loads.
   const faces = await bare.evaluate(async (s) => {
@@ -151,9 +134,23 @@ const halve = (page, b64) => page.evaluate(async (b64) => {
   return btoa(bin);
 }, b64);
 
+// A tile shot at deviceScaleFactor k: the gallery loaded in a context of that factor, `open(page2, k)` returning the tile there (after any state it needs), then tileShot.
+// The default opens the first MTF tile.
+const dprShot = async (page, k, open = (p) => p.locator(TILE).first()) => {
+  const ctx = await page.context().browser().newContext({ deviceScaleFactor: k, viewport: page.viewportSize(), baseURL: new URL('/', page.url()).href });
+  try {
+    const p = await ctx.newPage();
+    await p.goto('/gallery/');
+    await expect(p.locator('body')).toHaveAttribute('data-ready', 'true');
+    return await tileShot(p, await open(p, k));
+  } finally {
+    await ctx.close();
+  }
+};
+
 // `svg`'s png at scale 1 and 2 is the plot's size times the scale; at scale 1 its pixels match the standalone SVG and the on-screen tile, at scale 2 box-averaged to 1x
-// the on-screen tile outside the text boxes (O2).
-const checkPng = async (page, svg) => {
+// the tile shot at deviceScaleFactor 2 and box-averaged to 1x, outside the text boxes (O2).
+const checkPng = async (page, svg, open) => {
   for (const scale of [1, 2]) {
     const r = await svg.evaluate(async (el, [scale, tol]) => {
       const blob = await window.ELEO.png(el, { scale });
@@ -186,7 +183,7 @@ const checkPng = async (page, svg) => {
     // Against the on-screen tile too, so a font-load race in png cannot pass by hitting the reference image as well. Taken after png() has read the element: tileShot moves it.
     if (scale === 1) {
       const shot = await tileShot(page, svg);
-      const d = await diffFraction(page, shot.toString('base64'), r.b64);
+      const { d } = await nearFraction(page, shot.toString('base64'), r.b64);
       expect(d).toBeLessThan(0.01);
     } else {
       // Scale 2 drawn into a canvas of half its size must still match the tile: strokes (curves with vector-effect included) scale with the PNG (CR #1102).
@@ -201,8 +198,9 @@ const checkPng = async (page, svg) => {
       });
       // A tile with no text (the icons) has no mask to check.
       if (await svg.evaluate((el) => el.querySelector('text') !== null)) expect(mask.length).toBeGreaterThan(0);
-      const shot = await tileShot(page, svg);
-      const { d, masked } = await nearFraction(page, shot.toString('base64'), await halve(page, r.b64), mask);
+      // The reference is the tile shot at deviceScaleFactor k, box-averaged to 1x the same way as the PNG, so both sides are exact-coverage rasters (CR #1116).
+      const ref = await dprShot(page, scale, open);
+      const { d, masked } = await nearFraction(page, await halve(page, ref.toString('base64')), await halve(page, r.b64), mask);
       console.log(`scale-k masked fraction ${masked.toFixed(4)}, unmasked misses ${d.toFixed(4)}`);
       expect(d).toBeLessThan(0.01);
       // An oversized text box cannot hide most of the tile.
@@ -233,7 +231,8 @@ const caseSvg = (page, c) => page.locator(`.theme[data-theme="${c.theme}"] [data
 
 // Put the case's tile in its state. Zoomed: a wheel notch over the plot redraws the data group's matrix(...). Hovered: the pointer on the first point of a series shows the tip;
 // the hover layer is then hidden (display) so the screenshot holds the plot alone, the pointer stays where it is.
-const setState = async (page, c, svg) => {
+// k is the page's deviceScaleFactor: a wheel delta reaches the page divided by it, so the notch is multiplied by it to zoom as much.
+const setState = async (page, c, svg, k = 1) => {
   await svg.scrollIntoViewIfNeeded();
   if (c.state === 'plain') return;
   const matrix = () => svg.evaluate((el) => el.querySelector('[data-series]').parentNode.getAttribute('transform'));
@@ -241,7 +240,7 @@ const setState = async (page, c, svg) => {
     const before = await matrix();
     const box = await svg.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.wheel(0, -300);
+    await page.mouse.wheel(0, -300 * k);
     await expect.poll(matrix, { message: `${c.name}: the wheel zoomed` }).not.toBe(before);
   } else {
     const at = await svg.evaluate((el) => {
@@ -273,7 +272,7 @@ const eachTile = async (page, check) => {
       await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
       const svg = caseSvg(page, c);
       await setState(page, c, svg);
-      await check(svg);
+      await check(svg, async (p, k) => { const t = caseSvg(p, c); await setState(p, c, t, k); return t; });
     } catch (e) {
       failed.push(`${c.name}: ${String(e.message).split('\n').filter(Boolean).slice(0, 3).join(' | ')}`);
     }
@@ -288,7 +287,7 @@ test('standalone matches', async ({ page, context }) => {
   await checkStandalone(page, await blockedPage(context), page.locator(TILE).first());
 });
 
-// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 1%, at scale k box-averaged to 1x the on-screen tile outside text within 1% (1-px neighbourhood).
+// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 1%, at scale k box-averaged to 1x a tile shot at deviceScaleFactor k, also box-averaged, outside text within 1% (1-px neighbourhood, CR #1116).
 test('png size and pixels', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -306,8 +305,8 @@ test('standalone matches (every tile)', async ({ page, context }) => {
 // #1084 (plan #1076 O2). oracle: U15's size rule and the scale 1 and scale k pixel rules of `png size and pixels`, on every SVG tile in both themes, one zoomed and one hovered.
 test('png size and pixels (every tile)', async ({ page }) => {
   test.skip(true, 'unskipped by #1085; the failing tiles are fixed there');
-  test.setTimeout(300000);
-  await eachTile(page, (svg) => checkPng(page, svg));
+  test.setTimeout(900000); // each case also opens a context at the scale factor
+  await eachTile(page, (svg, open) => checkPng(page, svg, open));
 });
 
 // #1084 (plan #1076 O3). oracle: property the SVG and PNG x2 buttons in the MTF tile's .eleo-plot__actions download files equal to standalone()'s string and a PNG twice the plot's size.
