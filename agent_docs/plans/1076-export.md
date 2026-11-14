@@ -53,7 +53,7 @@ No open issue tracks export itself.
 
 ### M1: `standalone` and `png` on one tile in three browsers GitHub: `P1076 M1: standalone SVG and PNG`
 
-Done 2026-11-13: review round 11 (Review M1: 0 blocking, nothing pulled in); full gate green on 0fe7366 (475 passed); CI pending on 0fe7366 at the tick (it carries CR [#1112]'s Linux Chromium check). Reopened once, after round 5, for CR [#1102]. Demo pending.
+Done 2026-11-13: review round 11 (Review M1: 0 blocking, nothing pulled in); full gate green on 0fe7366 (475 passed); CI pending on 0fe7366 at the tick (it carries CR [#1112]'s Linux Chromium check). Reopened once, after round 5, for CR [#1102]. Demo: go (user, 2026-11-13).
 
 Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved as `mtf.svg`, renders like the tile in Fira in all three browsers; `await ELEO.png(svg, { scale: 2 })` returns a `Blob` of type `image/png` twice the plot's size. The Change log lists every SVG tile's embedded font bytes. Proves: O1 and O2 on one tile, the kill criterion measured on every tile.
 
@@ -139,6 +139,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-13 review M1 round 9 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. CI was red on 69fa4c1 and 2732a9d: Linux Chromium's scale-2 check at 1.14%. CR [#1112], investigated in Playwright's Linux image: the excess is all text (subpixel AA, hinted widths), and the export is right. The user chose to mask text at scale k; item [#1113].
 - 2026-11-13 review M1 round 10 (code-reviewer, claude-opus-5-5): 1 blocking, CR [#1114] (O2's oracle lines omit the text mask), accepted by the orchestrator; backlog findings 2 and 3 pulled into the same item [#1115]. All eight carried CRs resolved. Per round, blocking plus pulled in: round 9 0, round 10 2.
 - 2026-11-13 review M1 round 11 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in, CR [#1114] resolved. M1 ticked; demo pending.
+- 2026-11-13 M1 demo (user): go. No proposed ADR exercised. M2 starts.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
