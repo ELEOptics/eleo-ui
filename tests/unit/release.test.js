@@ -380,7 +380,8 @@ test('map2D changeset became minors',
 // oracle: spec semver (a `>=X.Y.Z <M` range admits v when X.Y.Z <= v and v's major < M).
 // Issue #598 (plan #512 M3 review): the wrappers draw at a width, which needs plots 0.8.0 (row O's minor, ADR-0003), so the
 // peer also excludes 0.7.0, where rayFan ignores `width`.
-test('plots-svelte peers plots >=0.8.0', () => {
+// Issue #1007 (plan #1076 M1): the wrappers import `interact`, first in plots 0.10.0, so the peer also excludes 0.9.0.
+test('plots-svelte peers plots >=0.10.0', () => {
   const range = manifest('plots-svelte').peerDependencies['@eleoptics/plots'];
   const m = range.match(/^>=(\d+)\.(\d+)\.(\d+) <(\d+)$/);
   assert.ok(m, `the plots peer ${range} is not >=X.Y.Z <M`);
@@ -392,7 +393,8 @@ test('plots-svelte peers plots >=0.8.0', () => {
   };
   assert.ok(!admits('0.6.0'), `${range} admits plots 0.6.0, which has no map2D`);
   assert.ok(!admits('0.7.0'), `${range} admits plots 0.7.0, which ignores width`);
-  assert.ok(admits('0.8.0'), `${range} excludes plots 0.8.0`);
+  assert.ok(!admits('0.9.0'), `${range} admits plots 0.9.0, which has no interact`);
+  assert.ok(admits('0.10.0'), `${range} excludes plots 0.10.0`);
 });
 
 // Plan #389, issue #456 (CR #455), retired by #457 (plan #464): the peer is now >=0.7.0, which has the typed map2D, so the
@@ -454,7 +456,7 @@ test('row P changesets', { skip: rowPConsumed && 'consumed by changeset version'
   const svelte = read('plots-svelte-peer-0.8.md');
   assert.match(plots.body, /minWidth/, 'the plots body names minWidth');
   assert.match(svelte.body, />=0\.8\.0 <1/, 'the plots-svelte body names the raised peer');
-  assert.equal(manifest('plots-svelte').peerDependencies['@eleoptics/plots'], '>=0.8.0 <1', 'plots-svelte peers plots 0.8 and up');
+  assert.equal(manifest('plots-svelte').peerDependencies['@eleoptics/plots'], '>=0.10.0 <1', 'plots-svelte peers plots 0.10 and up');
   withWorkspace({ '@eleoptics/plots': 'minor' }, (ws) => {
     rmSync(join(ws, '.changeset/bumps.md'));
     writeFileSync(join(ws, '.changeset/min-width.md'), plots.text);

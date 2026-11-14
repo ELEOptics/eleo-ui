@@ -1165,3 +1165,32 @@ test('layout tiles zoom and read lenses', async ({ page }) => {
   await expect(glass.locator('.eleo-hover__tip'), 'lens tooltip').toHaveText(/^element /);
   await page.mouse.move(2, 2);
 });
+
+// #1121 (plan #1076 O2, CR #1119). oracle: the dots' ink on screen equals the same SVG drawn into a canvas, within 7%.
+// WebKit paints a zero-length round-cap subpath twice on screen under stroke-opacity (coverage 0.75 against 0.5), so its dots read 1.5x too dark.
+test('spot dots paint once on screen', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const str = await page.locator('.theme[data-theme="light"] [data-tile="spot"] svg').first().evaluate(async (el) => {
+    // Only the dots stay: every element that is neither a series mark nor holds or sits in one goes (the style and defs of the standalone string stay).
+    const doc = new DOMParser().parseFromString(await window.ELEO.standalone(el), 'image/svg+xml');
+    doc.querySelectorAll('svg *').forEach((n) => {
+      if (!n.isConnected || ['style', 'defs'].includes(n.localName) || n.closest('[data-series]') || n.querySelector('[data-series]')) return;
+      n.remove();
+    });
+    return new XMLSerializer().serializeToString(doc.documentElement);
+  });
+  await page.goto('about:blank');
+  await page.setContent(`<body style="margin:0;background:#fff">${str}</body>`);
+  const dim = await page.locator('svg').first().evaluate((el) => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+  const shot = (await page.screenshot({ clip: { x: 0, y: 0, width: dim[0], height: dim[1] } })).toString('base64');
+  const ink = await page.evaluate(async ([shot, str, w, h]) => {
+    const dark = (d) => { let s = 0; for (let i = 0; i < d.length; i += 4) s += 255 - d[i + 1]; return s / 255; };
+    const read = async (src) => { const c = new OffscreenCanvas(w, h).getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); c.drawImage(await createImageBitmap(await (await fetch(src)).blob()), 0, 0); return c.getImageData(0, 0, w, h).data; };
+    const img = new Image(); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(str)}`; await img.decode();
+    const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+    return { screen: dark(await read(`data:image/png;base64,${shot}`)), canvas: dark(g.getImageData(0, 0, w, h).data) };
+  }, [shot, str, dim[0], dim[1]]);
+  expect(ink.canvas).toBeGreaterThan(50);
+  expect(Math.abs(ink.screen / ink.canvas - 1)).toBeLessThan(0.07);
+});

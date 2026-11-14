@@ -420,6 +420,8 @@ interface ScaleRule {
   minWidth: typeof minWidth;
   interact: typeof interact;
   readout: typeof readout;
+  standalone: typeof standalone;
+  png: typeof png;
 }
 declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
@@ -544,3 +546,9 @@ export interface ReadoutAxis {
 }
 /** The text of a hover event, `<label> · <x>, <y>[ = <value>]`, each number followed by its axis's unit (no label and dot without a series label; ` = <value>` only when the event's `value` is not null, written with `axes.value`); "" for `null`. */
 export declare function readout(event: HoverEvent | null, axes?: { x?: ReadoutAxis; y?: ReadoutAxis; value?: ReadoutAxis }): string;
+
+/* Export (packages/plots/src/export.js). */
+/** A drawn plot's `<svg>` as a self-contained SVG string: computed styles inlined, a background rect, `xmlns` and px `width`/`height`, so a browser draws what the page shows, in the embedded Fira. Inkscape, PowerPoint and rsvg get the resolved colours and sizes but not `@font-face`: they draw the text in an installed Fira or a fallback font. `fonts: false` skips embedding the `@font-face` faces the text uses. Default `true`. Client-only. */
+export declare function standalone(svg: SVGSVGElement, o?: { fonts?: boolean }): Promise<string>;
+/** The `standalone` SVG rasterised to a PNG `Blob` at the SVG's size times `scale` (default 1). `fonts` is passed to `standalone`. Client-only. */
+export declare function png(svg: SVGSVGElement, o?: { scale?: number; fonts?: boolean }): Promise<Blob>;

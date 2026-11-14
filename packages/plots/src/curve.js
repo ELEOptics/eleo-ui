@@ -37,10 +37,15 @@ export function axisTicks(a, r) {
   while (d < 20 && !ts.every(function (v) { return Math.abs(Number(v.toFixed(d)) - v) <= 1e-9 * Math.abs(v); })) d++;
   return { ticks: ts, decimals: d };
 }
-/* A series as path data in data coordinates: a null entry, or a point with a null or non-finite coordinate, ends the run (and doesn't count toward the range), and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h0 under a round cap. */
-function seriesPath(pts) {
+/* A dot's length in data x: 0.01 px at the plot's x scale (the stroke does not scale), whatever the data's units. A zero-length round-cap dot (`h0`) is painted twice on screen by WebKit under stroke-opacity; this one is painted once, as the same disc. 0 where the range or the width is not usable. */
+function dotLength(sc, pw) {
+  var d = 0.01 * (sc.xr[1] - sc.xr[0]) / pw;
+  return isFinite(d) && d > 0 ? +d.toPrecision(2) : 0;
+}
+/* A series as path data in data coordinates: a null entry, or a point with a null or non-finite coordinate, ends the run (and doesn't count toward the range), and the next live point starts a new subpath (a polyline can't break). A run of one point is a dot: M x,y h<dot> under a round cap, `dot` being the segment's length in data x (see dotLength). */
+function seriesPath(pts, dot) {
   var d = "", run = [];
-  function flush() { if (run.length) d += (d ? " " : "") + "M" + run.join(" L") + (run.length === 1 ? " h0" : ""); run = []; }
+  function flush() { if (run.length) d += (d ? " " : "") + "M" + run.join(" L") + (run.length === 1 ? " h" + dot : ""); run = []; }
   pts.forEach(function (p) { if (!drawn(p)) flush(); else run.push(String(+p[0]) + "," + String(+p[1])); });
   flush();
   return d;
@@ -56,7 +61,7 @@ function cutPieces(run, z) {
   });
 }
 /* `si` is the series index and `pi` the panel index (panels only); they, the role and the label go on the mark as data-* for hover and click. `z` (zoomed only, see cutPieces) cuts the series: one mark per piece, each carrying `data-from` (the piece's first uncut index in the mark, omitted when 0) and otherwise the same attributes; a series wholly outside draws nothing. A single plot's series holding a NaN or infinite coordinate is a path cut run by run, as a panel's is. */
-function seriesMarkup(s, panel, wt, si, pi, z) {
+function seriesMarkup(s, panel, wt, si, pi, z, dot) {
   var st = roleStyle(s, wt), pts = s.points || [];
   /* A single plot's series holding a NaN or infinite coordinate is a path, broken at the bad point as in panels (a polyline with one is dropped whole by Chromium); its points are numbers first, a null coordinate being 0 there. A clean series stays a polyline. */
   var bad = !panel && pts.some(function (p) { return !isFinite(+p[0]) || !isFinite(+p[1]); });
@@ -66,13 +71,13 @@ function seriesMarkup(s, panel, wt, si, pi, z) {
   var head = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : ""), attrs = head + " " + NS + "/>";
   var num = function (p) { return String(+p[0]) + "," + String(+p[1]); };
   if (!z) {
-    if (asPath) return '<path d="' + seriesPath(pts) + '"' + ids + attrs;
+    if (asPath) return '<path d="' + seriesPath(pts, dot) + '"' + ids + attrs;
     return '<polyline points="' + pts.map(num).join(" ") + '"' + ids + attrs;
   }
   var out = "", base = 0;
   function emit(piece, off) {
     var from = off + piece.from;
-    out += (asPath ? '<path d="M' + piece.points.map(num).join(" L") + (piece.points.length === 1 ? " h0" : "") + '"' : '<polyline points="' + piece.points.map(num).join(" ") + '"') + ids + (from ? ' data-from="' + from + '"' : "") + head + dashOffset(st.dash, piece.cut) + " " + NS + "/>";
+    out += (asPath ? '<path d="M' + piece.points.map(num).join(" L") + (piece.points.length === 1 ? " h" + dot : "") + '"' : '<polyline points="' + piece.points.map(num).join(" ") + '"') + ids + (from ? ' data-from="' + from + '"' : "") + head + dashOffset(st.dash, piece.cut) + " " + NS + "/>";
   }
   if (asPath) {
     var runs = [], run = [];
@@ -128,7 +133,7 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
   var M = [sx, 0, 0, -sy, -xr[0] * sx, ph + yr[0] * sy].map(String);
   g += '<svg ' + fr + '><g transform="matrix(' + M.join(" ") + ')">';
-  if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel); });
+  if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel, undefined, undefined, undefined, undefined, dotLength(sc, pw)); });
   g += "</g></svg>";
   if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }, mg.t).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
@@ -194,7 +199,7 @@ function typedCurve(o) {
   var sc, g = "", lim = checkLimits(o.limits, "curve");
   /* A valid view axis zooms: the series are cut to the plot area plus 32 px (cutPieces). */
   var zoomed = !!(o.view && (viewRange(o.view.x) || viewRange(o.view.y)));
-  var cell = function (series, w, h, T, panel, mg, pi) { var z = zoomed && Object.assign({ sc: sc }, plotArea(w, h, T, mg)); return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi, z); }).join(""), zoomed), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
+  var cell = function (series, w, h, T, panel, mg, pi) { var z = zoomed && Object.assign({ sc: sc }, plotArea(w, h, T, mg)); return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi, z, dotLength(sc, plotArea(w, h, T, mg).pw)); }).join(""), zoomed), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));

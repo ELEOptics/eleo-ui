@@ -174,7 +174,7 @@ RMS, GEO
 - **`textScale`:** a positive number (default 1) that multiplies the text size the rule gives (ADR-0003: 9 px below a 162 px panel, `F / 18` to 234, then `13 * (F / 234)^(1/3)`; every text is an inline `font-size`, so it wins over the class) and the layout in text units around it: 1.5 under each panel for the x labels and 1.8 more to the title, 1.5 a line, a foot of 4.3 plus 1.5 a line, the 2.4 left margin for the y labels, and the caption width estimate. Absent, 1, not finite or not above 0 draws the rule's size. Dots are 2.2 px across, times `sqrt(F / 234)` above F = 234.
 - **`grid`:** lines at the nice ticks strictly inside (-half, half) (about 5 per side; the frame draws the edges) in `--plot-grid`, inside each frame and under the dots and circles. `grid: false` draws none; the frame and centre cross stay.
 - **`label`:** the SVG's `aria-label` (default `Spot diagrams`).
-- **Drawing:** each panel is a nested `<svg>` holding one `<g transform="matrix(...)">` in data coordinates, with the same scale on both axes and a non-scaling stroke; inverting the matrix recovers the points. A series is one `<path>` of dots, each `M x,y h0` under a round cap (2.2 px across, times `sqrt(F / 234)` above F = 234).
+- **Drawing:** each panel is a nested `<svg>` holding one `<g transform="matrix(...)">` in data coordinates, with the same scale on both axes and a non-scaling stroke; inverting the matrix recovers the points. A series is one `<path>` of dots, each `M x,y h<d>` under a round cap, `d` a segment 0.01 px long in data units (2.2 px across, times `sqrt(F / 234)` above F = 234).
 - **`throughFocus({ data, half?, width?, grid? })`:** the sample's through-focus spots, fields by rows and focus shifts by columns. Each cell is drawn by `spot`'s panel function: frame, grid under the dots (`grid: false` draws none), centre cross and round-cap dots, so a cell looks like a `spot` panel. Only the outer edges are labelled: x tick labels under the bottom row, y tick labels left of the left column (also with `grid: false`), and a caption "x, y in µm" under the figure. `width` is the drawing width in px; a panel's side F solves `F + (4.2 + 2.4) * t(F) / columns = (width - 10 * columns) / columns` (4.2 text units of row label and 2.4 for the y tick labels, more when the labels are longer than three characters; a 10 px gap per column), with `t` the same text size as `spot`'s, and dots are `spot`'s, 2.2 * frameWeight(F) wide (growing by `sqrt(F / 234)` above F = 234). Without a `width` a panel is 92 px.
 
 ## Interaction
@@ -208,7 +208,7 @@ const stop = interact(el, {
 
 While the pointer is within 6 px of a drawn point, `onhover` gets that point's event and the overlay shows a dot on the point. Otherwise, within 24 px of a drawn line segment, it gets the pointer projected onto the nearest segment (clamped to it) with its `x`, `y` linearly interpolated, `interpolated: true` and `segment: [i, i + 1]`, and the overlay shows no dot. In both cases the overlay shows 1 px drop lines from the spot to the frame's bottom and left edges, and a tooltip near the pointer with `readout(event, axes)` as its text. The tooltip is a polite live region (`role="status"`, `aria-live="polite"`), created empty and kept for the life of the call so screen readers announce its text changes; it sits 14 px right of and below the pointer, flipped or clamped to stay inside the host. Leaving the point or the host hides the overlay (the tooltip empties) and calls `onhover(null)`.
 
-A segment joins two consecutive points of one run: a polyline's points as the browser parsed them (`mark.points`), or an `M`...`L` run of a path. A point dropped for a non-finite coordinate, or a new `M`, breaks a path's run. A single plot's series holding a NaN or infinite coordinate is a path, so the bad point breaks its run and each finite run hovers. Dots-only marks (`h0` paths) have no segments. `i` is a data index: the drawn index (counting the mark's finite points in order, after dropping the non-finite ones) plus the mark's `data-from` (0 when absent, see `view` under [layout2D](#lens-layouts) and [curve](#curves)), and so is the snapped point's index; on a `layout2D` ray it indexes the ray's status run, which counts from its own first point.
+A segment joins two consecutive points of one run: a polyline's points as the browser parsed them (`mark.points`), or an `M`...`L` run of a path. A point dropped for a non-finite coordinate, or a new `M`, breaks a path's run. A single plot's series holding a NaN or infinite coordinate is a path, so the bad point breaks its run and each finite run hovers. Dots-only marks (`h<d>` paths) have no segments. `i` is a data index: the drawn index (counting the mark's finite points in order, after dropping the non-finite ones) plus the mark's `data-from` (0 when absent, see `view` under [layout2D](#lens-layouts) and [curve](#curves)), and so is the snapped point's index; on a `layout2D` ray it indexes the ray's status run, which counts from its own first point.
 
 What the event holds depends on the plot:
 
@@ -276,6 +276,25 @@ Plots color index 1 to 8 in the standard order. For readers with color vision de
 The values are `standard` (the default), `red-green` (protanopia and deuteranopia) and `blue-yellow` (tritanopia). Use one palette per page, on `<html>`. SVG plots recolor at once; canvas plots (`map2D(canvas, ...)`, `layout3D`) redraw as on a theme change.
 
 `--series-1` to `--series-8` are the index colors for any chart on the page. They follow the palette and theme. The token number is not the index.
+
+## Export
+
+`standalone` and `png` turn a plot's SVG into a file. Client-only; the caller owns the button.
+
+```js
+import { standalone, png } from '@eleoptics/plots';
+
+const svg = host.querySelector('svg');
+const text = await standalone(svg);                // a self-contained SVG string
+const blob = await png(svg, { scale: 2 });         // a PNG Blob, twice the plot's size
+```
+
+- `standalone(svg)` resolves an SVG string of what the plot draws now: computed styles inlined for the current theme and palette, the current view, a background rect of the tile's `--surface`, and the Fira faces its text uses embedded as `@font-face` data URLs. A browser draws it with no ELEO CSS, in the embedded Fira. Inkscape, PowerPoint and rsvg get the resolved colours and sizes, but they do not load `@font-face`: they draw the text in an installed Fira or a fallback font. Other apps use installed fonts. Pass `{ fonts: false }` to skip the fonts.
+- `png(svg, { scale = 1 })` resolves an `image/png` `Blob` of the plot's size times `scale`.
+
+Fonts are read from the page's stylesheets. A cross-origin stylesheet, such as Google Fonts, is readable only with `crossorigin="anonymous"` on its `<link>` (and on its `preconnect`); without it the faces are skipped, a `console.warn` names their families, and the export falls back to the viewer's fonts.
+
+There is no theme option. For a light export (a paper or a slide), redraw the plot in a light container, either under `data-theme="light"` or in `PlotCard`'s `paper`, then export that SVG. A typed `map2D` bakes its cells at draw time, so switching the theme only on export would draw dark cells in a light frame.
 
 ## Physics helpers
 
