@@ -6,6 +6,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const PROPS = [
   'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style',
   'font-variant-numeric', 'text-anchor', 'dominant-baseline', 'paint-order', 'image-rendering',
+  'stroke-linejoin', 'shape-rendering',
 ];
 
 const toDataUrl = async (url) => {
@@ -111,7 +112,7 @@ async function build(svg, options) {
   bg.setAttribute('fill', getComputedStyle(svg).getPropertyValue('--surface').trim());
   clone.insertBefore(bg, clone.firstChild);
   if (!options || options.fonts !== false) await embedFonts(clone);
-  return { clone, src, dst, box };
+  return { clone, src, dst, box, vb: { x, y, w, h } };
 }
 
 export async function standalone(svg, options) {
@@ -127,7 +128,7 @@ const PX = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?(px)?$/i;
    `onload` before the data-URL fonts are ready. A tainted canvas makes toBlob throw; that is not handled here (plan #1076, escalate). */
 export async function png(svg, options) {
   const scale = (options && options.scale) || 1;
-  const { clone, src, dst, box } = await build(svg, options);
+  const { clone, src, dst, box, vb } = await build(svg, options);
   src.forEach((el, i) => {
     if (getComputedStyle(el).getPropertyValue('vector-effect') !== 'non-scaling-stroke') return;
     const to = dst[i], sw = to.style.getPropertyValue('stroke-width');
@@ -140,6 +141,14 @@ export async function png(svg, options) {
   const width = Math.round(box.width * scale), height = Math.round(box.height * scale);
   clone.setAttribute('width', `${width}px`);
   clone.setAttribute('height', `${height}px`);
+  // The canvas is whole pixels and the box is not, so the viewBox spans exactly width x height pixels (width / scale css px, u user units each) anchored top left: 1 css px maps
+  // to `scale` px and a uniform fit cannot shrink the plot by a fraction of a pixel. The background rect covers it.
+  const ux = vb.w / box.width, uy = vb.h / box.height, vw = (width / scale) * ux, vh = (height / scale) * uy;
+  clone.setAttribute('viewBox', `${vb.x} ${vb.y} ${vw} ${vh}`);
+  clone.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+  const bg = clone.querySelector(':scope > rect');
+  bg.setAttribute('width', vw);
+  bg.setAttribute('height', vh);
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
   try {
     const img = new Image();

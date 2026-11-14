@@ -12,13 +12,15 @@ const CHANNEL_TOL = 16;
 // Screenshot of a tile at its own size. The tile sits at a fractional offset, so locator.screenshot() rounds its box up a pixel
 // and the half-pixel offset blurs every glyph against the export. Move it onto the pixel grid, then clip to its width and height.
 // scrollIntoViewIfNeeded can leave scrollY at x.5, and Firefox then paints the tile half a pixel off its rect: round the scroll first (CR #1119).
+// The tile goes to x = 0, where the exports are drawn: Chromium and WebKit rasterise the layout2D ray polylines (non-scaling-stroke under a large matrix) by position, and the same
+// markup differs 0.6-1.0% (tolerance 16) between x = 45 and x = 0 while an inline copy and an <img> at the same x agree exactly (#1085).
 const tileShot = async (page, locator) => {
   await locator.scrollIntoViewIfNeeded();
   await page.evaluate(() => window.scrollTo(Math.round(window.scrollX), Math.round(window.scrollY)));
   await locator.evaluate((el) => {
     const r = el.getBoundingClientRect();
     el.style.position = 'relative';
-    el.style.left = `${(parseFloat(el.style.left) || 0) + Math.round(r.x) - r.x}px`;
+    el.style.left = `${(parseFloat(el.style.left) || 0) - r.x}px`;
     el.style.top = `${(parseFloat(el.style.top) || 0) + Math.round(r.y) - r.y}px`;
   });
   // A whole number of device pixels, as png() and wholePixel round their sizes (a fractional clip is cut to a size they do not share).
@@ -31,7 +33,7 @@ const tileShot = async (page, locator) => {
 // A pixel of a matches when any pixel within `radius` pixels of it in b is within CHANNEL_TOL (a channel differs by more than that). Images of different sizes differ completely (1).
 // Radius 1 at scale k (CR #1116): an exact match there is too strict, Chromium's on the ray tiles is 1.05-1.45% at scale 2, as the on-screen rasterisation of thin lines
 // and glyph edges differs from a drawn image by up to a pixel. Radius 0 at scale 1 (CR #1119): with the scroll rounded and a whole-pixel viewBox the misses are at most 0.24%,
-// and a 1-px shift or a 1.25x stroke scores at least 0.87%.
+// and a 1-px shift or a 1.25x stroke scores at least 0.87%. PNG-against-tile at scale 1 takes radius 1 and < 1% (CR #1124); O1 and PNG-against-standalone stay exact at 0.5%.
 // Pixels inside a mask rect ([left, top, right, bottom] in image pixels, already padded) are never counted as misses (CR #1112); the budget stays all pixels.
 // Returns { d: missed fraction, masked: masked fraction }.
 const nearFraction = (page, a, b, mask = [], radius = 1) => page.evaluate(async ([a, b, tol, mask, radius]) => {
@@ -134,13 +136,13 @@ const checkStandalone = async (page, bare, svg) => {
   expect(faces.unloadable).toEqual([]);
 };
 
-// The PNG b64 box-averaged 2x2 to half its size, as base64 PNG. drawImage's own downscale skips pixels in WebKit and Firefox, which moves every thin line.
-const halve = (page, b64) => page.evaluate(async (b64) => {
+// The PNG b64 box-averaged 2x2 to w x h (the tile's rounded size, which the PNG's half can miss by a pixel when the box is fractional), as base64 PNG. drawImage's own downscale skips pixels in WebKit and Firefox, which moves every thin line.
+const halve = (page, b64, w, h) => page.evaluate(async ([b64, w, h]) => {
   const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
   const big = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
   big.drawImage(bmp, 0, 0);
   const src = big.getImageData(0, 0, bmp.width, bmp.height).data;
-  const c = new OffscreenCanvas(Math.round(bmp.width / 2), Math.round(bmp.height / 2));
+  const c = new OffscreenCanvas(w, h);
   const g = c.getContext('2d'), out = g.createImageData(c.width, c.height);
   for (let y = 0; y < c.height; y++) {
     for (let x = 0; x < c.width; x++) {
@@ -156,7 +158,7 @@ const halve = (page, b64) => page.evaluate(async (b64) => {
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(bin);
-}, b64);
+}, [b64, w, h]);
 
 // A tile shot at deviceScaleFactor k: the gallery loaded in a context of that factor, `open(page2, k)` returning the tile there (after any state it needs), then tileShot.
 // The default opens the first MTF tile.
@@ -205,10 +207,12 @@ const checkPng = async (page, svg, open) => {
     expect(Math.abs(r.h - r.bh)).toBeLessThanOrEqual(1);
     if (scale === 1) expect(r.diff).toBeLessThan(0.005);
     // Against the on-screen tile too, so a font-load race in png cannot pass by hitting the reference image as well. Taken after png() has read the element: tileShot moves it.
+    // The scale-k rule, radius 1 and < 1% (CR #1124): Chromium and WebKit raster the ray polylines differently in a canvas than on the page, and O1 plus
+    // PNG-against-standalone, both exact, tie the PNG to the tile.
     if (scale === 1) {
       const shot = await tileShot(page, svg);
-      const { d } = await nearFraction(page, shot.toString('base64'), r.b64, [], 0);
-      expect(d).toBeLessThan(0.005);
+      const { d } = await nearFraction(page, shot.toString('base64'), r.b64, [], 1);
+      expect(d).toBeLessThan(0.01);
     } else {
       // Scale 2 drawn into a canvas of half its size must still match the tile: strokes (curves with vector-effect included) scale with the PNG (CR #1102).
       // Text is left out of this comparison (CR #1112): Linux Chromium draws on-screen text with subpixel AA and hinted widths that a canvas never matches.
@@ -224,7 +228,8 @@ const checkPng = async (page, svg, open) => {
       if (await svg.evaluate((el) => el.querySelector('text') !== null)) expect(mask.length).toBeGreaterThan(0);
       // The reference is the tile shot at deviceScaleFactor k, box-averaged to 1x the same way as the PNG, so both sides are exact-coverage rasters (CR #1116).
       const ref = await dprShot(page, scale, open);
-      const { d, masked } = await nearFraction(page, await halve(page, ref.toString('base64')), await halve(page, r.b64), mask);
+      const tw = Math.round(r.bw / scale), th = Math.round(r.bh / scale);
+      const { d, masked } = await nearFraction(page, await halve(page, ref.toString('base64'), tw, th), await halve(page, r.b64, tw, th), mask);
       console.log(`scale-k masked fraction ${masked.toFixed(4)}, unmasked misses ${d.toFixed(4)}`);
       expect(d).toBeLessThan(0.01);
       // An oversized text box cannot hide most of the tile.
@@ -237,7 +242,7 @@ const checkPng = async (page, svg, open) => {
 const blockedPage = async (context) => {
   const bare = await context.newPage();
   // As large as the gallery's page, so a clip of the drawn image is not cut by the default 1280 x 720 viewport.
-  await bare.setViewportSize({ width: 1440, height: 1400 });
+  await bare.setViewportSize({ width: 1440, height: 1800 });
   await bare.route('**/*', (route) => (route.request().resourceType() === 'font' || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.abort() : route.continue()));
   return bare;
 };
@@ -283,7 +288,7 @@ const setState = async (page, c, svg, k = 1) => {
 // Run `check(svg)` on every case; the failures are collected so one run names every tile that breaks.
 const eachTile = async (page, check) => {
   // Tall enough for the tallest tile: a clip past the viewport's bottom is cut short.
-  await page.setViewportSize({ width: 1440, height: 1400 });
+  await page.setViewportSize({ width: 1440, height: 1800 });
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const cases = await everyTile(page);
@@ -358,7 +363,6 @@ test('pixel rule catches a 1-px shift and a 1.25x stroke', async ({ page, contex
 
 // #1084 (plan #1076 O1). oracle: U15's 1% pixel rule and every used face embedded and loadable, on every SVG tile in both themes, one zoomed and one hovered (the hover layer is not part of the plot).
 test('standalone matches (every tile)', async ({ page, context }) => {
-  test.skip(true, 'unskipped by #1085; the failing tiles are fixed there');
   test.setTimeout(300000);
   const bare = await blockedPage(context);
   await eachTile(page, (svg) => checkStandalone(page, bare, svg));
@@ -366,7 +370,6 @@ test('standalone matches (every tile)', async ({ page, context }) => {
 
 // #1084 (plan #1076 O2). oracle: U15's size rule and the scale 1 and scale k pixel rules of `png size and pixels`, on every SVG tile in both themes, one zoomed and one hovered.
 test('png size and pixels (every tile)', async ({ page }) => {
-  test.skip(true, 'unskipped by #1085; the failing tiles are fixed there');
   test.setTimeout(900000); // each case also opens a context at the scale factor
   await eachTile(page, (svg, open) => checkPng(page, svg, open));
 });
@@ -434,7 +437,7 @@ test('used faces embedded', async ({ page, context }) => {
 
   const bare = await context.newPage();
   // As large as the gallery's page, so a clip of the drawn image is not cut by the default 1280 x 720 viewport.
-  await bare.setViewportSize({ width: 1440, height: 1400 });
+  await bare.setViewportSize({ width: 1440, height: 1800 });
   await bare.route('**/*', (route) => (route.request().resourceType() === 'font' || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.abort() : route.continue()));
   await bare.goto('about:blank');
   const r = await bare.evaluate(async (s) => {
