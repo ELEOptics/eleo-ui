@@ -1,5 +1,5 @@
 // Export a plot as SVG and PNG (plan #1076). Run after `npm run build`.
-// oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG within 1%; at scale k, the PNG box-averaged to 1x matches the on-screen tile within 1%
+// oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG within 1%; at scale k, the PNG box-averaged to 1x matches the on-screen tile outside text within 1%
 // (a pixel matches when one within 1 px is within the channel tolerance); every used face embedded and loadable with the network blocked
 import { test, expect } from '@playwright/test';
 
@@ -54,7 +54,7 @@ const nearFraction = (page, a, b, mask = []) => page.evaluate(async ([a, b, tol,
     return { w: bmp.width, h: bmp.height, d: g.getImageData(0, 0, bmp.width, bmp.height).data };
   };
   const [p, q] = [await px(a), await px(b)];
-  if (p.w !== q.w || p.h !== q.h) return 1;
+  if (p.w !== q.w || p.h !== q.h) return { d: 1, masked: 0 };
   const far = (i, j) => Math.max(Math.abs(p.d[i] - q.d[j]), Math.abs(p.d[i + 1] - q.d[j + 1]), Math.abs(p.d[i + 2] - q.d[j + 2]), Math.abs(p.d[i + 3] - q.d[j + 3])) > tol;
   let n = 0, masked = 0;
   for (let y = 0; y < p.h; y++) {
@@ -129,7 +129,7 @@ test('standalone matches', async ({ page, context }) => {
   expect(faces.unloadable).toEqual([]);
 });
 
-// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 1%, at scale k box-averaged to 1x the on-screen tile within 1% (1-px neighbourhood).
+// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 1%, at scale k box-averaged to 1x the on-screen tile outside text within 1% (1-px neighbourhood).
 test('png size and pixels', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -207,6 +207,8 @@ test('png size and pixels', async ({ page }) => {
       const { d, masked } = await nearFraction(page, shot.toString('base64'), half, mask);
       console.log(`scale-k masked fraction ${masked.toFixed(4)}, unmasked misses ${d.toFixed(4)}`);
       expect(d).toBeLessThan(0.01);
+      // An oversized text box cannot hide most of the tile.
+      expect(masked).toBeLessThan(0.1);
     }
   }
 });
