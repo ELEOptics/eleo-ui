@@ -83,6 +83,7 @@ Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved
 | [#1110] | `png`: dashoffset px-gated, header comment per CR [#1109], test awaits its promise and skips the unused scale-2 build | one item for review M1 round 7's four findings because they touch the same lines; the dashoffset goes through `PX` like its siblings; considered leaving it, since `clip.js` writes px only | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::png scales px strokes only` | [#1108] |
 | [#1111] | `png scales px strokes only`'s oracle comment names `stroke-dashoffset` | forced (review M1 round 8: #1110 asserts the dashoffset, but the oracle line names only width and dasharray) | `tests/export.spec.js` | `export.spec.js::png scales px strokes only` | [#1110] |
 | [#1113] | O2's scale-k check leaves text out (CR [#1112]) | forced (CR [#1112], the user): Linux Chromium draws on-screen text with subpixel AA and hinted widths that a canvas never matches (text 0.92%, the rest 0.22%); text against the tile stays covered at 1× by O1 | `tests/export.spec.js` | `export.spec.js::png size and pixels` | [#1111] |
+| [#1115] | Export tests: O2's oracle lines name the text mask (CR [#1114]), `nearFraction`'s size path returns `{ d, masked }`, the masked share bounded below 10% | one item for review M1 round 10's three findings because they touch the same test; a 10% bound because the measured share is 5.5-6.4%, which leaves room for a theme or font change; considered asserting the share per tile, which belongs to [#1084] | `tests/export.spec.js` | `export.spec.js::png size and pixels` | [#1113] |
 
 ### M2: every tile and the gallery's save buttons GitHub: `P1076 M2: every tile and save`
 
@@ -136,6 +137,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-13 review M1 round 7 (code-reviewer, claude-opus-5-5): 1 blocking (CR [#1109], a stale comment, accepted) and 3 backlog. The breaker tripped. Per round, blocking plus items pulled in: 6, 1, 1, 1, 0, 3, 4 (rounds 2-4 were miscounted as findings, 3, 1, 1, so the breaker should already have tripped at round 4). The user answered 'continue'; all four findings go in item [#1110].
 - 2026-11-13 review M1 round 8 (code-reviewer, claude-opus-5-5): 0 blocking, all seven carried CRs resolved. One P3 comment finding pulled in as [#1111]. Count 1, down from 4.
 - 2026-11-13 review M1 round 9 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in. CI was red on 69fa4c1 and 2732a9d: Linux Chromium's scale-2 check at 1.14%. CR [#1112], investigated in Playwright's Linux image: the excess is all text (subpixel AA, hinted widths), and the export is right. The user chose to mask text at scale k; item [#1113].
+- 2026-11-13 review M1 round 10 (code-reviewer, claude-opus-5-5): 1 blocking, CR [#1114] (O2's oracle lines omit the text mask), accepted by the orchestrator; backlog findings 2 and 3 pulled into the same item [#1115]. All eight carried CRs resolved. Per round, blocking plus pulled in: round 9 0, round 10 2.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
@@ -179,3 +181,5 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 [#1111]: https://github.com/ELEOptics/eleo-ui/issues/1111
 [#1112]: https://github.com/ELEOptics/eleo-ui/issues/1112
 [#1113]: https://github.com/ELEOptics/eleo-ui/issues/1113
+[#1114]: https://github.com/ELEOptics/eleo-ui/issues/1114
+[#1115]: https://github.com/ELEOptics/eleo-ui/issues/1115
