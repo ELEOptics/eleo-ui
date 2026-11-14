@@ -98,6 +98,8 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 | [#1085] | Every SVG tile through `standalone` and `png` | unskip the every-tile tests and fix what they find in `export.js` (a property missing from the list, `map2D`'s `<image>`); a tile over the 1% rule that needs a renderer change stops and is reported | `packages/plots/src/export.js`, `tests/export.spec.js` | `standalone matches (every tile)`, `png size and pixels (every tile)` | [#1084], [#1117], [#1120], [#1121] |
 | [#1086] | The gallery's save buttons | buttons `SVG` and `PNG ×2` (`.eleo-btn--sm`) in a new `.eleo-plot__actions` div in the MTF tile's `.eleo-plot__hd`, and a five-line `download(blob, name)` in the gallery, because the caller owns the button (row I); considered a `download` helper in the package, which phos would replace with its own dialog | `gallery/index.html` | `export.spec.js::gallery save` | [#1085] |
 | [#1087] | Unskip O3 | forced (`workflow.md`, TDD) | `tests/export.spec.js` | `gallery save` | all above |
+| [#1130] | `png` keeps a letterboxed SVG's fit; stale export comments; `build` returns `bg` (CRs [#1127], [#1128], [#1129]) | one item for review M2 round 1's three blocking findings and backlog finding 7 because they touch the same two files; the whole-pixel viewBox only when the box has the viewBox's shape within layout rounding, because spot, footprint and rayFan differ by about 2e-5 and need it, while a letterboxed SVG must keep its own fit; considered dropping `xMinYMin` outright, which shifts those tiles by a sub-pixel | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::png keeps a letterboxed SVG's fit` | [#1087] |
+| [#1131] | Gallery save handler: no click before draw, failures logged | early return and `.catch` because a tainted-canvas `toBlob` rejects unhandled (review M2 round 1, backlog finding 6); considered a user-facing message, which the caller owns | `gallery/index.html`, `tests/export.spec.js` | `export.spec.js::gallery save logs a failed export` | [#1087] |
 
 ## Risks and spikes
 
@@ -149,6 +151,8 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-14 #1120: done. CR [#1122] (user): accepted, re-record only the `throughFocus` entry of `renderers-baseline.json`, whose dots draw through spot's panel function, for [#1121]'s 0.001 px dot (length set from the panel's scale, so it is 0.001 px at any data scale); the script header names the CR. #1121's Files gain the gallery ink case, the README's dot form and two comments. The first attempt's compound fixture-restore command was refused by the auto-mode classifier; the attempt was discarded per the CR rules.
 - 2026-11-14 CR [#1123] (orchestrator): accepted. #1121's second attempt found WebKit's canvas drops two thirds of a 0.001 px dot's ink (screen/canvas 2.87), which `png` would inherit; at 0.01 px both paint once (0.95). The dot is 0.01 px, the gallery case's ink bound 7% (double paint 15.3%, fix 4.9%), `throughFocus` re-recorded again within CR [#1122].
 - 2026-11-14 #1121: done. CR [#1124] (user): accepted, option `neighbour`. #1085's third attempt left one check failing in Chromium and WebKit: the scale-1 PNG against the on-screen tile on the layout2D ray tiles (0.51-1.07%), because those browsers raster the ray polylines differently in a canvas than on the page (the PNG equals its own `<img>`; Firefox 0.13%). That check takes the scale-k rule (1-px neighbourhood, 1%; measured worst 0.41%); O1 and PNG-against-standalone stay exact at 0.5%, which tie the PNG to the tile. It lands inside [#1085], whose Files cover it.
+- 2026-11-14 [#1085], [#1086], [#1087] done; every acceptance test unskipped and green in three browsers. A rare reload timeout in the every-tile tests filed as [#1125].
+- 2026-11-14 review M2 round 1 (code-reviewer, claude-opus-5-5): 3 blocking, filed as CRs [#1127] (`png` drops a letterboxed SVG's fit), [#1128] and [#1129] (stale comments) and accepted by the orchestrator, item [#1130] with backlog finding 7; backlog finding 6 pulled in as [#1131]; finding 4 (four test-side dot parsers) stays [#1126]. Finding 5, U14 (measured by the reviewer at 5f75f98, `PERF=1`, Chromium): spot redraw median 3.80 ms, curve panels 0.90 ms, hover on spot 2.30 ms, all under 16 ms after [#1121]'s dot change. Per round, blocking plus pulled in: round 1 5.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
@@ -203,3 +207,10 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 [#1122]: https://github.com/ELEOptics/eleo-ui/issues/1122
 [#1123]: https://github.com/ELEOptics/eleo-ui/issues/1123
 [#1124]: https://github.com/ELEOptics/eleo-ui/issues/1124
+[#1125]: https://github.com/ELEOptics/eleo-ui/issues/1125
+[#1126]: https://github.com/ELEOptics/eleo-ui/issues/1126
+[#1127]: https://github.com/ELEOptics/eleo-ui/issues/1127
+[#1128]: https://github.com/ELEOptics/eleo-ui/issues/1128
+[#1129]: https://github.com/ELEOptics/eleo-ui/issues/1129
+[#1130]: https://github.com/ELEOptics/eleo-ui/issues/1130
+[#1131]: https://github.com/ELEOptics/eleo-ui/issues/1131
