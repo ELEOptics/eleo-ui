@@ -107,8 +107,17 @@ async function build(svg, options) {
   clone.setAttribute('xmlns', NS);
   clone.setAttribute('width', `${box.width}px`);
   clone.setAttribute('height', `${box.height}px`);
+  // The rect covers the whole viewport in user units (the inverse of the viewBox fit), so a letterboxed export has no transparent bands.
+  const par = svg.preserveAspectRatio && svg.preserveAspectRatio.baseVal;
+  let [bx, by, bw, bh] = [x, y, w, h];
+  if (vb && vb.width && par && par.align !== 1 && w > 0 && h > 0) {
+    const k = par.meetOrSlice === 2 ? Math.max(box.width / w, box.height / h) : Math.min(box.width / w, box.height / h);
+    const a = par.align - 2, fx = [0, 0.5, 1][a % 3], fy = [0, 0.5, 1][Math.floor(a / 3)];
+    bw = box.width / k; bh = box.height / k;
+    bx = x - ((box.width - w * k) * fx) / k; by = y - ((box.height - h * k) * fy) / k;
+  }
   const bg = document.createElementNS(NS, 'rect');
-  bg.setAttribute('x', x); bg.setAttribute('y', y); bg.setAttribute('width', w); bg.setAttribute('height', h);
+  bg.setAttribute('x', bx); bg.setAttribute('y', by); bg.setAttribute('width', bw); bg.setAttribute('height', bh);
   bg.setAttribute('fill', getComputedStyle(svg).getPropertyValue('--surface').trim());
   clone.insertBefore(bg, clone.firstChild);
   if (!options || options.fonts !== false) await embedFonts(clone);

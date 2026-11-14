@@ -392,6 +392,27 @@ test('gallery save', async ({ page }) => {
   expect(Math.abs(png.readUInt32BE(20) - size[1] * 2)).toBeLessThanOrEqual(1);
 });
 
+// #1132 (plan #1076 O3, review M2 round 2 finding 2). oracle: property with the MTF tile's [data-svg] emptied, clicking SVG raises no pageerror, logs no console error (the early return is silent; without it standalone(null) rejects into the logger) and downloads nothing.
+test('gallery save waits for the tile', async ({ page }) => {
+  const errors = [];
+  const logged = [];
+  let downloads = 0;
+  page.on('pageerror', (e) => errors.push(e));
+  page.on('console', (m) => { if (m.type() === 'error') logged.push(m.text()); });
+  page.on('download', () => { downloads++; });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const tile = page.locator('.theme[data-theme="light"] [data-tile="mtf"]');
+  await tile.scrollIntoViewIfNeeded();
+  logged.length = 0;
+  await tile.locator('[data-svg]').evaluate((el) => { el.innerHTML = ''; });
+  await tile.locator('.eleo-plot__hd .eleo-plot__actions button', { hasText: /^SVG$/ }).click();
+  await page.waitForTimeout(500);
+  expect(errors).toEqual([]);
+  expect(logged).toEqual([]);
+  expect(downloads).toBe(0);
+});
+
 // #1131 (plan #1076 O3, review M2 finding 6). oracle: property a rejected ELEO.png from the PNG x2 button logs a console error and raises no pageerror.
 test('gallery save logs a failed export', async ({ page }) => {
   const errors = [];
@@ -672,6 +693,11 @@ test('png keeps a letterboxed SVG\'s fit', async ({ page }) => {
         const red = [];
         for (let x = 0; x < bmp.width; x++) if (row[x * 4] > 200 && row[x * 4 + 1] < 60) red.push(x);
         res[scale] = [red[0], red[red.length - 1] + 1];
+        const all = g.getImageData(0, 0, bmp.width, bmp.height).data;
+        let clear = 0;
+        for (let i = 3; i < all.length; i += 4) if (all[i] !== 255) clear++;
+        res['clear' + scale] = clear;
+        res['edge' + scale] = Array.from(g.getImageData(0, 0, 1, 1).data);
       }
       svg.remove();
       out[par] = res;
@@ -681,4 +707,9 @@ test('png keeps a letterboxed SVG\'s fit', async ({ page }) => {
   expect(r['xMidYMid meet'].screen).toEqual([50, 100]);
   expect(r['none'].screen).toEqual([0, 100]);
   for (const par of Object.keys(r)) for (const scale of [1, 2]) expect(r[par][scale]).toEqual(r[par].screen.map((v) => v * scale));
+  // No transparent bands: every pixel is opaque and the corner (a band in the meet case) is the surface colour.
+  for (const par of Object.keys(r)) for (const scale of [1, 2]) {
+    expect(r[par]['clear' + scale]).toBe(0);
+    expect(r[par]['edge' + scale]).toEqual(par === 'none' ? [255, 0, 0, 255] : [255, 255, 255, 255]);
+  }
 });
