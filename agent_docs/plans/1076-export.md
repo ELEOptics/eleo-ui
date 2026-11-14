@@ -100,6 +100,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 | [#1087] | Unskip O3 | forced (`workflow.md`, TDD) | `tests/export.spec.js` | `gallery save` | all above |
 | [#1130] | `png` keeps a letterboxed SVG's fit; stale export comments; `build` returns `bg` (CRs [#1127], [#1128], [#1129]) | one item for review M2 round 1's three blocking findings and backlog finding 7 because they touch the same two files; the whole-pixel viewBox only when the box has the viewBox's shape within layout rounding, because spot, footprint and rayFan differ by about 2e-5 and need it, while a letterboxed SVG must keep its own fit; considered dropping `xMinYMin` outright, which shifts those tiles by a sub-pixel | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::png keeps a letterboxed SVG's fit` | [#1087] |
 | [#1131] | Gallery save handler: no click before draw, failures logged | early return and `.catch` because a tainted-canvas `toBlob` rejects unhandled (review M2 round 1, backlog finding 6); considered a user-facing message, which the caller owns | `gallery/index.html`, `tests/export.spec.js` | `export.spec.js::gallery save logs a failed export` | [#1087] |
+| [#1132] | Letterboxed exports have no transparent bands; the save handler's early return is tested | one item for review M2 round 2's two backlog findings because both land in `tests/export.spec.js`; the background rect covers the viewport in user units because `build` sizes it to the viewBox, which leaves a letterboxed export's bands at alpha 0; considered documenting the bands, which breaks the README's background promise outside the viewBox | `packages/plots/src/export.js`, `tests/export.spec.js` | `export.spec.js::png keeps a letterboxed SVG's fit`, `gallery save waits for the tile` | [#1130], [#1131] |
 
 ## Risks and spikes
 
@@ -153,6 +154,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-14 #1121: done. CR [#1124] (user): accepted, option `neighbour`. #1085's third attempt left one check failing in Chromium and WebKit: the scale-1 PNG against the on-screen tile on the layout2D ray tiles (0.51-1.07%), because those browsers raster the ray polylines differently in a canvas than on the page (the PNG equals its own `<img>`; Firefox 0.13%). That check takes the scale-k rule (1-px neighbourhood, 1%; measured worst 0.41%); O1 and PNG-against-standalone stay exact at 0.5%, which tie the PNG to the tile. It lands inside [#1085], whose Files cover it.
 - 2026-11-14 [#1085], [#1086], [#1087] done; every acceptance test unskipped and green in three browsers. A rare reload timeout in the every-tile tests filed as [#1125].
 - 2026-11-14 review M2 round 1 (code-reviewer, claude-opus-5-5): 3 blocking, filed as CRs [#1127] (`png` drops a letterboxed SVG's fit), [#1128] and [#1129] (stale comments) and accepted by the orchestrator, item [#1130] with backlog finding 7; backlog finding 6 pulled in as [#1131]; finding 4 (four test-side dot parsers) stays [#1126]. Finding 5, U14 (measured by the reviewer at 5f75f98, `PERF=1`, Chromium): spot redraw median 3.80 ms, curve panels 0.90 ms, hover on spot 2.30 ms, all under 16 ms after [#1121]'s dot change. Per round, blocking plus pulled in: round 1 5.
+- 2026-11-14 [#1130], [#1131] done. Review M2 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, all eight carried CRs resolved; two small backlog findings in files M2 changed pulled in as [#1132]. Per round, blocking plus pulled in: 5, 2.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
@@ -214,3 +216,4 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 [#1129]: https://github.com/ELEOptics/eleo-ui/issues/1129
 [#1130]: https://github.com/ELEOptics/eleo-ui/issues/1130
 [#1131]: https://github.com/ELEOptics/eleo-ui/issues/1131
+[#1132]: https://github.com/ELEOptics/eleo-ui/issues/1132
