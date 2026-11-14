@@ -1,6 +1,6 @@
 // Export a plot as SVG and PNG (plan #1076). Run after `npm run build`.
-// oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG and the tile within 1%; at scale k, the PNG box-averaged to 1x matches a DPR-k tile shot box-averaged to 1x outside text within 1%
-// (CR #1116; a pixel matches when one within 1 px is within the channel tolerance); every used face embedded and loadable with the network blocked
+// oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG and the tile within 0.5% exact misses; at scale k, the PNG box-averaged to 1x matches a DPR-k tile shot box-averaged to 1x outside text within 1%
+// (CR #1116; a pixel matches when one within 1 px is within the channel tolerance; CR #1119: exact at scale 1); every used face embedded and loadable with the network blocked
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 
@@ -11,26 +11,30 @@ const CHANNEL_TOL = 16;
 
 // Screenshot of a tile at its own size. The tile sits at a fractional offset, so locator.screenshot() rounds its box up a pixel
 // and the half-pixel offset blurs every glyph against the export. Move it onto the pixel grid, then clip to its width and height.
+// scrollIntoViewIfNeeded can leave scrollY at x.5, and Firefox then paints the tile half a pixel off its rect: round the scroll first (CR #1119).
 const tileShot = async (page, locator) => {
   await locator.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollTo(Math.round(window.scrollX), Math.round(window.scrollY)));
   await locator.evaluate((el) => {
     const r = el.getBoundingClientRect();
     el.style.position = 'relative';
     el.style.left = `${(parseFloat(el.style.left) || 0) + Math.round(r.x) - r.x}px`;
     el.style.top = `${(parseFloat(el.style.top) || 0) + Math.round(r.y) - r.y}px`;
   });
-  const size = await locator.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.width, r.height]; });
+  // A whole number of device pixels, as png() and wholePixel round their sizes (a fractional clip is cut to a size they do not share).
+  const size = await locator.evaluate((el) => { const r = el.getBoundingClientRect(), k = window.devicePixelRatio; return [Math.round(r.width * k) / k, Math.round(r.height * k) / k]; });
   const box = await locator.boundingBox();
   return page.screenshot({ clip: { x: box.x, y: box.y, width: size[0], height: size[1] } });
 };
 
 // Fraction of pixels of a that miss b, both base64 PNGs decoded in the page with createImageBitmap and getImageData (as map2d.spec.js:20 reads a canvas; no pixelmatch).
-// A pixel of a matches when any pixel within one pixel of it in b is within CHANNEL_TOL (a channel differs by more than that). Images of different sizes differ completely (1).
-// An exact match is too strict (CR #1116): Firefox's is 1.34% against a tile shot on the pixel grid, and Chromium's on the ray tiles is 1.05-1.45% at scale 2. The on-screen
-// rasterisation of thin lines and glyph edges differs from a drawn image by up to a pixel. A stroke of the wrong weight still differs in its centre pixels.
+// A pixel of a matches when any pixel within `radius` pixels of it in b is within CHANNEL_TOL (a channel differs by more than that). Images of different sizes differ completely (1).
+// Radius 1 at scale k (CR #1116): an exact match there is too strict, Chromium's on the ray tiles is 1.05-1.45% at scale 2, as the on-screen rasterisation of thin lines
+// and glyph edges differs from a drawn image by up to a pixel. Radius 0 at scale 1 (CR #1119): with the scroll rounded and a whole-pixel viewBox the misses are at most 0.24%,
+// and a 1-px shift or a 1.25x stroke scores at least 0.87%.
 // Pixels inside a mask rect ([left, top, right, bottom] in image pixels, already padded) are never counted as misses (CR #1112); the budget stays all pixels.
 // Returns { d: missed fraction, masked: masked fraction }.
-const nearFraction = (page, a, b, mask = []) => page.evaluate(async ([a, b, tol, mask]) => {
+const nearFraction = (page, a, b, mask = [], radius = 1) => page.evaluate(async ([a, b, tol, mask, radius]) => {
   const px = async (s) => {
     const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob());
     const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
@@ -46,8 +50,8 @@ const nearFraction = (page, a, b, mask = []) => page.evaluate(async ([a, b, tol,
       if (mask.some(([l, t, r, bt]) => x >= l && x < r && y >= t && y < bt)) { masked++; continue; }
       const i = (y * p.w + x) * 4;
       let miss = true;
-      for (let dy = -1; dy <= 1 && miss; dy++) {
-        for (let dx = -1; dx <= 1 && miss; dx++) {
+      for (let dy = -radius; dy <= radius && miss; dy++) {
+        for (let dx = -radius; dx <= radius && miss; dx++) {
           const u = x + dx, v = y + dy;
           if (u >= 0 && v >= 0 && u < p.w && v < p.h && !far(i, (v * p.w + u) * 4)) miss = false;
         }
@@ -56,7 +60,7 @@ const nearFraction = (page, a, b, mask = []) => page.evaluate(async ([a, b, tol,
     }
   }
   return { d: n / (p.w * p.h), masked: masked / (p.w * p.h) };
-}, [a, b, CHANNEL_TOL, mask]);
+}, [a, b, CHANNEL_TOL, mask, radius]);
 
 // #1107 (plan #1076 O2). oracle: a second tileShot leaves the tile where the first put it, on the pixel grid, so the screenshots are identical.
 test('tileShot is idempotent', async ({ page }) => {
@@ -71,19 +75,39 @@ test('tileShot is idempotent', async ({ page }) => {
   expect(second.equals(first)).toBe(true);
 });
 
+// `svg`'s standalone string drawn at whole pixels (CR #1119): an <img> and a canvas raster at whole pixels, so a tile of fractional height would be meet-scaled.
+// The root gets width and height rounded and a viewBox of the same extent in user units, anchored top left, and its background rect covers it.
+// Returns { str, w, h }.
+const wholePixel = (svg) => svg.evaluate(async (el) => {
+  const str = await window.ELEO.standalone(el);
+  const box = el.getBoundingClientRect(), w = Math.round(box.width), h = Math.round(box.height);
+  const doc = new DOMParser().parseFromString(str, 'image/svg+xml');
+  const root = doc.documentElement, vb = el.viewBox && el.viewBox.baseVal;
+  if (vb && vb.width) {
+    const ux = vb.width / box.width, uy = vb.height / box.height;
+    root.setAttribute('viewBox', `${vb.x} ${vb.y} ${w * ux} ${h * uy}`);
+    root.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+    const bg = root.querySelector(':scope > rect'); // standalone puts its background rect first among the shapes, after the style
+    bg.setAttribute('width', w * ux); bg.setAttribute('height', h * uy);
+  }
+  root.setAttribute('width', `${w}px`);
+  root.setAttribute('height', `${h}px`);
+  return { str: new XMLSerializer().serializeToString(root), w, h };
+});
+
 // Drawn in a page with no ELEO CSS and font requests blocked, `svg`'s standalone string matches the on-screen tile within 1% and every used face loads (O1).
 // bare is that page: a context.newPage() with its font requests aborted.
 const checkStandalone = async (page, bare, svg) => {
   const out = await svg.evaluate((el) => window.ELEO.standalone(el));
-  const size = await svg.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.width, r.height]; });
+  const whole = await wholePixel(svg);
   const hasText = await svg.evaluate((el) => el.querySelector('text') !== null);
   const shot = await tileShot(page, svg);
 
   await bare.goto('about:blank');
-  await bare.setContent(`<body style="margin:0;background:#fff"><img id="i" width="${size[0]}" height="${size[1]}" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(out)}"></body>`);
+  await bare.setContent(`<body style="margin:0;background:#fff"><img id="i" width="${whole.w}" height="${whole.h}" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(whole.str)}"></body>`);
   await bare.locator('#i').evaluate((i) => i.decode());
-  const drawn = await bare.screenshot({ clip: { x: 0, y: 0, width: size[0], height: size[1] } });
-  expect((await nearFraction(bare, shot.toString('base64'), drawn.toString('base64'))).d).toBeLessThan(0.01);
+  const drawn = await bare.screenshot({ clip: { x: 0, y: 0, width: whole.w, height: whole.h } });
+  expect((await nearFraction(bare, shot.toString('base64'), drawn.toString('base64'), [], 0)).d).toBeLessThan(0.005);
 
   // Every used face is embedded and loads.
   const faces = await bare.evaluate(async (s) => {
@@ -152,7 +176,8 @@ const dprShot = async (page, k, open = (p) => p.locator(TILE).first()) => {
 // the tile shot at deviceScaleFactor 2 and box-averaged to 1x, outside the text boxes (O2).
 const checkPng = async (page, svg, open) => {
   for (const scale of [1, 2]) {
-    const r = await svg.evaluate(async (el, [scale, tol]) => {
+    const fit = scale === 1 ? (await wholePixel(svg)).str : null;
+    const r = await svg.evaluate(async (el, [scale, tol, fit]) => {
       const blob = await window.ELEO.png(el, { scale });
       const box = el.getBoundingClientRect();
       const bmp = await createImageBitmap(blob);
@@ -160,8 +185,7 @@ const checkPng = async (page, svg, open) => {
       // The standalone string keeps its screen-space strokes, so only at scale 1 does it draw like the PNG: compare there only (CR #1102).
       let diff = null;
       if (scale === 1) {
-        const str = await window.ELEO.standalone(el);
-        const url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml' }));
+        const url = URL.createObjectURL(new Blob([fit], { type: 'image/svg+xml' }));
         const img = new Image();
         img.src = url;
         try { await img.decode(); } finally { URL.revokeObjectURL(url); }
@@ -175,16 +199,16 @@ const checkPng = async (page, svg, open) => {
       let bin = '';
       for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(bin), type: blob.type, w: bmp.width, h: bmp.height, bw: box.width * scale, bh: box.height * scale, diff };
-    }, [scale, CHANNEL_TOL]);
+    }, [scale, CHANNEL_TOL, fit]);
     expect(r.type).toBe('image/png');
     expect(Math.abs(r.w - r.bw)).toBeLessThanOrEqual(1);
     expect(Math.abs(r.h - r.bh)).toBeLessThanOrEqual(1);
-    if (scale === 1) expect(r.diff).toBeLessThan(0.01);
+    if (scale === 1) expect(r.diff).toBeLessThan(0.005);
     // Against the on-screen tile too, so a font-load race in png cannot pass by hitting the reference image as well. Taken after png() has read the element: tileShot moves it.
     if (scale === 1) {
       const shot = await tileShot(page, svg);
-      const { d } = await nearFraction(page, shot.toString('base64'), r.b64);
-      expect(d).toBeLessThan(0.01);
+      const { d } = await nearFraction(page, shot.toString('base64'), r.b64, [], 0);
+      expect(d).toBeLessThan(0.005);
     } else {
       // Scale 2 drawn into a canvas of half its size must still match the tile: strokes (curves with vector-effect included) scale with the PNG (CR #1102).
       // Text is left out of this comparison (CR #1112): Linux Chromium draws on-screen text with subpixel AA and hinted widths that a canvas never matches.
@@ -231,7 +255,7 @@ const caseSvg = (page, c) => page.locator(`.theme[data-theme="${c.theme}"] [data
 
 // Put the case's tile in its state. Zoomed: a wheel notch over the plot redraws the data group's matrix(...). Hovered: the pointer on the first point of a series shows the tip;
 // the hover layer is then hidden (display) so the screenshot holds the plot alone, the pointer stays where it is.
-// k is the page's deviceScaleFactor: a wheel delta reaches the page divided by it, so the notch is multiplied by it to zoom as much.
+// k is the page's deviceScaleFactor: Chromium divides a wheel delta by it, so there the notch is multiplied by it to zoom as much; Firefox and WebKit do not (CR #1119).
 const setState = async (page, c, svg, k = 1) => {
   await svg.scrollIntoViewIfNeeded();
   if (c.state === 'plain') return;
@@ -240,7 +264,7 @@ const setState = async (page, c, svg, k = 1) => {
     const before = await matrix();
     const box = await svg.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.wheel(0, -300 * k);
+    await page.mouse.wheel(0, -300 * (page.context().browser().browserType().name() === 'chromium' ? k : 1));
     await expect.poll(matrix, { message: `${c.name}: the wheel zoomed` }).not.toBe(before);
   } else {
     const at = await svg.evaluate((el) => {
@@ -292,6 +316,44 @@ test('png size and pixels', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await checkPng(page, page.locator(TILE).first());
+});
+
+// #1120 (plan #1076 O1, O2; CR #1119). oracle: metamorphic a clone of the MTF tile with its data group shifted 1 px, or its stroke widths x 1.25, must miss the tile at the scale-1 rule
+// (exact, 0.5%) while the unmodified clone passes it; the faults are injected the way the CR's spike did.
+test('pixel rule catches a 1-px shift and a 1.25x stroke', async ({ page, context }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const svg = page.locator(TILE).first();
+  const whole = await wholePixel(svg);
+  const shot = (await tileShot(page, svg)).toString('base64');
+  const bare = await blockedPage(context);
+  const miss = {};
+  for (const mode of ['none', 'shift', 'stroke']) {
+    await bare.setContent(`<body style="margin:0;background:#fff"><div style="line-height:0">${whole.str}</div></body>`);
+    await bare.evaluate(async (mode) => {
+      await document.fonts.ready;
+      const root = document.querySelector('svg');
+      if (mode === 'stroke') {
+        root.querySelectorAll('*').forEach((e) => {
+          const sw = e.style.getPropertyValue('stroke-width');
+          if (sw && e.style.getPropertyValue('stroke') !== 'none' && e.localName !== 'text') e.style.setProperty('stroke-width', `${parseFloat(sw) * 1.25}px`);
+        });
+      }
+      if (mode === 'shift') {
+        // The data group is the parent of the series paths; one screen pixel right, in the coordinates of the group's parent.
+        const g = root.querySelector('[data-series]').parentNode, inv = g.parentNode.getCTM().inverse();
+        const p0 = new DOMPoint(0, 0).matrixTransform(inv), p1 = new DOMPoint(1, 0).matrixTransform(inv);
+        const t = root.createSVGTransform();
+        t.setTranslate(p1.x - p0.x, p1.y - p0.y);
+        g.transform.baseVal.insertItemBefore(t, 0);
+      }
+    }, mode);
+    const drawn = await bare.screenshot({ clip: { x: 0, y: 0, width: whole.w, height: whole.h } });
+    miss[mode] = (await nearFraction(bare, shot, drawn.toString('base64'), [], 0)).d;
+  }
+  expect(miss.none).toBeLessThan(0.005);
+  expect(miss.shift).toBeGreaterThanOrEqual(0.005);
+  expect(miss.stroke).toBeGreaterThanOrEqual(0.005);
 });
 
 // #1084 (plan #1076 O1). oracle: U15's 1% pixel rule and every used face embedded and loadable, on every SVG tile in both themes, one zoomed and one hovered (the hover layer is not part of the plot).
