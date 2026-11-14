@@ -56,7 +56,7 @@
       <section class="eleo-plot" data-tile="psf-log" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet PSF, recorded, log</span></div><div class="eleo-plot__body" data-map="psf-log"></div></section>
       <section class="eleo-plot" data-tile="wavefront-recorded" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">Cooke triplet wavefront, recorded, waves</span></div><div class="eleo-plot__body" data-map="wavefront-recorded"></div></section>
     <section class="eleo-plot" data-tile="irradiance-gaussian" data-size="map2D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Map2D</h3><span class="eleo-plot__meta">TEM00 Gaussian irradiance, synthetic, w = 1 mm</span></div><div class="eleo-plot__body" data-map="irradiance-gaussian"></div></section>
-      <section class="eleo-plot" data-tile="mtf" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF</span></div><div class="eleo-plot__body" data-svg="mtf"></div></section>
+      <section class="eleo-plot" data-tile="mtf" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF</span><div class="eleo-plot__actions"><button type="button" class="eleo-btn eleo-btn--sm" data-save="svg">SVG</button><button type="button" class="eleo-btn eleo-btn--sm" data-save="png">PNG ×2</button></div></div><div class="eleo-plot__body" data-svg="mtf"></div></section>
       <section class="eleo-plot" data-tile="mtf-limits" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">MTF, requirement limits</span></div><div class="eleo-plot__body" data-svg="mtf-limits"></div></section>
       <section class="eleo-plot" data-tile="fieldCurvature" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">field curvature</span></div><div class="eleo-plot__body" data-svg="fieldCurvature"></div></section>
       <section class="eleo-plot" data-tile="distortion" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">distortion</span></div><div class="eleo-plot__body" data-svg="distortion"></div></section>
@@ -238,6 +238,19 @@
         return Object.assign({}, s, { points: s.points.map(function (p) { return [p[0], p[1] * (0.85 + 0.15 * Math.sin(phase + i + p[0] / 20))]; }) });
       }) });
     }
+    // The caller owns the save button: this is the whole of it.
+    function download(blob, name) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name; a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 0);
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-save]');
+      if (!b) return;
+      var svg = b.closest('.eleo-plot').querySelector('[data-svg] svg');
+      if (b.dataset.save === 'svg') ELEO.standalone(svg).then(function (s) { download(new Blob([s], { type: 'image/svg+xml' }), 'mtf.svg'); });
+      else ELEO.png(svg, { scale: 2 }).then(function (p) { download(p, 'mtf@2x.png'); });
+    });
     var liveFrame = 0;
     function liveTick(t) {
       var on = document.getElementById('live').checked;
