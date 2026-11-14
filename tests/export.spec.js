@@ -97,7 +97,7 @@ const wholePixel = (svg) => svg.evaluate(async (el) => {
   return { str: new XMLSerializer().serializeToString(root), w, h };
 });
 
-// Drawn in a page with no ELEO CSS and font requests blocked, `svg`'s standalone string matches the on-screen tile within 1% and every used face loads (O1).
+// Drawn in a page with no ELEO CSS and font requests blocked, `svg`'s standalone string matches the on-screen tile within 0.5% exact and every used face loads (O1; CR #1119).
 // bare is that page: a context.newPage() with its font requests aborted.
 const checkStandalone = async (page, bare, svg) => {
   const out = await svg.evaluate((el) => window.ELEO.standalone(el));
@@ -309,14 +309,14 @@ const eachTile = async (page, check) => {
   expect(failed).toEqual([]);
 };
 
-// #1077 (plan #1076 O1). oracle: U15's 1% pixel rule; every (family, weight, style) the text uses has an embedded face that loads as a FontFace with the network blocked.
+// #1077 (plan #1076 O1). oracle: U15's pixel rule, 0.5% exact (CR #1119); every (family, weight, style) the text uses has an embedded face that loads as a FontFace with the network blocked.
 test('standalone matches', async ({ page, context }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await checkStandalone(page, await blockedPage(context), page.locator(TILE).first());
 });
 
-// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 1%, at scale k box-averaged to 1x a tile shot at deviceScaleFactor k, also box-averaged, outside text within 1% (1-px neighbourhood, CR #1116).
+// #1077 (plan #1076 O2). oracle: U15's size rule (the PNG is the plot's size times the scale); at scale 1 its pixels match the standalone SVG within 0.5% exact (CR #1119) and the tile with radius 1 within 1% (CR #1124), at scale k box-averaged to 1x a tile shot at deviceScaleFactor k, also box-averaged, outside text within 1% (1-px neighbourhood, CR #1116).
 test('png size and pixels', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -361,7 +361,7 @@ test('pixel rule catches a 1-px shift and a 1.25x stroke', async ({ page, contex
   expect(miss.stroke).toBeGreaterThanOrEqual(0.005);
 });
 
-// #1084 (plan #1076 O1). oracle: U15's 1% pixel rule and every used face embedded and loadable, on every SVG tile in both themes, one zoomed and one hovered (the hover layer is not part of the plot).
+// #1084 (plan #1076 O1). oracle: U15's pixel rule, 0.5% exact (CR #1119), and every used face embedded and loadable, on every SVG tile in both themes, one zoomed and one hovered (the hover layer is not part of the plot).
 test('standalone matches (every tile)', async ({ page, context }) => {
   test.setTimeout(300000);
   const bare = await blockedPage(context);
@@ -627,4 +627,41 @@ test('png scales px strokes only', async ({ page }) => {
   expect(r.px).toEqual(['4px', '4px, 6px', '2']);
   expect(r.pct).toEqual(['1%', '1%, 2%', '1%']);
   expect(r.mixed).toEqual(['6px', '8px, 5%', '4']);
+});
+
+// #1130 (plan #1076 O2; CR #1127). oracle: a letterboxed SVG exports as it draws: the png of `<svg viewBox="0 0 100 100" width="200" height="100">` puts a rect over x 0..50 at 50..100 (times scale), as on screen,
+// and with preserveAspectRatio="none" at 0..100 (times scale).
+test('png keeps a letterboxed SVG\'s fit', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const r = await page.evaluate(async () => {
+    const NS = 'http://www.w3.org/2000/svg';
+    const out = {};
+    for (const par of ['xMidYMid meet', 'none']) {
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('width', 200); svg.setAttribute('height', 100);
+      svg.setAttribute('preserveAspectRatio', par);
+      svg.style.setProperty('--surface', '#fff');
+      const rect = document.createElementNS(NS, 'rect');
+      rect.setAttribute('width', 50); rect.setAttribute('height', 100); rect.setAttribute('fill', '#f00');
+      svg.appendChild(rect);
+      document.body.appendChild(svg);
+      const res = { screen: [rect.getBoundingClientRect().left - svg.getBoundingClientRect().left, rect.getBoundingClientRect().right - svg.getBoundingClientRect().left] };
+      for (const scale of [1, 2]) {
+        const bmp = await createImageBitmap(await window.ELEO.png(svg, { scale, fonts: false }));
+        const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
+        g.drawImage(bmp, 0, 0);
+        const row = g.getImageData(0, Math.floor(bmp.height / 2), bmp.width, 1).data;
+        const red = [];
+        for (let x = 0; x < bmp.width; x++) if (row[x * 4] > 200 && row[x * 4 + 1] < 60) red.push(x);
+        res[scale] = [red[0], red[red.length - 1] + 1];
+      }
+      svg.remove();
+      out[par] = res;
+    }
+    return out;
+  });
+  expect(r['xMidYMid meet'].screen).toEqual([50, 100]);
+  expect(r['none'].screen).toEqual([0, 100]);
+  for (const par of Object.keys(r)) for (const scale of [1, 2]) expect(r[par][scale]).toEqual(r[par].screen.map((v) => v * scale));
 });

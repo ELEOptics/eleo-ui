@@ -112,7 +112,7 @@ async function build(svg, options) {
   bg.setAttribute('fill', getComputedStyle(svg).getPropertyValue('--surface').trim());
   clone.insertBefore(bg, clone.firstChild);
   if (!options || options.fonts !== false) await embedFonts(clone);
-  return { clone, src, dst, box, vb: { x, y, w, h } };
+  return { clone, bg, src, dst, box, vb: { x, y, w, h } };
 }
 
 export async function standalone(svg, options) {
@@ -122,13 +122,14 @@ export async function standalone(svg, options) {
 // Computed style keeps % as %, and only px or unitless values are screen pixels; em and rem arrive as px.
 const PX = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?(px)?$/i;
 
-/* PNG of the plot: the standalone clone with its root sized box times `scale` (viewBox unchanged), drawn at its intrinsic size on a canvas of that size, so every
+/* PNG of the plot: the standalone clone with its root sized box times `scale` rounded to whole pixels and, when the box has the viewBox's shape, a viewBox of exactly that pixel extent anchored top left (else the source's viewBox and
+   preserveAspectRatio, so a letterboxed SVG exports as it draws), drawn at its intrinsic size on a canvas of that size, so every
    browser rasterises at the target size. A vector-effect="non-scaling-stroke" stroke stays in screen pixels, so its width, dasharray and dashoffset values that are px or unitless
    (PX) are multiplied by `scale` here and any other unit is left as is (CR #1102); the SVG that standalone returns keeps them. `img.decode()` runs before drawing because WebKit can fire
    `onload` before the data-URL fonts are ready. A tainted canvas makes toBlob throw; that is not handled here (plan #1076, escalate). */
 export async function png(svg, options) {
   const scale = (options && options.scale) || 1;
-  const { clone, src, dst, box, vb } = await build(svg, options);
+  const { clone, bg, src, dst, box, vb } = await build(svg, options);
   src.forEach((el, i) => {
     if (getComputedStyle(el).getPropertyValue('vector-effect') !== 'non-scaling-stroke') return;
     const to = dst[i], sw = to.style.getPropertyValue('stroke-width');
@@ -141,14 +142,17 @@ export async function png(svg, options) {
   const width = Math.round(box.width * scale), height = Math.round(box.height * scale);
   clone.setAttribute('width', `${width}px`);
   clone.setAttribute('height', `${height}px`);
-  // The canvas is whole pixels and the box is not, so the viewBox spans exactly width x height pixels (width / scale css px, u user units each) anchored top left: 1 css px maps
-  // to `scale` px and a uniform fit cannot shrink the plot by a fraction of a pixel. The background rect covers it.
-  const ux = vb.w / box.width, uy = vb.h / box.height, vw = (width / scale) * ux, vh = (height / scale) * uy;
-  clone.setAttribute('viewBox', `${vb.x} ${vb.y} ${vw} ${vh}`);
-  clone.setAttribute('preserveAspectRatio', 'xMinYMin meet');
-  const bg = clone.querySelector(':scope > rect');
-  bg.setAttribute('width', vw);
-  bg.setAttribute('height', vh);
+  // The canvas is whole pixels and the box is not, so a box with the viewBox's shape (within layout rounding) gets a viewBox of exactly width x height pixels anchored top left: 1 css px
+  // maps to `scale` px and a uniform fit cannot shrink the plot by a fraction of a pixel. The background rect covers it. Any other box (letterboxed, or preserveAspectRatio none) keeps
+  // the source's viewBox and preserveAspectRatio, so it exports as it draws.
+  const ux = vb.w / box.width, uy = vb.h / box.height;
+  if (Math.abs(ux / uy - 1) < 1 / Math.max(box.width, box.height)) {
+    const vw = (width / scale) * ux, vh = (height / scale) * uy;
+    clone.setAttribute('viewBox', `${vb.x} ${vb.y} ${vw} ${vh}`);
+    clone.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+    bg.setAttribute('width', vw);
+    bg.setAttribute('height', vh);
+  }
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
   try {
     const img = new Image();
