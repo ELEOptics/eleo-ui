@@ -72,15 +72,17 @@ function spotPanel(x, y, side, half, o) {
   if (ax >= 6 && ax <= side - 6) cross += " M" + r2(x + ax) + "," + r2(y + 6) + " V" + r2(y + side - 6);
   if (cross) g += '<path d="' + cross.slice(1) + '" fill="none" stroke="var(--plot-grid)"/>';
   g += '<svg x="' + +x.toFixed(2) + '" y="' + +y.toFixed(2) + '" width="' + +side.toFixed(2) + '" height="' + +side.toFixed(2) + '" data-view="spot"><g transform="matrix(' + [s, 0, 0, -s, r2(cx - c0[0] * s), r2(cx + c0[1] * s)].join(" ") + ')">';
+  /* A dot is a round-cap segment 0.01 px long (the stroke does not scale, so 0.01 / s in data units at any s). A zero-length one (`h0`) is painted twice on screen by WebKit under stroke-opacity; this one is painted once, and a round cap makes it the same disc. */
+  var dot = +(0.01 / s).toPrecision(2);
   (o.series || []).forEach(function (se, si) {
     var ids = ' data-series="' + si + '"' + (se.role !== undefined ? ' data-role="' + esc(se.role) + '"' : "") + (se.label != null && String(se.label) !== "" ? ' data-label="' + esc(se.label) + '"' : "") + (o.panel !== undefined ? ' data-panel="' + o.panel + '"' : "") + (o.cell ? ' data-cell="' + o.cell + '"' : "");
-    var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h0"; }).join(" ");
+    var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h" + dot; }).join(" ");
     g += '<path d="' + d + '"' + ids + ' fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * o.wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
   });
   (o.circles || []).forEach(function (r) { if (r) g += '<circle cx="0" cy="0" r="' + r + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>"; });
   return g + "</g></svg>";
 }
-/* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h0` under a round cap, one path per series. */
+/* Spot panels (ADR-0001): per panel a square frame and one data-space group, the same scale on both axes; a dot is `M x,y h<0.01 px in data units>` under a round cap, one path per series. */
 function typedSpot(o) {
   var cen = String(o.reference == null ? "" : o.reference).trim().toLowerCase() === "centroid", ref = cen ? "centroid" : o.origin || "chief ray";
   var anyStats = false, ts = isFinite(o.textScale) && o.textScale > 0 ? +o.textScale : 1;

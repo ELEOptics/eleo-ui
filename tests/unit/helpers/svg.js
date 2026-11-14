@@ -8,7 +8,7 @@ export const SIZES = [[460, 300], [920, 600]];
 export const fixture = (name) => JSON.parse(readFileSync(new URL(`../../fixtures/phos-core/${name}.json`, import.meta.url), 'utf8'));
 export const nums = (s) => s.trim().split(/[\s,]+/).filter(Boolean).map(Number);
 
-// Path data or polyline points to subpaths of [x, y]. `M` starts a subpath, `L` extends it; `h` (a dot: `M x y h0`) draws at its `M` point and adds none.
+// Path data or polyline points to subpaths of [x, y]. `M` starts a subpath, `L` extends it; `h` (a dot: `M x y h<d>`) draws at its `M` point and adds none.
 export function subpaths(d) {
   const out = [];
   for (const m of d.matchAll(/([MLh])\s*([^MLh]*)/g)) {

@@ -474,7 +474,7 @@ const nearestTo = (list, ref) => list.reduce((best, v, i) => (Math.abs(v - ref) 
 // Page-side helpers on window.T, installed once per page after the gallery is ready. All geometry comes from attributes, never getScreenCTM.
 const install = (page) => page.evaluate(() => {
   const nums = (s) => s.replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
-  // A mark's drawn points in its data units: the finite pairs of a polyline, polygon or path (a dot's `h0` adds none), the centre of a rect, a line's ends.
+  // A mark's drawn points in its data units: the finite pairs of a polyline, polygon or path (a dot's `h<d>` adds none), the centre of a rect, a line's ends.
   const pts = (m) => {
     if (m.tagName === 'rect') { const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((k) => +m.getAttribute(k)); return [[x + w / 2, y + h / 2]]; }
     if (m.tagName === 'line') return [[+m.getAttribute('x1'), +m.getAttribute('y1')], [+m.getAttribute('x2'), +m.getAttribute('y2')]];
