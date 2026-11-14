@@ -392,6 +392,23 @@ test('gallery save', async ({ page }) => {
   expect(Math.abs(png.readUInt32BE(20) - size[1] * 2)).toBeLessThanOrEqual(1);
 });
 
+// #1131 (plan #1076 O3, review M2 finding 6). oracle: property a rejected ELEO.png from the PNG x2 button logs a console error and raises no pageerror.
+test('gallery save logs a failed export', async ({ page }) => {
+  const errors = [];
+  const logged = [];
+  page.on('pageerror', (e) => errors.push(e));
+  page.on('console', (m) => { if (m.type() === 'error') logged.push(m.text()); });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  logged.length = 0;
+  await page.evaluate(() => { window.ELEO.png = () => Promise.reject(new Error('tainted canvas')); });
+  const tile = page.locator('.theme[data-theme="light"] [data-tile="mtf"]');
+  await tile.scrollIntoViewIfNeeded();
+  await tile.locator('.eleo-plot__hd .eleo-plot__actions button', { hasText: /^PNG ×2$/ }).click();
+  await expect.poll(() => logged.length).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
 // #1078 (plan #1076 O1, styles only). oracle: the string has no var( and its background rect and tick fills equal the tile's computed values; drawn in a page with no ELEO CSS.
 test('styles resolve without ELEO CSS', async ({ page, context }) => {
   await page.goto('/gallery/');

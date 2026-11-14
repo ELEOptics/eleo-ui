@@ -248,8 +248,10 @@
       var b = e.target.closest && e.target.closest('[data-save]');
       if (!b) return;
       var svg = b.closest('.eleo-plot').querySelector('[data-svg] svg');
-      if (b.dataset.save === 'svg') ELEO.standalone(svg).then(function (s) { download(new Blob([s], { type: 'image/svg+xml' }), 'mtf.svg'); });
-      else ELEO.png(svg, { scale: 2 }).then(function (p) { download(p, 'mtf@2x.png'); });
+      if (!svg) return;
+      var fail = function (err) { console.error(err); };
+      if (b.dataset.save === 'svg') ELEO.standalone(svg).then(function (s) { download(new Blob([s], { type: 'image/svg+xml' }), 'mtf.svg'); }).catch(fail);
+      else ELEO.png(svg, { scale: 2 }).then(function (p) { download(p, 'mtf@2x.png'); }).catch(fail);
     });
     var liveFrame = 0;
     function liveTick(t) {
