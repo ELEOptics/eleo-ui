@@ -170,7 +170,8 @@ export async function png(svg, options) {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    canvas.getContext('2d').drawImage(img, 0, 0);
+    // A CPU canvas: WebKit's default accelerated one adds no ink where coincident strokes overlap and draws round caps small (CR #1134).
+    canvas.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0);
     return await new Promise((ok, no) => canvas.toBlob((b) => (b ? ok(b) : no(new Error('png: toBlob gave no blob'))), 'image/png'));
   } finally {
     URL.revokeObjectURL(url);

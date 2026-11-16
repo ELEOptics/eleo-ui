@@ -2,7 +2,16 @@
 // oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG and the tile within 0.5% exact misses; at scale k, the PNG box-averaged to 1x matches a DPR-k tile shot box-averaged to 1x outside text within 1%
 // (CR #1116; a pixel matches when one within 1 px is within the channel tolerance; CR #1119: exact at scale 1); every used face embedded and loadable with the network blocked
 import { readFile } from 'node:fs/promises';
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
+
+// Chromium paints on-screen text with LCD subpixel antialiasing on Linux, which no canvas reproduces, so scale-1 PNG against the tile misses by the text (CR #1112, CR #1134).
+// Grey antialiasing is what a canvas draws, and the exports are compared to it.
+// Only Chromium has the flag: Linux WebKit and Firefox refuse an unknown launch argument.
+const test = base.extend({
+  launchOptions: [async ({ browserName, launchOptions }, use) => {
+    await use(browserName === 'chromium' ? { ...launchOptions, args: [...(launchOptions.args ?? []), '--disable-lcd-text'] } : launchOptions);
+  }, { scope: 'worker' }],
+});
 
 const TILE = '.theme[data-theme="light"] [data-tile="mtf"] svg';
 
@@ -183,7 +192,7 @@ const checkPng = async (page, svg, open) => {
       const blob = await window.ELEO.png(el, { scale });
       const box = el.getBoundingClientRect();
       const bmp = await createImageBitmap(blob);
-      const grab = (draw, w, h) => { const c = new OffscreenCanvas(w, h), g = c.getContext('2d'); draw(g); return g.getImageData(0, 0, w, h).data; };
+      const grab = (draw, w, h) => { const c = new OffscreenCanvas(w, h), g = c.getContext('2d', { willReadFrequently: true }); draw(g); return g.getImageData(0, 0, w, h).data; };
       // The standalone string keeps its screen-space strokes, so only at scale 1 does it draw like the PNG: compare there only (CR #1102).
       let diff = null;
       if (scale === 1) {
@@ -665,6 +674,48 @@ test('png scales px strokes only', async ({ page }) => {
   expect(r.px).toEqual(['4px', '4px, 6px', '2']);
   expect(r.pct).toEqual(['1%', '1%, 2%', '1%']);
   expect(r.mixed).toEqual(['6px', '8px, 5%', '4']);
+});
+
+// #1135 (plan #1076 O2; CR #1134). oracle: measurement, the ink of three coincident thin polylines (round caps and joins, as the ray tiles draw them) on screen and in png at scale 1; ink is the sum of
+// (765 - r - g - b) / 765 over a white page. WebKit's default accelerated canvas adds no ink where strokes overlap and draws round caps small (3 stacked lines: 281.8 against 424.8 on screen, ratio 0.66), so png
+// draws on a CPU canvas and the ratio is 1.000 (measured on macOS and Linux). Within 2%.
+test('png draws coincident strokes as the page does', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const svgId = await page.evaluate(() => {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.id = 'coincident';
+    svg.setAttribute('width', 400); svg.setAttribute('height', 100);
+    svg.style.cssText = 'position:fixed;left:0;top:0;background:#fff;z-index:99999';
+    svg.style.setProperty('--surface', '#fff');
+    for (const c of ['#00c', '#0a0', '#c00']) {
+      const p = document.createElementNS(NS, 'polyline');
+      p.setAttribute('points', '10,20.3 200,50.5 390,80.7');
+      p.setAttribute('fill', 'none'); p.setAttribute('stroke', c); p.setAttribute('stroke-width', 0.75);
+      p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(p);
+    }
+    document.body.appendChild(svg);
+    return svg.id;
+  });
+  const svg = page.locator(`#${svgId}`);
+  const shot = (await page.screenshot({ clip: { x: 0, y: 0, width: 400, height: 100 } })).toString('base64');
+  const r = await svg.evaluate(async (el, shot) => {
+    const ink = (bmp) => {
+      const g = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d', { willReadFrequently: true });
+      g.fillStyle = '#fff'; g.fillRect(0, 0, bmp.width, bmp.height);
+      g.drawImage(bmp, 0, 0);
+      const d = g.getImageData(0, 0, bmp.width, bmp.height).data;
+      let s = 0;
+      for (let i = 0; i < d.length; i += 4) s += 765 - d[i] - d[i + 1] - d[i + 2];
+      return s / 765;
+    };
+    const screen = ink(await createImageBitmap(await (await fetch(`data:image/png;base64,${shot}`)).blob()));
+    const png = ink(await createImageBitmap(await window.ELEO.png(el, { scale: 1, fonts: false })));
+    return { screen, png };
+  }, shot);
+  expect(Math.abs(r.png / r.screen - 1)).toBeLessThan(0.02);
 });
 
 // #1130, #1133 (plan #1076 O2; CR #1127). oracle: a letterboxed SVG exports as it draws: the png of `<svg viewBox="0 0 100 100" width="200" height="100">` puts a rect over x 0..50 at 50..100 (times scale), as on screen,
