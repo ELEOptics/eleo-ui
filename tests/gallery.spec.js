@@ -1166,8 +1166,8 @@ test('layout tiles zoom and read lenses', async ({ page }) => {
   await page.mouse.move(2, 2);
 });
 
-// #1121 (plan #1076 O2, CR #1119). oracle: the dots' ink on screen equals the same SVG drawn into a canvas, within 7%.
-// WebKit paints a zero-length round-cap subpath twice on screen under stroke-opacity (coverage 0.75 against 0.5), so its dots read 1.5x too dark.
+// #1121 (plan #1076 O2, CR #1119; #1136, CR #1134). oracle: the dots' ink on screen at 0.01 px equals their ink at 0.1 px, within 7%.
+// WebKit paints a zero-length round-cap subpath twice on screen under stroke-opacity (h0 reads 0.2 too dark against 0.1 px); a canvas reference cannot tell, a CPU canvas doubles too and Linux WebKit's GPU canvas loses ink.
 test('spot dots paint once on screen', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -1180,17 +1180,23 @@ test('spot dots paint once on screen', async ({ page }) => {
     });
     return new XMLSerializer().serializeToString(doc.documentElement);
   });
-  await page.goto('about:blank');
-  await page.setContent(`<body style="margin:0;background:#fff">${str}</body>`);
-  const dim = await page.locator('svg').first().evaluate((el) => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
-  const shot = (await page.screenshot({ clip: { x: 0, y: 0, width: dim[0], height: dim[1] } })).toString('base64');
-  const ink = await page.evaluate(async ([shot, str, w, h]) => {
-    const dark = (d) => { let s = 0; for (let i = 0; i < d.length; i += 4) s += 255 - d[i + 1]; return s / 255; };
-    const read = async (src) => { const c = new OffscreenCanvas(w, h).getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); c.drawImage(await createImageBitmap(await (await fetch(src)).blob()), 0, 0); return c.getImageData(0, 0, w, h).data; };
-    const img = new Image(); img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(str)}`; await img.decode();
-    const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
-    return { screen: dark(await read(`data:image/png;base64,${shot}`)), canvas: dark(g.getImageData(0, 0, w, h).data) };
-  }, [shot, str, dim[0], dim[1]]);
-  expect(ink.canvas).toBeGreaterThan(50);
-  expect(Math.abs(ink.screen / ink.canvas - 1)).toBeLessThan(0.07);
+  // The dot length is the path's h in data units; the tile draws 0.01 px, so 10x is 0.1 px.
+  const hRe = / h(-?[0-9.]+(?:e-?[0-9]+)?)(?= |")/g;
+  const hs = [...str.matchAll(hRe)].map((m) => +m[1]);
+  expect(hs.length).toBeGreaterThan(0);
+  const ink = async (svg) => {
+    await page.goto('about:blank');
+    await page.setContent(`<body style="margin:0;background:#fff">${svg}</body>`);
+    const dim = await page.locator('svg').first().evaluate((el) => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+    const shot = (await page.screenshot({ clip: { x: 0, y: 0, width: dim[0], height: dim[1] } })).toString('base64');
+    return page.evaluate(async ([shot, w, h]) => {
+      const c = new OffscreenCanvas(w, h).getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);
+      c.drawImage(await createImageBitmap(await (await fetch(`data:image/png;base64,${shot}`)).blob()), 0, 0);
+      const d = c.getImageData(0, 0, w, h).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += 255 - d[i + 1]; return s / 255;
+    }, [shot, dim[0], dim[1]]);
+  };
+  const tiny = await ink(str);
+  const wide = await ink(str.replace(hRe, (_, v) => ` h${+v * 10}`));
+  expect(wide).toBeGreaterThan(50);
+  expect(Math.abs(tiny / wide - 1)).toBeLessThan(0.07);
 });
