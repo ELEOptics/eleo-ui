@@ -431,7 +431,7 @@ export function interact(el, opts) {
   el.addEventListener("pointerleave", leave);
   el.addEventListener("click", click);
   var tabbed = false; // this call relies on the tabindex it (or an earlier live call) added; stop() gives it back
-  if (!el.hasAttribute("tabindex")) { el.setAttribute("tabindex", "0"); tabs.set(el, 0); } // focusable, so the keys reach it; a tabindex the host set stays
+  if (!el.hasAttribute("tabindex")) { el.setAttribute("tabindex", "0"); tabs.set(el, tabs.get(el) || 0); } // focusable, so the keys reach it; a tabindex the host set stays
   if (tabs.has(el)) { tabs.set(el, tabs.get(el) + 1); tabbed = true; }
   el.addEventListener("keydown", key);
   el.addEventListener("pointerdown", focus);

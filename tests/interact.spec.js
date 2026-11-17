@@ -2338,12 +2338,16 @@ test('stop restores tabindex', async ({ page }) => { // #1152, green at #1156
     s1(); out.twiceOnce = tab(a); s2(); out.twiceTwice = tab(a);
     const b = host('-1'), s3 = window.ELEO.interact(b); s3(); out.own = tab(b);
     const c = host(null), s4 = window.ELEO.interact(c); c.setAttribute('tabindex', '2'); s4(); out.changed = tab(c);
+    const d = host(null), s5 = window.ELEO.interact(d); d.removeAttribute('tabindex'); const s6 = window.ELEO.interact(d); // #1174: a removed attribute does not reset the count
+    s5(); out.removedOnce = tab(d); s6(); out.removedTwice = tab(d);
     return out;
   });
   expect(got.twiceOnce, 'one of two stopped: still focusable').toBe('0');
   expect(got.twiceTwice, 'both stopped: the attribute is gone').toBeNull();
   expect(got.own, 'a tabindex the host set stays').toBe('-1');
   expect(got.changed, 'a tabindex the caller changed stays').toBe('2');
+  expect(got.removedOnce, 'the caller removed it and a second call added it: one stopped, still focusable').toBe('0');
+  expect(got.removedTwice, 'both stopped: the attribute is gone').toBeNull();
 });
 
 test('live region announces snapped points only', async ({ page }) => { // #1152, #883
