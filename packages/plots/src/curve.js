@@ -115,7 +115,7 @@ var r2 = function (v) { return +v.toFixed(2); };
 function plotArea(w, h, T, mg) { return { pw: r2(Math.max(1, w - r2(mg.L) - mg.R)), ph: r2(Math.max(1, h - r2(T) - mg.B)) }; }
 /* One plot: the frame, ticks, zero lines and series, in a box of w by h, drawn at 0,0; panels place it with a translate. */
 /* `body`, when given, is the series group's markup in data units (bars draw rects); `series` is then unused. An x axis with `ticks: []` draws none. */
-/* `limits`, when given, is checkLimits' output: their labels are drawn in px over the frame (the marks belong in `body`, see limitBody). */
+/* `limits`, when given, is checkLimits' output: their marks are drawn in data units under (bands) and over (lines) the series, their labels in px over the frame; `mg.cut` (zoomed) keeps only the limits inside the ranges (limitMarks). */
 /* `mg` is the margins in px: { L, B, R, t? }, required: each renderer passes its own. `grid: false` draws the tick text without the grid lines (the frame and the zero axes stay). With `t`, every text gets that inline size and its offsets scale with it (10 px is the class size). The frame is at least 1 px each way. */
 export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   /* The frame is rounded to 2 decimals once, here: everything below derives from these, so the markup is small and doesn't depend on Math.cbrt's last bits. */
@@ -133,7 +133,10 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   /* The series in data coordinates: px = M * data, inside a viewport that clips at the plot area. */
   var M = [sx, 0, 0, -sy, -xr[0] * sx, ph + yr[0] * sy].map(String);
   g += '<svg ' + fr + '><g transform="matrix(' + M.join(" ") + ')">';
-  if (body !== undefined) g += body; else series.forEach(function (s) { g += seriesMarkup(s, panel, undefined, undefined, undefined, undefined, dotLength(sc, pw)); });
+  var inner = body;
+  if (inner === undefined) { inner = ""; series.forEach(function (s) { inner += seriesMarkup(s, panel, undefined, undefined, undefined, undefined, dotLength(sc, pw)); }); }
+  if (limits) { var lm = limitMarks(limits, xr, yr, limitStyle(), mg.cut, { x: sx, y: sy }); inner = lm.under + inner + lm.over; }
+  g += inner;
   g += "</g></svg>";
   if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }, mg.t).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
@@ -142,11 +145,6 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
 export function limitStyle() {
   var st = roleStyle({ role: "limit" }, 1);
   return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
-}
-/* A series group's markup with the limits: bands under `inner`, lines over it. `cut` (zoomed) keeps only the limits inside the ranges (limitMarks). */
-export function limitBody(limits, sc, inner, cut) {
-  var m = limitMarks(limits, sc.xr, sc.yr, limitStyle(), cut);
-  return m.under + inner + m.over;
 }
 /* ADR-0003's margins in text units (scale.js CURVE_MARGINS: left, bottom, top), the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
 function curveMargins(sc, w) {
@@ -199,7 +197,7 @@ function typedCurve(o) {
   var sc, g = "", lim = checkLimits(o.limits, "curve");
   /* A valid view axis zooms: the series are cut to the plot area plus 32 px (cutPieces). */
   var zoomed = !!(o.view && (viewRange(o.view.x) || viewRange(o.view.y)));
-  var cell = function (series, w, h, T, panel, mg, pi) { var z = zoomed && Object.assign({ sc: sc }, plotArea(w, h, T, mg)); return plotCell(sc, series, w, h, T, panel, limitBody(lim, sc, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi, z, dotLength(sc, plotArea(w, h, T, mg).pw)); }).join(""), zoomed), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
+  var cell = function (series, w, h, T, panel, mg, pi) { var z = zoomed && Object.assign({ sc: sc }, plotArea(w, h, T, mg)); return plotCell(sc, series, w, h, T, panel, series.map(function (s, si) { return seriesMarkup(s, panel, mg.wt, si, pi, z, dotLength(sc, plotArea(w, h, T, mg).pw)); }).join(""), lim, mg) + (corner ? cornerKey(ents, at, mg.t, w, h, T, mg) : ""); };
   if (o.panels) {
     /* A grid of plots on one scale: the title above each, the axis labels once for the whole figure. */
     var panels = o.panels, n = panels.length, cols = Math.max(1, Math.min(n || 1, Math.floor(+o.columns) || n || 1)), rows = Math.max(1, Math.ceil(n / cols));
@@ -207,6 +205,7 @@ function typedCurve(o) {
     sc = scales({ x: x, y: y, limits: lim, view: o.view }, panels.map(function (p) { return p.series || []; }), true);
     var mg = curveMargins(sc, cw), top = 1.4 * mg.t, T = 2.2 * mg.t;
     mg.grid = o.grid;
+    mg.cut = zoomed;
     if (ents.length && !corner) placeBelow(mg.t, mg.L, W - mg.R, top + T + mg.B);
     var ch = (Hf - top) / rows;
     panels.forEach(function (p, i) {
@@ -218,6 +217,7 @@ function typedCurve(o) {
   sc = scales({ x: x, y: y, limits: lim, view: o.view }, [o.series]);
   var m1 = curveMargins(sc, W);
   m1.grid = o.grid;
+  m1.cut = zoomed;
   if (ents.length && !corner) placeBelow(m1.t, m1.L, W - m1.R, CURVE_MARGINS.T * m1.t + m1.B);
   g = cell(o.series, W, Hf, CURVE_MARGINS.T * m1.t, false, m1) + labels(m1) + below;
   return svg(W, Hs, g, lab(y) + " against " + lab(x) + " plot");

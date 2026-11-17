@@ -7,6 +7,9 @@ import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 import { compile, compileModule } from 'svelte/compiler';
 import { test, expect } from '@playwright/test';
+import { moveTo, pageHelpers } from './page-helpers.js';
+
+test.beforeEach(({ page }) => pageHelpers(page));
 
 const lib = fileURLToPath(new URL('../packages/plots-svelte/src/lib/', import.meta.url));
 const NAMES = ['CurvePlot', 'RayFan', 'BarPlot', 'Map2D', 'SpotDiagram', 'Layout2D'];
@@ -121,7 +124,7 @@ test('CurvePlot hover tooltip', async ({ page }) => {
   const read = () => page.evaluate(() => {
     const g = document.querySelector('#harness polyline[data-series="0"]')?.parentElement;
     if (!g) return null;
-    const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
     const vp = g.closest('svg');
     const root = vp.ownerSVGElement || vp;
     const box = root.getBoundingClientRect();
@@ -137,7 +140,7 @@ test('CurvePlot hover tooltip', async ({ page }) => {
     at = second;
     return first && second && first.x === second.x && first.y === second.y;
   }).toBe(true);
-  await page.mouse.move(at.x, at.y);
+  await moveTo(page, at.x, at.y);
   await expect(page.locator('#harness .eleo-hover__tip')).toHaveText('Tangential · 120 cycles/mm, 0.62');
 });
 
@@ -178,7 +181,7 @@ for (const [name, { props, patch, at }] of Object.entries(ZOOMABLE)) {
     const first = await ticks();
     const box = await host.boundingBox();
     const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
-    await page.mouse.move(px, py);
+    await moveTo(page, px, py);
     await page.mouse.wheel(0, -300);
     await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
     const zoomed = await ticks();
@@ -200,7 +203,7 @@ for (const [name, { props, at }] of Object.entries(ZOOMABLE)) {
     const first = await ticks();
     const box = await host.boundingBox();
     const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
-    await page.mouse.move(px, py);
+    await moveTo(page, px, py);
     await page.mouse.wheel(0, -300);
     await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
     await page.evaluate(() => window.setView(null));
@@ -256,4 +259,17 @@ test('a data change updates the tooltip', async ({ page }) => {
   await page.mouse.move(box.x + box.width / 2 + 3, box.y + box.height / 2 + 3); // a nudge off the sample and back, so the hover recomputes
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await expect(tip).toContainText('= 9 qb');
+});
+
+// Plan #1144, outcome O4 (issue #1173). oracle: after the action rebinds, the focused host is still `document.activeElement` and still has `tabindex="0"` (the per-host call count never reaches 0 between the stop and the bind).
+test('a rebind keeps the host focused', async ({ page }) => {
+  const host = await mountHarness(page, 'vr', 'CurvePlot', { series: [{ points: [[0, 1], [100, 0.62]], index: 0, label: 'a' }], x: { label: 'x' }, y: { label: 'y' } });
+  const box = host.locator('.eleo-svg');
+  await expect(box).toHaveAttribute('tabindex', '0');
+  await box.focus();
+  await expect(box).toBeFocused();
+  await page.evaluate(() => window.setProps({ onhover: () => {} })); // a callback turning on changes what the binding is made of, so the action rebinds
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  await expect(box).toBeFocused();
+  await expect(box).toHaveAttribute('tabindex', '0');
 });

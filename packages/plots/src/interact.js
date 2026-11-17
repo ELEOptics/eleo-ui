@@ -26,6 +26,9 @@ function runs(mark) {
   return { p: p, join: join, off: from };
 }
 
+/* A bar's value end in its group's data units: its y when below zero, else its height. */
+function barValue(rect) { return +rect.getAttribute("y") < 0 ? +rect.getAttribute("y") : +rect.getAttribute("height"); }
+
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
 function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
@@ -63,7 +66,7 @@ function nearest(host, cx, cy) {
     if (!inside(at.x, at.y)) return; // the pointer is outside the clipped frame: a zoomed curve's points out there are not drawn
     if (mark.localName === "rect") { // a bar is hovered with the pointer inside its box or within SNAP client px of its value end inside its x span (so a bar under a pixel tall, or of zero height, can be); its value is its y when below zero, else its height, and the bar whose value end is nearest wins
       var rx = +mark.getAttribute("x"), ry = +mark.getAttribute("y"), rw = +mark.getAttribute("width"), rh = +mark.getAttribute("height");
-      var v = ry < 0 ? ry : rh, dv = Math.abs(at.y - v) * Math.abs(m.d);
+      var v = barValue(mark), dv = Math.abs(at.y - v) * Math.abs(m.d);
       if (at.x >= rx && at.x <= rx + rw && ((at.y >= ry && at.y <= ry + rh) || dv <= SNAP) && (!bar || dv < bar.d)) bar = { d: dv, mark: mark, index: 0, bar: true, x: +mark.dataset.category, y: v, px: rx + rw / 2 };
       return;
     }
@@ -81,7 +84,7 @@ function nearest(host, cx, cy) {
       var t = len ? Math.max(0, Math.min(1, ((at.x * m.a - ax) * vx + (at.y * m.d - ay) * vy) / len)) : 0;
       var d = Math.hypot(ax + t * vx - at.x * m.a, ay + t * vy - at.y * m.d);
       var sx = p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), sy = p[i - 1][1] + t * (p[i][1] - p[i - 1][1]);
-      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1 + r.off, x: sx, y: sy, segment: [i - 1 + r.off, i + r.off] };
+      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1 + r.off, x: sx, y: sy, segment: [i - 1 + r.off, i + r.off], near: (t < 0.5 ? i - 1 : i) + r.off };
     }
   });
   return bar || snap || best;
@@ -108,28 +111,30 @@ function mapAt(host, cx, cy) {
   return { row: row, column: col, x: e[0] + (col + 0.5) * (e[1] - e[0]) / nc, y: e[3] - (row + 0.5) * (e[3] - e[2]) / nr };
 }
 
-/* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (the last child) unless `tip` is false; divs positioned in host px. The tooltip is a polite live region (`role=status`), so it is made here, empty, and kept for the life of the call: a region created together with its text is often not announced. */
+/* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (`aria-hidden`) and a visually hidden live region (the last child) unless `tip` is false; divs positioned in host px. The live region is a polite `role=status`, so it is made here, empty, and kept for the life of the call: a region created together with its text is often not announced. It is separate from the tooltip because the tooltip follows interpolated readings and the live text only snapped points. */
 function overlay(marks, tip) {
   var layer = document.createElement("div");
   layer.className = "eleo-hover";
-  (marks ? ["v", "h", "dot"] : []).concat(tip ? ["tip"] : []).forEach(function (k) { var d = document.createElement("div"); d.className = "eleo-hover__" + k; layer.appendChild(d); });
-  if (tip) { var t = layer.lastChild; t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); }
+  (marks ? ["v", "h", "dot"] : []).concat(tip ? ["tip", "live"] : []).forEach(function (k) { var d = document.createElement("div"); d.className = "eleo-hover__" + k; layer.appendChild(d); });
+  if (tip) { layer.querySelector(".eleo-hover__tip").setAttribute("aria-hidden", "true"); var t = layer.querySelector(".eleo-hover__live"); t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); }
   hide(layer, tip);
   return layer;
 }
 
-/* Hides the overlay without removing it: the marks by `hidden`, the tooltip by emptying its text (the stylesheet collapses an empty tip), so it stays in the accessibility tree as an empty live region. */
+/* Hides the overlay without removing it: the marks by `hidden`, the tooltip and the live region by emptying their text (the stylesheet collapses an empty tip), so the live region stays in the accessibility tree empty. */
 function hide(layer, tip) {
-  var kids = layer.children, n = kids.length - (tip ? 1 : 0);
+  var kids = layer.children, n = kids.length - (tip ? 2 : 0);
   for (var i = 0; i < n; i++) kids[i].hidden = true;
-  if (tip) { var t = kids[n]; t.textContent = ""; }
+  if (tip) kids[n].textContent = kids[n + 1].textContent = "";
 }
 
-/* Sets the tooltip's text and puts it TIP_GAP px right of and below the pointer, flipped to the other side of the pointer where it would pass the host's edge, then clamped inside the host. The layer is re-added when a redraw replaced the host's markup. */
-function showTip(host, layer, text, cx, cy) {
-  var tip = layer.lastChild, hb = host.getBoundingClientRect();
+/* Sets the tooltip's text, and the live region's too when `live` (the event is not interpolated), and puts the tooltip TIP_GAP px right of and below the pointer, flipped to the other side of the pointer where it would pass the host's edge, then clamped inside the host. The layer is re-added when a redraw replaced the host's markup. */
+function showTip(host, layer, text, cx, cy, live) {
+  var tip = layer.querySelector(".eleo-hover__tip"), hb = host.getBoundingClientRect();
   if (layer.parentNode !== host) host.appendChild(layer);
-  if (tip.textContent !== text) tip.textContent = text; // a live region is rewritten only when its text changes
+  if (tip.textContent !== text) tip.textContent = text;
+  var lr = tip.nextSibling;
+  if (live && lr.textContent !== text) lr.textContent = text; // a live region is rewritten only when its text changes
   var ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop, x = cx - ox, y = cy - oy;
   var w = tip.offsetWidth, h = tip.offsetHeight, W = host.clientWidth, H = host.clientHeight;
   var left = x + TIP_GAP + w > W ? x - TIP_GAP - w : x + TIP_GAP, top = y + TIP_GAP + h > H ? y - TIP_GAP - h : y + TIP_GAP;
@@ -157,6 +162,7 @@ function showMarks(host, layer, b) {
 }
 
 var hosts = new WeakMap(); // host -> number of live interact calls holding its `eleo-hover-host` class
+var tabs = new WeakMap(); // host -> number of live interact calls relying on the `tabindex="0"` the first of them added
 
 /* ---- Zoom, pan and reset. interact holds no view: each gesture reads the drawn ranges off the markup, makes the new view and hands it to onview; the caller redraws. ---- */
 var WHEEL_RATE = 0.0015; // per px of wheel delta: one 100 px notch zooms by exp(0.15)
@@ -224,10 +230,11 @@ export function interact(el, opts) {
     pending = false; // a pointer taking over the hover is not undone by a late redraw
     var b = nearest(el, e.clientX, e.clientY);
     if (!b) return lensMove(e) || mapMove(e);
-    present(b, e.clientX, e.clientY);
+    present(b, e.clientX, e.clientY, true);
   }
-  // the hover of a found spot b, shown at the client position cx, cy: the pointer's, and the keyboard's at its point
-  function present(b, cx, cy) {
+  // the hover of a found spot b, shown at the client position cx, cy: the pointer's, and the keyboard's at its point. A pointer hover (`hovered`) of a key mark also sets the keyboard's current point: the point, or an interpolated spot's nearer end; a leave keeps it.
+  function present(b, cx, cy, hovered) {
+    if (hovered && isKeyMark(b.mark)) cur = { id: identOf(b.mark), i: b.bar ? b.x : isRay(b.mark) ? +b.mark.dataset.ray : b.near !== undefined ? b.near : b.index }; // a bar's index is its category, a ray's its ray
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y };
     if (d.ray !== undefined) { ev.field = +d.field; ev.ray = +d.ray; if (d.status !== undefined) ev.status = d.status; } // a layout2D ray run: z, y in mm
@@ -235,7 +242,7 @@ export function interact(el, opts) {
     if (b.bar) { ev.category = b.x; if (d.categoryLabel !== undefined) ev.categoryLabel = d.categoryLabel; }
     if (b.segment) { ev.interpolated = true; ev.segment = b.segment; }
     if (d.panel !== undefined) ev.panel = +d.panel;
-    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), cx, cy);
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), cx, cy, !ev.interpolated);
     emit(ev, [d.panel, d.series, d.field, d.ray, d.status, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
   }
   // a glass polygon under the pointer with no ray run in reach (rays are drawn over the glass): the element's own data-*, no dot or drop lines. r1 and r2 may read "Infinity" (a flat surface). Returns false where the pointer is on no glass.
@@ -244,8 +251,8 @@ export function interact(el, opts) {
     if (!m) return false;
     var d = poly.dataset, at = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()), ev = { x: at.x, y: at.y, element: +d.element, glass: d.glass };
     ["nd", "vd", "r1", "r2", "ct", "diameter", "f"].forEach(function (k) { if (d[k] !== undefined) ev[k] = +d[k]; });
-    if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
-    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
+    if (layer) for (var i = 0; i < (marks ? 3 : 0); i++) layer.children[i].hidden = true;
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY, true);
     emit(ev, "e" + d.element + "," + at.x + "," + at.y); // the pointer is in the key: x, y follow it within one element
     return true;
   }
@@ -256,8 +263,8 @@ export function interact(el, opts) {
     var values = opts && opts.values, ev = { x: s.x, y: s.y }, polar = s.ring !== undefined, v = values && (polar ? values[s.ring] && values[s.ring][s.spoke] : values[s.row] && values[s.row][s.column]);
     if (polar) { ev.ring = s.ring; ev.spoke = s.spoke; } else { ev.row = s.row; ev.column = s.column; }
     if (values) ev.value = typeof v === "number" && isFinite(v) ? v : null; // a masked sample (NaN, Infinity, null, missing) has no value
-    if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
-    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
+    if (layer) for (var i = 0; i < (marks ? 3 : 0); i++) layer.children[i].hidden = true;
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY, true);
     emit(ev, polar ? "r" + s.ring + "," + s.spoke : "c" + s.row + "," + s.column);
   }
   /* A click selects the mark under it by the mark's own data-*: the target's nearest ancestor in the host that names a surface, a layout field or a series. A ray run names its field only (a ray is several runs); nothing else changes. */
@@ -310,40 +317,55 @@ export function interact(el, opts) {
     var sx = drag.g[0] - hit.p[0], sy = drag.g[1] - hit.p[1];
     emitView(viewOf(hit.kind, [hit.x[0] + sx, hit.x[1] + sx], [hit.y[0] + sy, hit.y[1] + sy]));
   }
-  /* ---- Keyboard. The current point is a series identity (its panel and series, from data-panel and data-series) and a data index, so a redraw that replaced the markup keeps it, and so does a zoom that cut the series into several marks (each with a data-from): the mark is looked up again on each use. ---- */
+  /* ---- Keyboard. The current point is a series identity (its panel and series from data-panel and data-series, or a layout2D field from data-field; a ray is a data-ray index within its field) and a data index, set by the keyboard or by the pointer's hover, so a redraw that replaced the markup keeps it, and so does a zoom that cut the series into several marks (each with a data-from): the mark is looked up again on each use. ---- */
   var cur = null, pending = false; // `pending`: a + - 0 key asked for the dot again once the caller's redraw replaces the markup
-  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return m.localName !== "rect" && dataGroup(m) && runs(m).p.length; }); }
-  var identOf = function (m) { return m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); };
-  // the drawn series, in document order of their first mark: { id, marks } with every mark (piece) of that identity
+  // a mark the keyboard can step: a series mark inside a data group, a ray (data-ray with data-field) inside one, a bar only with a category (a found hover has points, so keyMarks adds only the non-empty runs)
+  function isBar(m) { return m.localName === "rect"; }
+  function isRay(m) { return m.hasAttribute("data-ray") && m.hasAttribute("data-field"); }
+  function isKeyMark(m) { return (isRay(m) || m.hasAttribute("data-series")) && !!dataGroup(m) && (!isBar(m) || isFinite(parseFloat(m.getAttribute("data-category")))); }
+  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series], polyline[data-ray]"), function (m) { return isKeyMark(m) && (isBar(m) || runs(m).p.length); }); }
+  var identOf = function (m) { return isRay(m) ? "field/" + m.getAttribute("data-field") : m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); }; // a layout2D field is a series of rays
+  // the drawn series per kind, ordered by panel then series (or field) number: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Curve and spot marks give their points; rays give one point per ray, indexed by data-ray, at its earliest point inside the frame across its runs (the rays adapter); bars give one point per rect: the category is its index and x, the value end its y, and `px` the centre of its span.
   function drawnSeries() {
     var out = [], by = {};
-    keyMarks().forEach(function (m) { var id = identOf(m); if (!by[id]) { by[id] = { id: id, marks: [] }; out.push(by[id]); } by[id].marks.push(m); });
-    return out;
+    keyMarks().forEach(function (m) {
+      var id = identOf(m), r = isBar(m) ? { p: [] } : runs(m);
+      if (!by[id]) { by[id] = { id: id, points: [], key: isRay(m) ? [0, +m.getAttribute("data-field")] : [+m.getAttribute("data-panel") || 0, +m.getAttribute("data-series")] }; out.push(by[id]); }
+      if (isBar(m)) { var c = +m.getAttribute("data-category"); by[id].points.push({ mark: m, index: c, x: c, y: barValue(m), px: +m.getAttribute("x") + +m.getAttribute("width") / 2, bar: true }); }
+      if (isRay(m)) { // a ray is one point, its runs joined: presented at its earliest point (lowest z) inside the frame over all its runs (a ray is clipped only where its group is)
+        var g = dataGroup(m), gm = g.getScreenCTM(), inside = g.hasAttribute("clip-path") ? gm && inFrameOf(g, gm) : function () { return true; };
+        var f = null, ri = +m.getAttribute("data-ray"), prev = by[id].points.filter(function (q) { return q.index === ri; })[0];
+        r.p.forEach(function (q) { if (inside && inside(q[0], q[1]) && (!f || q[0] < f[0])) f = q; }); // the lowest z of this run inside the frame
+        if (f && !prev) by[id].points.push({ mark: m, index: ri, x: f[0], y: f[1], ray: true });
+        else if (f && f[0] < prev.x) { prev.mark = m; prev.x = f[0]; prev.y = f[1]; } // a run of the same ray reaching further back wins: its hover reports the ray's first status
+        return;
+      }
+      r.p.forEach(function (q, j) { by[id].points.push({ mark: m, index: j + r.off, x: q[0], y: q[1] }); });
+    });
+    return out.sort(function (a, b) { return a.key[0] - b.key[0] || a.key[1] - b.key[1]; }); // by the identity's numbers, not markup order (bars draw by category, layout2D draws faded runs first)
   }
-  // a series' points inside the frame, by data index (the first of two pieces drawing the same index): { mark, index, x, y }
+  // the points of a list inside the frame (those the pointer can hover too)
+  function framed(pts) {
+    var ok = new Map();
+    return pts.filter(function (q) {
+      if (q.bar || q.ray) return true; // a ray point was chosen inside the frame; a bar is hovered wherever it is drawn
+      if (!ok.has(q.mark)) { var g = dataGroup(q.mark), gm = g.getScreenCTM(); ok.set(q.mark, gm ? inFrameOf(g, gm) : function () { return false; }); }
+      return ok.get(q.mark)(q.x, q.y);
+    });
+  }
+  // a series' points inside the frame, by data index (the first of two pieces drawing the same index)
   function visiblePoints(ser) {
-    var out = [];
-    ser.marks.forEach(function (m) { var r = runs(m); visible(m).forEach(function (j) { out.push({ mark: m, index: j + r.off, x: r.p[j][0], y: r.p[j][1] }); }); });
-    return out.sort(function (a, b) { return a.index - b.index; }).filter(function (q, n, all) { return !n || q.index !== all[n - 1].index; });
+    return framed(ser.points).sort(function (a, b) { return a.index - b.index; }).filter(function (q, n, all) { return !n || q.index !== all[n - 1].index; });
   }
-  // the spot of the current point on the markup now: the mark of its series whose data-from run holds the index, else the nearest piece (the index clamped to it), or null
+  // the spot of the current point on the markup now: the point of its series at the index, else the nearest (first of equals), or null
   function curSpot() {
     var ser = cur && drawnSeries().filter(function (s) { return s.id === cur.id; })[0], best = null;
     if (!ser) return null;
-    ser.marks.forEach(function (m) {
-      var r = runs(m), d = cur.i < r.off ? r.off - cur.i : Math.max(0, cur.i - (r.off + r.p.length - 1));
-      if (!best || d < best.d) best = { d: d, mark: m, r: r };
-    });
-    var i = Math.max(0, Math.min(cur.i - best.r.off, best.r.p.length - 1));
-    return { mark: best.mark, index: i + best.r.off, x: best.r.p[i][0], y: best.r.p[i][1] };
+    ser.points.forEach(function (q) { if (!best || Math.abs(q.index - cur.i) < Math.abs(best.index - cur.i)) best = q; });
+    return best;
   }
-  var clientOf = function (b) { var q = new DOMPoint(b.x, b.y).matrixTransform(dataGroup(b.mark).getScreenCTM()); return [q.x, q.y]; };
-  // the positions of a mark's drawn points inside its frame, the points the pointer can hover too
-  function visible(m) {
-    var g = dataGroup(m), gm = g.getScreenCTM(), ok = gm ? inFrameOf(g, gm) : function () { return false; };
-    return runs(m).p.reduce(function (o, q, i) { if (ok(q[0], q[1])) o.push(i); return o; }, []);
-  }
-  /* An arrow: left and right step the current series' points inside the frame across its pieces, up and down the neighbouring series (distinct panel and series, in document order) that have one, at the same data index or the nearest inside the frame, clamped at the ends (no wrap). The first one lands on the first such point. A point a redraw moved out of the frame is not shown. Returns whether there was anything to step. */
+  var clientOf = function (b) { var q = new DOMPoint(b.bar ? b.px : b.x, b.y).matrixTransform(dataGroup(b.mark).getScreenCTM()); return [q.x, q.y]; };
+  /* An arrow: left and right step the current series' points inside the frame across its pieces, up and down the neighbouring series (distinct panel and series, or field, ordered by number) that have one, at the same data index or the nearest inside the frame, clamped at the ends (no wrap). With a current point (the pointer's hover sets it too) the first arrow steps from it; without one it lands on the first point of the lowest-numbered series that has one. A point a redraw moved out of the frame is not shown. Returns whether there was anything to step. */
   function step(k) {
     var ser = drawnSeries(), pts = ser.map(visiblePoints), at = curSpot(), s = 0, i = 0;
     if (!pts.some(function (v) { return v.length; })) return false;
@@ -370,7 +392,7 @@ export function interact(el, opts) {
   function refresh() {
     var b = curSpot();
     if (!b) return;
-    if (visible(b.mark).indexOf(b.index - runs(b.mark).off) < 0) return leave();
+    if (!framed([b]).length) return leave();
     var c = clientOf(b);
     present(b, c[0], c[1]);
   }
@@ -408,7 +430,9 @@ export function interact(el, opts) {
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   el.addEventListener("click", click);
-  if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "0"); // focusable, so the keys reach it; a tabindex the host set stays
+  var tabbed = false; // this call relies on the tabindex it (or an earlier live call) added; stop() gives it back
+  if (!el.hasAttribute("tabindex")) { el.setAttribute("tabindex", "0"); tabs.set(el, tabs.get(el) || 0); } // focusable, so the keys reach it; a tabindex the host set stays
+  if (tabs.has(el)) { tabs.set(el, tabs.get(el) + 1); tabbed = true; }
   el.addEventListener("keydown", key);
   el.addEventListener("pointerdown", focus);
   if (onview) {
@@ -423,6 +447,7 @@ export function interact(el, opts) {
   function stop() {
     el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down); el.removeEventListener("mousedown", press); el.removeEventListener("pointermove", pan); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("dblclick", reset);
     drag = null; ended = true;
+    if (tabbed) { tabbed = false; var t = tabs.get(el) - 1; if (t) tabs.set(el, t); else { tabs.delete(el); if (el.getAttribute("tabindex") === "0") el.removeAttribute("tabindex"); } } // the last call removes it, unless the caller changed it
     if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); el.removeEventListener("click", click); el.removeEventListener("keydown", key); el.removeEventListener("pointerdown", focus);
   }
   stop.reset = reset;

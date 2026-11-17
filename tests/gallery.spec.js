@@ -1,6 +1,9 @@
 // Every renderer draws, in both themes, without errors. Run after `npm run build`.
 import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
+import { moveTo, pageHelpers } from './page-helpers.js';
+
+test.beforeEach(({ page }) => pageHelpers(page));
 
 // The gallery's tile count.
 const TILES = 25;
@@ -914,12 +917,10 @@ test('layout keys',async ({ page }) => {
 });
 
 // Where data point `index` of a series mark is drawn, in client px, from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
-// The drawn points: parse the attribute string (strip M/L and h<n>, split on commas and spaces) and drop non-finite pairs only. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
+// The drawn points: H.subpaths of the attribute (a dot adds none), non-finite pairs dropped. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
 const drawnPoint = (mark, index) => mark.evaluate((m, index) => {
-  const g = m.parentNode, [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
-  const n = (m.getAttribute('points') || m.getAttribute('d') || '').replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
-  const pts = [];
-  for (let i = 0; i + 1 < n.length; i += 2) if (Number.isFinite(n[i]) && Number.isFinite(n[i + 1])) pts.push([n[i], n[i + 1]]);
+  const g = m.parentNode, [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
+  const pts = H.subpaths(m.getAttribute('d') ?? `M${m.getAttribute('points').trim().replace(/ /g, ' L')}`).flat().filter((p) => p.every(Number.isFinite));
   const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
   return { label: m.dataset.label, x: box.left + ((+vp.getAttribute('x') || 0) + a * pts[index][0] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * pts[index][1] + f) * k };
 }, index);
@@ -937,7 +938,7 @@ test('tooltip on every curve tile', async ({ page }) => {
       await mark.scrollIntoViewIfNeeded();
       const at = await drawnPoint(mark, 0);
       const tip = page.locator(`${sel} .eleo-hover__tip`);
-      await page.mouse.move(Math.round(at.x), Math.round(at.y)); // whole pixels: Firefox and WebKit truncate (#1030)
+      await moveTo(page, at.x, at.y);
       await expect(tip, `${theme} ${tile} tooltip`).toHaveText(new RegExp(`^${at.label} · `));
       await expect(tip).toBeVisible();
       await page.mouse.move(2, 2);
@@ -971,7 +972,7 @@ test('readout units from each tile\'s recording', async ({ page }) => {
   const mark = page.locator(`${sel} polyline[data-series], ${sel} path[data-series]`).first();
   await mark.scrollIntoViewIfNeeded();
   const at = await drawnPoint(mark, 0);
-  await page.mouse.move(at.x, at.y);
+  await moveTo(page, at.x, at.y);
   await expect(page.locator(`${sel} .eleo-hover__tip`)).toHaveText(/^(Tangential|Sagittal) · −?[\d.]+ mm, −?[\d.]+ °$/);
 });
 
@@ -1009,7 +1010,7 @@ test('map tiles show their value', async ({ page }) => {
         }
         return { x: b.left + (x - e[0]) / (e[1] - e[0]) * b.width, y: b.top + (e[3] - y) / (e[3] - e[2]) * b.height };
       }, [row, col, ring, spoke]);
-      await page.mouse.move(at.x, at.y);
+      await moveTo(page, at.x, at.y);
       const tip = page.locator(`${sel} .eleo-hover__tip`);
       await expect(tip, `${theme} ${tile} tooltip`).toContainText(' = ');
       const text = (await tip.textContent()).replace(/\u2212/g, '-');
@@ -1039,7 +1040,7 @@ test('gallery tooltips carry units', async ({ page }) => {
     const dot = page.locator(`${spot} path[data-series], ${spot} polyline[data-series]`).first();
     await dot.scrollIntoViewIfNeeded();
     const at = await drawnPoint(dot, 0);
-    await page.mouse.move(at.x, at.y);
+    await moveTo(page, at.x, at.y);
     await expect(page.locator(`${spot} .eleo-hover__tip`), `${theme} spot tooltip`).toHaveText(/µm, −?[\d.]+ µm$/);
     await page.mouse.move(2, 2);
 
@@ -1048,11 +1049,11 @@ test('gallery tooltips carry units', async ({ page }) => {
     await ray.scrollIntoViewIfNeeded();
     // The layout's geometry sits in one matrix(...) group above its runs, not directly over them: find it, then place point 2 as drawnPoint does.
     const pt = await ray.evaluate((m) => {
-      const g = m.closest('g[transform^="matrix"]'), [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
-      const n = m.getAttribute('points').split(/[\s,]+/).filter(Boolean).map(Number), root = g.ownerSVGElement, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      const g = m.closest('g[transform^="matrix"]'), [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
+      const n = H.nums(m.getAttribute('points')), root = g.ownerSVGElement, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
       return { x: box.left + (a * n[4] + e) * k, y: box.top + (d * n[5] + f) * k };
     });
-    await page.mouse.move(pt.x, pt.y);
+    await moveTo(page, pt.x, pt.y);
     await expect(page.locator(`${lay} .eleo-hover__tip`), `${theme} layout tooltip`).toHaveText(/^field \d+ · ray \d+ · −?[\d.]+ mm, −?[\d.]+ mm$/);
     await page.mouse.move(2, 2);
 
@@ -1065,7 +1066,7 @@ test('gallery tooltips carry units', async ({ page }) => {
       // A tall tile's first point can sit above or below the viewport: scroll it to the middle, then place the pointer again.
       await page.evaluate((y) => window.scrollBy(0, y - window.innerHeight / 2), p.y);
       p = await drawnPoint(mark, 0);
-      await page.mouse.move(p.x, p.y);
+      await moveTo(page, p.x, p.y);
       await expect(page.locator(`${sel} .eleo-hover__tip`), `${theme} ${tile} tooltip`).toHaveText(new RegExp(`${unit}, −?[\\d.]+ ${unit}$`));
       await page.mouse.move(2, 2);
     }
@@ -1093,13 +1094,13 @@ test('zoom survives live update', async ({ page }) => {
   await tile.scrollIntoViewIfNeeded();
   const read = () => tile.evaluate((t) => {
     const mark = t.querySelector('[data-series]'), g = mark.parentNode, vp = g.closest('svg'), root = vp.ownerSVGElement || vp;
-    const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
     const box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width, vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0), vw = +vp.getAttribute('width'), vh = +vp.getAttribute('height');
     return { x: [(0 - e) / a, (vw - e) / a], series: mark.getAttribute('points') || mark.getAttribute('d'), cx: box.left + (vx + vw / 2) * k, cy: box.top + (vy + vh / 2) * k };
   });
   const near = (got, want, what) => { for (const i of [0, 1]) expect(Math.abs(got[i] - want[i]), `${what} [${i}]`).toBeLessThanOrEqual(1e-6 * Math.max(1, Math.abs(want[1] - want[0]))); };
   const first = await read();
-  await page.mouse.move(first.cx, first.cy);
+  await moveTo(page, first.cx, first.cy);
   await page.mouse.wheel(0, -300);
   await expect.poll(async () => (await read()).x, { message: 'the wheel redraws the tile' }).not.toEqual(first.x);
   const zoomed = await read();
@@ -1133,7 +1134,7 @@ test('layout tiles zoom and read lenses', async ({ page }) => {
     const first = { matrix: await matrix(), markup: await markup() };
     const box = await svg.boundingBox();
     const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
-    await page.mouse.move(cx, cy);
+    await moveTo(page, cx, cy);
     await page.mouse.wheel(0, -300);
     await expect.poll(matrix, { message: `${name} wheel changes the drawn matrix` }).not.toBe(first.matrix);
     await page.mouse.dblclick(cx, cy);
@@ -1161,7 +1162,7 @@ test('layout tiles zoom and read lenses', async ({ page }) => {
     }
     return best;
   });
-  await page.mouse.move(bb.x + at.fx * bb.width, bb.y + at.fy * bb.height);
+  await moveTo(page, bb.x + at.fx * bb.width, bb.y + at.fy * bb.height);
   await expect(glass.locator('.eleo-hover__tip'), 'lens tooltip').toHaveText(/^element /);
   await page.mouse.move(2, 2);
 });
@@ -1198,7 +1199,7 @@ test('spot dots paint once on screen', async ({ page }) => {
     const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
     doc.querySelectorAll('path[data-series]').forEach((p) => {
       dots += (p.getAttribute('d').match(/M/g) || []).length;
-      const s = Math.abs(+/matrix\(\s*([-0-9.e]+)/.exec(p.parentElement.getAttribute('transform'))[1]);
+      const s = Math.abs(H.matrixOf(p.parentElement.getAttribute('transform'))[0]); // a null (not a lone matrix) throws here
       p.setAttribute('d', p.getAttribute('d').replace(/ h-?[0-9.]+(?:e-?[0-9]+)?(?= |$)/g, () => { n++; return ` h${0.1 / s}`; }));
     });
     return { svg: new XMLSerializer().serializeToString(doc.documentElement), n, dots };

@@ -37,8 +37,10 @@ export function hover(el, opts) {
       const k = shape(current);
       if (k === key) return;
       key = k;
-      stop?.();
+      // bind first, then stop the old call: the host's live-call count stays above 0, so `stop` keeps the `tabindex` and a focused host keeps focus
+      const old = stop;
       bind();
+      old?.();
     },
     destroy() { stop?.(); },
   };

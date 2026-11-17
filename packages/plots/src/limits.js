@@ -1,4 +1,5 @@
 import { esc, NS } from "./common.js";
+import { dashOffset } from "./clip.js";
 
 /* Limit lines and bands, shared by curve and bars so the look matches (ADR-0001: a role's style, never a color).
    A limit is { x | y: number | [lo, hi], label? }: a number draws a line across the plot, a pair a band. */
@@ -26,8 +27,8 @@ export function limitValues(norm, axis) {
   norm.forEach(function (l) { if (l.axis === axis) out.push(l.lo, l.hi); });
   return out;
 }
-/* Markup in data units for the series group, given the ranges: bands for under the series, lines for over them. `style` is { line, band }: the attributes of a line and of a band (the `limit` role's style). `cut` (a zoomed curve, CR #993) leaves out a line whose value is outside its axis's range and clamps a band to it, one wholly outside giving nothing; the marks already span the drawn range. */
-export function limitMarks(norm, xr, yr, style, cut) {
+/* Markup in data units for the series group, given the ranges: bands for under the series, lines for over them. `style` is { line, band }: the attributes of a line and of a band (the `limit` role's style). `sc` is { x, y }, the px per data unit: with `cut` a dashed line gets a dash offset, its start's distance from data 0 in px as a positive modulo of the period, so the dashes keep their phase on a pan. `cut` (a zoomed curve, CR #993) leaves out a line whose value is outside its axis's range and clamps a band to it, one wholly outside giving nothing; the marks already span the drawn range. */
+export function limitMarks(norm, xr, yr, style, cut, sc) {
   var under = "", over = "";
   norm.forEach(function (l) {
     var h = l.axis === "y", span = h ? xr : yr;
@@ -40,7 +41,12 @@ export function limitMarks(norm, xr, yr, style, cut) {
       under += h ? '<rect class="eleo-limit" x="' + span[0] + '" y="' + l.lo + '" width="' + (span[1] - span[0]) + '" height="' + (l.hi - l.lo) + '"' : '<rect class="eleo-limit" x="' + l.lo + '" y="' + span[0] + '" width="' + (l.hi - l.lo) + '" height="' + (span[1] - span[0]) + '"';
       under += " " + style.band + "/>";
     } else {
-      over += '<line class="eleo-limit" x1="' + (h ? span[0] : l.lo) + '" y1="' + (h ? l.lo : span[0]) + '" x2="' + (h ? span[1] : l.lo) + '" y2="' + (h ? l.lo : span[1]) + '" ' + style.line + " " + NS + "/>";
+      var da = style.line.match(/stroke-dasharray="([^"]*)"/), off = "";
+      if (cut && sc && da) {
+        var parts = da[1].split(" ").map(Number), per = (parts.length % 2 ? parts.concat(parts) : parts).reduce(function (u, v) { return u + v; }, 0);
+        off = dashOffset(da[1], (((span[0] * (h ? sc.x : sc.y)) % per) + per) % per);
+      }
+      over += '<line class="eleo-limit" x1="' + (h ? span[0] : l.lo) + '" y1="' + (h ? l.lo : span[0]) + '" x2="' + (h ? span[1] : l.lo) + '" y2="' + (h ? l.lo : span[1]) + '" ' + style.line + off + " " + NS + "/>";
     }
   });
   return { under: under, over: over };

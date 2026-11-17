@@ -46,3 +46,12 @@ test('plots-svelte README and the svelte changeset name the keys and the tab sto
   assert.match(cs, /tabindex="0"/, 'changeset names tabindex="0"');
   assert.match(cs, /BarPlot/, 'changeset names BarPlot');
 });
+
+// Plan #1144, issue #1155: the pointer sets the keyboard's current point.
+test('plots README Keyboard says the hovered point is where the arrows start', () => {
+  const readme = read('packages/plots/README.md');
+  const kb = readme.slice(readme.indexOf('### Keyboard'), readme.indexOf('### `readout`'));
+  assert.match(kb, /hovered point/, 'the Keyboard section names the hovered point');
+  assert.match(kb, /nearer end/, 'an interpolated hover sets the segment\'s nearer end');
+  assert.match(kb, /leave/, 'a pointer leave keeps the current point');
+});

@@ -1,6 +1,9 @@
 // U14 (plan #162): curve redraw budget, measured in the gallery page. Run: PERF=1 npx playwright test tests/perf.spec.js
 // oracle: measurement roadmap U14: median of 20 redraws of ELEO.curve with 20 series of 200 points, innerHTML set then layout forced, by performance.now() in headless Chromium; over 16 ms is reported (kill criterion D-J), not asserted
 import { test, expect } from '@playwright/test';
+import { pageHelpers } from './page-helpers.js';
+
+test.beforeEach(({ page }) => pageHelpers(page));
 
 // U14 is a measurement, not a gate: the test exists only when PERF=1 (opt-in), so a normal run neither runs nor lists it.
 if (process.env.PERF === '1') test('curve redraw (U14)', async ({ page }) => {
@@ -210,10 +213,10 @@ if (process.env.PERF === '1') test('hover (U14)', async ({ page }) => {
     const stopSpot = window.ELEO.interact(spotHost, { onhover: () => {} });
     const mark = spotHost.querySelector('path[data-series]');
     if (!mark) throw new Error('spot marks carry no data-series');
-    const group = mark.closest('g[transform^="matrix("]'), [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const group = mark.closest('g[transform^="matrix("]'), [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
     const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
-    const n = mark.getAttribute('d').replace(/h\s*-?[\d.]+/g, ' ').replace(/M/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
-    const dots = Array.from({ length: 20 }, (_, j) => { const i = 100 + j * 150; return [box.left + (+vp.getAttribute('x') + a * n[2 * i] + e) * k, box.top + (+vp.getAttribute('y') + d * n[2 * i + 1] + f) * k]; });
+    const pts = H.subpaths(mark.getAttribute('d')).flat();
+    const dots = Array.from({ length: 20 }, (_, j) => { const i = 100 + j * 150; return [box.left + (+vp.getAttribute('x') + a * pts[i][0] + e) * k, box.top + (+vp.getAttribute('y') + d * pts[i][1] + f) * k]; });
     const spot = median(timed(spotHost, dots));
     stopSpot(); spotHost.remove();
     // map: the U14 map reference (256 x 256 Gaussian); 20 cells down the diagonal, values given so the value lookup is timed too

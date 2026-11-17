@@ -3,6 +3,7 @@
 // (CR #1116; a pixel matches when one within 1 px is within the channel tolerance; CR #1119: exact at scale 1); every used face embedded and loadable with the network blocked
 import { readFile } from 'node:fs/promises';
 import { test as base, expect } from '@playwright/test';
+import { moveTo } from './page-helpers.js';
 
 // Chromium paints on-screen text with LCD subpixel antialiasing on Linux, which no canvas reproduces, so scale-1 PNG against the tile misses by the text (CR #1112, CR #1134).
 // Grey antialiasing is what a canvas draws, and the exports are compared to it.
@@ -45,7 +46,8 @@ const tileShot = async (page, locator) => {
 // and a 1-px shift or a 1.25x stroke scores at least 0.87%. PNG-against-tile at scale 1 takes radius 1 and < 1% (CR #1124); O1 and PNG-against-standalone stay exact at 0.5%.
 // Pixels inside a mask rect ([left, top, right, bottom] in image pixels, already padded) are never counted as misses (CR #1112); the budget stays all pixels.
 // Returns { d: missed fraction, masked: masked fraction }.
-const nearFraction = (page, a, b, mask = [], radius = 1) => page.evaluate(async ([a, b, tol, mask, radius]) => {
+const nearFraction = (page, a, b, mask = [], radius = 1) => page.evaluate(async ([a, b, tol, mask, radius, countSrc]) => {
+  const countDiff = (0, eval)(countSrc);
   const px = async (s) => {
     const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${s}`)).blob());
     const c = new OffscreenCanvas(bmp.width, bmp.height), g = c.getContext('2d');
@@ -54,6 +56,7 @@ const nearFraction = (page, a, b, mask = [], radius = 1) => page.evaluate(async 
   };
   const [p, q] = [await px(a), await px(b)];
   if (p.w !== q.w || p.h !== q.h) return { d: 1, masked: 0 };
+  if (radius === 0 && !mask.length) return { d: countDiff(p.d, q.d, tol) / (p.w * p.h), masked: 0 };
   const far = (i, j) => Math.max(Math.abs(p.d[i] - q.d[j]), Math.abs(p.d[i + 1] - q.d[j + 1]), Math.abs(p.d[i + 2] - q.d[j + 2]), Math.abs(p.d[i + 3] - q.d[j + 3])) > tol;
   let n = 0, masked = 0;
   for (let y = 0; y < p.h; y++) {
@@ -71,7 +74,7 @@ const nearFraction = (page, a, b, mask = [], radius = 1) => page.evaluate(async 
     }
   }
   return { d: n / (p.w * p.h), masked: masked / (p.w * p.h) };
-}, [a, b, CHANNEL_TOL, mask, radius]);
+}, [a, b, CHANNEL_TOL, mask, radius, countDiff.toString()]);
 
 // #1107 (plan #1076 O2). oracle: a second tileShot leaves the tile where the first put it, on the pixel grid, so the screenshots are identical.
 test('tileShot is idempotent', async ({ page }) => {
@@ -106,6 +109,34 @@ const wholePixel = (svg) => svg.evaluate(async (el) => {
   return { str: new XMLSerializer().serializeToString(root), w, h };
 });
 
+// Every (family, weight, style) the standalone string's text uses, which of them have no @font-face rule, which of their rules' urls do not load as a FontFace in `bare`, and how many rules are not data urls.
+const faceCheck = (bare, out) => bare.evaluate(async (s) => {
+  const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
+  const used = new Set();
+  doc.querySelectorAll('text').forEach((t) => {
+    const st = t.style;
+    used.add(`${st.fontFamily.split(',')[0].replace(/["']/g, '').trim()}|${st.fontWeight || '400'}|${st.fontStyle || 'normal'}`);
+  });
+  const rules = [...doc.querySelectorAll('style')].flatMap((e) => [...e.textContent.matchAll(/@font-face\s*{[^}]*}/g)].map((m) => m[0]));
+  const remote = rules.filter((x) => /url\(\s*(?!["']?data:)/.test(x));
+  const missing = [], unloadable = [];
+  for (const u of used) {
+    const [fam, wt, sty] = u.split('|');
+    const rule = rules.find((x) => x.includes(fam) && new RegExp(`font-weight:\\s*${wt}`).test(x) && new RegExp(`font-style:\\s*${sty}`).test(x));
+    if (!rule) { missing.push(u); continue; }
+    const src = /url\(([^)]+)\)/.exec(rule)[1].replace(/["']/g, '');
+    try { await new FontFace(fam, `url("${src}")`, { weight: wt, style: sty }).load(); } catch { unloadable.push(u); }
+  }
+  return { n: used.size, rules: rules.length, remote: remote.length, missing, unloadable };
+}, out);
+
+// Pixels of RGBA array a that differ from b's at the same index by more than tol in any channel. Self-contained: injected into pages by source.
+const countDiff = (a, b, tol) => {
+  let n = 0;
+  for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3])) > tol) n++;
+  return n;
+};
+
 // Drawn in a page with no ELEO CSS and font requests blocked, `svg`'s standalone string matches the on-screen tile within 0.5% exact and every used face loads (O1; CR #1119).
 // bare is that page: a context.newPage() with its font requests aborted.
 const checkStandalone = async (page, bare, svg) => {
@@ -121,24 +152,7 @@ const checkStandalone = async (page, bare, svg) => {
   expect((await nearFraction(bare, shot.toString('base64'), drawn.toString('base64'), [], 0)).d).toBeLessThan(0.005);
 
   // Every used face is embedded and loads.
-  const faces = await bare.evaluate(async (s) => {
-    const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
-    const used = new Set();
-    doc.querySelectorAll('text').forEach((t) => {
-      const st = t.style;
-      used.add(`${st.fontFamily.split(',')[0].replace(/["']/g, '').trim()}|${st.fontWeight || '400'}|${st.fontStyle || 'normal'}`);
-    });
-    const rules = [...doc.querySelectorAll('style')].flatMap((e) => [...e.textContent.matchAll(/@font-face\s*{[^}]*}/g)].map((m) => m[0]));
-    const missing = [], unloadable = [];
-    for (const u of used) {
-      const [fam, wt, sty] = u.split('|');
-      const rule = rules.find((r) => r.includes(fam) && new RegExp(`font-weight:\\s*${wt}`).test(r) && new RegExp(`font-style:\\s*${sty}`).test(r));
-      if (!rule) { missing.push(u); continue; }
-      const src = /url\(([^)]+)\)/.exec(rule)[1].replace(/["']/g, '');
-      try { await new FontFace(fam, `url(${src})`, { weight: wt, style: sty }).load(); } catch { unloadable.push(u); }
-    }
-    return { n: used.size, missing, unloadable };
-  }, out);
+  const faces = await faceCheck(bare, out);
   // A tile with no text (the icons) uses no face.
   if (hasText) expect(faces.n).toBeGreaterThan(0);
   expect(faces.missing).toEqual([]);
@@ -188,7 +202,8 @@ const dprShot = async (page, k, open = (p) => p.locator(TILE).first()) => {
 const checkPng = async (page, svg, open) => {
   for (const scale of [1, 2]) {
     const fit = scale === 1 ? (await wholePixel(svg)).str : null;
-    const r = await svg.evaluate(async (el, [scale, tol, fit]) => {
+    const r = await svg.evaluate(async (el, [scale, tol, fit, countSrc]) => {
+      const countDiff = (0, eval)(countSrc);
       const blob = await window.ELEO.png(el, { scale });
       const box = el.getBoundingClientRect();
       const bmp = await createImageBitmap(blob);
@@ -202,15 +217,13 @@ const checkPng = async (page, svg, open) => {
         try { await img.decode(); } finally { URL.revokeObjectURL(url); }
         const a = grab((g) => g.drawImage(bmp, 0, 0), bmp.width, bmp.height);
         const b = grab((g) => g.drawImage(img, 0, 0, bmp.width, bmp.height), bmp.width, bmp.height);
-        let n = 0;
-        for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]), Math.abs(a[i + 3] - b[i + 3])) > tol) n++;
-        diff = n / (bmp.width * bmp.height);
+        diff = countDiff(a, b, tol) / (bmp.width * bmp.height);
       }
       const bytes = new Uint8Array(await blob.arrayBuffer());
       let bin = '';
       for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(bin), type: blob.type, w: bmp.width, h: bmp.height, bw: box.width * scale, bh: box.height * scale, diff };
-    }, [scale, CHANNEL_TOL, fit]);
+    }, [scale, CHANNEL_TOL, fit, countDiff.toString()]);
     expect(r.type).toBe('image/png');
     expect(Math.abs(r.w - r.bw)).toBeLessThanOrEqual(1);
     expect(Math.abs(r.h - r.bh)).toBeLessThanOrEqual(1);
@@ -285,7 +298,7 @@ const setState = async (page, c, svg, k = 1) => {
       const m = el.querySelector('[data-series]'), p = m.getPointAtLength(0), q = new DOMPoint(p.x, p.y).matrixTransform(m.getScreenCTM());
       return { x: q.x, y: q.y };
     });
-    await page.mouse.move(Math.round(at.x), Math.round(at.y)); // whole pixels: Firefox and WebKit truncate (#1030)
+    await moveTo(page, at.x, at.y); // whole pixels (#1030)
     const tip = page.locator(`.theme[data-theme="${c.theme}"] [data-tile="${c.tile}"] .eleo-hover__tip`);
     await expect(tip, `${c.name}: the pointer shows the tip`).toBeVisible();
     await expect(tip).not.toHaveText('');
@@ -307,7 +320,8 @@ const eachTile = async (page, check) => {
     try {
       // A fresh load per case: a tile moved onto the pixel grid, zoomed or hovered would otherwise leak into the next.
       await page.goto('/gallery/');
-      await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+      // 20 s: only this reload repeats per case (about 50 a browser), and under the full gate's load one can pass the default 5 s (#1125).
+      await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 20_000 });
       const svg = caseSvg(page, c);
       await setState(page, c, svg);
       await check(svg, async (p, k) => { const t = caseSvg(p, c); await setState(p, c, t, k); return t; });
@@ -486,27 +500,25 @@ test('used faces embedded', async ({ page, context }) => {
   await bare.setViewportSize({ width: 1440, height: 1800 });
   await bare.route('**/*', (route) => (route.request().resourceType() === 'font' || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.abort() : route.continue()));
   await bare.goto('about:blank');
-  const r = await bare.evaluate(async (s) => {
-    const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
-    const used = new Set();
-    doc.querySelectorAll('text').forEach((t) => {
-      const st = t.style;
-      used.add(`${st.fontFamily.split(',')[0].replace(/["']/g, '').trim()}|${st.fontWeight || '400'}|${st.fontStyle || 'normal'}`);
-    });
-    const rules = [...doc.querySelectorAll('style')].flatMap((e) => [...e.textContent.matchAll(/@font-face\s*{[^}]*}/g)].map((m) => m[0]));
-    const remote = rules.filter((x) => /url\(\s*(?!["']?data:)/.test(x));
-    const missing = [], unloadable = [];
-    for (const u of used) {
-      const [fam, wt, sty] = u.split('|');
-      const rule = rules.find((x) => x.includes(fam) && new RegExp(`font-weight:\\s*${wt}`).test(x) && new RegExp(`font-style:\\s*${sty}`).test(x));
-      if (!rule) { missing.push(u); continue; }
-      const src = /url\(([^)]+)\)/.exec(rule)[1].replace(/["']/g, '');
-      try { await new FontFace(fam, `url(${src})`, { weight: wt, style: sty }).load(); } catch { unloadable.push(u); }
-    }
-    return { n: used.size, rules: rules.length, remote: remote.length, missing, unloadable };
-  }, out);
+  const r = await faceCheck(bare, out);
   expect(r.n).toBeGreaterThan(0);
   expect(r.remote).toBe(0);
+  expect(r.missing).toEqual([]);
+  expect(r.unloadable).toEqual([]);
+});
+
+// #1163 (CR #1161, #1118's spike). oracle: reference #1118's spike: a font response typed `text/html; charset=utf-8` gives a data URL with `; ` in its MIME, which an unquoted url() cannot hold; the bytes are a valid font.
+test('faceCheck loads a parameterised MIME', async ({ page, context }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const out = await page.locator(TILE).first().evaluate((el) => window.ELEO.standalone(el));
+  // A valid woff2 from the gallery's own embedded font, re-typed with a parameterised MIME.
+  const b64 = /url\(["']?data:[^,]*;base64,([^"')]+)/.exec(out)[1];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><style>@font-face { font-family: ProbeMime; font-weight: 400; font-style: normal; src: url("data:text/html; charset=utf-8;base64,${b64}"); }</style><text style="font-family: ProbeMime">a</text></svg>`;
+  const bare = await context.newPage();
+  await bare.goto('about:blank');
+  const r = await faceCheck(bare, svg);
+  expect(r.n).toBe(1);
   expect(r.missing).toEqual([]);
   expect(r.unloadable).toEqual([]);
 });
