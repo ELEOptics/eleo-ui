@@ -3,6 +3,7 @@
 // (CR #1116; a pixel matches when one within 1 px is within the channel tolerance; CR #1119: exact at scale 1); every used face embedded and loadable with the network blocked
 import { readFile } from 'node:fs/promises';
 import { test as base, expect } from '@playwright/test';
+import { moveTo } from './page-helpers.js';
 
 // Chromium paints on-screen text with LCD subpixel antialiasing on Linux, which no canvas reproduces, so scale-1 PNG against the tile misses by the text (CR #1112, CR #1134).
 // Grey antialiasing is what a canvas draws, and the exports are compared to it.
@@ -297,7 +298,7 @@ const setState = async (page, c, svg, k = 1) => {
       const m = el.querySelector('[data-series]'), p = m.getPointAtLength(0), q = new DOMPoint(p.x, p.y).matrixTransform(m.getScreenCTM());
       return { x: q.x, y: q.y };
     });
-    await page.mouse.move(Math.round(at.x), Math.round(at.y)); // whole pixels: Firefox and WebKit truncate (#1030)
+    await moveTo(page, at.x, at.y); // whole pixels (#1030)
     const tip = page.locator(`.theme[data-theme="${c.theme}"] [data-tile="${c.tile}"] .eleo-hover__tip`);
     await expect(tip, `${c.name}: the pointer shows the tip`).toBeVisible();
     await expect(tip).not.toHaveText('');
