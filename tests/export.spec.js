@@ -1,5 +1,5 @@
 // Export a plot as SVG and PNG (plan #1076). Run after `npm run build`.
-// oracle: property U15's size rule; property: at scale 1, pixels match the standalone SVG and the tile within 0.5% exact misses; at scale k, the PNG box-averaged to 1x matches a DPR-k tile shot box-averaged to 1x outside text within 1%
+// oracle: property U15's size rule; property: at scale 1, the PNG matches the standalone SVG within 0.5% exact (CR #1119) and the tile with radius 1 within 1% (CR #1124); at scale k, the PNG box-averaged to 1x matches a DPR-k tile shot box-averaged to 1x outside text within 1%
 // (CR #1116; a pixel matches when one within 1 px is within the channel tolerance; CR #1119: exact at scale 1); every used face embedded and loadable with the network blocked
 import { readFile } from 'node:fs/promises';
 import { test as base, expect } from '@playwright/test';
@@ -216,7 +216,7 @@ const checkPng = async (page, svg, open) => {
     expect(Math.abs(r.h - r.bh)).toBeLessThanOrEqual(1);
     if (scale === 1) expect(r.diff).toBeLessThan(0.005);
     // Against the on-screen tile too, so a font-load race in png cannot pass by hitting the reference image as well. Taken after png() has read the element: tileShot moves it.
-    // The scale-k rule, radius 1 and < 1% (CR #1124): Chromium and WebKit raster the ray polylines differently in a canvas than on the page, and O1 plus
+    // The scale-k rule, radius 1 and < 1% (CR #1124): Chromium rasters the ray polylines differently in a canvas than on the page (WebKit's miss was the accelerated canvas, CR #1134), and O1 plus
     // PNG-against-standalone, both exact, tie the PNG to the tile.
     if (scale === 1) {
       const shot = await tileShot(page, svg);

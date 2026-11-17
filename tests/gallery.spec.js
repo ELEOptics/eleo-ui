@@ -1180,7 +1180,7 @@ test('spot dots paint once on screen', async ({ page }) => {
     });
     return new XMLSerializer().serializeToString(doc.documentElement);
   });
-  // The dot length is the path's h in data units; the tile draws 0.01 px, so 10x is 0.1 px.
+  // The dot length is the path's h in data units. The 0.1 px reference comes from the panel group's matrix (0.1 / s data units), not from h, so a renderer back on h0 cannot move it.
   const hRe = / h(-?[0-9.]+(?:e-?[0-9]+)?)(?= |")/g;
   const hs = [...str.matchAll(hRe)].map((m) => +m[1]);
   expect(hs.length).toBeGreaterThan(0);
@@ -1196,7 +1196,15 @@ test('spot dots paint once on screen', async ({ page }) => {
     }, [shot, dim[0], dim[1]]);
   };
   const tiny = await ink(str);
-  const wide = await ink(str.replace(hRe, (_, v) => ` h${+v * 10}`));
+  const strWide = await page.evaluate((svg) => {
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    doc.querySelectorAll('path[data-series]').forEach((p) => {
+      const s = Math.abs(+/matrix\(\s*([-0-9.e]+)/.exec(p.parentElement.getAttribute('transform'))[1]);
+      p.setAttribute('d', p.getAttribute('d').replace(/ h-?[0-9.]+(?:e-?[0-9]+)?(?= |$)/g, ` h${0.1 / s}`));
+    });
+    return new XMLSerializer().serializeToString(doc.documentElement);
+  }, str);
+  const wide = await ink(strWide);
   expect(wide).toBeGreaterThan(50);
   expect(Math.abs(tiny / wide - 1)).toBeLessThan(0.07);
 });
