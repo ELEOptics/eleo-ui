@@ -2243,7 +2243,7 @@ test('keyboard steps bars', async ({ page }) => { // #1152, #1157
   await page.evaluate(() => window.STOP());
 });
 
-test.skip('keyboard steps rays', async ({ page }) => { // #1152, #1158
+test('keyboard steps rays', async ({ page }) => { // #1152, #1158
   await bind(page, 'layout2D-wandersleb');
   const sel = 'polyline[data-field="0"][data-ray="0"]';
   const p = await page.evaluate((sel) => {

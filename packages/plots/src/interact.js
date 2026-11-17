@@ -232,7 +232,7 @@ export function interact(el, opts) {
   }
   // the hover of a found spot b, shown at the client position cx, cy: the pointer's, and the keyboard's at its point. A pointer hover (`hovered`) of a key mark also sets the keyboard's current point: the point, or an interpolated spot's nearer end; a leave keeps it.
   function present(b, cx, cy, hovered) {
-    if (hovered && b.mark.dataset.ray === undefined && isKeyMark(b.mark)) cur = { id: identOf(b.mark), i: b.bar ? b.x : b.near !== undefined ? b.near : b.index }; // a bar's index is its category
+    if (hovered && isKeyMark(b.mark)) cur = { id: identOf(b.mark), i: b.bar ? b.x : isRay(b.mark) ? +b.mark.dataset.ray : b.near !== undefined ? b.near : b.index }; // a bar's index is its category, a ray's its ray
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y };
     if (d.ray !== undefined) { ev.field = +d.field; ev.ray = +d.ray; if (d.status !== undefined) ev.status = d.status; } // a layout2D ray run: z, y in mm
@@ -317,18 +317,25 @@ export function interact(el, opts) {
   }
   /* ---- Keyboard. The current point is a series identity (its panel and series, from data-panel and data-series) and a data index, so a redraw that replaced the markup keeps it, and so does a zoom that cut the series into several marks (each with a data-from): the mark is looked up again on each use. ---- */
   var cur = null, pending = false; // `pending`: a + - 0 key asked for the dot again once the caller's redraw replaces the markup
-  // a mark the keyboard can step: a series mark inside a data group, a bar only with a category (a found hover has points, so keyMarks adds only the non-empty runs)
+  // a mark the keyboard can step: a series mark inside a data group, a ray (data-ray with data-field) inside one, a bar only with a category (a found hover has points, so keyMarks adds only the non-empty runs)
   function isBar(m) { return m.localName === "rect"; }
-  function isKeyMark(m) { return m.hasAttribute("data-series") && !!dataGroup(m) && (!isBar(m) || isFinite(parseFloat(m.getAttribute("data-category")))); }
-  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return isKeyMark(m) && (isBar(m) || runs(m).p.length); }); }
-  var identOf = function (m) { return m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); };
-  // the drawn series per kind, in document order: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Curve and spot marks give their points; bars give one point per rect: the category is its index and x, the value end its y, and `px` the centre of its span.
+  function isRay(m) { return m.hasAttribute("data-ray") && m.hasAttribute("data-field"); }
+  function isKeyMark(m) { return (isRay(m) || m.hasAttribute("data-series")) && !!dataGroup(m) && (!isBar(m) || isFinite(parseFloat(m.getAttribute("data-category")))); }
+  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series], polyline[data-ray]"), function (m) { return isKeyMark(m) && (isBar(m) || runs(m).p.length); }); }
+  var identOf = function (m) { return isRay(m) ? "field/" + m.getAttribute("data-field") : m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); }; // a layout2D field is a series of rays
+  // the drawn series per kind, in document order: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Curve and spot marks give their points; rays give one point per ray, indexed by data-ray, at its first point inside the frame (the rays adapter); bars give one point per rect: the category is its index and x, the value end its y, and `px` the centre of its span.
   function drawnSeries() {
     var out = [], by = {};
     keyMarks().forEach(function (m) {
       var id = identOf(m), r = isBar(m) ? { p: [] } : runs(m);
       if (!by[id]) { by[id] = { id: id, points: [] }; out.push(by[id]); }
       if (isBar(m)) { var c = +m.getAttribute("data-category"); by[id].points.push({ mark: m, index: c, x: c, y: barValue(m), px: +m.getAttribute("x") + +m.getAttribute("width") / 2, bar: true }); }
+      if (isRay(m)) { // a ray is one point, its runs joined: presented at its first point inside the frame (a ray is clipped only where its group is)
+        var g = dataGroup(m), gm = g.getScreenCTM(), inside = g.hasAttribute("clip-path") ? gm && inFrameOf(g, gm) : function () { return true; };
+        var f = inside && r.p.filter(function (q) { return inside(q[0], q[1]); })[0];
+        if (f) by[id].points.push({ mark: m, index: +m.getAttribute("data-ray"), x: f[0], y: f[1], ray: true });
+        return;
+      }
       r.p.forEach(function (q, j) { by[id].points.push({ mark: m, index: j + r.off, x: q[0], y: q[1] }); });
     });
     return out;
@@ -337,7 +344,7 @@ export function interact(el, opts) {
   function framed(pts) {
     var ok = new Map();
     return pts.filter(function (q) {
-      if (q.bar) return true; // a bar is hovered wherever it is drawn
+      if (q.bar || q.ray) return true; // a ray point was chosen inside the frame; a bar is hovered wherever it is drawn
       if (!ok.has(q.mark)) { var g = dataGroup(q.mark), gm = g.getScreenCTM(); ok.set(q.mark, gm ? inFrameOf(g, gm) : function () { return false; }); }
       return ok.get(q.mark)(q.x, q.y);
     });
