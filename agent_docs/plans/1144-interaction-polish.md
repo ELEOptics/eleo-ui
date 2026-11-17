@@ -1,7 +1,7 @@
 # Plan #1144: Interaction polish (row K)
 
 Status: approved 2026-11-17
-Branch: `plan/1144-interaction-polish` PR: #<pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row K
+Branch: `plan/1144-interaction-polish` PR: #1160 Depends on: none Roadmap: `agent_docs/roadmap.md`, row K
 
 ## Problem
 
