@@ -88,6 +88,8 @@ Demo: `npm run test:unit` shows `spec-helpers.test.js` green, its scan finding n
 
 ### M2: keyboard, screen reader and dashes GitHub: `P1144 M2: keyboard, screen reader and dashes`
 
+Done 2026-11-17: review round 2 (Review M2: 0 blocking, nothing pulled in, CR #1170 resolved); full gate green on 83dd8c1 (535 passed, 0 skipped); CI pending on 83dd8c1 at the tick. Demo pending.
+
 Demo: `npm run gallery`; hover a bar, press ArrowRight and ArrowDown (the next category, the next series); hover a layout ray and step it; with VoiceOver on, sweep an MTF line: it reads only data points; zoom the MTF-limits tile and pan both ways: the limit dashes stay put; the screenshot comparison and U14 medians in the Change log. Proves: O3, O4, O5, O6, O7
 
 | Issue | Work item | Approach | Files | Test | After |
@@ -157,3 +159,4 @@ Demo: `npm run gallery`; hover a bar, press ArrowRight and ArrowDown (the next c
 - 2026-11-17 backlog #1172 into M2 (orchestrator: small, one file the milestone changed).
 - 2026-11-17 backlog #1173 into M2 (orchestrator: small, a regression of #1156, one file plus its test).
 - 2026-11-17 backlog #1174 into M2 (orchestrator: small, one file the milestone changed).
+- 2026-11-17 review M2 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in, CR #1170 resolved. M2 ticked; demo pending.
