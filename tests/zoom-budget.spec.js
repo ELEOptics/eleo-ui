@@ -3,6 +3,9 @@
 // The drawn-point test reads each point through its own group's matrix and the frame from `data-band` (layout) or the series viewport (curve), never getScreenCTM.
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { pageHelpers } from './page-helpers.js';
+
+test.beforeEach(({ page }) => pageHelpers(page));
 
 const BUDGET_MS = 150;
 const SLACK_PX = 32;
@@ -20,19 +23,19 @@ function windowOf(body) {
   const layout = body.querySelector('g[data-view="layout"]');
   const g = layout || body.querySelector('svg[width] > g[transform^="matrix("]');
   if (!g) throw new Error('no data group');
-  const [a, , , d] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+  const [a, , , d] = H.matrixOf(g.getAttribute('transform'));
   const vp = g.parentNode;
   const [bw, bh] = layout ? layout.getAttribute('data-band').split(/\s+/).map(Number).slice(2)
     : ['width', 'height'].map((q) => +vp.getAttribute(q));
   const marks = layout ? [...g.querySelectorAll('polyline[data-ray]')] : [...g.querySelectorAll('polyline[data-series], path[data-series]')];
   let best = null;
   for (const el of marks) {
-    const n = (el.getAttribute('points') || el.getAttribute('d') || '').match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+    const n = H.subpaths(el.getAttribute('d') ?? `M${el.getAttribute('points').trim().replace(/\s+/g, ' L')}`).flat();
     if (!best || n.length > best.length) best = n;
   }
-  if (!best || best.length < 4) throw new Error('no segment to centre on');
-  const i = Math.floor((best.length / 2 - 1) / 2) * 2; // the middle segment starts at point i/2
-  const cx = (best[i] + best[i + 2]) / 2, cy = (best[i + 1] + best[i + 3]) / 2;
+  if (!best || best.length < 2) throw new Error('no segment to centre on');
+  const i = Math.floor((best.length - 1) / 2); // the middle segment starts at point i
+  const cx = (best[i][0] + best[i + 1][0]) / 2, cy = (best[i][1] + best[i + 1][1]) / 2;
   const hx = Math.abs(bw / 2 / 1000 / a), hy = Math.abs(bh / 2 / 1000 / d);
   return { layout: !!layout, x: [cx - hx, cx + hx], y: [cy - hy, cy + hy] };
 }
@@ -79,7 +82,7 @@ test('a zoomed plot draws only near its window', async ({ page }) => { // #985, 
         const groups = layout ? [layout] : [...body.querySelectorAll('svg[width] > g[transform^="matrix("]')];
         let far = 0, count = 0;
         for (const g of groups) {
-          const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+          const [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
           const vp = g.parentNode;
           const [vx, vy] = layout ? [0, 0] : [+vp.getAttribute('x') || 0, +vp.getAttribute('y') || 0];
           const [fx, fy, fw, fh] = layout ? layout.getAttribute('data-band').split(/\s+/).map(Number)
