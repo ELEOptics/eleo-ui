@@ -111,28 +111,30 @@ function mapAt(host, cx, cy) {
   return { row: row, column: col, x: e[0] + (col + 0.5) * (e[1] - e[0]) / nc, y: e[3] - (row + 0.5) * (e[3] - e[2]) / nr };
 }
 
-/* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (the last child) unless `tip` is false; divs positioned in host px. The tooltip is a polite live region (`role=status`), so it is made here, empty, and kept for the life of the call: a region created together with its text is often not announced. */
+/* The overlay layer: the dot and two 1 px drop lines (children 0 to 2) unless `marks` is false, then the tooltip (`aria-hidden`) and a visually hidden live region (the last child) unless `tip` is false; divs positioned in host px. The live region is a polite `role=status`, so it is made here, empty, and kept for the life of the call: a region created together with its text is often not announced. It is separate from the tooltip because the tooltip follows interpolated readings and the live text only snapped points. */
 function overlay(marks, tip) {
   var layer = document.createElement("div");
   layer.className = "eleo-hover";
-  (marks ? ["v", "h", "dot"] : []).concat(tip ? ["tip"] : []).forEach(function (k) { var d = document.createElement("div"); d.className = "eleo-hover__" + k; layer.appendChild(d); });
-  if (tip) { var t = layer.lastChild; t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); }
+  (marks ? ["v", "h", "dot"] : []).concat(tip ? ["tip", "live"] : []).forEach(function (k) { var d = document.createElement("div"); d.className = "eleo-hover__" + k; layer.appendChild(d); });
+  if (tip) { layer.querySelector(".eleo-hover__tip").setAttribute("aria-hidden", "true"); var t = layer.querySelector(".eleo-hover__live"); t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); }
   hide(layer, tip);
   return layer;
 }
 
-/* Hides the overlay without removing it: the marks by `hidden`, the tooltip by emptying its text (the stylesheet collapses an empty tip), so it stays in the accessibility tree as an empty live region. */
+/* Hides the overlay without removing it: the marks by `hidden`, the tooltip and the live region by emptying their text (the stylesheet collapses an empty tip), so the live region stays in the accessibility tree empty. */
 function hide(layer, tip) {
-  var kids = layer.children, n = kids.length - (tip ? 1 : 0);
+  var kids = layer.children, n = kids.length - (tip ? 2 : 0);
   for (var i = 0; i < n; i++) kids[i].hidden = true;
-  if (tip) { var t = kids[n]; t.textContent = ""; }
+  if (tip) kids[n].textContent = kids[n + 1].textContent = "";
 }
 
-/* Sets the tooltip's text and puts it TIP_GAP px right of and below the pointer, flipped to the other side of the pointer where it would pass the host's edge, then clamped inside the host. The layer is re-added when a redraw replaced the host's markup. */
-function showTip(host, layer, text, cx, cy) {
-  var tip = layer.lastChild, hb = host.getBoundingClientRect();
+/* Sets the tooltip's text, and the live region's too when `live` (the event is not interpolated), and puts the tooltip TIP_GAP px right of and below the pointer, flipped to the other side of the pointer where it would pass the host's edge, then clamped inside the host. The layer is re-added when a redraw replaced the host's markup. */
+function showTip(host, layer, text, cx, cy, live) {
+  var tip = layer.querySelector(".eleo-hover__tip"), hb = host.getBoundingClientRect();
   if (layer.parentNode !== host) host.appendChild(layer);
-  if (tip.textContent !== text) tip.textContent = text; // a live region is rewritten only when its text changes
+  if (tip.textContent !== text) tip.textContent = text;
+  var lr = tip.nextSibling;
+  if (live && lr.textContent !== text) lr.textContent = text; // a live region is rewritten only when its text changes
   var ox = hb.left + host.clientLeft - host.scrollLeft, oy = hb.top + host.clientTop - host.scrollTop, x = cx - ox, y = cy - oy;
   var w = tip.offsetWidth, h = tip.offsetHeight, W = host.clientWidth, H = host.clientHeight;
   var left = x + TIP_GAP + w > W ? x - TIP_GAP - w : x + TIP_GAP, top = y + TIP_GAP + h > H ? y - TIP_GAP - h : y + TIP_GAP;
@@ -240,7 +242,7 @@ export function interact(el, opts) {
     if (b.bar) { ev.category = b.x; if (d.categoryLabel !== undefined) ev.categoryLabel = d.categoryLabel; }
     if (b.segment) { ev.interpolated = true; ev.segment = b.segment; }
     if (d.panel !== undefined) ev.panel = +d.panel;
-    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), cx, cy);
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), cx, cy, !ev.interpolated);
     emit(ev, [d.panel, d.series, d.field, d.ray, d.status, b.index, b.segment ? b.x + "," + b.y : "", b.bar ? d.category : ""].join());
   }
   // a glass polygon under the pointer with no ray run in reach (rays are drawn over the glass): the element's own data-*, no dot or drop lines. r1 and r2 may read "Infinity" (a flat surface). Returns false where the pointer is on no glass.
@@ -249,8 +251,8 @@ export function interact(el, opts) {
     if (!m) return false;
     var d = poly.dataset, at = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse()), ev = { x: at.x, y: at.y, element: +d.element, glass: d.glass };
     ["nd", "vd", "r1", "r2", "ct", "diameter", "f"].forEach(function (k) { if (d[k] !== undefined) ev[k] = +d[k]; });
-    if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
-    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
+    if (layer) for (var i = 0; i < (marks ? 3 : 0); i++) layer.children[i].hidden = true;
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY, true);
     emit(ev, "e" + d.element + "," + at.x + "," + at.y); // the pointer is in the key: x, y follow it within one element
     return true;
   }
@@ -261,8 +263,8 @@ export function interact(el, opts) {
     var values = opts && opts.values, ev = { x: s.x, y: s.y }, polar = s.ring !== undefined, v = values && (polar ? values[s.ring] && values[s.ring][s.spoke] : values[s.row] && values[s.row][s.column]);
     if (polar) { ev.ring = s.ring; ev.spoke = s.spoke; } else { ev.row = s.row; ev.column = s.column; }
     if (values) ev.value = typeof v === "number" && isFinite(v) ? v : null; // a masked sample (NaN, Infinity, null, missing) has no value
-    if (layer) for (var i = 0; i < layer.children.length - (tip ? 1 : 0); i++) layer.children[i].hidden = true;
-    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY);
+    if (layer) for (var i = 0; i < (marks ? 3 : 0); i++) layer.children[i].hidden = true;
+    if (tip) showTip(el, layer, readout(ev, opts && opts.axes), e.clientX, e.clientY, true);
     emit(ev, polar ? "r" + s.ring + "," + s.spoke : "c" + s.row + "," + s.column);
   }
   /* A click selects the mark under it by the mark's own data-*: the target's nearest ancestor in the host that names a surface, a layout field or a series. A ray run names its field only (a ray is several runs); nothing else changes. */

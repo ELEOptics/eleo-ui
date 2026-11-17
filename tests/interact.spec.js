@@ -265,8 +265,11 @@ test('tooltip is a live region', async ({ page }) => {
   });
   const tip = light.locator('[data-tile="live"] .eleo-hover__tip');
   await expect(tip, 'exists before any hover').toHaveCount(1);
-  await expect(tip).toHaveAttribute('role', 'status');
-  await expect(tip).toHaveAttribute('aria-live', 'polite');
+  await expect(tip).toHaveAttribute('aria-hidden', 'true');
+  const live = light.locator('[data-tile="live"] [role="status"]');
+  await expect(live).toHaveCount(1);
+  await expect(live).toHaveAttribute('aria-live', 'polite');
+  expect(await live.evaluate((el) => el === el.parentNode.lastChild && el.previousSibling.classList.contains('eleo-hover__tip')), 'the status is the last child, after the tooltip').toBe(true);
   await expect(tip).toHaveText('');
   await expect(tip).toBeHidden();
   await tip.evaluate((el) => { window.TIP = el; });
@@ -302,7 +305,7 @@ test('live region survives a redraw', async ({ page }) => {
   await page.mouse.move(700, 500);
   await page.mouse.move(440, 4); // onto the host, far from every point
   await expect(tip, 'back after the redraw').toHaveCount(1);
-  await expect(tip).toHaveAttribute('role', 'status');
+  await expect(tip.locator('xpath=following-sibling::*[@role="status"]')).toHaveCount(1);
   await expect(tip).toHaveText('');
   await page.evaluate(() => window.STOP());
   await expect(tip, 'removed by stop').toHaveCount(0);
@@ -363,7 +366,7 @@ test('live region survives a redraw under the pointer', async ({ page }) => {
   await expect(tip).toHaveCount(1);
   await page.evaluate(() => window.DRAW());
   await expect(tip, 'back with no move').toHaveCount(1);
-  await expect(tip).toHaveAttribute('role', 'status');
+  await expect(tip.locator('xpath=following-sibling::*[@role="status"]')).toHaveCount(1);
   await expect(tip).toHaveText('');
   await page.evaluate(() => window.STOP());
   await expect(tip, 'removed by stop').toHaveCount(0);
@@ -2287,7 +2290,7 @@ test('stop restores tabindex', async ({ page }) => { // #1152, green at #1156
   expect(got.changed, 'a tabindex the caller changed stays').toBe('2');
 });
 
-test.skip('live region announces snapped points only', async ({ page }) => { // #1152, #883
+test('live region announces snapped points only', async ({ page }) => { // #1152, #883
   await bind(page, 'mtf');
   const sweep = await page.evaluate(() => {
     const m = window.HOST.querySelector('[data-series="0"]'), to = window.T.proj(m), pts = window.T.pts(m);
