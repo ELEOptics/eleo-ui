@@ -81,7 +81,7 @@ function nearest(host, cx, cy) {
       var t = len ? Math.max(0, Math.min(1, ((at.x * m.a - ax) * vx + (at.y * m.d - ay) * vy) / len)) : 0;
       var d = Math.hypot(ax + t * vx - at.x * m.a, ay + t * vy - at.y * m.d);
       var sx = p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), sy = p[i - 1][1] + t * (p[i][1] - p[i - 1][1]);
-      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1 + r.off, x: sx, y: sy, segment: [i - 1 + r.off, i + r.off] };
+      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1 + r.off, x: sx, y: sy, segment: [i - 1 + r.off, i + r.off], near: (t < 0.5 ? i - 1 : i) + r.off };
     }
   });
   return bar || snap || best;
@@ -224,10 +224,11 @@ export function interact(el, opts) {
     pending = false; // a pointer taking over the hover is not undone by a late redraw
     var b = nearest(el, e.clientX, e.clientY);
     if (!b) return lensMove(e) || mapMove(e);
-    present(b, e.clientX, e.clientY);
+    present(b, e.clientX, e.clientY, true);
   }
-  // the hover of a found spot b, shown at the client position cx, cy: the pointer's, and the keyboard's at its point
-  function present(b, cx, cy) {
+  // the hover of a found spot b, shown at the client position cx, cy: the pointer's, and the keyboard's at its point. A pointer hover (`hovered`) of a key mark also sets the keyboard's current point: the point, or an interpolated spot's nearer end; a leave keeps it.
+  function present(b, cx, cy, hovered) {
+    if (hovered && !b.bar && b.mark.dataset.ray === undefined && isKeyMark(b.mark)) cur = { id: identOf(b.mark), i: b.near !== undefined ? b.near : b.index };
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y };
     if (d.ray !== undefined) { ev.field = +d.field; ev.ray = +d.ray; if (d.status !== undefined) ev.status = d.status; } // a layout2D ray run: z, y in mm
@@ -312,7 +313,9 @@ export function interact(el, opts) {
   }
   /* ---- Keyboard. The current point is a series identity (its panel and series, from data-panel and data-series) and a data index, so a redraw that replaced the markup keeps it, and so does a zoom that cut the series into several marks (each with a data-from): the mark is looked up again on each use. ---- */
   var cur = null, pending = false; // `pending`: a + - 0 key asked for the dot again once the caller's redraw replaces the markup
-  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return m.localName !== "rect" && dataGroup(m) && runs(m).p.length; }); }
+  // a mark the keyboard can step: a series mark that is not a bar, inside a data group (a found hover has points, so keyMarks adds only the non-empty runs)
+  function isKeyMark(m) { return m.hasAttribute("data-series") && m.localName !== "rect" && !!dataGroup(m); }
+  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return isKeyMark(m) && runs(m).p.length; }); }
   var identOf = function (m) { return m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); };
   // the drawn series per kind, in document order: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Today's curve and spot marks are the first adapter.
   function drawnSeries() {

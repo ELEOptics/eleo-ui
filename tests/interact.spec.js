@@ -511,13 +511,13 @@ const install = (page) => page.evaluate(() => {
       }
       return null;
     },
-    // A long segment of one of the marks matching sel whose middle is at least px from every drawn point: where to read along a line.
-    midpoint(host, sel, px, minLen) {
+    // A long segment of one of the marks matching sel whose middle (or, with `f`, the point that fraction along it) is at least px from every drawn point: where to read along a line.
+    midpoint(host, sel, px, minLen, f = 0.5) {
       for (const m of host.querySelectorAll(sel)) {
         m.scrollIntoView({ block: 'center' });
         const list = all(host), me = list.find((o) => o.m === m), p = pts(m);
         for (let i = 1; i < p.length; i++) {
-          const [x0, y0] = me.c[i - 1], [x1, y1] = me.c[i], mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+          const [x0, y0] = me.c[i - 1], [x1, y1] = me.c[i], mx = x0 + (x1 - x0) * f, my = y0 + (y1 - y0) * f;
           if (Math.hypot(x1 - x0, y1 - y0) >= minLen && clear(list, mx, my, px)) {
             return { segment: [i - 1, i], data: [(p[i - 1][0] + p[i][0]) / 2, (p[i - 1][1] + p[i][1]) / 2], c0: me.c[i - 1], c1: me.c[i], d0: p[i - 1], d1: p[i], x: mx, y: my, a: me.to.a, d: me.to.d, k: me.to.k, ds: { ...m.dataset } };
           }
@@ -2203,10 +2203,10 @@ test.skip('keyboard starts at the hovered point', async ({ page }) => { // #1152
   const after = await page.evaluate((i) => window.T.pts(window.HOST.querySelector('[data-series="0"]'))[i + 2], p.i);
   ev = await press('ArrowRight');
   within(ev, after, p, 'the point after the leave');
-  // an interpolated hover sets the segment's nearer end: a quarter along segment i..i+1 is nearer i, so ArrowRight is i + 1
-  const seg = await page.evaluate((sel) => window.T.midpoint(window.HOST, sel, 6, 40), '[data-series="0"]');
-  expect(seg, 'a long segment of series 0').not.toBeNull();
-  const qx = seg.c0[0] + (seg.c1[0] - seg.c0[0]) / 4, qy = seg.c0[1] + (seg.c1[1] - seg.c0[1]) / 4;
+  // an interpolated hover sets the segment's nearer end: 30% along segment i..i+1 (past the snap radius on a 24 px segment) is nearer i, so ArrowRight is i + 1
+  const seg = await page.evaluate((sel) => window.T.midpoint(window.HOST, sel, 7, 24, 0.3), '[data-series]');
+  expect(seg, 'a long segment').not.toBeNull();
+  const qx = seg.x, qy = seg.y;
   ev = await hoverAt(page, qx, qy);
   expect(ev?.interpolated, 'an interpolated reading').toBeTruthy();
   await page.evaluate(() => window.HOST.focus());
