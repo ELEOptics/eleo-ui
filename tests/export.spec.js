@@ -124,7 +124,7 @@ const faceCheck = (bare, out) => bare.evaluate(async (s) => {
     const rule = rules.find((x) => x.includes(fam) && new RegExp(`font-weight:\\s*${wt}`).test(x) && new RegExp(`font-style:\\s*${sty}`).test(x));
     if (!rule) { missing.push(u); continue; }
     const src = /url\(([^)]+)\)/.exec(rule)[1].replace(/["']/g, '');
-    try { await new FontFace(fam, `url(${src})`, { weight: wt, style: sty }).load(); } catch { unloadable.push(u); }
+    try { await new FontFace(fam, `url("${src}")`, { weight: wt, style: sty }).load(); } catch { unloadable.push(u); }
   }
   return { n: used.size, rules: rules.length, remote: remote.length, missing, unloadable };
 }, out);
@@ -502,6 +502,22 @@ test('used faces embedded', async ({ page, context }) => {
   const r = await faceCheck(bare, out);
   expect(r.n).toBeGreaterThan(0);
   expect(r.remote).toBe(0);
+  expect(r.missing).toEqual([]);
+  expect(r.unloadable).toEqual([]);
+});
+
+// #1163 (CR #1161, #1118's spike). oracle: reference #1118's spike: a font response typed `text/html; charset=utf-8` gives a data URL with `; ` in its MIME, which an unquoted url() cannot hold; the bytes are a valid font.
+test('faceCheck loads a parameterised MIME', async ({ page, context }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const out = await page.locator(TILE).first().evaluate((el) => window.ELEO.standalone(el));
+  // A valid woff2 from the gallery's own embedded font, re-typed with a parameterised MIME.
+  const b64 = /url\(["']?data:[^,]*;base64,([^"')]+)/.exec(out)[1];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><style>@font-face { font-family: ProbeMime; font-weight: 400; font-style: normal; src: url("data:text/html; charset=utf-8;base64,${b64}"); }</style><text style="font-family: ProbeMime">a</text></svg>`;
+  const bare = await context.newPage();
+  await bare.goto('about:blank');
+  const r = await faceCheck(bare, svg);
+  expect(r.n).toBe(1);
   expect(r.missing).toEqual([]);
   expect(r.unloadable).toEqual([]);
 });
