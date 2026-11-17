@@ -135,7 +135,7 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   g += '<svg ' + fr + '><g transform="matrix(' + M.join(" ") + ')">';
   var inner = body;
   if (inner === undefined) { inner = ""; series.forEach(function (s) { inner += seriesMarkup(s, panel, undefined, undefined, undefined, undefined, dotLength(sc, pw)); }); }
-  if (limits) { var lm = limitMarks(limits, xr, yr, limitStyle(), mg.cut); inner = lm.under + inner + lm.over; }
+  if (limits) { var lm = limitMarks(limits, xr, yr, limitStyle(), mg.cut, { x: sx, y: sy }); inner = lm.under + inner + lm.over; }
   g += inner;
   g += "</g></svg>";
   if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }, mg.t).replace(/<text [^>]*/g, function (m) { return m + ts; });

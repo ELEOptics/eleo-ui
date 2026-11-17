@@ -2321,7 +2321,7 @@ test.skip('live region announces snapped points only', async ({ page }) => { // 
   await page.evaluate(() => window.STOP());
 });
 
-test.skip('limit dashes hold on a pan', async ({ page }) => { // #1152, #996
+test('limit dashes hold on a pan', async ({ page }) => { // #1152, #996
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await installZ(page);
@@ -2347,8 +2347,9 @@ test.skip('limit dashes hold on a pan', async ({ page }) => { // #1152, #996
   const c = await toClient(page, 0, [50, 0.5]);
   await moveTo(page, c[0], c[1]);
   for (let i = 0; i < 3; i++) await wheel(page, -100); // zoomed
-  let at = await toClient(page, 0, [50, 0.5]);
+  const mid = await toClient(page, 0, [50, 0.5]); // each drag is centred here, so both its ends are inside the frame
   for (const dx of [30, 37, -45, -300, -300, 400, 400, 400]) { // both ways, and past the unzoomed range
+    const at = [mid[0] - dx / 2, mid[1]];
     const o0 = await origin(), n = (await views(page)).length;
     await page.mouse.move(at[0], at[1]);
     await page.mouse.down();
@@ -2359,7 +2360,6 @@ test.skip('limit dashes hold on a pan', async ({ page }) => { // #1152, #996
     const o1 = await origin();
     const off = (((o1 - o0 - dx) % P) + P) % P;
     expect(Math.min(off, P - off), `a pan of ${dx} px moves the dash origin by ${dx} mod ${P}: ${o0} to ${o1}`).toBeLessThanOrEqual(0.6);
-    at = [at[0] + dx > 20 && at[0] + dx < 560 ? at[0] + dx : at[0], at[1]];
   }
   await page.evaluate(() => window.STOP());
 });

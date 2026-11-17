@@ -1163,3 +1163,19 @@ test('limitBody is gone', async () => {
   const mod = await import('../../packages/plots/src/curve.js');
   assert.equal('limitBody' in mod, false, 'curve.js exports no limitBody');
 });
+
+// Plan #1144, issue #996. oracle: the dash origin of a zoomed limit line is at data 0, so its offset is the start's distance from data 0 in px, a positive modulo of the 13 px period (property: from the group's own matrix).
+test('limit dash origin at data 0', () => {
+  const series = [{ points: [[-50, 0.2], [100, 0.8]], index: 0 }];
+  const P = 13;
+  for (const [axis, view] of [['y', { x: [30, 60] }], ['y', { x: [-40, -10] }], ['x', { y: [0.25, 0.5] }], ['x', { y: [-0.4, 0.1] }]]) {
+    const svg = ELEO.curve({ series, x: { range: [-50, 100] }, y: { range: [-1, 1] }, limits: [{ [axis]: axis === 'y' ? 0.3 : 20 }], width: 600, height: 300, view });
+    const [a, , , d] = svg.match(/<g transform="matrix\(([^)]*)\)"/)[1].split(' ').map(Number);
+    const line = svg.match(/<line class="eleo-limit"[^>]*>/)[0];
+    const start = axis === 'y' ? view.x[0] * a : view.y[0] * -d;
+    const want = +(((start % P) + P) % P).toFixed(3);
+    const got = +(line.match(/stroke-dashoffset="([^"]+)"/) || [0, 0])[1];
+    assert.ok(Math.abs(got - want) < 0.002 || Math.abs(Math.abs(got - want) - P) < 0.002, `${axis} limit, view ${JSON.stringify(view)}: offset ${got}, want ${want}`);
+  }
+  assert.doesNotMatch(ELEO.curve({ series, x: { range: [-50, 100] }, y: { range: [-1, 1] }, limits: [{ y: 0.3 }], width: 600, height: 300 }), /<line class="eleo-limit"[^>]*stroke-dashoffset/, 'unzoomed: no offset');
+});
