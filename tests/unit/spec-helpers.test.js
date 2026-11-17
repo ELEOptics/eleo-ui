@@ -7,11 +7,11 @@ import * as svg from './helpers/svg.js';
 
 const SKIP = { skip: '#1145: unskipped by #1150' };
 
-test('subpaths exponent dot', SKIP, () => {
+test('subpaths exponent dot', () => {
   assert.deepEqual(svg.subpaths('M0.001,0.002 h6.7e-7 M0.003,0.004 h6.7e-7'), [[[0.001, 0.002]], [[0.003, 0.004]]]);
 });
 
-test('matrixOf anchored', SKIP, () => {
+test('matrixOf anchored', () => {
   assert.deepEqual(svg.matrixOf('matrix(1 0 0 1 2 3)'), [1, 0, 0, 1, 2, 3]);
   assert.equal(svg.matrixOf('matrix(1 0 0 1 2 3) translate(1)'), null);
 });

@@ -21,6 +21,12 @@ export function subpaths(d) {
   }
   return out;
 }
+// The six numbers of a lone `matrix(a b c d e f)` transform, or null: anchored (nothing may follow the matrix) and all finite, as interact.js's matrixOf reads it.
+// Self-contained (no closure) so tests/page-helpers.js can inject its source into the page.
+export function matrixOf(str) {
+  const m = /^matrix\(([^)]*)\)\s*$/.exec(str || ''), n = m && m[1].trim().split(/[\s,]+/).map(Number);
+  return n && n.length === 6 && n.every(Number.isFinite) ? n : null;
+}
 const PATH = /<(?:path|polyline)\b[^>]*?\b(?:d="([^"]*)"|points="([^"]*)")/;
 const LIMIT = /\bclass="eleo-limit"/;
 // Series are the paths that are not limit marks (`class="eleo-limit"`, plan #284): a limit is read by marks().
