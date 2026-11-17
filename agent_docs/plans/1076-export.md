@@ -87,7 +87,7 @@ Demo: on the MTF tile, `await ELEO.standalone(svg)` returns a string that, saved
 
 ### M2: every tile and the gallery's save buttons GitHub: `P1076 M2: every tile and save`
 
-Done 2026-11-16: review round 9 (Review M2: 0 blocking, nothing pulled in); full gate green on 4b2a436 (502 passed); Linux CI green on 2361d90 (the first head with CR [#1134]'s fixes), pending on 4b2a436 at the tick. Reopened once at round 4, when Linux CI was found red (CR [#1134]); the review breaker tripped at round 8 and the user answered `continue`. Demo: pending.
+Done 2026-11-16: review round 9 (Review M2: 0 blocking, nothing pulled in); full gate green on 4b2a436 (502 passed); Linux CI green on 2361d90 (the first head with CR [#1134]'s fixes), pending on 4b2a436 at the tick. Reopened once at round 4, when Linux CI was found red (CR [#1134]); the review breaker tripped at round 8 and the user answered `continue`. Demo: go (user, 2026-11-16).
 
 Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files that open like the tile, in both themes and palettes; every SVG tile passes O1 and O2 in three browsers. Proves: O1 and O2 on every tile, O3.
 
@@ -171,6 +171,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-16 [#1140] done. Review M2 round 7 (code-reviewer, claude-opus-5-5): 0 blocking, all carried CRs resolved; one small test hardening finding pulled in as [#1141] (#1140's row claimed more than its check does). Per round, blocking plus pulled in: 5, 2, 1, 0, 3, 1, 1; a round 8 that doesn't fall trips the breaker.
 - 2026-11-16 [#1141] done. Review M2 round 8 (code-reviewer, claude-opus-5-5): 0 blocking, all carried CRs resolved, one P3 necessity finding (three dead lines left by #1141). Pulling it in made the count 1, 1, 1 over rounds 6-8, so the breaker tripped. The user, 2026-11-16: `continue`. The finding is pulled in as [#1142]; review again.
 - 2026-11-16 [#1142] done. Review M2 round 9 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in, all eleven carried CRs resolved. M2 ticked; demo pending.
+- 2026-11-16 M2 demo (user): go.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
