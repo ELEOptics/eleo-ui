@@ -1,6 +1,6 @@
 # Plan #1076: Export a plot as SVG and PNG
 
-Status: approved 2026-11-13
+Status: done 2026-11-16
 Branch: `plan/1076-export` PR: [#1088] Depends on: none Roadmap: `agent_docs/roadmap.md`, row I
 
 ## Problem
@@ -172,6 +172,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-16 [#1141] done. Review M2 round 8 (code-reviewer, claude-opus-5-5): 0 blocking, all carried CRs resolved, one P3 necessity finding (three dead lines left by #1141). Pulling it in made the count 1, 1, 1 over rounds 6-8, so the breaker tripped. The user, 2026-11-16: `continue`. The finding is pulled in as [#1142]; review again.
 - 2026-11-16 [#1142] done. Review M2 round 9 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in, all eleven carried CRs resolved. M2 ticked; demo pending.
 - 2026-11-16 M2 demo (user): go.
+- 2026-11-16 plan end: `CLAUDE.md` commands re-verified on 527c0bb: `npm ci` and `npm run build` exit 0; `npm run test:unit` 304 pass, 0 fail; `npx playwright test` 502 passed; `scripts/check.sh --fast` exit 0; `npm run gallery` serves http://localhost:4173/gallery/; `npx changeset` runs; `core.hooksPath` is `.githooks`. `origin/main` is an ancestor (no catch-up). Status done; roadmap row I done.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
