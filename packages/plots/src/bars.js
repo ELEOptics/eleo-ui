@@ -1,5 +1,5 @@
 import { idx, svg, esc } from "./common.js";
-import { scales, plotCell, limitBody } from "./curve.js";
+import { scales, plotCell } from "./curve.js";
 import { frameText, frameOf, CURVE_MARGINS } from "./scale.js";
 import { checkLimits } from "./limits.js";
 import { keyLayout, keyMarkup } from "./key.js";
@@ -56,7 +56,7 @@ export function bars(o) {
     var dx = (L + k * px).toFixed(1);
     g += '<line x1="' + dx + '" y1="' + T + '" x2="' + dx + '" y2="' + r2(T + ph) + '" stroke="var(--plot-grid)"/>';
   });
-  g += plotCell(sc, [], W, Hf, T, false, limitBody(lim, sc, rects), lim, { L: L, B: Bm, R: R, t: t, grid: o.grid });
+  g += plotCell(sc, [], W, Hf, T, false, rects, lim, { L: L, B: Bm, R: R, t: t, grid: o.grid });
   var label = function (k, txt) { return '<text class="eleo-tick" x="' + (L + (k + 0.5) * px).toFixed(1) + '" y="' + r2(T + ph + 1.3 * t) + '" text-anchor="middle"' + ts + '>' + esc(txt) + "</text>"; };
   cats.forEach(function (txt, c) { if (c % step === 0) g += label(c, txt); });
   if (hasTotal) g += label(n + GAP, o.total);

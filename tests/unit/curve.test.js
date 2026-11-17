@@ -1156,3 +1156,10 @@ test('a dot is a 0.01 px segment at any data scale', () => {
     assert.ok(Math.abs(dotLen(zoomed, 'zoomed') * Math.abs(z.M[0]) - 0.01) <= 1e-3, `scale ${k} zoomed: 0.01 px`);
   }
 });
+
+// #323: limits enter plotCell one way, through its `limits` parameter; the body wrapper is gone.
+// oracle: user plan #1144, item #323 (limitBody is not exported)
+test('limitBody is gone', async () => {
+  const mod = await import('../../packages/plots/src/curve.js');
+  assert.equal('limitBody' in mod, false, 'curve.js exports no limitBody');
+});
