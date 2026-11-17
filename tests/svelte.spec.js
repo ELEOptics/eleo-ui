@@ -7,6 +7,9 @@ import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 import { compile, compileModule } from 'svelte/compiler';
 import { test, expect } from '@playwright/test';
+import { moveTo, pageHelpers } from './page-helpers.js';
+
+test.beforeEach(({ page }) => pageHelpers(page));
 
 const lib = fileURLToPath(new URL('../packages/plots-svelte/src/lib/', import.meta.url));
 const NAMES = ['CurvePlot', 'RayFan', 'BarPlot', 'Map2D', 'SpotDiagram', 'Layout2D'];
@@ -121,7 +124,7 @@ test('CurvePlot hover tooltip', async ({ page }) => {
   const read = () => page.evaluate(() => {
     const g = document.querySelector('#harness polyline[data-series="0"]')?.parentElement;
     if (!g) return null;
-    const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
     const vp = g.closest('svg');
     const root = vp.ownerSVGElement || vp;
     const box = root.getBoundingClientRect();
@@ -137,7 +140,7 @@ test('CurvePlot hover tooltip', async ({ page }) => {
     at = second;
     return first && second && first.x === second.x && first.y === second.y;
   }).toBe(true);
-  await page.mouse.move(at.x, at.y);
+  await moveTo(page, at.x, at.y);
   await expect(page.locator('#harness .eleo-hover__tip')).toHaveText('Tangential · 120 cycles/mm, 0.62');
 });
 
@@ -178,7 +181,7 @@ for (const [name, { props, patch, at }] of Object.entries(ZOOMABLE)) {
     const first = await ticks();
     const box = await host.boundingBox();
     const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
-    await page.mouse.move(px, py);
+    await moveTo(page, px, py);
     await page.mouse.wheel(0, -300);
     await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
     const zoomed = await ticks();
@@ -200,7 +203,7 @@ for (const [name, { props, at }] of Object.entries(ZOOMABLE)) {
     const first = await ticks();
     const box = await host.boundingBox();
     const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
-    await page.mouse.move(px, py);
+    await moveTo(page, px, py);
     await page.mouse.wheel(0, -300);
     await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
     await page.evaluate(() => window.setView(null));
