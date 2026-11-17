@@ -81,6 +81,8 @@ Demo: `npm run test:unit` shows `spec-helpers.test.js` green, its scan finding n
 | #1118 reuse | Spike, timebox 2 h: why the embedded Fira Code 400 sometimes won't load | log each embedded face's data URL length and the `FontFace.load` error, run the full export spec until it fails or 15 runs pass; output an issue comment naming the cause and the fix, which becomes a work item by CR (user, round 1) and lands before the next item; considered a product retry now, ruled out by the user | none committed (a local patch) | n/a (spike) | #1125 |
 | #1163 | `faceCheck` quotes the data URL it rewraps (CR #1161) | `url("${src}")` in `new FontFace` because an unquoted url() cannot hold the `; ` of a parameterised MIME (#1118's spike); considered normalising the MIME in `export.js`, ruled out of this plan (#1162, backlog); no retry: the fetch is not what failed | `tests/export.spec.js` | `export.spec.js::faceCheck loads a parameterised MIME` | #1118 |
 | #1151 | Record O2's measurement | forced (O2's oracle is a measurement, recorded in the Change log) | this plan's Change log | the repeat runs above | #1118, #1163 |
+| #1165 | `export.spec.js`'s `setState` aims with `moveTo` (review M1 round 1, finding 2) | import `moveTo` and use it at the hover aim, as `gallery.spec.js` does, so the whole-pixel rule lives in one place; considered exporting `pixel` for `interact.spec.js`'s copy, left: it feeds `readAt`, not a move | `tests/export.spec.js` | the file's own tests | none |
+| #1166 | O1's scan catches the other matrix and dot-length spellings (review M1 round 1, finding 3) | widen the pattern to `matrix\s*\(` and `h-?[`, allow-list `gallery.spec.js`'s dot rewrite by content; considered a regex-literal parser, ruled out: larger than the rule it guards | `tests/unit/spec-helpers.test.js` | `spec-helpers.test.js::no spec parses a matrix or a dot length of its own` | none |
 
 ### M2: keyboard, screen reader and dashes GitHub: `P1144 M2: keyboard, screen reader and dashes`
 
@@ -137,3 +139,6 @@ Demo: `npm run gallery`; hover a bar, press ArrowRight and ArrowDown (the next c
 - 2026-11-17 approved (user): as drafted, 2 milestones, 21 items.
 - 2026-11-17 #1118 spike: cause found (a Google Fonts response typed `text/html; charset=utf-8` makes `faceCheck`'s unquoted `url()` invalid CSS; 1 fail in 15 Chromium runs). CR #1161 accepted by the orchestrator (test-only, no invariant): item #1163, before #1151. The product MIME normalisation is backlog #1162, not this plan.
 - 2026-11-17 #1151 O2 measured at b9d1e66: `npx playwright test tests/export.spec.js --repeat-each=N`: Chromium N=15, 315 passed, 0 failed, 0 flaky, 20.7 min; Firefox N=3, 63 passed, 0 failed, 0 flaky, 4.3 min; WebKit N=3, 63 passed, 0 failed, 0 flaky, 4.5 min. O2 met.
+- 2026-11-17 review M1 round 1: 0 blocking, 3 backlog. Finding 1 is backlog #1164 (four spec files, not small).
+- 2026-11-17 backlog #1165 into M1 (orchestrator: small, one file the milestone changed).
+- 2026-11-17 backlog #1166 into M1 (orchestrator: small, one file the milestone changed).
