@@ -6,10 +6,12 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { TOL_PX } from './unit/helpers/svg.js';
+import { moveTo, pageHelpers } from './page-helpers.js';
+
+test.beforeEach(({ page }) => pageHelpers(page));
 
 // The pixel the browser delivers for a computed client point: Firefox and WebKit truncate pointer coordinates to whole pixels (#1030), so the specs aim at the nearest one.
 const pixel = (...c) => c.map(Math.round);
-const moveTo = (page, x, y) => page.mouse.move(...pixel(x, y));
 // What a segment reads at the pixel the browser delivers: the pixel projected onto the segment a-b (client px) and clamped to it, as the same fraction of the data span d0-d1.
 const readAt = (a, b, d0, d1, [px, py]) => {
   const t = Math.min(1, Math.max(0, ((px - a[0]) * (b[0] - a[0]) + (py - a[1]) * (b[1] - a[1])) / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2)));
@@ -20,11 +22,9 @@ const readAt = (a, b, d0, d1, [px, py]) => {
 const drawnAt = (page, tile, series, index) => page.locator(`[data-tile="${tile}"] polyline[data-series="${series}"], [data-tile="${tile}"] path[data-series="${series}"]`).first()
   .evaluate((mark, index) => {
     const group = mark.parentNode;
-    const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
-    // The drawn points: parse the attribute string (strip M/L and h<n>, split on commas and spaces) and drop non-finite pairs only. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
-    const n = (mark.getAttribute('points') || mark.getAttribute('d') || '').replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
-    const pts = [];
-    for (let i = 0; i + 1 < n.length; i += 2) if (Number.isFinite(n[i]) && Number.isFinite(n[i + 1])) pts.push([n[i], n[i + 1]]);
+    const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
+    // The drawn points: H.subpaths of the attribute (a dot adds none), non-finite pairs dropped. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
+    const pts = H.subpaths(mark.getAttribute('d') ?? `M${mark.getAttribute('points').trim().replace(/ /g, ' L')}`).flat().filter((p) => p.every(Number.isFinite));
     const [x, y] = pts[index];
     const vp = group.closest('svg');
     const root = vp.ownerSVGElement || vp;
@@ -100,7 +100,7 @@ test('non-finite points are skipped', async ({ page }) => {
     // Where data point (x, y) of a host's mark is drawn in client px, from the data group's matrix attribute, never getScreenCTM.
     window.AT = (id, x, y) => {
       const group = document.querySelector(`#${id} [data-series]`).parentNode;
-      const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+      const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
       const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
       // a panels drawing wraps its panels in a <g transform="translate(tx ty)"> between the root and the viewport
       let tx = 0, ty = 0;
@@ -339,7 +339,7 @@ test('tooltip writes only changed text', async ({ page }) => {
   expect(await tip.textContent(), 'text unchanged by the tiny moves').toBe(text);
   expect(await page.evaluate(() => window.MUT + window.OBS.takeRecords().length), 'no mutation for unchanged text').toBe(0);
   const q = await drawnAt(light, 'writes', 0, 5);
-  await page.mouse.move(q.clientX, q.clientY);
+  await moveTo(page, q.clientX, q.clientY);
   await expect(tip, 'a changed reading is written').not.toHaveText(text);
   await page.evaluate(() => { window.OBS.disconnect(); window.STOP(); });
 });
@@ -416,7 +416,7 @@ test('hover reads between data points', async ({ page }) => {
     window.HOVER = [];
     window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) });
     const group = host.querySelector('[data-series]').parentNode;
-    const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
     const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
     const vx = +(vp.getAttribute('x') || 0), vy = +(vp.getAttribute('y') || 0);
     window.AT = (x, y) => [box.left + (vx + a * x + e) * k, box.top + (vy + d * y + f) * k];
@@ -473,19 +473,16 @@ const nearestTo = (list, ref) => list.reduce((best, v, i) => (Math.abs(v - ref) 
 
 // Page-side helpers on window.T, installed once per page after the gallery is ready. All geometry comes from attributes, never getScreenCTM.
 const install = (page) => page.evaluate(() => {
-  const nums = (s) => s.replace(/h\s*-?[\d.]+/g, ' ').replace(/[ML]/g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
   // A mark's drawn points in its data units: the finite pairs of a polyline, polygon or path (a dot's `h<d>` adds none), the centre of a rect, a line's ends.
   const pts = (m) => {
     if (m.tagName === 'rect') { const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((k) => +m.getAttribute(k)); return [[x + w / 2, y + h / 2]]; }
     if (m.tagName === 'line') return [[+m.getAttribute('x1'), +m.getAttribute('y1')], [+m.getAttribute('x2'), +m.getAttribute('y2')]];
-    const n = nums(m.getAttribute('points') || m.getAttribute('d') || ''), out = [];
-    for (let i = 0; i + 1 < n.length; i += 2) if (Number.isFinite(n[i]) && Number.isFinite(n[i + 1])) out.push([n[i], n[i + 1]]);
-    return out;
+    return H.subpaths(m.getAttribute('d') ?? `M${(m.getAttribute('points') || '').trim().replace(/ /g, ' L')}`).flat().filter((p) => p.every(Number.isFinite));
   };
   // data -> client px for a mark: its data group's matrix, the viewport's x/y, the translate of a panel wrapper, the root's client box.
   const proj = (m) => {
     const group = m.closest('g[transform^="matrix("]');
-    const [a, , , d, e, f] = group.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
     const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
     let tx = 0, ty = 0;
     if (vp !== root) for (let g = vp.parentNode; g && g !== root; g = g.parentNode) {
@@ -679,7 +676,7 @@ test('bar hover', async ({ page }) => {
   }, best);
   expect(await hoverAt(page, q.gap[0], q.gap[1]), 'the gap between bars hovers nothing').toBeNull();
   expect(await hoverAt(page, q.past[0], q.past[1]), 'above the bar\'s value end hovers nothing').toBeNull();
-  await page.mouse.move(p.x, p.y);
+  await moveTo(page, p.x, p.y);
   await page.mouse.move(2, 2);
   expect(await page.evaluate(() => window.HOVER.at(-1)), 'leaving emits null').toBeNull();
   // A bar under a pixel tall (the light Seidel tile has them) is hovered within SNAP of its value end, 3 px past it; 9 px past it nothing.
@@ -907,7 +904,7 @@ test('foreign data-series markup is ignored', async ({ page }) => {
 // between data and client px with the matrix attribute alone.
 const installZ = (page) => page.evaluate(() => {
   const frames = (host) => [...host.querySelectorAll('g[transform^="matrix("]')].filter((g) => g.querySelector('[data-series]')).map((g) => {
-    const [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+    const [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
     const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
     let tx = 0, ty = 0;
     if (vp !== root) for (let n = vp.parentNode; n && n !== root; n = n.parentNode) {
@@ -985,7 +982,7 @@ const span = (r) => r[1] - r[0];
 test('wheel zooms about the pointer', async ({ page }) => {
   await mountZoom(page, 'curve');
   const f0 = (await frames(page))[0], p = [3, 0.4], c0 = await toClient(page, 0, p);
-  await page.mouse.move(c0[0], c0[1]);
+  await moveTo(page, c0[0], c0[1]);
   const scrollBefore = await page.evaluate(() => window.scrollY);
   await wheel(page, -100);
   expect(await views(page), 'one view event per notch').toHaveLength(1);
@@ -1008,7 +1005,7 @@ test('wheel zooms about the pointer', async ({ page }) => {
 test('a horizontal wheel is not prevented', async ({ page }) => {
   await mountZoom(page, 'curve');
   const c0 = await toClient(page, 0, [3, 0.4]);
-  await page.mouse.move(c0[0], c0[1]);
+  await moveTo(page, c0[0], c0[1]);
   const prevented = await page.evaluate(([x, y]) => {
     const fire = (dx, dy) => { const e = new WheelEvent('wheel', { deltaX: dx, deltaY: dy, clientX: x, clientY: y, bubbles: true, cancelable: true }); window.HOST.querySelector('svg').dispatchEvent(e); return e.defaultPrevented; };
     return [fire(50, 0), fire(0, -100), fire(50, 2)];
@@ -1025,7 +1022,7 @@ test('a drag does not select', async ({ page }) => {
   await mountZoom(page, 'curve');
   await page.evaluate(() => { window.SELECT = []; window.STOP(); window.STOP = window.ELEO.interact(window.HOST, { onview(v) { window.HOST.innerHTML = window.DRAW(v); }, onselect: (ev) => window.SELECT.push(ev) }); });
   const c = await toClient(page, 0, [2.5, Math.sin(2.5)]);
-  await page.mouse.move(c[0], c[1]);
+  await moveTo(page, c[0], c[1]);
   await page.mouse.down();
   await page.mouse.move(c[0] + 30, c[1] + 5, { steps: 4 });
   await page.mouse.up();
@@ -1047,7 +1044,8 @@ test('zoom pan and reset', async ({ page }) => {
 
   // wheel in: the point under the pointer stays under it, and the range is p + (range - p) / k
   const p = [3, 0.4], c0 = await toClient(page, 0, p);
-  await page.mouse.move(c0[0], c0[1]);
+  await moveTo(page, c0[0], c0[1]);
+  const q = await toData(page, 0, c0.map(Math.round)); // the data point under the delivered pixel (#1030)
   const scrollBefore = await page.evaluate(() => window.scrollY);
   await wheel(page, -100);
   expect(await views(page), 'one view event per notch').toHaveLength(1);
@@ -1055,11 +1053,11 @@ test('zoom pan and reset', async ({ page }) => {
   const f1 = (await frames(page))[0], k = span(f0.x) / span(f1.x);
   expect(k, 'a notch toward the screen zooms in').toBeGreaterThan(1);
   closeTo(span(f0.y) / span(f1.y), k, 1e-6 * k, 'the same factor on y');
-  rangeIs(f1.x, [p[0] + (f0.x[0] - p[0]) / k, p[0] + (f0.x[1] - p[0]) / k], Math.abs(f1.a) * f1.k, 'x range');
-  rangeIs(f1.y, [p[1] + (f0.y[0] - p[1]) / k, p[1] + (f0.y[1] - p[1]) / k], Math.abs(f1.d) * f1.k, 'y range');
+  rangeIs(f1.x, [q[0] + (f0.x[0] - q[0]) / k, q[0] + (f0.x[1] - q[0]) / k], Math.abs(f1.a) * f1.k, 'x range');
+  rangeIs(f1.y, [q[1] + (f0.y[0] - q[1]) / k, q[1] + (f0.y[1] - q[1]) / k], Math.abs(f1.d) * f1.k, 'y range');
   const under = await toData(page, 0, c0);
-  closeTo(under[0], p[0], TOL_PX / (Math.abs(f1.a) * f1.k), 'data x under the pointer');
-  closeTo(under[1], p[1], TOL_PX / (Math.abs(f1.d) * f1.k), 'data y under the pointer');
+  closeTo(under[0], q[0], TOL_PX / (Math.abs(f1.a) * f1.k), 'data x under the pointer');
+  closeTo(under[1], q[1], TOL_PX / (Math.abs(f1.d) * f1.k), 'data y under the pointer');
   // the event is the drawn range
   const v1 = (await views(page))[0];
   rangeIs(v1.x, f1.x, Math.abs(f1.a) * f1.k, 'event x');
@@ -1097,7 +1095,7 @@ test('zoom pan and reset', async ({ page }) => {
   expect(await markup(page), 'double-click restores the original markup').toBe(await page.evaluate(() => window.ORIG));
 
   // reset() does the same from code
-  await page.mouse.move(c0[0], c0[1]);
+  await moveTo(page, c0[0], c0[1]);
   await wheel(page, -100);
   expect(await markup(page) !== (await page.evaluate(() => window.ORIG)), 'zoomed again').toBe(true);
   await page.evaluate(() => window.STOP.reset());
@@ -1117,7 +1115,7 @@ test('zoom pan and reset', async ({ page }) => {
 test('a data redraw keeps the view', async ({ page }) => {
   await mountZoom(page, 'curve');
   const f0 = (await frames(page))[0], c = await toClient(page, 0, [6, 0]);
-  await page.mouse.move(c[0], c[1]);
+  await moveTo(page, c[0], c[1]);
   await wheel(page, -100);
   const view = await page.evaluate(() => window.LAST), f1 = (await frames(page))[0];
   await page.evaluate(() => { window.DATA = 0.5; window.HOST.innerHTML = window.DRAW(window.LAST); });
@@ -1128,7 +1126,7 @@ test('a data redraw keeps the view', async ({ page }) => {
   expect(view.x, 'the event the caller kept').toHaveLength(2);
   // zooming again compounds on the redrawn range
   const c2 = await toClient(page, 0, [6, 0]);
-  await page.mouse.move(c2[0], c2[1]);
+  await moveTo(page, c2[0], c2[1]);
   await wheel(page, -100);
   const f3 = (await frames(page))[0], k = span(f1.x) / span(f3.x);
   expect(k, 'a second notch zooms in again').toBeGreaterThan(1);
@@ -1155,7 +1153,7 @@ test('a sparse panel curve zooms as a curve', async ({ page }) => {
     host.scrollIntoView({ block: 'center' });
   });
   const f0 = (await frames(page))[0], c = await toClient(page, 0, [5, 0.5]);
-  await page.mouse.move(c[0], c[1]);
+  await moveTo(page, c[0], c[1]);
   await wheel(page, -100);
   const v = await views(page);
   expect(v, 'one view event').toHaveLength(1);
@@ -1175,7 +1173,7 @@ test('spot panels share one view', async ({ page }) => {
 
   // wheel in over the second panel, off its centre
   const p = [c0x + 0.5 * half0, c0y - 0.3 * half0], c = await toClient(page, 1, p);
-  await page.mouse.move(c[0], c[1]);
+  await moveTo(page, c[0], c[1]);
   await wheel(page, -100);
   expect(await views(page), 'one event').toHaveLength(1);
   const v = (await views(page))[0], f1 = await frames(page), k = half0 / (span(f1[0].x) / 2);
@@ -1194,7 +1192,7 @@ test('spot panels share one view', async ({ page }) => {
 
   // drag in the first panel pans every panel by the drag distance
   const s = await toClient(page, 0, [v.center[0], v.center[1]]);
-  await page.mouse.move(s[0], s[1]);
+  await moveTo(page, s[0], s[1]);
   await page.mouse.down();
   await page.mouse.move(s[0] - 30, s[1] + 15, { steps: 5 });
   await page.mouse.up();
@@ -1219,7 +1217,7 @@ test('map zoom keeps the image at its extent', async ({ page }) => {
   const img0 = await page.evaluate(() => window.Z.image(window.HOST));
   const fx = 0.3, fy = 0.65, ext = [-6, 6, -4, 4];
   const c = await page.evaluate(([fx, fy]) => window.Z.imageAt(window.HOST, fx, fy), [fx, fy]);
-  await page.mouse.move(c[0], c[1]);
+  await moveTo(page, c[0], c[1]);
   await wheel(page, -100);
   expect(await views(page), 'one event').toHaveLength(1);
   const v = (await views(page))[0], img1 = await page.evaluate(() => window.Z.image(window.HOST));
@@ -1345,7 +1343,7 @@ test('a double-click selects once', async ({ page }) => {
     window.STOP = window.ELEO.interact(window.HOST, { onselect: (ev) => window.SELECT.push(ev), onview(v) { window.VIEWS.push(v); window.LAST = v; window.HOST.innerHTML = window.DRAW(v); } });
   });
   const c = await toClient(page, 0, [2, Math.sin(2)]);
-  await page.mouse.move(c[0], c[1]);
+  await moveTo(page, c[0], c[1]);
   await wheel(page, -100);
   expect(await page.evaluate(() => window.LAST), 'zoomed first').not.toBeNull();
   const fire = (page2) => page2.evaluate(() => {
@@ -1392,11 +1390,11 @@ test('options read at event time', async ({ page }) => {
   });
   const c = await toClient(page, 0, [4, Math.sin(4)]);
   await page.mouse.move(2, 2);
-  await page.mouse.move(c[0], c[1]);
+  await moveTo(page, c[0], c[1]);
   expect(await tip(), 'bound axes read').toContain('qa');
   await page.evaluate(() => { window.OPTS.axes = { x: { unit: 'qb' } }; });
   await page.mouse.move(2, 2);
-  await page.mouse.move(c[0], c[1]);
+  await moveTo(page, c[0], c[1]);
   const t = await tip();
   expect(t, 'replaced axes read at the next hover').toContain('qb');
   expect(t).not.toContain('qa');
@@ -1418,11 +1416,11 @@ test('options read at event time', async ({ page }) => {
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   });
   await page.mouse.move(2, 2);
-  await page.mouse.move(q.x, q.y);
+  await moveTo(page, q.x, q.y);
   expect(await tip(), 'bound values read').toContain('= 7');
   await page.evaluate(() => { window.OPTS.values = window.GRID9; });
   await page.mouse.move(2, 2);
-  await page.mouse.move(q.x, q.y);
+  await moveTo(page, q.x, q.y);
   expect(await tip(), 'replaced values read at the next hover').toContain('= 9');
   await page.evaluate(() => { window.STOP(); window.HOST.remove(); });
 });
@@ -1463,7 +1461,7 @@ test('a pan or double-click selects no text', async ({ page }) => {
   expect(geo.label, 'axis text outside the frame to drag across').not.toBeNull();
   const selected = () => page.evaluate(() => window.getSelection().toString());
   // a pan that sweeps across the axis text
-  await page.mouse.move(geo.cx, geo.cy);
+  await moveTo(page, geo.cx, geo.cy);
   await page.mouse.down();
   await page.mouse.move(geo.label.x, geo.label.y, { steps: 8 });
   await page.mouse.up();
@@ -1498,7 +1496,7 @@ async function mountLayout(page, layout) {
     window.L = {
       frame() {
         const g = host.querySelector('svg > g[transform^="matrix("]'), root = g.ownerSVGElement;
-        const [a, b, c, d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+        const [a, b, c, d, e, f] = H.matrixOf(g.getAttribute('transform'));
         const box = root.getBoundingClientRect(), vb = root.viewBox.baseVal, k = box.width / vb.width;
         const [bx, by, bw, bh] = (g.getAttribute('data-band') || `0 0 ${vb.width} ${vb.height}`).split(' ').map(Number);
         return { a, b, c, d, e, f, k, x: [(bx - e) / a, (bx + bw - e) / a], y: [(f - by - bh) / a, (f - by) / a], at: (p) => [box.left + (a * p[0] + e) * k, box.top + (d * p[1] + f) * k] };
@@ -1703,8 +1701,8 @@ test('a lens hover follows the pointer', async ({ page }) => {
   });
   await page.mouse.move(2, 2);
   await page.evaluate(() => { window.HOVER = []; window.WRITES = 0; });
-  await page.mouse.move(at.x, at.y);
-  await page.mouse.move(at.x + 1, at.y);
+  await moveTo(page, at.x, at.y);
+  await moveTo(page, at.x + 1, at.y);
   await page.waitForTimeout(50);
   const got = await page.evaluate(() => ({ evs: window.HOVER.slice(), writes: window.WRITES, text: window.HOST.querySelector('.eleo-hover__tip').textContent }));
   expect(got.evs, 'a hover per move').toHaveLength(2);
@@ -1731,7 +1729,7 @@ test('a cropped layout hovers rays past its band', async ({ page }) => {
     // a ray point drawn past the band's top or bottom edge, still inside the root viewBox, and its client position
     const c = await page.evaluate(() => {
       const g = window.HOST.querySelector('g[data-band]'), root = g.ownerSVGElement, r = root.getBoundingClientRect(), vb = root.viewBox.baseVal, k = r.width / vb.width;
-      const [bx, by, bw, bh] = g.getAttribute('data-band').split(' ').map(Number), [a, , , d, e, f] = g.getAttribute('transform').match(/matrix\(([^)]*)\)/)[1].split(/[\s,]+/).map(Number);
+      const [bx, by, bw, bh] = g.getAttribute('data-band').split(' ').map(Number), [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
       let best = null;
       for (const pl of g.querySelectorAll('polyline[data-ray]')) {
         for (let i = 1; i < pl.points.numberOfItems; i++) {
