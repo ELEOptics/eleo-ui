@@ -2146,6 +2146,30 @@ test('single plot bad point', async ({ page }) => {
   expect(runs.length, 'a total length above 0').toBeGreaterThan(0);
 });
 
+// Plan #1144, #1154: the keyboard's point list holds a series' points across its pieces. A bad point splits series 0 into two pieces; Left and Right cross the gap.
+// oracle: closed-form (series 0 = (0,0) (1,1) (NaN,2) (3,1) (4,0): the points at x = 0, 1, 3, 4 are stepped in order, the bad point skipped).
+test('the keyboard steps across the pieces of a split series', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'width:400px;margin:20px auto';
+    document.body.prepend(host);
+    const s0 = [[0, 0], [1, 1], [NaN, 2], [3, 1], [4, 0]], s1 = [0, 1, 2, 3, 4].map((i) => [i, 2]);
+    host.innerHTML = window.ELEO.curve({ series: [{ points: s0, index: 0 }, { points: s1, index: 1 }], x: { range: [0, 4] }, y: { range: [0, 6] }, width: 400 });
+    window.HOST = host; window.HOVER = [];
+    window.STOP = window.ELEO.interact(host, { onhover: (e) => window.HOVER.push(e && { s: e.series.index, x: e.x }) });
+    host.focus();
+  });
+  const last = () => page.evaluate(() => window.HOVER.at(-1));
+  expect(await page.evaluate(() => window.HOST.querySelectorAll('[data-series="0"]').length), 'series 0 is drawn as one path of two runs or two marks').toBeGreaterThan(0);
+  for (const [key, want] of [['ArrowRight', { s: 0, x: 0 }], ['ArrowRight', { s: 0, x: 1 }], ['ArrowRight', { s: 0, x: 3 }], ['ArrowRight', { s: 0, x: 4 }], ['ArrowLeft', { s: 0, x: 3 }], ['ArrowLeft', { s: 0, x: 1 }]]) {
+    await page.keyboard.press(key);
+    expect(await last(), `${key} gives ${JSON.stringify(want)}`).toEqual(want);
+  }
+  await page.evaluate(() => window.STOP());
+});
+
 // Plan #1144 (agent_docs/plans/1144-interaction-polish.md), M2 outcomes O3 to O6 (issue #1152). All skipped until #1159 unskips them.
 // oracle: spec #1004 (1, 3) for the keyboard (the expected marks from the gallery's own tiles, fixture: gallery sample.json), spec #1004 (2) for tabindex, spec #883 option snapped points only for the live region, metamorphic for the dashes: a pan by delta px shifts the dash origin by delta mod the period (#996).
 // Gallery tile `tile`, bound with hover recorded; the host focused so the keys reach it with the pointer wherever the test left it.

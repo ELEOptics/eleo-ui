@@ -314,35 +314,36 @@ export function interact(el, opts) {
   var cur = null, pending = false; // `pending`: a + - 0 key asked for the dot again once the caller's redraw replaces the markup
   function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return m.localName !== "rect" && dataGroup(m) && runs(m).p.length; }); }
   var identOf = function (m) { return m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); };
-  // the drawn series, in document order of their first mark: { id, marks } with every mark (piece) of that identity
+  // the drawn series per kind, in document order: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Today's curve and spot marks are the first adapter.
   function drawnSeries() {
     var out = [], by = {};
-    keyMarks().forEach(function (m) { var id = identOf(m); if (!by[id]) { by[id] = { id: id, marks: [] }; out.push(by[id]); } by[id].marks.push(m); });
+    keyMarks().forEach(function (m) {
+      var id = identOf(m), r = runs(m);
+      if (!by[id]) { by[id] = { id: id, points: [] }; out.push(by[id]); }
+      r.p.forEach(function (q, j) { by[id].points.push({ mark: m, index: j + r.off, x: q[0], y: q[1] }); });
+    });
     return out;
   }
-  // a series' points inside the frame, by data index (the first of two pieces drawing the same index): { mark, index, x, y }
-  function visiblePoints(ser) {
-    var out = [];
-    ser.marks.forEach(function (m) { var r = runs(m); visible(m).forEach(function (j) { out.push({ mark: m, index: j + r.off, x: r.p[j][0], y: r.p[j][1] }); }); });
-    return out.sort(function (a, b) { return a.index - b.index; }).filter(function (q, n, all) { return !n || q.index !== all[n - 1].index; });
+  // the points of a list inside the frame (those the pointer can hover too)
+  function framed(pts) {
+    var ok = new Map();
+    return pts.filter(function (q) {
+      if (!ok.has(q.mark)) { var g = dataGroup(q.mark), gm = g.getScreenCTM(); ok.set(q.mark, gm ? inFrameOf(g, gm) : function () { return false; }); }
+      return ok.get(q.mark)(q.x, q.y);
+    });
   }
-  // the spot of the current point on the markup now: the mark of its series whose data-from run holds the index, else the nearest piece (the index clamped to it), or null
+  // a series' points inside the frame, by data index (the first of two pieces drawing the same index)
+  function visiblePoints(ser) {
+    return framed(ser.points).sort(function (a, b) { return a.index - b.index; }).filter(function (q, n, all) { return !n || q.index !== all[n - 1].index; });
+  }
+  // the spot of the current point on the markup now: the point of its series at the index, else the nearest (first of equals), or null
   function curSpot() {
     var ser = cur && drawnSeries().filter(function (s) { return s.id === cur.id; })[0], best = null;
     if (!ser) return null;
-    ser.marks.forEach(function (m) {
-      var r = runs(m), d = cur.i < r.off ? r.off - cur.i : Math.max(0, cur.i - (r.off + r.p.length - 1));
-      if (!best || d < best.d) best = { d: d, mark: m, r: r };
-    });
-    var i = Math.max(0, Math.min(cur.i - best.r.off, best.r.p.length - 1));
-    return { mark: best.mark, index: i + best.r.off, x: best.r.p[i][0], y: best.r.p[i][1] };
+    ser.points.forEach(function (q) { if (!best || Math.abs(q.index - cur.i) < Math.abs(best.index - cur.i)) best = q; });
+    return best;
   }
   var clientOf = function (b) { var q = new DOMPoint(b.x, b.y).matrixTransform(dataGroup(b.mark).getScreenCTM()); return [q.x, q.y]; };
-  // the positions of a mark's drawn points inside its frame, the points the pointer can hover too
-  function visible(m) {
-    var g = dataGroup(m), gm = g.getScreenCTM(), ok = gm ? inFrameOf(g, gm) : function () { return false; };
-    return runs(m).p.reduce(function (o, q, i) { if (ok(q[0], q[1])) o.push(i); return o; }, []);
-  }
   /* An arrow: left and right step the current series' points inside the frame across its pieces, up and down the neighbouring series (distinct panel and series, in document order) that have one, at the same data index or the nearest inside the frame, clamped at the ends (no wrap). The first one lands on the first such point. A point a redraw moved out of the frame is not shown. Returns whether there was anything to step. */
   function step(k) {
     var ser = drawnSeries(), pts = ser.map(visiblePoints), at = curSpot(), s = 0, i = 0;
@@ -370,7 +371,7 @@ export function interact(el, opts) {
   function refresh() {
     var b = curSpot();
     if (!b) return;
-    if (visible(b.mark).indexOf(b.index - runs(b.mark).off) < 0) return leave();
+    if (!framed([b]).length) return leave();
     var c = clientOf(b);
     present(b, c[0], c[1]);
   }
