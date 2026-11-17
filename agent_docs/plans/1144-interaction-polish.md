@@ -66,7 +66,7 @@ M1 first because M2's new tests in `interact.spec.js` then use the shared helper
 
 ### M1: one parser, a green gate GitHub: `P1144 M1: one parser, a green gate`
 
-Done 2026-11-17: review round 2 (Review M1: 0 blocking, nothing pulled in); full gate green on ae97ddd (505 passed); CI pending on ae97ddd at the tick. Demo pending.
+Done 2026-11-17: review round 2 (Review M1: 0 blocking, nothing pulled in); full gate green on ae97ddd (505 passed); CI pending on ae97ddd at the tick. Demo: go (user, 2026-11-17).
 
 Demo: `npm run test:unit` shows `spec-helpers.test.js` green, its scan finding no own parser; `npx playwright test tests/export.spec.js --project=chromium --repeat-each=15` and `--repeat-each=3` in Firefox and WebKit green; #1118's spike comment names the cause and its CR's item is done. Proves: O1, O2
 
@@ -145,3 +145,4 @@ Demo: `npm run gallery`; hover a bar, press ArrowRight and ArrowDown (the next c
 - 2026-11-17 backlog #1165 into M1 (orchestrator: small, one file the milestone changed).
 - 2026-11-17 backlog #1166 into M1 (orchestrator: small, one file the milestone changed).
 - 2026-11-17 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in, CR #1161 resolved; finding 1 is backlog #1167. M1 ticked; demo pending.
+- 2026-11-17 M1 demo (user): go. M1 accepted; no `proposed` ADR exercised.
