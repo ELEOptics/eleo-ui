@@ -2145,3 +2145,197 @@ test('single plot bad point', async ({ page }) => {
   expect(runs.runs, 'two runs').toBe(2);
   expect(runs.length, 'a total length above 0').toBeGreaterThan(0);
 });
+
+// Plan #1144 (agent_docs/plans/1144-interaction-polish.md), M2 outcomes O3 to O6 (issue #1152). All skipped until #1159 unskips them.
+// oracle: spec #1004 (1, 3) for the keyboard (the expected marks from the gallery's own tiles, fixture: gallery sample.json), spec #1004 (2) for tabindex, spec #883 option snapped points only for the live region, metamorphic for the dashes: a pan by delta px shifts the dash origin by delta mod the period (#996).
+// Gallery tile `tile`, bound with hover recorded; the host focused so the keys reach it with the pointer wherever the test left it.
+const bindFocus = async (page, tile) => {
+  await bind(page, tile);
+  await page.evaluate(() => window.HOST.focus());
+};
+const lastHover = (page) => page.evaluate(() => window.HOVER.at(-1) ?? null);
+
+test.skip('keyboard starts at the hovered point', async ({ page }) => { // #1152, #1155
+  await bind(page, 'mtf');
+  // point 3 of series 0, as 'curve hover round trip' aims at it
+  const p = await page.evaluate(() => {
+    const m = window.HOST.querySelector('[data-series="0"]');
+    m.scrollIntoView({ block: 'center' });
+    const to = window.T.proj(m), [x, y] = to(window.T.pts(m)[3]);
+    return { i: 3, x, y, a: to.a, d: to.d, k: to.k };
+  });
+  const next = await page.evaluate((i) => { const m = window.HOST.querySelector('[data-series="0"]'); return window.T.pts(m)[i + 1]; }, p.i);
+  // a snapped hover: ArrowRight is that point's next, not point 1 of the first series
+  let ev = await hoverAt(page, p.x, p.y);
+  expect(ev, 'the point is hovered').not.toBeNull();
+  await page.evaluate(() => window.HOST.focus());
+  const press = async (key) => { await page.keyboard.press(key); return lastHover(page); };
+  ev = await press('ArrowRight');
+  expect(ev.series.index, 'same series').toBe(0);
+  within(ev, next, p, 'the next point');
+  // a pointer leave keeps the current point: the next ArrowRight is the one after
+  await page.mouse.move(2, 2);
+  await page.evaluate(() => window.HOST.focus());
+  const after = await page.evaluate((i) => window.T.pts(window.HOST.querySelector('[data-series="0"]'))[i + 2], p.i);
+  ev = await press('ArrowRight');
+  within(ev, after, p, 'the point after the leave');
+  // an interpolated hover sets the segment's nearer end: a quarter along segment i..i+1 is nearer i, so ArrowRight is i + 1
+  const seg = await page.evaluate((sel) => window.T.midpoint(window.HOST, sel, 6, 40), '[data-series="0"]');
+  expect(seg, 'a long segment of series 0').not.toBeNull();
+  const qx = seg.c0[0] + (seg.c1[0] - seg.c0[0]) / 4, qy = seg.c0[1] + (seg.c1[1] - seg.c0[1]) / 4;
+  ev = await hoverAt(page, qx, qy);
+  expect(ev?.interpolated, 'an interpolated reading').toBeTruthy();
+  await page.evaluate(() => window.HOST.focus());
+  ev = await press('ArrowRight');
+  expect(ev.interpolated, 'a data point').toBeUndefined();
+  within(ev, seg.d1, seg, 'the end after the nearer end');
+  await page.evaluate(() => window.STOP());
+});
+
+test.skip('keyboard steps bars', async ({ page }) => { // #1152, #1157
+  await bind(page, 'seidel');
+  const b = await page.evaluate(() => {
+    const rects = (s) => [...window.HOST.querySelectorAll(`rect[data-series="${s}"]`)];
+    const m = rects(0)[1];
+    m.scrollIntoView({ block: 'center' });
+    const to = window.T.proj(m), [x, y] = to(window.T.pts(m)[0]);
+    return { x, y, n: rects(0).length, cat: m.dataset.category };
+  });
+  expect(b.n, 'at least three categories').toBeGreaterThan(2);
+  let ev = await hoverAt(page, b.x, b.y);
+  expect(ev, 'a bar of series 0 hovered').not.toBeNull();
+  expect(ev.series.index).toBe(0);
+  await page.evaluate(() => window.HOST.focus());
+  await page.keyboard.press('ArrowRight');
+  ev = await lastHover(page);
+  expect(ev.series.index, 'ArrowRight keeps the series').toBe(0);
+  expect(String(ev.category), 'ArrowRight is the next category').toBe(String(+b.cat + 1));
+  await page.keyboard.press('ArrowDown');
+  ev = await lastHover(page);
+  expect(ev.series.index, 'ArrowDown is the next series').toBe(1);
+  await page.keyboard.press('ArrowLeft');
+  ev = await lastHover(page);
+  expect(String(ev.category), 'ArrowLeft is the previous category').toBe(b.cat);
+  await page.evaluate(() => window.STOP());
+});
+
+test.skip('keyboard steps rays', async ({ page }) => { // #1152, #1158
+  await bind(page, 'layout2D-wandersleb');
+  const sel = 'polyline[data-field="0"][data-ray="0"]';
+  const p = await page.evaluate((sel) => {
+    for (const m of window.HOST.querySelectorAll(sel)) { const p = window.T.pick(window.HOST, m, 2, 1, 1); if (p) return p; }
+    return null;
+  }, sel);
+  expect(p, 'an isolated interior point on field 0, ray 0').not.toBeNull();
+  const fields = await page.evaluate(() => new Set([...window.HOST.querySelectorAll('[data-field]')].map((m) => m.dataset.field)).size);
+  expect(fields, 'more than one field').toBeGreaterThan(1);
+  let ev = await hoverAt(page, p.x, p.y);
+  expect(ev, 'a ray hovered').not.toBeNull();
+  await page.evaluate(() => window.HOST.focus());
+  await page.keyboard.press('ArrowRight');
+  ev = await lastHover(page);
+  expect([ev.field, ev.ray], 'ArrowRight is the next ray of the same field').toEqual([0, 1]);
+  await page.keyboard.press('ArrowDown');
+  ev = await lastHover(page);
+  expect(ev.field, 'ArrowDown is the next field').toBe(1);
+  await page.keyboard.press('ArrowUp');
+  ev = await lastHover(page);
+  expect(ev.field, 'ArrowUp is back').toBe(0);
+  await page.evaluate(() => window.STOP());
+});
+
+test.skip('stop restores tabindex', async ({ page }) => { // #1152, #1156
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const got = await page.evaluate(() => {
+    const host = (attr) => { const h = document.createElement('div'); if (attr !== null) h.setAttribute('tabindex', attr); h.innerHTML = window.DRAW ? '' : window.ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], index: 0 }], x: { range: [0, 1] }, y: { range: [0, 1] }, width: 300 }); document.body.append(h); return h; };
+    const tab = (h) => h.getAttribute('tabindex');
+    const out = {};
+    const a = host(null), s1 = window.ELEO.interact(a), s2 = window.ELEO.interact(a);
+    s1(); out.twiceOnce = tab(a); s2(); out.twiceTwice = tab(a);
+    const b = host('-1'), s3 = window.ELEO.interact(b); s3(); out.own = tab(b);
+    const c = host(null), s4 = window.ELEO.interact(c); c.setAttribute('tabindex', '2'); s4(); out.changed = tab(c);
+    return out;
+  });
+  expect(got.twiceOnce, 'one of two stopped: still focusable').toBe('0');
+  expect(got.twiceTwice, 'both stopped: the attribute is gone').toBeNull();
+  expect(got.own, 'a tabindex the host set stays').toBe('-1');
+  expect(got.changed, 'a tabindex the caller changed stays').toBe('2');
+});
+
+test.skip('live region announces snapped points only', async ({ page }) => { // #1152, #883
+  await bind(page, 'mtf');
+  const sweep = await page.evaluate(() => {
+    const m = window.HOST.querySelector('[data-series="0"]'), to = window.T.proj(m), pts = window.T.pts(m);
+    return { a: to(pts[1]), b: to(pts[4]) };
+  });
+  // the live region is the role=status element; once split from the tooltip it is a hidden sibling of the visible .eleo-hover__tip
+  await page.evaluate(() => {
+    const watch = (sel) => { const el = window.HOST.querySelector(sel), log = [el.textContent]; new MutationObserver(() => { const t = el.textContent; if (t !== log.at(-1)) log.push(t); }).observe(el, { childList: true, characterData: true, subtree: true }); return log; };
+    window.LIVE = watch('[role="status"]');
+    window.TIP = watch('.eleo-hover__tip');
+  });
+  await page.mouse.move(2, 2);
+  await page.evaluate(() => { window.HOVER = []; });
+  const N = 36;
+  for (let i = 0; i <= N; i++) await moveTo(page, sweep.a[0] + (sweep.b[0] - sweep.a[0]) * i / N, sweep.a[1] + (sweep.b[1] - sweep.a[1]) * i / N);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const snapped = await page.evaluate(() => { const out = []; for (const e of window.HOVER) if (e && !e.interpolated && (!out.length || out.at(-1)[0] !== e.x || out.at(-1)[1] !== e.y)) out.push([e.x, e.y]); return out; });
+  const logs = await page.evaluate(() => ({ live: window.LIVE.filter(Boolean).length, tip: window.TIP.filter(Boolean).length, interp: window.HOVER.filter((e) => e?.interpolated).length }));
+  expect(snapped.length, 'the sweep snaps to points').toBeGreaterThan(1);
+  expect(logs.interp, 'and reads between them').toBeGreaterThan(0);
+  expect(logs.live, 'the live text changes once per distinct snapped point').toBe(snapped.length);
+  expect(logs.tip, 'the visible tooltip still follows interpolated readings').toBeGreaterThan(logs.live);
+  // each arrow key changes the live text once
+  await page.evaluate(() => { window.HOST.focus(); window.LIVE.length = 0; });
+  for (const key of ['ArrowRight', 'ArrowRight', 'ArrowLeft']) {
+    const n = await page.evaluate(() => window.LIVE.length);
+    await page.keyboard.press(key);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+    expect(await page.evaluate(() => window.LIVE.length), `${key} changes the live text once`).toBe(n + 1);
+  }
+  await page.evaluate(() => window.STOP());
+});
+
+test.skip('limit dashes hold on a pan', async ({ page }) => { // #1152, #996
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await installZ(page);
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.style.cssText = 'width:600px;margin:20px auto';
+    document.querySelector('.theme[data-theme="light"]').appendChild(host);
+    const wave = Array.from({ length: 41 }, (_, i) => [i * 2.5, 0.5 + 0.4 * Math.sin(i / 4)]);
+    const draw = (view) => window.ELEO.curve({ series: [{ points: wave, label: 'a' }], x: { range: [0, 100], label: 'x' }, y: { range: [0, 1], label: 'y' }, limits: [{ y: 0.3, label: 'MTF ≥ 0.3' }], width: 600, ...(view ? { view } : {}) });
+    window.HOST = host; window.DRAW = draw; window.VIEWS = []; window.LAST = undefined;
+    host.innerHTML = draw(null);
+    window.STOP = window.ELEO.interact(host, { onview(v) { window.VIEWS.push(v); window.LAST = v; host.innerHTML = draw(v); } });
+    host.scrollIntoView({ block: 'center' });
+  });
+  // the dash origin of the horizontal limit line in client px: its start, less the dash offset (px, the dashes are non-scaling)
+  const origin = () => page.evaluate(() => {
+    const l = window.HOST.querySelector('line.eleo-limit[stroke-dasharray]');
+    const [a, , , , e] = H.matrixOf(l.closest('g[transform^="matrix("]').getAttribute('transform'));
+    const vp = l.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+    return box.left + ((+(vp.getAttribute('x') || 0)) + a * +l.getAttribute('x1') + e) * k - +(l.getAttribute('stroke-dashoffset') || 0);
+  });
+  const P = 13; // 6 + 3 + 1 + 3
+  const c = await toClient(page, 0, [50, 0.5]);
+  await moveTo(page, c[0], c[1]);
+  for (let i = 0; i < 3; i++) await wheel(page, -100); // zoomed
+  let at = await toClient(page, 0, [50, 0.5]);
+  for (const dx of [30, 37, -45, -300, -300, 400, 400, 400]) { // both ways, and past the unzoomed range
+    const o0 = await origin(), n = (await views(page)).length;
+    await page.mouse.move(at[0], at[1]);
+    await page.mouse.down();
+    await page.mouse.move(at[0] + dx / 2, at[1], { steps: 3 });
+    await page.mouse.move(at[0] + dx, at[1], { steps: 3 });
+    await page.mouse.up();
+    await expect.poll(async () => (await views(page)).length, { message: 'the drag emits a view' }).toBeGreaterThan(n);
+    const o1 = await origin();
+    const off = (((o1 - o0 - dx) % P) + P) % P;
+    expect(Math.min(off, P - off), `a pan of ${dx} px moves the dash origin by ${dx} mod ${P}: ${o0} to ${o1}`).toBeLessThanOrEqual(0.6);
+    at = [at[0] + dx > 20 && at[0] + dx < 560 ? at[0] + dx : at[0], at[1]];
+  }
+  await page.evaluate(() => window.STOP());
+});

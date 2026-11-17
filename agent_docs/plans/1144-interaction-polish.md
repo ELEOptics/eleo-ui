@@ -146,3 +146,4 @@ Demo: `npm run gallery`; hover a bar, press ArrowRight and ArrowDown (the next c
 - 2026-11-17 backlog #1166 into M1 (orchestrator: small, one file the milestone changed).
 - 2026-11-17 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in, CR #1161 resolved; finding 1 is backlog #1167. M1 ticked; demo pending.
 - 2026-11-17 M1 demo (user): go. M1 accepted; no `proposed` ADR exercised.
+- 2026-11-17 #1152 O7 baseline at 75dc82c, before any M2 change (Chromium): 100 gallery shots (`SHOTS=1`), `m2-baseline-shots.zip` on the draft `review-assets-2` release (`review-assets` is at GitHub's 1000-asset limit); U14 medians (`PERF=1`): hover spot 2.45 ms, map 0.10 ms; curve 1.30 ms; bars 1.40 ms. O3 to O6: six skipped tests in `tests/interact.spec.js` (O3 has three).
