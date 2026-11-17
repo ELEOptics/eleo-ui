@@ -260,3 +260,16 @@ test('a data change updates the tooltip', async ({ page }) => {
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await expect(tip).toContainText('= 9 qb');
 });
+
+// Plan #1144, outcome O4 (issue #1173). oracle: after the action rebinds, the focused host is still `document.activeElement` and still has `tabindex="0"` (the per-host call count never reaches 0 between the stop and the bind).
+test('a rebind keeps the host focused', async ({ page }) => {
+  const host = await mountHarness(page, 'vr', 'CurvePlot', { series: [{ points: [[0, 1], [100, 0.62]], index: 0, label: 'a' }], x: { label: 'x' }, y: { label: 'y' } });
+  const box = host.locator('.eleo-svg');
+  await expect(box).toHaveAttribute('tabindex', '0');
+  await box.focus();
+  await expect(box).toBeFocused();
+  await page.evaluate(() => window.setProps({ onhover: () => {} })); // a callback turning on changes what the binding is made of, so the action rebinds
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  await expect(box).toBeFocused();
+  await expect(box).toHaveAttribute('tabindex', '0');
+});
