@@ -325,17 +325,19 @@ export function interact(el, opts) {
   function isKeyMark(m) { return (isRay(m) || m.hasAttribute("data-series")) && !!dataGroup(m) && (!isBar(m) || isFinite(parseFloat(m.getAttribute("data-category")))); }
   function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series], polyline[data-ray]"), function (m) { return isKeyMark(m) && (isBar(m) || runs(m).p.length); }); }
   var identOf = function (m) { return isRay(m) ? "field/" + m.getAttribute("data-field") : m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); }; // a layout2D field is a series of rays
-  // the drawn series per kind, ordered by panel then series (or field) number: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Curve and spot marks give their points; rays give one point per ray, indexed by data-ray, at its first point inside the frame (the rays adapter); bars give one point per rect: the category is its index and x, the value end its y, and `px` the centre of its span.
+  // the drawn series per kind, ordered by panel then series (or field) number: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Curve and spot marks give their points; rays give one point per ray, indexed by data-ray, at its earliest point inside the frame across its runs (the rays adapter); bars give one point per rect: the category is its index and x, the value end its y, and `px` the centre of its span.
   function drawnSeries() {
     var out = [], by = {};
     keyMarks().forEach(function (m) {
       var id = identOf(m), r = isBar(m) ? { p: [] } : runs(m);
       if (!by[id]) { by[id] = { id: id, points: [], key: isRay(m) ? [0, +m.getAttribute("data-field")] : [+m.getAttribute("data-panel") || 0, +m.getAttribute("data-series")] }; out.push(by[id]); }
       if (isBar(m)) { var c = +m.getAttribute("data-category"); by[id].points.push({ mark: m, index: c, x: c, y: barValue(m), px: +m.getAttribute("x") + +m.getAttribute("width") / 2, bar: true }); }
-      if (isRay(m)) { // a ray is one point, its runs joined: presented at its first point inside the frame (a ray is clipped only where its group is)
+      if (isRay(m)) { // a ray is one point, its runs joined: presented at its earliest point (lowest z) inside the frame over all its runs (a ray is clipped only where its group is)
         var g = dataGroup(m), gm = g.getScreenCTM(), inside = g.hasAttribute("clip-path") ? gm && inFrameOf(g, gm) : function () { return true; };
-        var f = inside && r.p.filter(function (q) { return inside(q[0], q[1]); })[0];
-        if (f) by[id].points.push({ mark: m, index: +m.getAttribute("data-ray"), x: f[0], y: f[1], ray: true });
+        var f = null, ri = +m.getAttribute("data-ray"), prev = by[id].points.filter(function (q) { return q.index === ri; })[0];
+        r.p.forEach(function (q) { if (inside && inside(q[0], q[1]) && (!f || q[0] < f[0])) f = q; }); // the lowest z of this run inside the frame
+        if (f && !prev) by[id].points.push({ mark: m, index: ri, x: f[0], y: f[1], ray: true });
+        else if (f && f[0] < prev.x) { prev.mark = m; prev.x = f[0]; prev.y = f[1]; } // a run of the same ray reaching further back wins: its hover reports the ray's first status
         return;
       }
       r.p.forEach(function (q, j) { by[id].points.push({ mark: m, index: j + r.off, x: q[0], y: q[1] }); });

@@ -2302,6 +2302,31 @@ test('keyboard orders bars and fields by number', async ({ page }) => { // #1171
   await page.evaluate(() => window.STOP());
 });
 
+test('keyboard shows a ray at its earliest point', async ({ page }) => { // #1172, review M2 round 1 finding 2
+  await bind(page, 'layout2D-wandersleb');
+  const want = await page.evaluate(() => {
+    let best = null;
+    window.HOST.querySelectorAll('polyline[data-field="1"][data-ray="10"]').forEach((m) => {
+      window.T.pts(m).forEach((q) => { if (!best || q[0] < best.x) best = { x: q[0], status: m.dataset.status }; });
+    });
+    return best;
+  });
+  expect(want, 'ray 10 of field 1 is drawn').not.toBeNull();
+  await page.evaluate(() => window.HOST.focus());
+  await page.keyboard.press('ArrowDown'); // field 0, its first ray
+  await page.keyboard.press('ArrowDown'); // field 1, the same ray number
+  for (let i = 0; i < 20; i++) {
+    const ev = await lastHover(page);
+    if (ev.field === 1 && ev.ray === 10) break;
+    await page.keyboard.press('ArrowRight');
+  }
+  const ev = await lastHover(page);
+  expect([ev.field, ev.ray], 'stepped to field 1 ray 10').toEqual([1, 10]);
+  expect(ev.x, 'the earliest drawn point').toBeCloseTo(want.x, 3);
+  expect(ev.status, 'that run\'s status').toBe(want.status);
+  await page.evaluate(() => window.STOP());
+});
+
 test('stop restores tabindex', async ({ page }) => { // #1152, green at #1156
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
