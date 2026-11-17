@@ -1196,14 +1196,17 @@ test('spot dots paint once on screen', async ({ page }) => {
     }, [shot, dim[0], dim[1]]);
   };
   const tiny = await ink(str);
-  const strWide = await page.evaluate((svg) => {
+  const { svg: strWide, n: rewritten } = await page.evaluate((svg) => {
+    let n = 0;
     const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
     doc.querySelectorAll('path[data-series]').forEach((p) => {
       const s = Math.abs(+/matrix\(\s*([-0-9.e]+)/.exec(p.parentElement.getAttribute('transform'))[1]);
-      p.setAttribute('d', p.getAttribute('d').replace(/ h-?[0-9.]+(?:e-?[0-9]+)?(?= |$)/g, ` h${0.1 / s}`));
+      p.setAttribute('d', p.getAttribute('d').replace(/ h-?[0-9.]+(?:e-?[0-9]+)?(?= |$)/g, () => { n++; return ` h${0.1 / s}`; }));
     });
-    return new XMLSerializer().serializeToString(doc.documentElement);
+    return { svg: new XMLSerializer().serializeToString(doc.documentElement), n };
   }, str);
+  // A dot step the replace misses would leave wide equal to tiny: a ratio of 1 and a pass that tests nothing.
+  expect(rewritten).toBe(hs.length);
   const wide = await ink(strWide);
   expect(wide).toBeGreaterThan(50);
   expect(Math.abs(tiny / wide - 1)).toBeLessThan(0.07);
