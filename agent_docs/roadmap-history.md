@@ -54,6 +54,7 @@
 
 ## Change log
 
+- 2026-11-13 plan (user): I planned as #1076 (2 milestones, 12 items). Interview: no `theme` option (typed `map2D` bakes its cells; the README gives the light-redraw recipe); U15's canvas clause dropped; O1 adds an embedded-and-loadable font check and O2 a PNG pixel check; exports draw the tile's `--surface`; #1007 absorbed (plots 0.10.0 published by PR #676); a WebKit canvas taint on maps escalates. saveSvgAsPng weighed and not added (ADR-0004's export trigger).
 - 2026-11-13: review (roadmap-reviewer, claude-opus-5-5)
   - 1: accepted
   - 2: accepted in part: U15's canvas clause is an approved outcome, so row I lists dropping it for the user at the interview
@@ -108,7 +109,6 @@ it is the only record of a deferral (no issue comments), and `git log -p` is its
 | [#850] | a hover measurement over 16 ms (U14) on a slower machine or in CI: H measured at most 2.40 ms | 2026-11-11 |
 | [#997] | a zoomed map whose redraw slows as CR [#984]'s did: measured flat from 1x to 1000x on 2026-11-11 | 2026-11-11 |
 | [#424] | a Chromium bump or CI run that changes the sample map's PNG bytes (a pixel tolerance changes an approved oracle, the user's); plan [#1018] keeps the test Chromium-only (user, 2026-11-12) | 2026-10-31 |
-| [#1007] | PR [#676] (Version Packages) merged and plots 0.10.0 on npm; the next pick after that takes it, as [#598] went to P | 2026-11-11 |
 
 ## Plans notes
 
@@ -146,9 +146,9 @@ type that takes typed data and a role per series, covering every result shape ph
 (phos, the website, the gallery) build their analyses from those types; eleo-ui keeps the look on the
 design system by default.
 
-### interaction-polish
+### K
 
-Moved from the Scope cell at the archive migration (2026-11-17):
+Moved from the Scope cell of row interaction-polish, now K, at the archive migration (2026-11-17):
 
 H's backlog batched (nits never get a row alone; one row once they add up to a plan): the keyboard gaps #1004 (the pointer sets the current point, `stop()` drops the `tabindex` it added, bars and rays step by arrow), the hover tooltip's live region announcing every interpolated move #883, dashed limit lines crawling on a pan #996, and the specs' shared helpers: one drawn-points parser #855, one anchored matrix parser #1067 and `moveTo` at S's ~30 fractional pointer sites #1064 (all three sit in the same spec files). The plan's Existing issues table confirms each against its Files; one it leaves alone goes back to Deferred. Not here: export (I), legend placement outside the tile (#534, waits for phos), #850 and #997 (their triggers, a hover or zoomed-map redraw over budget, have not fired).
 
