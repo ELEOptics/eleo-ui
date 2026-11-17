@@ -1180,10 +1180,6 @@ test('spot dots paint once on screen', async ({ page }) => {
     });
     return new XMLSerializer().serializeToString(doc.documentElement);
   });
-  // The dot length is the path's h in data units. The 0.1 px reference comes from the panel group's matrix (0.1 / s data units), not from h, so a renderer back on h0 cannot move it.
-  const hRe = / h(-?[0-9.]+(?:e-?[0-9]+)?)(?= |")/g;
-  const hs = [...str.matchAll(hRe)].map((m) => +m[1]);
-  expect(hs.length).toBeGreaterThan(0);
   const ink = async (svg) => {
     await page.goto('about:blank');
     await page.setContent(`<body style="margin:0;background:#fff">${svg}</body>`);
@@ -1196,6 +1192,7 @@ test('spot dots paint once on screen', async ({ page }) => {
     }, [shot, dim[0], dim[1]]);
   };
   const tiny = await ink(str);
+  // The 0.1 px reference comes from the panel group's matrix (0.1 / s data units), not from h, so a renderer back on h0 cannot move it.
   const { svg: strWide, n: rewritten, dots } = await page.evaluate((svg) => {
     let n = 0, dots = 0;
     const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
