@@ -5,8 +5,6 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import * as svg from './helpers/svg.js';
 
-const SKIP = { skip: '#1145: unskipped by #1150' };
-
 test('subpaths exponent dot', () => {
   assert.deepEqual(svg.subpaths('M0.001,0.002 h6.7e-7 M0.003,0.004 h6.7e-7'), [[[0.001, 0.002]], [[0.003, 0.004]]]);
 });
@@ -16,7 +14,7 @@ test('matrixOf anchored', () => {
   assert.equal(svg.matrixOf('matrix(1 0 0 1 2 3) translate(1)'), null);
 });
 
-test('no spec parses a matrix or a dot length of its own', SKIP, () => {
+test('no spec parses a matrix or a dot length of its own', () => {
   const dir = new URL('../', import.meta.url);
   const own = /matrix\\\(|h\\s\*/;
   const hits = [];
