@@ -105,3 +105,12 @@ test('interact types', () => {
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/interact.ts', import.meta.url))], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
+
+// Plan #1076 M1 (issue #1081). tests/types/export.ts: standalone and png compile on the module and on ELEO with and without options,
+// and @ts-expect-error on a div, a string scale, a string fonts and a missing svg.
+// oracle: spec plan 1076 (#1081 Behaviour: the two signatures)
+test('standalone and png type-check', () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck', '--lib', 'es2022,dom',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/export.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});

@@ -20,3 +20,18 @@ test('source headers carve out the typed map', () => {
     assert.match(h, /again after a theme or palette change/, `${path} header says to redraw`);
   }
 });
+
+// Plan #1076 (agent_docs/plans/1076-export.md), issue #1082: the README owns the export API.
+test('README documents export', () => {
+  const md = readFileSync(new URL('../../packages/plots/README.md', import.meta.url), 'utf8');
+  const sec = md.match(/^## Export\n([\s\S]*?)(?=^## |$(?![\s\S]))/m);
+  assert.ok(sec, 'README has an Export section');
+  const s = sec[1];
+  assert.match(s, /standalone\(/, 'names standalone');
+  assert.match(s, /png\(/, 'names png');
+  assert.match(s, /crossorigin="anonymous"/, 'has the crossorigin note');
+  assert.match(s, /data-theme="light"/, 'has the light-theme recipe');
+  assert.match(s, /paper/, 'names PlotCard paper');
+  assert.doesNotMatch(s, /\bopens?\b[^.\n]*(Inkscape|PowerPoint)|(Inkscape|PowerPoint)[^.\n]*\bopens?\b/i, 'does not claim Inkscape or PowerPoint open the file with the fonts');
+  assert.match(s, /installed fonts?|installed Fira/i, 'says other apps use installed fonts');
+});

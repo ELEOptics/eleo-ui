@@ -1165,3 +1165,48 @@ test('layout tiles zoom and read lenses', async ({ page }) => {
   await expect(glass.locator('.eleo-hover__tip'), 'lens tooltip').toHaveText(/^element /);
   await page.mouse.move(2, 2);
 });
+
+// #1121 (plan #1076 O2, CR #1119; #1136, CR #1134). oracle: the dots' ink on screen at 0.01 px equals their ink at 0.1 px, within 7%.
+// WebKit paints a zero-length round-cap subpath twice on screen under stroke-opacity (h0 reads 0.2 too dark against 0.1 px); a canvas reference cannot tell, a CPU canvas doubles too and Linux WebKit's GPU canvas loses ink.
+test('spot dots paint once on screen', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const str = await page.locator('.theme[data-theme="light"] [data-tile="spot"] svg').first().evaluate(async (el) => {
+    // Only the dots stay: every element that is neither a series mark nor holds or sits in one goes (the style and defs of the standalone string stay).
+    const doc = new DOMParser().parseFromString(await window.ELEO.standalone(el), 'image/svg+xml');
+    doc.querySelectorAll('svg *').forEach((n) => {
+      if (!n.isConnected || ['style', 'defs'].includes(n.localName) || n.closest('[data-series]') || n.querySelector('[data-series]')) return;
+      n.remove();
+    });
+    return new XMLSerializer().serializeToString(doc.documentElement);
+  });
+  const ink = async (svg) => {
+    await page.goto('about:blank');
+    await page.setContent(`<body style="margin:0;background:#fff">${svg}</body>`);
+    const dim = await page.locator('svg').first().evaluate((el) => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+    const shot = (await page.screenshot({ clip: { x: 0, y: 0, width: dim[0], height: dim[1] } })).toString('base64');
+    return page.evaluate(async ([shot, w, h]) => {
+      const c = new OffscreenCanvas(w, h).getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);
+      c.drawImage(await createImageBitmap(await (await fetch(`data:image/png;base64,${shot}`)).blob()), 0, 0);
+      const d = c.getImageData(0, 0, w, h).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += 255 - d[i + 1]; return s / 255;
+    }, [shot, dim[0], dim[1]]);
+  };
+  const tiny = await ink(str);
+  // The 0.1 px reference comes from the panel group's matrix (0.1 / s data units), not from h, so a renderer back on h0 cannot move it.
+  const { svg: strWide, n: rewritten, dots } = await page.evaluate((svg) => {
+    let n = 0, dots = 0;
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    doc.querySelectorAll('path[data-series]').forEach((p) => {
+      dots += (p.getAttribute('d').match(/M/g) || []).length;
+      const s = Math.abs(+/matrix\(\s*([-0-9.e]+)/.exec(p.parentElement.getAttribute('transform'))[1]);
+      p.setAttribute('d', p.getAttribute('d').replace(/ h-?[0-9.]+(?:e-?[0-9]+)?(?= |$)/g, () => { n++; return ` h${0.1 / s}`; }));
+    });
+    return { svg: new XMLSerializer().serializeToString(doc.documentElement), n, dots };
+  }, str);
+  // A dot step the replace misses would leave wide equal to tiny: a ratio of 1 and a pass that tests nothing. The dots are counted by their M commands, not by the h form the regexes assume.
+  expect(dots).toBeGreaterThan(0);
+  expect(rewritten).toBe(dots);
+  const wide = await ink(strWide);
+  expect(wide).toBeGreaterThan(50);
+  expect(Math.abs(tiny / wide - 1)).toBeLessThan(0.07);
+});

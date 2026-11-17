@@ -1142,3 +1142,17 @@ test('a zoomed curve draws its limits only in its window', () => {
   assert.equal(a, ELEO.curve({ series, x, y, width: 460, height: 300, limits: inside, view: { x: [0, 1000], y: [0, 1] } }));
   assert.equal(marks(a).length, 2, 'a full-range view keeps its limits');
 });
+
+// #1121 (plan #1076, CR #1119). oracle: a dot's segment is 0.01 px long whatever the data's units (the stroke does not scale), not h0, which WebKit paints twice on screen.
+test('a dot is a 0.01 px segment at any data scale', () => {
+  for (const k of [1e-6, 1, 1e6]) {
+    const series = [{ points: [[0, 0], [k, k]], index: 0 }, { points: [[0.5 * k, 0.25 * k]], index: 1 }];
+    const dotLen = (svg, kx) => { const m = /<path d="M[\d.e+-]+,[\d.e+-]+ h([\d.e+-]+)"/.exec(svg); assert.ok(m, `${kx}: a dot path with an h length`); return +m[1]; };
+    const plain = ELEO.curve({ panels: [{ series }], width: 400, height: 260 });
+    const [g] = panelGroups(plain);
+    assert.ok(Math.abs(dotLen(plain, 'panel') * Math.abs(g.M[0]) - 0.01) <= 1e-3, `scale ${k}: 0.01 px`);
+    const zoomed = ELEO.curve({ panels: [{ series }], width: 400, height: 260, view: { x: [-0.1 * k, 1.1 * k] } });
+    const [z] = panelGroups(zoomed);
+    assert.ok(Math.abs(dotLen(zoomed, 'zoomed') * Math.abs(z.M[0]) - 0.01) <= 1e-3, `scale ${k} zoomed: 0.01 px`);
+  }
+});

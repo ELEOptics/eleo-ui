@@ -17,6 +17,7 @@ const EXEMPT = [
   ['physics.js', /stops = \['#000000', '#ffffff'\]/, 'gray map in colormap()'],
   ['layout3d.js', /col: "rgb\(" \+ tone\[/, "layout3D's tone composition"],
   ['layout3d.js', /c\.font = '10px "Fira Code", monospace'/, "layout3D's label font"],
+  ['export.js', /^const GENERIC = /, 'generic families never have an @font-face; standalone leaves them out of its warning (#1099)'],
 ];
 
 // Comments removed, walking the text so a quote opens a string and `//` or `/*` inside one is kept.

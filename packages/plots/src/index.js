@@ -9,8 +9,9 @@ import * as glass from './glass.js';
 import * as scale from './scale.js';
 import { minWidth } from './sizes.js';
 import { interact, readout } from './interact.js';
+import { standalone, png } from './export.js';
 
-Object.assign(ELEO, physics, scale, { minWidth, interact, readout, layoutBounds: layout.layoutBounds, glassLegend: glass.glassLegend });
+Object.assign(ELEO, physics, scale, { minWidth, interact, readout, standalone, png, layoutBounds: layout.layoutBounds, glassLegend: glass.glassLegend });
 
 export default ELEO;
 export const {
@@ -18,4 +19,4 @@ export const {
 } = ELEO;
 export * from './physics.js';
 export * from './scale.js';
-export { minWidth, interact, readout };
+export { minWidth, interact, readout, standalone, png };

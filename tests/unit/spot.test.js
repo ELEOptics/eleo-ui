@@ -19,7 +19,7 @@ import { TOL_PX, SIZES, fixture, panelGroups, toPx, toData } from './helpers/svg
 //  - tests/fixtures/phos-core/adapters.js: ELEOAdapters.spot(rec) returns { unit, origin, panels }: one panel per source,
 //    { title (the field angle), series: [{ points: [[x, y] in µm, …], index: wavelength k }], airy (the Airy radius, µm) }, unit 'µm'.
 //  - ELEO.spot({ panels, scale, half, unit, width, height }) draws one nested <svg> and matrix <g> per panel; each series is
-//    one <path> of `M x y h0` dots in the group's data coordinates, and a panel's `airy` is a <circle r="…"> in that group
+//    one <path> of `M x y h<0.01 px>` dots in the group's data coordinates, and a panel's `airy` is a <circle r="…"> in that group
 //    (r in data units, centred on the origin, inside the matrix <g>). scale 'common' gives every panel one scale, 'auto' fits each.
 test('recorded spot round trip (U7)', async () => {
   await import('../fixtures/phos-core/adapters.js');
@@ -117,7 +117,8 @@ test('typed points round trip, common and auto scale', () => {
       });
       if (scale === 'common') groups.forEach((g, p) => assert.ok(Math.abs(Math.abs(g.M[0]) - Math.abs(groups[0].M[0])) <= 1e-9 * Math.abs(groups[0].M[0]), `${label} panel ${p}: one common scale`));
       else assert.ok(Math.abs(groups[0].M[0]) > Math.abs(groups[1].M[0]), `${label}: auto fits each panel, the tight one larger`);
-      assert.ok(svg.includes('M0.4,-1.2 h0'), `${label}: dots are M x y h0`);
+      const dl = /M0\.4,-1\.2 h([\d.e+-]+)"?/.exec(svg);
+      assert.ok(dl && Math.abs(+dl[1] * Math.abs(groups[0].M[0]) - 0.01) <= 1e-3, `${label}: dots are M x y h<0.01 px>, not h0 (WebKit paints h0 twice, #1121)`);
       assert.ok(!svg.includes('±') && svg.includes('x, y in µm') && svg.includes('100 % 6.53 µm') && svg.includes('1.0°'), `${label}: unit, title and notes drawn, no ±half`);
     }
   }
@@ -405,7 +406,7 @@ test('text follows ADR-0003 per panel', async () => {
   const base = { panels: [{ title: '0.0°', series: [{ points: [[0.4, -1.2], [1.1, 0.3]], index: 0 }], airy: 2.87, notes: ['n1'] }], unit: 'µm', reference: 'centroid' };
   const texts = (m) => [...m.matchAll(/<text\b([^>]*)>/g)].map((t) => ({ anchor: /text-anchor="(\w+)"/.exec(t[1]), y: +/\by="(-?[\d.]+)"/.exec(t[1])[1], size: /style="font-size:([\d.]+)px"/.exec(t[1]), cls: /class="([^"]+)"/.exec(t[1])[1] }));
   const hOf = (m) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(m)[1];
-  const dots = (m) => [...m.matchAll(/<path d="M[^"]*h0[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
+  const dots = (m) => [...m.matchAll(/<path d="M[^"]* h\d[\d.e+-]*[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
   const seen = new Set();
   // One panel: F is the width. 100 is under the band, 200 inside it, 1200 above.
   for (const width of [100, 200, 1200]) {
@@ -564,11 +565,11 @@ test('grid', () => {
   assert.ok(drawn.length > 9, 'more than 9 elements carry var(--plot-grid)');
   drawn.forEach((el) => assert.ok(!/\d\.\d{3,}/.test(el), `no number with 3 or more decimals: ${el}`));
   // #776: in every start tag of the whole SVG (titles, captions, notes, the tick labels, the key below and in a corner), for 1, 2 and 3 panels:
-  // no number with 3 or more decimals, except in font-size (toFixed(3) by the repo's convention: key.js, plotCell) and in three kinds of element left out of the check: any with matrix(, a path 'M... h0', a circle at cx=0 cy=0.
+  // no number with 3 or more decimals, except in font-size (toFixed(3) by the repo's convention: key.js, plotCell) and in three kinds of element left out of the check: any with matrix(, a path 'M... h<len>', a circle at cx=0 cy=0.
   const lab = [{ title: 'T', notes: ['n'], airy: 1.2345, circle: { radius: 2.3456, label: 'c' }, series: [{ points: [[1, 2], [-3, 4]], index: 0, label: 'a' }, { points: [[0, 1]], index: 1, label: 'b' }] }];
   for (const n of [1, 2, 3]) for (const keyAt of [undefined, 'top-left', 'bottom-right']) {
     const whole = ELEO.spot({ panels: Array(n).fill(lab[0]), unit: 'µm', width: 200.74, half: 5, keyAt });
-    const bad = [...whole.matchAll(/<[a-z][^>]*>/g)].map((m) => m[0]).filter((el) => /\d\.\d{3,}/.test(el.replace(/font-size:[\d.]+px/g, '')) && !/matrix\(|<path d="M[^"]* h0|<circle cx="0" cy="0"/.test(el));
+    const bad = [...whole.matchAll(/<[a-z][^>]*>/g)].map((m) => m[0]).filter((el) => /\d\.\d{3,}/.test(el.replace(/font-size:[\d.]+px/g, '')) && !/matrix\(|<path d="M[^"]* h\d[\d.e+-]*|<circle cx="0" cy="0"/.test(el));
     assert.deepEqual(bad, [], `${n} panels, keyAt ${keyAt}: every start tag but the three left out has no number with 3 or more decimals outside font-size`);
   }
 });
@@ -587,9 +588,9 @@ test('throughFocus panels', async () => {
   assert.equal(nested, rects.length, 'one clipping svg per cell');
   assert.ok([...tf.matchAll(/data-grid="x"/g)].length > 0 && [...tf.matchAll(/data-grid="y"/g)].length > 0, 'grid lines drawn');
   assert.equal([...tf.matchAll(/data-grid="x"/g)].length, [...tf.matchAll(/data-grid="y"/g)].length, 'as many vertical as horizontal');
-  assert.ok(/<path d="M[^"]*h0[^"]*"[^>]*stroke-linecap="round"/.test(tf), 'dots are round-cap paths');
+  assert.ok(/<path d="M[^"]* h\d[\d.e+-]*[^"]*"[^>]*stroke-linecap="round"/.test(tf), 'dots are round-cap paths');
   assert.ok(!/<circle\b/.test(tf), 'no circle dots');
-  const w = [...tf.matchAll(/<path d="M[^"]*h0[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
+  const w = [...tf.matchAll(/<path d="M[^"]* h\d[\d.e+-]*[^"]*"[^>]*stroke-width="([\d.]+)"/g)].map((d) => +d[1]);
   assert.ok(w.length > 0);
   w.forEach((x) => assert.ok(Math.abs(x - 2.2 * frameWeight(F)) <= 0.001, `dot width ${x}`));
   assert.equal([...tf.matchAll(/stroke="var\(--ink-subtle\)"/g)].length, sample.throughFocus.spots.length, 'only the in-focus column (one cell per row) is --ink-subtle');
@@ -691,12 +692,12 @@ test('shared drawn-point rule', () => {
   assert.ok(!/var live = /.test(src('spot.js')) && !/function niceHalf/.test(src('spot.js')), 'spot.js keeps no copy');
   assert.ok(!/function drawn\(/.test(src('curve.js')), 'curve.js keeps no copy');
   const svg = ELEO.spot({ panels: [{ series: [{ points: [[1, 1], null, [null, 2], [NaN, 0], [-1, -1]] }] }] });
-  assert.equal((svg.match(/ h0/g) || []).length, 2, 'only the two drawn points become dots');
+  assert.equal((svg.match(/ h\d[\d.e+-]*/g) || []).length, 2, 'only the two drawn points become dots');
 });
 
 // Plan #804 M2 (#814): each series path names its series (position in the array), its panel and, in throughFocus, its cell.
 test('series data attributes', () => {
-  const paths = (svg) => [...svg.matchAll(/<path d="(M[^"]* h0)"([^>]*)\/>/g)].map((m) => Object.fromEntries([...m[2].matchAll(/ (data-[a-z]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
+  const paths = (svg) => [...svg.matchAll(/<path d="(M[^"]* h\d[\d.e+-]*)"([^>]*)\/>/g)].map((m) => Object.fromEntries([...m[2].matchAll(/ (data-[a-z]+)="([^"]*)"/g)].map((a) => [a[1], a[2]])));
   const s = ELEO.spot({ width: 400, panels: [
     { series: [{ index: 3, label: 'a & b', points: [[0, 0], [1, 1]] }, { index: 0, points: [[1, 0]] }] },
     { series: [{ index: 1, points: [[0, 1]] }] }] });
