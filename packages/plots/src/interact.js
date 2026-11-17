@@ -157,6 +157,7 @@ function showMarks(host, layer, b) {
 }
 
 var hosts = new WeakMap(); // host -> number of live interact calls holding its `eleo-hover-host` class
+var tabs = new WeakMap(); // host -> number of live interact calls relying on the `tabindex="0"` the first of them added
 
 /* ---- Zoom, pan and reset. interact holds no view: each gesture reads the drawn ranges off the markup, makes the new view and hands it to onview; the caller redraws. ---- */
 var WHEEL_RATE = 0.0015; // per px of wheel delta: one 100 px notch zooms by exp(0.15)
@@ -412,7 +413,9 @@ export function interact(el, opts) {
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerleave", leave);
   el.addEventListener("click", click);
-  if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "0"); // focusable, so the keys reach it; a tabindex the host set stays
+  var tabbed = false; // this call relies on the tabindex it (or an earlier live call) added; stop() gives it back
+  if (!el.hasAttribute("tabindex")) { el.setAttribute("tabindex", "0"); tabs.set(el, 0); } // focusable, so the keys reach it; a tabindex the host set stays
+  if (tabs.has(el)) { tabs.set(el, tabs.get(el) + 1); tabbed = true; }
   el.addEventListener("keydown", key);
   el.addEventListener("pointerdown", focus);
   if (onview) {
@@ -427,6 +430,7 @@ export function interact(el, opts) {
   function stop() {
     el.removeEventListener("wheel", wheel); el.removeEventListener("pointerdown", down); el.removeEventListener("mousedown", press); el.removeEventListener("pointermove", pan); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); el.removeEventListener("dblclick", reset);
     drag = null; ended = true;
+    if (tabbed) { tabbed = false; var t = tabs.get(el) - 1; if (t) tabs.set(el, t); else { tabs.delete(el); if (el.getAttribute("tabindex") === "0") el.removeAttribute("tabindex"); } } // the last call removes it, unless the caller changed it
     if (layer && !stopped) { layer.remove(); stopped = true; var n = hosts.get(el) - 1; hosts.set(el, n); if (!n) el.classList.remove("eleo-hover-host"); } if (watch) watch.disconnect(); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); el.removeEventListener("click", click); el.removeEventListener("keydown", key); el.removeEventListener("pointerdown", focus);
   }
   stop.reset = reset;

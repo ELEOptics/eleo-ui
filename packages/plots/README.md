@@ -202,7 +202,7 @@ const stop = interact(el, {
 ```
 
 - **Options:** `onhover`, `onselect`, `onview` (turns on zoom and pan; nothing is attached without it), `values` (a typed `map2D`'s values), `axes` (`readout`'s `{ x, y, value }`), `marks: false` (no dot or drop lines) and `tooltip: false` (no tooltip). `axes` and `values` are read when each event fires, so you may replace them on your options object; the callbacks, `marks`, `tooltip` and `onview` are read once, at the call. `onhover` is not re-sent a repeat of the same point.
-- **The host:** gets the class `eleo-hover-host` (`position: relative`) while `marks` or `tooltip` is on; it is reference-counted, so it stays until the last `interact` call on that host has stopped. The overlay is added to the host by `interact()` and lives until `stop()`; it is hidden, not removed, when nothing is hovered, and re-added if a redraw replaced the host's markup. Which kind of plot a host holds is read from its markup; `bars` do not zoom.
+- **The host:** gets the class `eleo-hover-host` (`position: relative`) while `marks` or `tooltip` is on; it is reference-counted, so it stays until the last `interact` call on that host has stopped. The `tabindex="0"` that `interact` adds is counted the same way: the last call to stop removes it, unless the host's `tabindex` has changed since, and a `tabindex` the host had before stays. The overlay is added to the host by `interact()` and lives until `stop()`; it is hidden, not removed, when nothing is hovered, and re-added if a redraw replaced the host's markup. Which kind of plot a host holds is read from its markup; `bars` do not zoom.
 
 ### Hover
 

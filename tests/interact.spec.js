@@ -2268,7 +2268,7 @@ test.skip('keyboard steps rays', async ({ page }) => { // #1152, #1158
   await page.evaluate(() => window.STOP());
 });
 
-test.skip('stop restores tabindex', async ({ page }) => { // #1152, #1156
+test('stop restores tabindex', async ({ page }) => { // #1152, green at #1156
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const got = await page.evaluate(() => {
