@@ -2182,7 +2182,7 @@ const bindFocus = async (page, tile) => {
 };
 const lastHover = (page) => page.evaluate(() => window.HOVER.at(-1) ?? null);
 
-test.skip('keyboard starts at the hovered point', async ({ page }) => { // #1152, #1155
+test('keyboard starts at the hovered point', async ({ page }) => { // #1152, #1155
   await bind(page, 'mtf');
   // point 3 of series 0, as 'curve hover round trip' aims at it
   const p = await page.evaluate(() => {
