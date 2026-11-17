@@ -26,6 +26,9 @@ function runs(mark) {
   return { p: p, join: join, off: from };
 }
 
+/* A bar's value end in its group's data units: its y when below zero, else its height. */
+function barValue(rect) { return +rect.getAttribute("y") < 0 ? +rect.getAttribute("y") : +rect.getAttribute("height"); }
+
 /* The mm data group a hoverable mark is drawn in: its nearest matrix group. Every hoverable mark (series paths and polylines, bar rects, layout2D ray runs below their opacity group) sits inside one. */
 function dataGroup(mark) { return mark.closest('g[transform^="matrix("]'); }
 
@@ -63,7 +66,7 @@ function nearest(host, cx, cy) {
     if (!inside(at.x, at.y)) return; // the pointer is outside the clipped frame: a zoomed curve's points out there are not drawn
     if (mark.localName === "rect") { // a bar is hovered with the pointer inside its box or within SNAP client px of its value end inside its x span (so a bar under a pixel tall, or of zero height, can be); its value is its y when below zero, else its height, and the bar whose value end is nearest wins
       var rx = +mark.getAttribute("x"), ry = +mark.getAttribute("y"), rw = +mark.getAttribute("width"), rh = +mark.getAttribute("height");
-      var v = ry < 0 ? ry : rh, dv = Math.abs(at.y - v) * Math.abs(m.d);
+      var v = barValue(mark), dv = Math.abs(at.y - v) * Math.abs(m.d);
       if (at.x >= rx && at.x <= rx + rw && ((at.y >= ry && at.y <= ry + rh) || dv <= SNAP) && (!bar || dv < bar.d)) bar = { d: dv, mark: mark, index: 0, bar: true, x: +mark.dataset.category, y: v, px: rx + rw / 2 };
       return;
     }
@@ -229,7 +232,7 @@ export function interact(el, opts) {
   }
   // the hover of a found spot b, shown at the client position cx, cy: the pointer's, and the keyboard's at its point. A pointer hover (`hovered`) of a key mark also sets the keyboard's current point: the point, or an interpolated spot's nearer end; a leave keeps it.
   function present(b, cx, cy, hovered) {
-    if (hovered && !b.bar && b.mark.dataset.ray === undefined && isKeyMark(b.mark)) cur = { id: identOf(b.mark), i: b.near !== undefined ? b.near : b.index };
+    if (hovered && b.mark.dataset.ray === undefined && isKeyMark(b.mark)) cur = { id: identOf(b.mark), i: b.bar ? b.x : b.near !== undefined ? b.near : b.index }; // a bar's index is its category
     if (marks) showMarks(el, layer, b);
     var d = b.mark.dataset, ev = { x: b.x, y: b.y };
     if (d.ray !== undefined) { ev.field = +d.field; ev.ray = +d.ray; if (d.status !== undefined) ev.status = d.status; } // a layout2D ray run: z, y in mm
@@ -314,16 +317,18 @@ export function interact(el, opts) {
   }
   /* ---- Keyboard. The current point is a series identity (its panel and series, from data-panel and data-series) and a data index, so a redraw that replaced the markup keeps it, and so does a zoom that cut the series into several marks (each with a data-from): the mark is looked up again on each use. ---- */
   var cur = null, pending = false; // `pending`: a + - 0 key asked for the dot again once the caller's redraw replaces the markup
-  // a mark the keyboard can step: a series mark that is not a bar, inside a data group (a found hover has points, so keyMarks adds only the non-empty runs)
-  function isKeyMark(m) { return m.hasAttribute("data-series") && m.localName !== "rect" && !!dataGroup(m); }
-  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return isKeyMark(m) && runs(m).p.length; }); }
+  // a mark the keyboard can step: a series mark inside a data group, a bar only with a category (a found hover has points, so keyMarks adds only the non-empty runs)
+  function isBar(m) { return m.localName === "rect"; }
+  function isKeyMark(m) { return m.hasAttribute("data-series") && !!dataGroup(m) && (!isBar(m) || isFinite(parseFloat(m.getAttribute("data-category")))); }
+  function keyMarks() { return Array.prototype.filter.call(el.querySelectorAll("[data-series]"), function (m) { return isKeyMark(m) && (isBar(m) || runs(m).p.length); }); }
   var identOf = function (m) { return m.getAttribute("data-panel") + "/" + m.getAttribute("data-series"); };
-  // the drawn series per kind, in document order: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Today's curve and spot marks are the first adapter.
+  // the drawn series per kind, in document order: { id, points: [{ mark, index, x, y, bar? }] } with every drawn point of that identity, across its pieces. Curve and spot marks give their points; bars give one point per rect: the category is its index and x, the value end its y, and `px` the centre of its span.
   function drawnSeries() {
     var out = [], by = {};
     keyMarks().forEach(function (m) {
-      var id = identOf(m), r = runs(m);
+      var id = identOf(m), r = isBar(m) ? { p: [] } : runs(m);
       if (!by[id]) { by[id] = { id: id, points: [] }; out.push(by[id]); }
+      if (isBar(m)) { var c = +m.getAttribute("data-category"); by[id].points.push({ mark: m, index: c, x: c, y: barValue(m), px: +m.getAttribute("x") + +m.getAttribute("width") / 2, bar: true }); }
       r.p.forEach(function (q, j) { by[id].points.push({ mark: m, index: j + r.off, x: q[0], y: q[1] }); });
     });
     return out;
@@ -332,6 +337,7 @@ export function interact(el, opts) {
   function framed(pts) {
     var ok = new Map();
     return pts.filter(function (q) {
+      if (q.bar) return true; // a bar is hovered wherever it is drawn
       if (!ok.has(q.mark)) { var g = dataGroup(q.mark), gm = g.getScreenCTM(); ok.set(q.mark, gm ? inFrameOf(g, gm) : function () { return false; }); }
       return ok.get(q.mark)(q.x, q.y);
     });
@@ -347,7 +353,7 @@ export function interact(el, opts) {
     ser.points.forEach(function (q) { if (!best || Math.abs(q.index - cur.i) < Math.abs(best.index - cur.i)) best = q; });
     return best;
   }
-  var clientOf = function (b) { var q = new DOMPoint(b.x, b.y).matrixTransform(dataGroup(b.mark).getScreenCTM()); return [q.x, q.y]; };
+  var clientOf = function (b) { var q = new DOMPoint(b.bar ? b.px : b.x, b.y).matrixTransform(dataGroup(b.mark).getScreenCTM()); return [q.x, q.y]; };
   /* An arrow: left and right step the current series' points inside the frame across its pieces, up and down the neighbouring series (distinct panel and series, in document order) that have one, at the same data index or the nearest inside the frame, clamped at the ends (no wrap). The first one lands on the first such point. A point a redraw moved out of the frame is not shown. Returns whether there was anything to step. */
   function step(k) {
     var ser = drawnSeries(), pts = ser.map(visiblePoints), at = curSpot(), s = 0, i = 0;

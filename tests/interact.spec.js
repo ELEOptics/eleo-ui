@@ -2216,7 +2216,7 @@ test.skip('keyboard starts at the hovered point', async ({ page }) => { // #1152
   await page.evaluate(() => window.STOP());
 });
 
-test.skip('keyboard steps bars', async ({ page }) => { // #1152, #1157
+test('keyboard steps bars', async ({ page }) => { // #1152, #1157
   await bind(page, 'seidel');
   const b = await page.evaluate(() => {
     const rects = (s) => [...window.HOST.querySelectorAll(`rect[data-series="${s}"]`)];
