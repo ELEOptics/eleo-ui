@@ -21,6 +21,7 @@
 | H | [#804] | Plot types for phos |  | Interaction (U13): typed hover and click events, `data-*` on marks, the hover readout, zoom, pan and reset by `view`; ten renderer nits absorbed. | - | done 2026-11-11 |
 | S | [#1018] | Plot types for phos |  | The Playwright tests in Chromium, Firefox and WebKit: one project per browser, Chromium-only specs by `testIgnore`, [#884]'s NaN gap fixed, two oracles changed by CR. | - | done 2026-11-12 |
 | I | [#1076] | Plot types for phos |  | Export (U15): a small `standalone(svg)` helper that inlines resolved styles and embeds the plot fonts as `@font-face` (modelled on saveSvgAsPng, which does both, rather than svg-crowbar, which embeds no fonts; tokens through `css()` in `color.js`), and PNG through `canvas.toBlob` at a chosen scale; no new dependency unless the interview puts saveSvgAsPng to the user (ADR-0004 names export as the point to weigh a library again). The caller owns the button: one gallery tile shows a save button in `PlotCard`'s existing `actions` snippet, and `PlotCard` is unchanged. It exports what the current `view` draws (H's lesson, PR [#840]) and none of H's hover marks (`interact.js` draws them as HTML `div`s on the host; the plan checks it). For the interview, all the user's (U15 is an approved outcome): a `theme` option (a dark-theme user exporting for a paper), checking the exported text's font (a fallback font can pass the 1% pixel rule), comparing the PNG's pixels and not only its size, and dropping U15's canvas clause (`layout3D` is J's, and a `<canvas>` already has `toBlob`). A text-measuring test measures the em box (CR [#1070]). Not here: a server-side or headless export, phos's save dialog, legend placement outside the tile ([#534]). | U15 passes. | done 2026-11-16 |
+| K | [#1144] | Plot types for phos |  | H's backlog batched: the keyboard gaps [#1004], the tooltip's live region [#883], dashed limits crawling on a pan [#996] (and [#323] in `limits.js`), the specs' shared helpers [#855], [#1067], [#1064], [#1126], and `export.spec.js`'s flakes [#1118], [#1125] and duplicate helpers [#1098]. Not here: [#534], [#850], [#997]. | Arrow keys step bars and rays and start from the hovered point; `stop()` leaves the host's `tabindex` as it found it; the live region announces only rested or snapped points; dashes hold still on a pan; every tile's Playwright screenshot unchanged; U14 holds for `interact`. | done 2026-11-17 |
 
 ## Done outcomes
 
@@ -54,7 +55,10 @@
 
 ## Change log
 
-- 2026-11-13 plan (user): I planned as #1076 (2 milestones, 12 items). Interview: no `theme` option (typed `map2D` bakes its cells; the README gives the light-redraw recipe); U15's canvas clause dropped; O1 adds an embedded-and-loadable font check and O2 a PNG pixel check; exports draw the tile's `--surface`; #1007 absorbed (plots 0.10.0 published by PR #676); a WebKit canvas taint on maps escalates. saveSvgAsPng weighed and not added (ADR-0004's export trigger).
+- 2026-11-17 next (director): K (interaction-polish) next, the order as written: H's backlog batched, the runner-up of the pick of 2026-11-13. Row I is done (PR #1088 merged 2026-11-17); no open plan and no row pin, so the independence rule binds nothing. K also takes plan #1076's leftovers in its files: #323 (`limits.js`, which #996 edits), #1126 (the same spec files as #855 and #1067), and `export.spec.js`'s two flakes #1118 and #1125 (verified by run logs, 2 of 11 and 1 full-gate run; the gate's one source of red today) with its duplicate helpers #1098. Runner-up: J (the major release), last as seeded: no consumer asks for typed `layout3D` yet, and its glass-fill and release leftovers (#125, #139, #86, #132, #133, #158, #639) wait on it; tolerance-curve still waits on ELEOptics/phos-core#372 (open 2026-11-17). From I, for later rows: dots are 0.01 px segments since CRs #1119, #1122 and #1123 (a row that draws dots or re-records baselines inherits it), a canvas raster needs `willReadFrequently: true` on WebKit (CR #1134), and pixel-exact work reads CI at each wave, not only at milestone end. No kill criterion fired: I's largest export embeds 66.8 KB of fonts under the 100 KB ask. #1007 closed with PR #1088, so its Deferred row is dropped. No row added or moved, so no review. 17 issues deferred.
+- 2026-11-17 archive: the roadmap migrated to the archive shape (`director/roadmap-archive.sh`): done rows, done outcomes and kill criteria, Change log bullets past the newest 3, Deferred and the Plans prose moved to `agent_docs/roadmap-history.md`; the Plans table folded to seven columns; the Goal cut to three lines and interaction-polish's Scope to 300 characters, their old text word for word in history's Row notes; U11's Plan cell `-`, U14's names the live rows that change a renderer's drawing.
+- 2026-11-16 done: I ([#1076]) finished, U15 passes in Chromium, Firefox and WebKit on macOS and Linux. `standalone` and `png` export every SVG tile; the gallery's MTF tile saves itself. The user set U15's scale-1 rule to exact at 0.5% (CR [#1119]) with PNG against the tile at a 1-px neighbourhood (CR [#1124]); WebKit's double-painted dots were fixed in the renderer (CR [#1119]). Left open: [#1118], [#1125], [#1126].
+- 2026-11-13 plan (user): I planned as [#1076] (2 milestones, 12 items). Interview: no `theme` option (typed `map2D` bakes its cells; the README gives the light-redraw recipe); U15's canvas clause dropped; O1 adds an embedded-and-loadable font check and O2 a PNG pixel check; exports draw the tile's `--surface`; [#1007] absorbed (plots 0.10.0 published by PR [#676]); a WebKit canvas taint on maps escalates. saveSvgAsPng weighed and not added (ADR-0004's export trigger).
 - 2026-11-13: review (roadmap-reviewer, claude-opus-5-5)
   - 1: accepted
   - 2: accepted in part: U15's canvas clause is an approved outcome, so row I lists dropping it for the user at the interview
@@ -108,6 +112,8 @@ it is the only record of a deferral (no issue comments), and `git log -p` is its
 | [#158] | row J (decides whether `--stroke-ray` stays) | 2026-10-08 |
 | [#850] | a hover measurement over 16 ms (U14) on a slower machine or in CI: H measured at most 2.40 ms | 2026-11-11 |
 | [#997] | a zoomed map whose redraw slows as CR [#984]'s did: measured flat from 1x to 1000x on 2026-11-11 | 2026-11-11 |
+| [#1167] | a spec using a matrix or dot-length spelling O1's scan misses (none today) | 2026-11-17 |
+| [#1169] | the next plan editing `clip.js` (`dashOffset` draws every dashed curve piece and layout2D ray) | 2026-11-17 |
 | [#424] | a Chromium bump or CI run that changes the sample map's PNG bytes (a pixel tolerance changes an approved oracle, the user's); plan [#1018] keeps the test Chromium-only (user, 2026-11-12) | 2026-10-31 |
 
 ## Plans notes
@@ -150,7 +156,7 @@ design system by default.
 
 Moved from the Scope cell of row interaction-polish, now K, at the archive migration (2026-11-17):
 
-H's backlog batched (nits never get a row alone; one row once they add up to a plan): the keyboard gaps #1004 (the pointer sets the current point, `stop()` drops the `tabindex` it added, bars and rays step by arrow), the hover tooltip's live region announcing every interpolated move #883, dashed limit lines crawling on a pan #996, and the specs' shared helpers: one drawn-points parser #855, one anchored matrix parser #1067 and `moveTo` at S's ~30 fractional pointer sites #1064 (all three sit in the same spec files). The plan's Existing issues table confirms each against its Files; one it leaves alone goes back to Deferred. Not here: export (I), legend placement outside the tile (#534, waits for phos), #850 and #997 (their triggers, a hover or zoomed-map redraw over budget, have not fired).
+H's backlog batched (nits never get a row alone; one row once they add up to a plan): the keyboard gaps [#1004] (the pointer sets the current point, `stop()` drops the `tabindex` it added, bars and rays step by arrow), the hover tooltip's live region announcing every interpolated move [#883], dashed limit lines crawling on a pan [#996], and the specs' shared helpers: one drawn-points parser [#855], one anchored matrix parser [#1067] and `moveTo` at S's ~30 fractional pointer sites [#1064] (all three sit in the same spec files). The plan's Existing issues table confirms each against its Files; one it leaves alone goes back to Deferred. Not here: export (I), legend placement outside the tile ([#534], waits for phos), [#850] and [#997] (their triggers, a hover or zoomed-map redraw over budget, have not fired).
 
 [#1004]: https://github.com/ELEOptics/eleo-ui/issues/1004
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
@@ -163,15 +169,26 @@ H's backlog batched (nits never get a row alone; one row once they add up to a p
 [#1070]: https://github.com/ELEOptics/eleo-ui/issues/1070
 [#1072]: https://github.com/ELEOptics/eleo-ui/issues/1072
 [#1073]: https://github.com/ELEOptics/eleo-ui/issues/1073
+[#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
+[#1098]: https://github.com/ELEOptics/eleo-ui/issues/1098
+[#1104]: https://github.com/ELEOptics/eleo-ui/issues/1104
+[#1112]: https://github.com/ELEOptics/eleo-ui/issues/1112
+[#1116]: https://github.com/ELEOptics/eleo-ui/issues/1116
+[#1118]: https://github.com/ELEOptics/eleo-ui/issues/1118
+[#1119]: https://github.com/ELEOptics/eleo-ui/issues/1119
+[#1124]: https://github.com/ELEOptics/eleo-ui/issues/1124
+[#1125]: https://github.com/ELEOptics/eleo-ui/issues/1125
+[#1126]: https://github.com/ELEOptics/eleo-ui/issues/1126
+[#1144]: https://github.com/ELEOptics/eleo-ui/issues/1144
+[#1167]: https://github.com/ELEOptics/eleo-ui/issues/1167
+[#1169]: https://github.com/ELEOptics/eleo-ui/issues/1169
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#126]: https://github.com/ELEOptics/eleo-ui/issues/126
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
 [#133]: https://github.com/ELEOptics/eleo-ui/issues/133
-[#138]: https://github.com/ELEOptics/eleo-ui/issues/138
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
 [#144]: https://github.com/ELEOptics/eleo-ui/issues/144
 [#158]: https://github.com/ELEOptics/eleo-ui/issues/158
-[#160]: https://github.com/ELEOptics/eleo-ui/issues/160
 [#162]: https://github.com/ELEOptics/eleo-ui/issues/162
 [#230]: https://github.com/ELEOptics/eleo-ui/issues/230
 [#232]: https://github.com/ELEOptics/eleo-ui/issues/232
@@ -184,10 +201,6 @@ H's backlog batched (nits never get a row alone; one row once they add up to a p
 [#323]: https://github.com/ELEOptics/eleo-ui/issues/323
 [#336]: https://github.com/ELEOptics/eleo-ui/issues/336
 [#337]: https://github.com/ELEOptics/eleo-ui/issues/337
-[#355]: https://github.com/ELEOptics/eleo-ui/issues/355
-[#356]: https://github.com/ELEOptics/eleo-ui/issues/356
-[#368]: https://github.com/ELEOptics/eleo-ui/issues/368
-[#385]: https://github.com/ELEOptics/eleo-ui/issues/385
 [#389]: https://github.com/ELEOptics/eleo-ui/issues/389
 [#4]: https://github.com/ELEOptics/eleo-ui/issues/4
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
@@ -195,36 +208,22 @@ H's backlog batched (nits never get a row alone; one row once they add up to a p
 [#450]: https://github.com/ELEOptics/eleo-ui/issues/450
 [#464]: https://github.com/ELEOptics/eleo-ui/issues/464
 [#498]: https://github.com/ELEOptics/eleo-ui/issues/498
-[#511]: https://github.com/ELEOptics/eleo-ui/issues/511
 [#512]: https://github.com/ELEOptics/eleo-ui/issues/512
-[#533]: https://github.com/ELEOptics/eleo-ui/issues/533
 [#534]: https://github.com/ELEOptics/eleo-ui/issues/534
 [#554]: https://github.com/ELEOptics/eleo-ui/issues/554
-[#555]: https://github.com/ELEOptics/eleo-ui/issues/555
 [#556]: https://github.com/ELEOptics/eleo-ui/issues/556
 [#585]: https://github.com/ELEOptics/eleo-ui/issues/585
 [#586]: https://github.com/ELEOptics/eleo-ui/issues/586
-[#587]: https://github.com/ELEOptics/eleo-ui/issues/587
 [#588]: https://github.com/ELEOptics/eleo-ui/issues/588
-[#598]: https://github.com/ELEOptics/eleo-ui/issues/598
 [#602]: https://github.com/ELEOptics/eleo-ui/issues/602
 [#603]: https://github.com/ELEOptics/eleo-ui/issues/603
-[#612]: https://github.com/ELEOptics/eleo-ui/pull/612
-[#616]: https://github.com/ELEOptics/eleo-ui/issues/616
-[#617]: https://github.com/ELEOptics/eleo-ui/issues/617
 [#621]: https://github.com/ELEOptics/eleo-ui/issues/621
-[#622]: https://github.com/ELEOptics/eleo-ui/issues/622
-[#630]: https://github.com/ELEOptics/eleo-ui/issues/630
 [#632]: https://github.com/ELEOptics/eleo-ui/issues/632
-[#633]: https://github.com/ELEOptics/eleo-ui/issues/633
 [#639]: https://github.com/ELEOptics/eleo-ui/issues/639
 [#642]: https://github.com/ELEOptics/eleo-ui/issues/642
 [#652]: https://github.com/ELEOptics/eleo-ui/pull/652
 [#659]: https://github.com/ELEOptics/eleo-ui/issues/659
-[#660]: https://github.com/ELEOptics/eleo-ui/issues/660
 [#662]: https://github.com/ELEOptics/eleo-ui/issues/662
-[#663]: https://github.com/ELEOptics/eleo-ui/issues/663
-[#666]: https://github.com/ELEOptics/eleo-ui/issues/666
 [#669]: https://github.com/ELEOptics/eleo-ui/issues/669
 [#671]: https://github.com/ELEOptics/eleo-ui/issues/671
 [#676]: https://github.com/ELEOptics/eleo-ui/pull/676
@@ -247,11 +246,3 @@ H's backlog batched (nits never get a row alone; one row once they add up to a p
 [#984]: https://github.com/ELEOptics/eleo-ui/issues/984
 [#996]: https://github.com/ELEOptics/eleo-ui/issues/996
 [#997]: https://github.com/ELEOptics/eleo-ui/issues/997
-[#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
-[#1104]: https://github.com/ELEOptics/eleo-ui/issues/1104
-[#1116]: https://github.com/ELEOptics/eleo-ui/issues/1116
-[#1119]: https://github.com/ELEOptics/eleo-ui/issues/1119
-[#1112]: https://github.com/ELEOptics/eleo-ui/issues/1112
-[#1118]: https://github.com/ELEOptics/eleo-ui/issues/1118
-[#1125]: https://github.com/ELEOptics/eleo-ui/issues/1125
-[#1126]: https://github.com/ELEOptics/eleo-ui/issues/1126
