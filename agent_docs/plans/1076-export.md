@@ -107,6 +107,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 | [#1139] | Spot-dot test's reference independent of `h`; CR [#1124]'s comment and the spec header current (CRs [#1137], [#1138]) | one item for review M2 round 5's two blocking findings and backlog finding 3 because all are test-side; the 0.1 px reference from the panel matrix because one built from the renderer's `h` passes on `h0` (the oracle taken from the code under test); considered only asserting `h > 0`, which pins the sign, not the length | `tests/gallery.spec.js`, `tests/export.spec.js` | `gallery.spec.js::spot dots paint once on screen` | [#1135], [#1136] |
 | [#1140] | Spot-dot test asserts its 0.1 px rewrite changed every dot | count the rewritten `h` steps against `hs.length` because a dot form the replace misses would compare the tile with itself and pass (review M2 round 6); considered asserting the strings differ, which one changed dot would satisfy | `tests/gallery.spec.js` | `gallery.spec.js::spot dots paint once on screen` | [#1139] |
 | [#1141] | Spot-dot test counts dots by `M` commands, not by the `h` form | count `M` commands over the series paths because #1140's check compares two regexes that both need ` h<number>`, so a dot in another form drops out of both (review M2 round 7); considered parsing each path's commands, which is more than the check needs | `tests/gallery.spec.js` | `gallery.spec.js::spot dots paint once on screen` | [#1140] |
+| [#1142] | Spot-dot test drops the dead `h`-form count | delete `hRe`, `hs` and their assertion because #1141's `M` count implies them (review M2 round 8); considered keeping them as documentation, which the comment does instead | `tests/gallery.spec.js` | `gallery.spec.js::spot dots paint once on screen` | [#1141] |
 
 ## Risks and spikes
 
@@ -166,6 +167,7 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 - 2026-11-16 [#1135], [#1136] done; the export and gallery specs pass in `mcr.microsoft.com/playwright:v1.65.0-noble`. Review M2 round 5 (code-reviewer, claude-opus-5-5): 2 blocking, CRs [#1137] (the spot-dot test's reference follows the renderer's `h`, so `h0` passes) and [#1138] (CR [#1124]'s comment still blames WebKit), accepted by the orchestrator; backlog finding 3 (spec header) pulled in, all as [#1139]; finding 4 (#1121's row) fixed in this plan commit. Per round, blocking plus pulled in: 5, 2, 1, 0, 3.
 - 2026-11-16 [#1139] done; Linux CI green on 2361d90. Review M2 round 6 (code-reviewer, claude-opus-5-5): 0 blocking, all eleven carried CRs resolved; one small test hardening finding pulled in as [#1140]. Per round, blocking plus pulled in: 5, 2, 1, 0, 3, 1.
 - 2026-11-16 [#1140] done. Review M2 round 7 (code-reviewer, claude-opus-5-5): 0 blocking, all carried CRs resolved; one small test hardening finding pulled in as [#1141] (#1140's row claimed more than its check does). Per round, blocking plus pulled in: 5, 2, 1, 0, 3, 1, 1; a round 8 that doesn't fall trips the breaker.
+- 2026-11-16 [#1141] done. Review M2 round 8 (code-reviewer, claude-opus-5-5): 0 blocking, all carried CRs resolved, one P3 necessity finding (three dead lines left by #1141). Pulling it in made the count 1, 1, 1 over rounds 6-8, so the breaker tripped. The user, 2026-11-16: `continue`. The finding is pulled in as [#1142]; review again.
 
 [#1007]: https://github.com/ELEOptics/eleo-ui/issues/1007
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
@@ -237,3 +239,4 @@ Demo: `npm run gallery`, the MTF tile's SVG and PNG ×2 buttons download files t
 [#1139]: https://github.com/ELEOptics/eleo-ui/issues/1139
 [#1140]: https://github.com/ELEOptics/eleo-ui/issues/1140
 [#1141]: https://github.com/ELEOptics/eleo-ui/issues/1141
+[#1142]: https://github.com/ELEOptics/eleo-ui/issues/1142
