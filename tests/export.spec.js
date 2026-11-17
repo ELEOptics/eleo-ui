@@ -319,7 +319,8 @@ const eachTile = async (page, check) => {
     try {
       // A fresh load per case: a tile moved onto the pixel grid, zoomed or hovered would otherwise leak into the next.
       await page.goto('/gallery/');
-      await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+      // 20 s: only this reload repeats per case (about 50 a browser), and under the full gate's load one can pass the default 5 s (#1125).
+      await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 20_000 });
       const svg = caseSvg(page, c);
       await setState(page, c, svg);
       await check(svg, async (p, k) => { const t = caseSvg(p, c); await setState(p, c, t, k); return t; });
