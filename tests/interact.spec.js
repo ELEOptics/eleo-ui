@@ -2271,6 +2271,37 @@ test('keyboard steps rays', async ({ page }) => { // #1152, #1158
   await page.evaluate(() => window.STOP());
 });
 
+test('keyboard orders bars and fields by number', async ({ page }) => { // #1171, CR #1170
+  await bind(page, 'seidel');
+  const first = await page.evaluate(() => {
+    window.HOST.querySelector('rect[data-series="0"][data-category="0"]').remove();
+    return Math.min(...[...window.HOST.querySelectorAll('rect[data-series="0"][data-category]')].map((m) => +m.dataset.category));
+  });
+  await page.evaluate(() => window.HOST.focus());
+  await page.keyboard.press('ArrowRight');
+  let ev = await lastHover(page);
+  expect([ev.series.index, +ev.category], 'the first arrow is series 0 at its first drawn category').toEqual([0, first]);
+  await page.keyboard.press('ArrowDown');
+  ev = await lastHover(page);
+  expect(ev.series.index, 'ArrowDown is series 1').toBe(1);
+  await page.evaluate(() => window.STOP());
+
+  await bind(page, 'layout2D-wandersleb');
+  const left = await page.evaluate(() => {
+    window.HOST.querySelectorAll('g[opacity=".35"] polyline[data-field="0"]').forEach((m) => m.remove());
+    return window.HOST.querySelectorAll('polyline[data-field="0"]').length;
+  });
+  expect(left, 'field 0 keeps its live runs').toBeGreaterThan(0);
+  await page.evaluate(() => window.HOST.focus());
+  await page.keyboard.press('ArrowRight');
+  ev = await lastHover(page);
+  expect(ev.field, 'the first arrow is field 0').toBe(0);
+  await page.keyboard.press('ArrowDown');
+  ev = await lastHover(page);
+  expect(ev.field, 'ArrowDown is field 1').toBe(1);
+  await page.evaluate(() => window.STOP());
+});
+
 test('stop restores tabindex', async ({ page }) => { // #1152, green at #1156
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
