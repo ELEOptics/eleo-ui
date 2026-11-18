@@ -61,6 +61,8 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 
 ### M1: Data indices and font MIME GitHub: `P1175 M1: Data indices and font MIME`
 
+Done 2026-11-17: review round 2 (Review M1: 0 blocking, nothing pulled in; backlog #1191); full gate green on 76e0859 (547 passed); CI pending on 76e0859 at the tick. Demo: pending.
+
 Demo: a curve with a NaN point hovered between x = 3 and 4 shows `segment [3, 4]`, and ArrowUp from series 1 at x = 3 lands on x = 3, on curve and spot; the MTF tile exported with mislabelled fonts embeds `data:font/woff2`; 0 tiles differ and the U14 medians are logged. Proves: O1, O2, O3
 
 | Issue | Work item | Approach | Files | Test | After |
@@ -118,3 +120,4 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-17 review M1 round 1 (code-reviewer, claude-opus-5-5): 1 blocking, CR [#1185] (hover O(points × skips), 24.9 ms on a 10,000-point curve with every tenth point NaN), accepted by the orchestrator as item #1186; backlog findings 2 and 3 pulled in as #1187 and #1188 (small, named, in files M1 changed).
 - 2026-11-17 stale doc from #1187: CR [#1189] accepted by the orchestrator (README not Core), item #1190.
 - 2026-11-17 #1188 dropped: `check-tests-touched.sh` refuses a source change with no test, and no test tells the dead conjunct from its removal; the finding allowed leaving it. Closed not planned.
+- 2026-11-17 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking; CRs #1183, #1185, #1189 resolved; 1 backlog, filed as #1191 (not pulled in: no test can guard it). M1 ticked.
