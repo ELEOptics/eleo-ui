@@ -538,6 +538,32 @@ if (process.env.P1175 === '1') test('font MIME from a mislabelled response', asy
   expect(out).not.toContain('data:text/html');
 });
 
+// #1162 (plan #1175 O2). oracle: spec RFC 8081 (font/* types): a non-font response is retyped to its URL extension's font type, query string ignored; a font/* response or an unknown extension keeps its MIME.
+test('toDataUrl font MIME', async ({ page }) => {
+  const serve = (type) => (r) => r.fulfill({ status: 200, headers: { 'content-type': type }, body: 'xx' });
+  await page.route('**/probe-html.woff2?v=3', serve('text/html; charset=utf-8'));
+  await page.route('**/probe-font.woff2', serve('font/woff2'));
+  await page.route('**/probe-ttf.ttf', serve('text/html'));
+  await page.route('**/probe-unknown.dat', serve('text/html'));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const out = await page.evaluate(async () => {
+    const faces = { ProbeHtml: '/probe-html.woff2?v=3', ProbeFont: '/probe-font.woff2', ProbeTtf: '/probe-ttf.ttf', ProbeUnk: '/probe-unknown.dat' };
+    const st = document.createElement('style');
+    st.textContent = Object.entries(faces).map(([f, u]) => `@font-face { font-family: ${f}; font-weight: 400; src: url(${u}); }`).join(' ');
+    document.head.prepend(st);
+    const host = document.createElement('div');
+    document.body.append(host);
+    host.innerHTML = `<svg viewBox="0 0 10 10" width="10" height="10">${Object.keys(faces).map((f) => `<text style="font-family: ${f}">a</text>`).join('')}</svg>`;
+    return window.ELEO.standalone(host.firstChild);
+  });
+  const mime = (fam) => new RegExp(`font-family:\\s*["']?${fam}["']?[^}]*?url\\(\\s*["']?data:([^,]*),`).exec(out)?.[1];
+  expect(mime('ProbeHtml')).toBe('font/woff2;base64');
+  expect(mime('ProbeFont')).toBe('font/woff2;base64');
+  expect(mime('ProbeTtf')).toBe('font/ttf;base64');
+  expect(mime('ProbeUnk')).toBe('text/html;base64');
+});
+
 // #1093 (plan #1076 O1, O2). oracle: faces in @import, @layer and @media are embedded; each used family left without a face is named in one console.warn.
 test('nested and unmatched faces', async ({ page }) => {
   const warns = [];

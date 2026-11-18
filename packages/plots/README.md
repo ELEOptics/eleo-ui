@@ -295,6 +295,8 @@ const blob = await png(svg, { scale: 2 });         // a PNG Blob, twice the plot
 - `standalone(svg)` resolves an SVG string of what the plot draws now: computed styles inlined for the current theme and palette, the current view, a background rect of the tile's `--surface`, and the Fira faces its text uses embedded as `@font-face` data URLs. A browser draws it with no ELEO CSS, in the embedded Fira. Inkscape, PowerPoint and rsvg get the resolved colours and sizes, but they do not load `@font-face`: they draw the text in an installed Fira or a fallback font. Other apps use installed fonts. Pass `{ fonts: false }` to skip the fonts.
 - `png(svg, { scale = 1 })` resolves an `image/png` `Blob` of the plot's size times `scale`.
 
+A font response that is not typed `font/*` (Google Fonts sometimes answers a woff2 with `text/html`) is embedded with the font type of its URL's extension (`.woff2`, `.woff`, `.ttf`, `.otf`, query string ignored); an unknown extension keeps the response's type.
+
 Fonts are read from the page's stylesheets. A cross-origin stylesheet, such as Google Fonts, is readable only with `crossorigin="anonymous"` on its `<link>` (and on its `preconnect`); without it the faces are skipped, a `console.warn` names their families, and the export falls back to the viewer's fonts.
 
 There is no theme option. For a light export (a paper or a slide), redraw the plot in a light container, either under `data-theme="light"` or in `PlotCard`'s `paper`, then export that SVG. A typed `map2D` bakes its cells at draw time, so switching the theme only on export would draw dark cells in a light frame.

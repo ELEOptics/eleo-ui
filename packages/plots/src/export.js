@@ -9,10 +9,14 @@ const PROPS = [
   'stroke-linejoin', 'shape-rendering',
 ];
 
+// A server may label font bytes text/html (Google Fonts does); retype by the URL's extension so the data URL names a font.
+const FONT_TYPES = { woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf' };
 const toDataUrl = async (url) => {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: ${res.status}`);
-  const blob = await res.blob();
+  let blob = await res.blob();
+  const type = FONT_TYPES[/\.([a-z0-9]+)$/i.exec(new URL(url, location.href).pathname)?.[1].toLowerCase()];
+  if (type && !blob.type.startsWith('font/')) blob = blob.slice(0, blob.size, type);
   return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
 };
 const unquote = (v) => v.trim().replace(/^["']|["']$/g, '');
