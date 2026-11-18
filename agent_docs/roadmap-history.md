@@ -22,6 +22,7 @@
 | S | [#1018] | Plot types for phos |  | The Playwright tests in Chromium, Firefox and WebKit: one project per browser, Chromium-only specs by `testIgnore`, [#884]'s NaN gap fixed, two oracles changed by CR. | - | done 2026-11-12 |
 | I | [#1076] | Plot types for phos |  | Export (U15): a small `standalone(svg)` helper that inlines resolved styles and embeds the plot fonts as `@font-face` (modelled on saveSvgAsPng, which does both, rather than svg-crowbar, which embeds no fonts; tokens through `css()` in `color.js`), and PNG through `canvas.toBlob` at a chosen scale; no new dependency unless the interview puts saveSvgAsPng to the user (ADR-0004 names export as the point to weigh a library again). The caller owns the button: one gallery tile shows a save button in `PlotCard`'s existing `actions` snippet, and `PlotCard` is unchanged. It exports what the current `view` draws (H's lesson, PR [#840]) and none of H's hover marks (`interact.js` draws them as HTML `div`s on the host; the plan checks it). For the interview, all the user's (U15 is an approved outcome): a `theme` option (a dark-theme user exporting for a paper), checking the exported text's font (a fallback font can pass the 1% pixel rule), comparing the PNG's pixels and not only its size, and dropping U15's canvas clause (`layout3D` is J's, and a `<canvas>` already has `toBlob`). A text-measuring test measures the em box (CR [#1070]). Not here: a server-side or headless export, phos's save dialog, legend placement outside the tile ([#534]). | U15 passes. | done 2026-11-16 |
 | K | [#1144] | Plot types for phos |  | H's backlog batched: the keyboard gaps [#1004], the tooltip's live region [#883], dashed limits crawling on a pan [#996] (and [#323] in `limits.js`), the specs' shared helpers [#855], [#1067], [#1064], [#1126], and `export.spec.js`'s flakes [#1118], [#1125] and duplicate helpers [#1098]. Not here: [#534], [#850], [#997]. | Arrow keys step bars and rays and start from the hovered point; `stop()` leaves the host's `tabindex` as it found it; the live region announces only rested or snapped points; dashes hold still on a pan; every tile's Playwright screenshot unchanged; U14 holds for `interact`. | done 2026-11-17 |
+| T | [#1175] | Plot types for phos |  | K's two bugs: a dropped NaN point shifts the hover and keyboard index of later points [#1168] (curve and spot write `data-skip`; `HoverEvent.segment`'s wording in `index.d.ts`), and exported fonts keep a `text/html` MIME [#1162]; with [#1164] and [#1169] (`dashOffset`, `limitMarks`). | ArrowUp and a hover's `segment` after a dropped NaN pair give data indices; with the font response stubbed to `text/html`, `standalone` embeds `data:font/woff2`; tiles unchanged; U14 holds for `interact`. | done 2026-11-17 |
 
 ## Done outcomes
 
@@ -55,8 +56,17 @@
 
 ## Change log
 
-- 2026-11-17 done: K (#1144) finished, PR #1160 ready. The keyboard starts at the hovered mark and steps bars and layout2D rays, ordered by number (CR #1170); `stop()` restores `tabindex`, counted per live call; the live region announces snapped points only; limit dashes hold on a pan; 0 of 100 tiles differ and U14 holds. `export.spec.js` is green over 15 Chromium repeats (#1118's cause: an unquoted `url()` in the test's `faceCheck`, CR #1161). Left open: #1162 (MIME normalisation in `export.js`), #1164, #1167, #1168, #1169.
-- 2026-11-17 next (director): K (interaction-polish) next, the order as written: H's backlog batched, the runner-up of the pick of 2026-11-13. Row I is done (PR #1088 merged 2026-11-17); no open plan and no row pin, so the independence rule binds nothing. K also takes plan #1076's leftovers in its files: #323 (`limits.js`, which #996 edits), #1126 (the same spec files as #855 and #1067), and `export.spec.js`'s two flakes #1118 and #1125 (verified by run logs, 2 of 11 and 1 full-gate run; the gate's one source of red today) with its duplicate helpers #1098. Runner-up: J (the major release), last as seeded: no consumer asks for typed `layout3D` yet, and its glass-fill and release leftovers (#125, #139, #86, #132, #133, #158, #639) wait on it; tolerance-curve still waits on ELEOptics/phos-core#372 (open 2026-11-17). From I, for later rows: dots are 0.01 px segments since CRs #1119, #1122 and #1123 (a row that draws dots or re-records baselines inherits it), a canvas raster needs `willReadFrequently: true` on WebKit (CR #1134), and pixel-exact work reads CI at each wave, not only at milestone end. No kill criterion fired: I's largest export embeds 66.8 KB of fonts under the 100 KB ask. #1007 closed with PR #1088, so its Deferred row is dropped. No row added or moved, so no review. 17 issues deferred.
+- 2026-11-17 done (orchestrator): T done as #1175 (PR #1182). CR #1183 (user) dropped ArrowUp from O3: it is about 19.5 ms on a 10,000-point dead-point spot on `main` already, so U14 is missed on that keyboard path (no row owns it yet). Review CR #1185: `data-skip` hover was O(points × skips), fixed to 5.55 ms.
+- 2026-11-17 plan (user): T planned as #1175 (1 milestone, 9 items). Interview: #1169 and spot taken in; the dropped indices go in a new `data-skip` attribute, so `data-from` and its CR #984 tests keep their meaning (round 3, after the critic); an unknown font extension keeps its MIME; patch changesets. #1169's Deferred row is dropped: 18 issues deferred.
+- 2026-11-17 next (director): T (K's two bugs) added and next, before J. K left two verified bugs: a dropped NaN pair shifts the hover and keyboard index of every later point in the mark ([#1168]: `curve.js:46-49` leaves the pair out of `d` and `:87` counts finite points into `data-from`, so `interact.js:77` and `:84` index drawn points; `index.d.ts:505` documents that), and `toDataUrl` keeps the font response's MIME, so an export can embed a `data:text/html` font ([#1162], seen in [#1118]'s spike). Verified bugs come before J's major release, which would ship both. T takes [#1164] (the same spec as [#1168]'s red test). Runner-up: J, last as seeded: no consumer asks for typed `layout3D` yet, and its leftovers ([#125], [#139], [#86], [#132], [#133], [#158], [#639]) wait on it. tolerance-curve still waits on ELEOptics/phos-core#372 (open, last touched 2026-10-20). No open plan and no row pin. No kill criterion fired. 19 issues deferred: the 17 before, plus [#1167] and [#1169].
+- 2026-11-17: review (roadmap-reviewer, claude-opus-5-5)
+  - 1: accepted
+  - 2: accepted
+  - 3: accepted
+  - 4: accepted
+  - 5: accepted
+- 2026-11-17 done: K ([#1144]) finished, PR [#1160] ready. The keyboard starts at the hovered mark and steps bars and layout2D rays, ordered by number (CR [#1170]); `stop()` restores `tabindex`, counted per live call; the live region announces snapped points only; limit dashes hold on a pan; 0 of 100 tiles differ and U14 holds. `export.spec.js` is green over 15 Chromium repeats ([#1118]'s cause: an unquoted `url()` in the test's `faceCheck`, CR [#1161]). Left open: [#1162] (MIME normalisation in `export.js`), [#1164], [#1167], [#1168], [#1169].
+- 2026-11-17 next (director): K (interaction-polish) next, the order as written: H's backlog batched, the runner-up of the pick of 2026-11-13. Row I is done (PR [#1088] merged 2026-11-17); no open plan and no row pin, so the independence rule binds nothing. K also takes plan [#1076]'s leftovers in its files: [#323] (`limits.js`, which [#996] edits), [#1126] (the same spec files as [#855] and [#1067]), and `export.spec.js`'s two flakes [#1118] and [#1125] (verified by run logs, 2 of 11 and 1 full-gate run; the gate's one source of red today) with its duplicate helpers [#1098]. Runner-up: J (the major release), last as seeded: no consumer asks for typed `layout3D` yet, and its glass-fill and release leftovers ([#125], [#139], [#86], [#132], [#133], [#158], [#639]) wait on it; tolerance-curve still waits on ELEOptics/phos-core#372 (open 2026-11-17). From I, for later rows: dots are 0.01 px segments since CRs [#1119], [#1122] and [#1123] (a row that draws dots or re-records baselines inherits it), a canvas raster needs `willReadFrequently: true` on WebKit (CR [#1134]), and pixel-exact work reads CI at each wave, not only at milestone end. No kill criterion fired: I's largest export embeds 66.8 KB of fonts under the 100 KB ask. [#1007] closed with PR [#1088], so its Deferred row is dropped. No row added or moved, so no review. 17 issues deferred.
 - 2026-11-17 archive: the roadmap migrated to the archive shape (`director/roadmap-archive.sh`): done rows, done outcomes and kill criteria, Change log bullets past the newest 3, Deferred and the Plans prose moved to `agent_docs/roadmap-history.md`; the Plans table folded to seven columns; the Goal cut to three lines and interaction-polish's Scope to 300 characters, their old text word for word in history's Row notes; U11's Plan cell `-`, U14's names the live rows that change a renderer's drawing.
 - 2026-11-16 done: I ([#1076]) finished, U15 passes in Chromium, Firefox and WebKit on macOS and Linux. `standalone` and `png` export every SVG tile; the gallery's MTF tile saves itself. The user set U15's scale-1 rule to exact at 0.5% (CR [#1119]) with PNG against the tile at a 1-px neighbourhood (CR [#1124]); WebKit's double-painted dots were fixed in the renderer (CR [#1119]). Left open: [#1118], [#1125], [#1126].
 - 2026-11-13 plan (user): I planned as [#1076] (2 milestones, 12 items). Interview: no `theme` option (typed `map2D` bakes its cells; the README gives the light-redraw recipe); U15's canvas clause dropped; O1 adds an embedded-and-loadable font check and O2 a PNG pixel check; exports draw the tile's `--surface`; [#1007] absorbed (plots 0.10.0 published by PR [#676]); a WebKit canvas taint on maps escalates. saveSvgAsPng weighed and not added (ADR-0004's export trigger).
@@ -111,8 +121,10 @@ it is the only record of a deferral (no issue comments), and `git log -p` is its
 | [#132] | row J's release (edits `iife.js`) | 2026-10-07 |
 | [#133] | row J's release (edits the classic-build tests) | 2026-10-07 |
 | [#158] | row J (decides whether `--stroke-ray` stays) | 2026-10-08 |
-| [#850] | a hover measurement over 16 ms (U14) on a slower machine or in CI: H measured at most 2.40 ms | 2026-11-11 |
 | [#997] | a zoomed map whose redraw slows as CR [#984]'s did: measured flat from 1x to 1000x on 2026-11-11 | 2026-11-11 |
+| [#850] | a measured `interact` path over 16 ms that a parse cache fixes; candidate fix for #1192 | 2026-11-11 |
+| [#1192] | the user extending U14 to key response, or a consumer reporting slow arrow keys (user, 2026-11-18) | 2026-11-18 |
+| [#1191] | the next change to `interact.js:11`'s `data-skip` filter (no test can tell the two forms apart alone) | 2026-11-18 |
 | [#1167] | a spec using a matrix or dot-length spelling O1's scan misses (none today) | 2026-11-17 |
 | [#424] | a Chromium bump or CI run that changes the sample map's PNG bytes (a pixel tolerance changes an approved oracle, the user's); plan [#1018] keeps the test Chromium-only (user, 2026-11-12) | 2026-10-31 |
 
@@ -170,18 +182,30 @@ H's backlog batched (nits never get a row alone; one row once they add up to a p
 [#1072]: https://github.com/ELEOptics/eleo-ui/issues/1072
 [#1073]: https://github.com/ELEOptics/eleo-ui/issues/1073
 [#1076]: https://github.com/ELEOptics/eleo-ui/issues/1076
+[#1088]: https://github.com/ELEOptics/eleo-ui/issues/1088
 [#1098]: https://github.com/ELEOptics/eleo-ui/issues/1098
 [#1104]: https://github.com/ELEOptics/eleo-ui/issues/1104
 [#1112]: https://github.com/ELEOptics/eleo-ui/issues/1112
 [#1116]: https://github.com/ELEOptics/eleo-ui/issues/1116
 [#1118]: https://github.com/ELEOptics/eleo-ui/issues/1118
 [#1119]: https://github.com/ELEOptics/eleo-ui/issues/1119
+[#1122]: https://github.com/ELEOptics/eleo-ui/issues/1122
+[#1123]: https://github.com/ELEOptics/eleo-ui/issues/1123
 [#1124]: https://github.com/ELEOptics/eleo-ui/issues/1124
 [#1125]: https://github.com/ELEOptics/eleo-ui/issues/1125
 [#1126]: https://github.com/ELEOptics/eleo-ui/issues/1126
+[#1134]: https://github.com/ELEOptics/eleo-ui/issues/1134
 [#1144]: https://github.com/ELEOptics/eleo-ui/issues/1144
+[#1160]: https://github.com/ELEOptics/eleo-ui/issues/1160
+[#1161]: https://github.com/ELEOptics/eleo-ui/issues/1161
+[#1162]: https://github.com/ELEOptics/eleo-ui/issues/1162
+[#1164]: https://github.com/ELEOptics/eleo-ui/issues/1164
 [#1167]: https://github.com/ELEOptics/eleo-ui/issues/1167
+[#1168]: https://github.com/ELEOptics/eleo-ui/issues/1168
 [#1169]: https://github.com/ELEOptics/eleo-ui/issues/1169
+[#1170]: https://github.com/ELEOptics/eleo-ui/issues/1170
+[#1175]: https://github.com/ELEOptics/eleo-ui/issues/1175
+[#1191]: https://github.com/ELEOptics/eleo-ui/issues/1191
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#126]: https://github.com/ELEOptics/eleo-ui/issues/126
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132

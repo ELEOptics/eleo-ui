@@ -31,14 +31,13 @@ workflow.md TDD > Oracles). Agents propose the oracles; the user approves the co
 ## Plans
 
 Order: the rows run in file order; a row becomes a plan (`agent_docs/plans/<n>-<slug>.md`) only when it is next.
-T and J both edit `curve.js`, so T goes first; tolerance-curve waits on ELEOptics/phos-core#372.
+J is next; tolerance-curve waits on ELEOptics/phos-core#372.
 Row letters and the Plan column: `agent_docs/agents/workflow.md`, Artifacts (Roadmap).
 
 | Row | Plan | Topic | After | Scope | Exit criterion | Status |
 | -- | -- | -- | -- | -- | -- | -- |
 | tolerance-curve |  | Plot types for phos |  | The cumulative probability curve (MonteCarloTolerance) through `curve`, recorded by `scripts/record-phos-core.py`, once ELEOptics/phos-core#372 puts MonteCarloTolerance in phos-core's Python client. | U6 passes for the cumulative curve. | later |
-| T | #1175 | Plot types for phos |  | K's two bugs: a dropped NaN point shifts the hover and keyboard index of later points #1168 (curve and spot write `data-skip`; `HoverEvent.segment`'s wording in `index.d.ts`), and exported fonts keep a `text/html` MIME #1162; with #1164 and #1169 (`dashOffset`, `limitMarks`). | ArrowUp and a hover's `segment` after a dropped NaN pair give data indices; with the font response stubbed to `text/html`, `standalone` embeds `data:font/woff2`; tiles unchanged; U14 holds for `interact`. | done 2026-11-17 |
-| J |  | Plot types for phos |  | `layout3D` on typed input with U12's glass fills; then the major release removing `kind` and the sample-shaped `data`. | U10 passes; the major release is on npm. | later |
+| J |  | Plot types for phos |  | `layout3D` on typed input with U12's glass fills; then the major release removing `kind` and the sample-shaped `data`. | U10 passes; the major release is on npm. | next |
 
 ## Decision rights
 
@@ -83,12 +82,13 @@ coverage table). Each row names the plan that delivers it.
 
 One bullet per entry (bare lines render as one paragraph).
 
-- 2026-11-17 done (orchestrator): T done as #1175 (PR #1182). CR #1183 (user) dropped ArrowUp from O3: it is about 19.5 ms on a 10,000-point dead-point spot on `main` already, so U14 is missed on that keyboard path (no row owns it yet). Review CR #1185: `data-skip` hover was O(points × skips), fixed to 5.55 ms.
-- 2026-11-17 plan (user): T planned as #1175 (1 milestone, 9 items). Interview: #1169 and spot taken in; the dropped indices go in a new `data-skip` attribute, so `data-from` and its CR #984 tests keep their meaning (round 3, after the critic); an unknown font extension keeps its MIME; patch changesets. #1169's Deferred row is dropped: 18 issues deferred.
-- 2026-11-17 next (director): T (K's two bugs) added and next, before J. K left two verified bugs: a dropped NaN pair shifts the hover and keyboard index of every later point in the mark (#1168: `curve.js:46-49` leaves the pair out of `d` and `:87` counts finite points into `data-from`, so `interact.js:77` and `:84` index drawn points; `index.d.ts:505` documents that), and `toDataUrl` keeps the font response's MIME, so an export can embed a `data:text/html` font (#1162, seen in #1118's spike). Verified bugs come before J's major release, which would ship both. T takes #1164 (the same spec as #1168's red test). Runner-up: J, last as seeded: no consumer asks for typed `layout3D` yet, and its leftovers (#125, #139, #86, #132, #133, #158, #639) wait on it. tolerance-curve still waits on ELEOptics/phos-core#372 (open, last touched 2026-10-20). No open plan and no row pin. No kill criterion fired. 19 issues deferred: the 17 before, plus #1167 and #1169.
-- 2026-11-17: review (roadmap-reviewer, claude-opus-5-5)
-  - 1: accepted
-  - 2: accepted
-  - 3: accepted
-  - 4: accepted
-  - 5: accepted
+- 2026-11-18 next (director): J (typed `layout3D`, then the major release) next, the order as written. T is done (PR #1182). T left one keyboard measurement over 16 ms: an arrow on the 10,000-point spot with 10% dead points takes about 19.5 ms (plan #1175's base). Row U (key response) was drafted ahead of J. The user deferred it: no row, and U14 is not extended to key response. It is filed as #1192 and deferred, with #850 (its candidate fix) still deferred. Runner-up: none. tolerance-curve still waits on ELEOptics/phos-core#372 (open, last touched 2026-10-20). No open plan and no row pin. No kill criterion fired: T's redraw and hover medians are under 16 ms. 20 issues deferred: the 18 before, plus #1191 and #1192.
+- 2026-11-18 (user): row U dropped before it was published. The 19.5 ms keyboard path goes to the backlog (#1192), and U14 stays about renderer redraws.
+- 2026-11-18: review (roadmap-reviewer, claude-opus-5-5) of row U's draft
+  - 1: accepted (cold measure), moot: row dropped; carried into #1192
+  - 2: accepted (profile before the cache), moot: row dropped; carried into #1192
+  - 3: accepted: put to the user, who did not extend U14
+  - 4: accepted, moot: row dropped
+  - 5: accepted, moot: row dropped
+  - 6: accepted: #1191 deferred to the next change to `interact.js:11`
+  - 7: accepted: put to the user, who deferred the row
