@@ -523,8 +523,8 @@ test('faceCheck loads a parameterised MIME', async ({ page, context }) => {
   expect(r.unloadable).toEqual([]);
 });
 
-// #1176 (plan #1175 O2; #1181 removes the P1175 guard; it is not `test.skip` because this file reads browserName and tests/unit/gate.test.js refuses a skip beside it). oracle: spec RFC 8081 (font/woff2 for a .woff2 resource): a font served as text/html is embedded as data:font/woff2.
-if (process.env.P1175 === '1') test('font MIME from a mislabelled response', async ({ page }) => {
+// #1176 (plan #1175 O2). oracle: spec RFC 8081 (font/woff2 for a .woff2 resource): a font served as text/html is embedded as data:font/woff2.
+test('font MIME from a mislabelled response', async ({ page }) => {
   await page.route(/\.woff2?(\?.*)?$/, async (route) => {
     const res = await route.fetch();
     await route.fulfill({ response: res, headers: { ...res.headers(), 'content-type': 'text/html; charset=utf-8' } });

@@ -135,7 +135,7 @@ test('non-finite points are skipped', async ({ page }) => {
 });
 
 // #1176 (plan #1175 O1; unskipped by #1181). oracle: closed-form the caller's points array (index i is the i-th entry): a point after a dropped (NaN) one keeps the index it has in the caller's array, in a hover's `segment` and under the keyboard.
-test.skip('data index past a dropped point', async ({ page }) => {
+test('data index past a dropped point', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.evaluate(() => {
@@ -143,7 +143,7 @@ test.skip('data index past a dropped point', async ({ page }) => {
     window.MAKE = (id, html) => { const host = document.createElement('div'); host.id = id; host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9'; host.innerHTML = html; document.body.append(host); host.tabIndex = 0; window.STOPS = (window.STOPS || []).concat(window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) })); return host; };
     // where data point (x, y) of series `s` is drawn in client px, from the data group's matrix attribute, never getScreenCTM
     window.AT = (id, s, x, y) => {
-      const group = document.querySelector(`#${id} [data-series="${s}"]`).parentNode;
+      const group = document.getElementById(id).querySelector(`[data-series="${s}"]`).parentNode;
       const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
       const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
       let tx = 0, ty = 0;
