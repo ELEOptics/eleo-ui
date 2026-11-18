@@ -1,5 +1,23 @@
 # @eleoptics/plots
 
+## 0.11.0
+
+### Minor Changes
+
+- 17008f6: New `standalone(svg)` (a self-contained SVG string with styles inlined and the used Fira faces embedded) and `png(svg, { scale })` (a PNG `Blob`).
+
+### Patch Changes
+
+- a134e9a: `curve` and `spot` write `data-skip` (the data indices of the points a series dropped) on its marks, so a hovered or keyboard-picked point past a gap reports its index in the caller's data.
+- 0ecac39: `standalone` embeds a font served with a non-font MIME (such as `text/html`) as `data:font/woff2` (or the type of its extension).
+- eb00900: The keyboard starts at the hovered point: hovering a curve or spot point makes it the keyboard's current point (an interpolated hover sets the segment's nearer end), and a pointer leave keeps it.
+- cb18ef2: The arrow keys step bars: left and right the categories of the current series, up and down the series; hovering a bar makes it the keyboard's current point.
+- 5eb397c: The arrow keys step layout2D rays: left and right the rays of the current field, up and down the fields; hovering a ray makes it the keyboard's current point.
+- c51e442: Dashed limit lines keep their dash phase when a zoomed curve pans: the dashes no longer crawl.
+- 17d9eb9: The hover tooltip is hidden from screen readers; a visually hidden live region beside it announces snapped points and key steps only, not every interpolated reading.
+- 45ee048: `interact()`'s `stop()` restores the `tabindex` it added: the last live call on a host to stop removes it, if it is still `"0"`.
+- 50c6302: Dots in spot and curve plots draw at their true opacity in WebKit: a dot is a round-cap segment 0.01 px long, not a zero-length one.
+
 ## 0.10.0
 
 ### Minor Changes
