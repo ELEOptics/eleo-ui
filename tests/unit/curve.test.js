@@ -9,7 +9,7 @@ import { niceRange } from '../../packages/plots/src/axis.js';
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-import { TOL_PX, SIZES, subpaths, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
+import { TOL_PX, SIZES, subpaths, pointsOf, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
 
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
@@ -1041,7 +1041,7 @@ test('a zoomed curve draws only its window', () => {
     assert.ok(pieces.every((a) => a['data-from'] !== '0'), `${label}: data-from is left out when 0`);
     let total = 0, interior = 0;
     for (const a of pieces) {
-      const p = subpaths(tag === 'path' ? a.d : `M${a.points.trim().replace(/ /g, ' L')}`)[0], from = +(a['data-from'] || 0);
+      const p = pointsOf(a.d, a.points), from = +(a['data-from'] || 0);
       total += p.length;
       for (const q of p) {
         const [px, py] = toPx(M, q);
@@ -1092,7 +1092,7 @@ test('a cut dash keeps its phase', () => {
   const check = (svg, tag, M, live, starts, label) => {
     for (const a of tags(svg, tag).filter((t) => t['data-series'] !== undefined)) {
       const P = period(a['stroke-dasharray']), from = +(a['data-from'] || 0), run = starts.filter((r) => r <= from).pop();
-      const p = subpaths(tag === 'path' ? a.d : `M${a.points.trim().replace(/ /g, ' L')}`)[0], U = live.slice(run).map((q) => toPx(M, q)), q0 = toPx(M, p[0]);
+      const p = pointsOf(a.d, a.points), U = live.slice(run).map((q) => toPx(M, q)), q0 = toPx(M, p[0]);
       let len = Math.hypot(q0[0] - U[from - run][0], q0[1] - U[from - run][1]);
       for (let j = 0; j < from - run; j++) len += Math.hypot(U[j + 1][0] - U[j][0], U[j + 1][1] - U[j][1]);
       const off = +(a['stroke-dashoffset'] || 0), d = Math.abs((off - len) % P), want = len % P;

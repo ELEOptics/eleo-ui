@@ -23,8 +23,8 @@ const drawnAt = (page, tile, series, index) => page.locator(`[data-tile="${tile}
   .evaluate((mark, index) => {
     const group = mark.parentNode;
     const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
-    // The drawn points: H.subpaths of the attribute (a dot adds none), non-finite pairs dropped. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
-    const pts = H.subpaths(mark.getAttribute('d') ?? `M${mark.getAttribute('points').trim().replace(/ /g, ' L')}`).flat().filter((p) => p.every(Number.isFinite));
+    // The drawn points: H.pointsOf the attributes (a dot adds none), non-finite pairs dropped. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
+    const pts = H.pointsOf(mark.getAttribute('d'), mark.getAttribute('points'));
     const [x, y] = pts[index];
     const vp = group.closest('svg');
     const root = vp.ownerSVGElement || vp;
@@ -532,7 +532,7 @@ const install = (page) => page.evaluate(() => {
   const pts = (m) => {
     if (m.tagName === 'rect') { const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((k) => +m.getAttribute(k)); return [[x + w / 2, y + h / 2]]; }
     if (m.tagName === 'line') return [[+m.getAttribute('x1'), +m.getAttribute('y1')], [+m.getAttribute('x2'), +m.getAttribute('y2')]];
-    return H.subpaths(m.getAttribute('d') ?? `M${(m.getAttribute('points') || '').trim().replace(/ /g, ' L')}`).flat().filter((p) => p.every(Number.isFinite));
+    return H.pointsOf(m.getAttribute('d'), m.getAttribute('points'));
   };
   // data -> client px for a mark: its data group's matrix, the viewport's x/y, the translate of a panel wrapper, the root's client box.
   const proj = (m) => {

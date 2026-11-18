@@ -917,10 +917,10 @@ test('layout keys',async ({ page }) => {
 });
 
 // Where data point `index` of a series mark is drawn, in client px, from the data group's matrix(...) attribute and the SVG's box (never getScreenCTM).
-// The drawn points: H.subpaths of the attribute (a dot adds none), non-finite pairs dropped. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
+// The drawn points: H.pointsOf the attributes (a dot adds none), non-finite pairs dropped. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
 const drawnPoint = (mark, index) => mark.evaluate((m, index) => {
   const g = m.parentNode, [a, , , d, e, f] = H.matrixOf(g.getAttribute('transform'));
-  const pts = H.subpaths(m.getAttribute('d') ?? `M${m.getAttribute('points').trim().replace(/ /g, ' L')}`).flat().filter((p) => p.every(Number.isFinite));
+  const pts = H.pointsOf(m.getAttribute('d'), m.getAttribute('points'));
   const vp = g.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
   return { label: m.dataset.label, x: box.left + ((+vp.getAttribute('x') || 0) + a * pts[index][0] + e) * k, y: box.top + ((+vp.getAttribute('y') || 0) + d * pts[index][1] + f) * k };
 }, index);

@@ -9,6 +9,16 @@ test('subpaths exponent dot', () => {
   assert.deepEqual(svg.subpaths('M0.001,0.002 h6.7e-7 M0.003,0.004 h6.7e-7'), [[[0.001, 0.002]], [[0.003, 0.004]]]);
 });
 
+test('pointsOf', () => {
+  // oracle: closed-form: a polyline's points and the path through the same points are the same finite pairs, a dot adds none, a non-finite pair is dropped
+  const pts = '0,0 1,1 3,1 4,0';
+  assert.deepEqual(svg.pointsOf(undefined, pts), [[0, 0], [1, 1], [3, 1], [4, 0]]);
+  assert.deepEqual(svg.pointsOf('M0,0 L1,1 M3,1 L4,0', undefined), [[0, 0], [1, 1], [3, 1], [4, 0]]);
+  assert.deepEqual(svg.pointsOf(' M0,0 h.01 M1,0 h.01', null), [[0, 0], [1, 0]]);
+  assert.deepEqual(svg.pointsOf(undefined, ' 0,0  1,NaN\n2,2 '), [[0, 0], [2, 2]]);
+  assert.deepEqual(svg.pointsOf(undefined, null), []);
+});
+
 test('matrixOf anchored', () => {
   assert.deepEqual(svg.matrixOf('matrix(1 0 0 1 2 3)'), [1, 0, 0, 1, 2, 3]);
   assert.equal(svg.matrixOf('matrix(1 0 0 1 2 3) translate(1)'), null);

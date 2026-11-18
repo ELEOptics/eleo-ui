@@ -21,6 +21,11 @@ export function subpaths(d) {
   }
   return out;
 }
+// A mark's finite points, flat: its `d` if it has one, else its polyline `points` (null or undefined: none). `subpaths` already puts every pair after one `M` into one subpath, so `points` needs no `L` between pairs.
+// Self-contained but for `subpaths` (no other closure) so tests/page-helpers.js can inject its source into the page.
+export function pointsOf(d, points) {
+  return subpaths(d ?? `M${(points || '').trim()}`).flat().filter((p) => p.every(Number.isFinite));
+}
 // The six numbers of a lone `matrix(a b c d e f)` transform, or null: anchored (nothing may follow the matrix) and all finite, as interact.js's matrixOf reads it.
 // Self-contained (no closure) so tests/page-helpers.js can inject its source into the page.
 export function matrixOf(str) {
