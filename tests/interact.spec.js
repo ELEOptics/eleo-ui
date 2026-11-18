@@ -943,6 +943,9 @@ test('data-skip maps a drawn index to its data index', async ({ page }) => {
   expect(await segmentAt('2', 0.5, 0.5), 'indices before the dropped point are unchanged').toEqual([0, 1]);
   expect(await segmentAt('0', 0.5, 0.5), 'a leading dropped point').toEqual([1, 2]);
   expect(await segmentAt('2,3', 3.5, 0.5), 'two dropped in a row').toEqual([4, 5]);
+  expect(await segmentAt('2,2', 3.5, 0.5), 'a duplicate entry counts once').toEqual([3, 4]);
+  expect(await segmentAt('-1', 3.5, 0.5), 'a negative entry is ignored').toEqual([2, 3]);
+  expect(await segmentAt('2.5', 3.5, 0.5), 'a fractional entry is ignored').toEqual([2, 3]);
   await page.evaluate(() => { window.STOP(); document.querySelector('#skip-host').remove(); });
 });
 
