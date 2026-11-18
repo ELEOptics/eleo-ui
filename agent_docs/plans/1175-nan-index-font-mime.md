@@ -1,6 +1,6 @@
 # Plan #1175: Data indices past a dropped point, font MIME on export
 
-Status: approved 2026-11-17
+Status: done 2026-11-17
 Branch: `plan/1175-nan-index-font-mime` PR: #1182 Depends on: none Roadmap: `agent_docs/roadmap.md`, row T
 
 ## Problem
@@ -61,7 +61,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 
 ### M1: Data indices and font MIME GitHub: `P1175 M1: Data indices and font MIME`
 
-Done 2026-11-17: review round 2 (Review M1: 0 blocking, nothing pulled in; backlog #1191); full gate green on 76e0859 (547 passed); CI pending on 76e0859 at the tick. Demo: pending.
+Done 2026-11-17: review round 2 (Review M1: 0 blocking, nothing pulled in; backlog #1191); full gate green on 76e0859 (547 passed); CI pending on 76e0859 at the tick. Demo: go (user, 2026-11-17).
 
 Demo: a curve with a NaN point hovered between x = 3 and 4 shows `segment [3, 4]`, and ArrowUp from series 1 at x = 3 lands on x = 3, on curve and spot; the MTF tile exported with mislabelled fonts embeds `data:font/woff2`; 0 tiles differ and the U14 medians are logged. Proves: O1, O2, O3
 
@@ -121,3 +121,6 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-17 stale doc from #1187: CR [#1189] accepted by the orchestrator (README not Core), item #1190.
 - 2026-11-17 #1188 dropped: `check-tests-touched.sh` refuses a source change with no test, and no test tells the dead conjunct from its removal; the finding allowed leaving it. Closed not planned.
 - 2026-11-17 review M1 round 2 (code-reviewer, claude-opus-5-5): 0 blocking; CRs #1183, #1185, #1189 resolved; 1 backlog, filed as #1191 (not pulled in: no test can guard it). M1 ticked.
+- 2026-11-17 M1 demo: go (user).
+- 2026-11-17 `CLAUDE.md` commands re-verified on 3d1ac5e: `npm ci && npm run build` ok; `npm run test:unit` 315 pass, 0 fail; `npx playwright test` via the full gate 547 passed; `npm run gallery` serves http://localhost:4173/gallery/; `npx changeset status` lists the patch for `@eleoptics/plots`; `scripts/check.sh --fast` green; `core.hooksPath` is `.githooks`.
+- 2026-11-17 done: roadmap row T marked done.
