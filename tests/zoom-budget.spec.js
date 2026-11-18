@@ -30,7 +30,7 @@ function windowOf(body) {
   const marks = layout ? [...g.querySelectorAll('polyline[data-ray]')] : [...g.querySelectorAll('polyline[data-series], path[data-series]')];
   let best = null;
   for (const el of marks) {
-    const n = H.subpaths(el.getAttribute('d') ?? `M${el.getAttribute('points').trim().replace(/\s+/g, ' L')}`).flat();
+    const n = H.pointsOf(el.getAttribute('d'), el.getAttribute('points'));
     if (!best || n.length > best.length) best = n;
   }
   if (!best || best.length < 2) throw new Error('no segment to centre on');

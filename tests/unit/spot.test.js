@@ -759,3 +759,17 @@ test('the sample spot takes view', () => {
     assert.ok(Math.abs(e([0, 2])[1]) < 1e-6 && Math.abs(e([0, -2])[1] - g.box.ph) < 1e-6, `panel ${i}: y 2 and -2 on the top and bottom edges`);
   });
 });
+
+// Plan #1175 M1 (#1179): a series that dropped a dead point writes the dropped data indices as data-skip on its path.
+// oracle: hand-derived - the skip list is the indices of the points spot leaves out; a series with none writes no attribute
+test('data-skip when a point drops', () => {
+  const paths = (svg) => [...svg.matchAll(/<path d="(M[^"]*h[^"]*)"([^>]*)>/g)].map((m) => ({ d: m[1], tag: m[2] }));
+  const pts = [[0, 0], [1, 0], [NaN, 0], [3, 1], [4, 0]];
+  const [p] = paths(ELEO.spot({ panels: [{ series: [{ points: pts, index: 0 }] }] }));
+  assert.equal((p.d.match(/M/g) || []).length, 4);
+  assert.match(p.tag, /^ data-skip="2" /, 'the dropped index sits right after d');
+  const two = paths(ELEO.spot({ panels: [{ series: [{ points: [[NaN, 0], [1, 1], [Infinity, 0], [null, 2]], index: 0 }] }] }));
+  assert.match(two[0].tag, /data-skip="0,2,3"/);
+  const clean = ELEO.spot({ panels: [{ series: [{ points: [[0, 0], [1, 1]], index: 0 }] }] });
+  assert.ok(!/data-skip/.test(clean), 'no dropped point, no data-skip');
+});

@@ -46,3 +46,14 @@ test('dashOffset is the cut-off length modulo the dash period', () => {
   assert.equal(dashOffset('', 7), '', 'no dash');
   assert.equal(dashOffset('6 4', 1 / 3), ' stroke-dashoffset="0.333"');
 });
+
+test('dashOffset of a negative or missing offset', () => {
+  assert.equal(dashOffset('6 4', -3), ' stroke-dashoffset="7"', 'negative takes the positive modulo');
+  assert.equal(dashOffset('6 4', -25), ' stroke-dashoffset="5"');
+  assert.equal(dashOffset('6 4', -20), '', 'a negative whole period is no offset');
+  assert.equal(dashOffset('1 2 3', -1), ' stroke-dashoffset="11"', 'odd count doubles: period 12');
+  assert.equal(dashOffset('6 4', undefined), '', 'missing');
+  assert.equal(dashOffset('6 4', NaN), '');
+  assert.equal(dashOffset('6 4', Infinity), '');
+  assert.equal(dashOffset('6 4', -Infinity), '');
+});

@@ -4,17 +4,19 @@ var TIP_GAP = 14; // px between the pointer and the tooltip
 var REACH = 24; // client px: a pointer farther than this from every point and segment hovers nothing
 var SNAP = 6; // client px: within this of a point the hover is that point, not the line beside it
 
-/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them, and `off` the offset that makes a drawn point's index its data index: the mark's `data-from` (one number for the whole mark: a cut mark draws a piece of the uncut series), 0 where absent, invalid or negative. A polyline is one run of the browser's own parse of its points (`mark.points`), so hover follows whatever that browser draws (Chromium parses none of a list holding a NaN). A path's `d` is parsed here: its `M` starts a new run, and so does a pair with a non-finite coordinate, which is dropped whole so it never shifts the pairs after it; a dot's `h<length>` adds none. */
+/* The drawn points of a polyline or path, in data coordinates: `p` the finite [x, y] pairs in order and `join[i]` true when p[i] continues the run of p[i - 1], so a segment joins them, and `index(i)` the data index of drawn point i: i plus the mark's `data-from` (one number for the whole mark: a cut mark draws a piece of the uncut series; 0 where absent, invalid or negative), plus 1 for each index of the mark's `data-skip` (the sorted, deduped non-negative integer data indices of dropped points; other entries are ignored; none where absent) at or below it. A polyline is one run of the browser's own parse of its points (`mark.points`), so hover follows whatever that browser draws (Chromium parses none of a list holding a NaN). A path's `d` is parsed here: its `M` starts a new run, and so does a pair with a non-finite coordinate, which is dropped whole so it never shifts the pairs after it; a dot's `h<length>` adds none. */
 function runs(mark) {
   var p = [], join = [], open = false; // `open`: the previous pair was kept and ended a run still open
   var from = Math.max(0, +mark.getAttribute("data-from") || 0); // one number for the whole mark
+  var skip = (mark.getAttribute("data-skip") || "").split(/[\s,]+/).filter(Boolean).map(Number).filter(function (n) { return n >= 0 && n % 1 === 0 && isFinite(n); }).sort(function (a, b) { return a - b; }).filter(function (n, i, a) { return i === 0 || n !== a[i - 1]; });
+  var at = [], index = function (i) { return at[i]; }; // `at[i]`: the data index of drawn point i, worked out once in fill()
   if (mark.points) {
     for (var k = 0; k < mark.points.numberOfItems; k++) {
       var q = mark.points.getItem(k);
       /* curve draws no polyline with a bad point (it is a path), but a caller's own polyline may hold one: Chromium parses none of its points, other engines may parse a NaN (#889). */
       if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); open = true; } else open = false;
     }
-    return { p: p, join: join, off: from };
+    return fill();
   }
   (mark.getAttribute("d") || "").split(/(?=[ML])/).forEach(function (t) {
     if (t.charAt(0) === "M") open = false;
@@ -23,7 +25,12 @@ function runs(mark) {
       if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); open = true; } else open = false;
     }
   });
-  return { p: p, join: join, off: from };
+  return fill();
+  /* one pass with a pointer into the sorted skip list: each skip is passed once */
+  function fill() {
+    for (var i = 0, j = 0, k = from; i < p.length; i++, k++) { while (j < skip.length && skip[j] <= k) { j++; k++; } at.push(k); }
+    return { p: p, join: join, index: index };
+  }
 }
 
 /* A bar's value end in its group's data units: its y when below zero, else its height. */
@@ -73,7 +80,7 @@ function nearest(host, cx, cy) {
     var r = runs(mark), p = r.p;
     var linked = function (i) { return r.join[i] || r.join[i + 1]; };
     p.forEach(function (q, i) {
-      var d = Math.hypot((q[0] - at.x) * m.a, (q[1] - at.y) * m.d), c = { d: d, mark: mark, index: i + r.off, x: q[0], y: q[1] };
+      var d = Math.hypot((q[0] - at.x) * m.a, (q[1] - at.y) * m.d), c = { d: d, mark: mark, index: r.index(i), x: q[0], y: q[1] };
       if (!inside(q[0], q[1])) return;
       if (d <= SNAP && (!snap || d < snap.d)) snap = c;
       if (d <= REACH && !linked(i) && (!best || d < best.d)) best = c;
@@ -84,7 +91,7 @@ function nearest(host, cx, cy) {
       var t = len ? Math.max(0, Math.min(1, ((at.x * m.a - ax) * vx + (at.y * m.d - ay) * vy) / len)) : 0;
       var d = Math.hypot(ax + t * vx - at.x * m.a, ay + t * vy - at.y * m.d);
       var sx = p[i - 1][0] + t * (p[i][0] - p[i - 1][0]), sy = p[i - 1][1] + t * (p[i][1] - p[i - 1][1]);
-      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: i - 1 + r.off, x: sx, y: sy, segment: [i - 1 + r.off, i + r.off], near: (t < 0.5 ? i - 1 : i) + r.off };
+      if (d <= REACH && inside(sx, sy) && (!best || d < best.d)) best = { d: d, mark: mark, index: r.index(i - 1), x: sx, y: sy, segment: [r.index(i - 1), r.index(i)], near: r.index(t < 0.5 ? i - 1 : i) };
     }
   });
   return bar || snap || best;
@@ -340,7 +347,7 @@ export function interact(el, opts) {
         else if (f && f[0] < prev.x) { prev.mark = m; prev.x = f[0]; prev.y = f[1]; } // a run of the same ray reaching further back wins: its hover reports the ray's first status
         return;
       }
-      r.p.forEach(function (q, j) { by[id].points.push({ mark: m, index: j + r.off, x: q[0], y: q[1] }); });
+      r.p.forEach(function (q, j) { by[id].points.push({ mark: m, index: r.index(j), x: q[0], y: q[1] }); });
     });
     return out.sort(function (a, b) { return a.key[0] - b.key[0] || a.key[1] - b.key[1]; }); // by the identity's numbers, not markup order (bars draw by category, layout2D draws faded runs first)
   }

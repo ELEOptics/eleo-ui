@@ -68,6 +68,10 @@ function seriesMarkup(s, panel, wt, si, pi, z, dot) {
   if (bad) pts = pts.map(function (p) { return [+p[0], +p[1]]; });
   var asPath = panel || bad;
   var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label) + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
+  /* The data indices this series dropped (a point drawn nowhere), whole on every mark of it: the markup is the only place they are known (hover and keyboard map a drawn index back by them). */
+  var skip = [];
+  if (asPath) pts.forEach(function (p, i) { if (!drawn(p)) skip.push(i); });
+  if (skip.length && si !== undefined) ids += ' data-skip="' + skip.join(",") + '"';
   var head = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : ""), attrs = head + " " + NS + "/>";
   var num = function (p) { return String(+p[0]) + "," + String(+p[1]); };
   if (!z) {
@@ -141,10 +145,10 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }, mg.t).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
 }
-/* The `limit` role's style, as attributes for a line and for a band; the `limits` option's marks stay 1 px. */
+/* The `limit` role's style, as attributes for a line and for a band, and its dash pattern; the `limits` option's marks stay 1 px. */
 export function limitStyle() {
   var st = roleStyle({ role: "limit" }, 1);
-  return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
+  return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', dash: st.dash, band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
 }
 /* ADR-0003's margins in text units (scale.js CURVE_MARGINS: left, bottom, top), the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
 function curveMargins(sc, w) {

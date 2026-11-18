@@ -23,8 +23,8 @@ const drawnAt = (page, tile, series, index) => page.locator(`[data-tile="${tile}
   .evaluate((mark, index) => {
     const group = mark.parentNode;
     const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
-    // The drawn points: H.subpaths of the attribute (a dot adds none), non-finite pairs dropped. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
-    const pts = H.subpaths(mark.getAttribute('d') ?? `M${mark.getAttribute('points').trim().replace(/ /g, ' L')}`).flat().filter((p) => p.every(Number.isFinite));
+    // The drawn points: H.pointsOf the attributes (a dot adds none), non-finite pairs dropped. Not used on a polyline holding NaN: interact's runs() reads those points from the browser's own parse (mark.points), which this does not mirror.
+    const pts = H.pointsOf(mark.getAttribute('d'), mark.getAttribute('points'));
     const [x, y] = pts[index];
     const vp = group.closest('svg');
     const root = vp.ownerSVGElement || vp;
@@ -132,6 +132,58 @@ test('non-finite points are skipped', async ({ page }) => {
   expect(await page.evaluate(() => document.querySelector('#nan-host path[data-series]') !== null && document.querySelector('#nan-host polyline[data-series]') === null), 'the NaN series is a path').toBe(true);
   for (const [x, y] of [[0.5, 1.5], [3.5, 4.5]]) expect((await read('nan-host', x, y)).ev, `NaN path at ${x} hovers`).toBeTruthy();
   expect((await read('nan-host', 2, 3)).ev, 'NaN gap hovers nothing').toBeNull();
+});
+
+// #1176 (plan #1175 O1; unskipped by #1181). oracle: closed-form the caller's points array (index i is the i-th entry): a point after a dropped (NaN) one keeps the index it has in the caller's array, in a hover's `segment` and under the keyboard.
+test('data index past a dropped point', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(() => {
+    window.HOVER = [];
+    window.MAKE = (id, html) => { const host = document.createElement('div'); host.id = id; host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9'; host.innerHTML = html; document.body.append(host); host.tabIndex = 0; window.STOPS = (window.STOPS || []).concat(window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) })); return host; };
+    // where data point (x, y) of series `s` is drawn in client px, from the data group's matrix attribute, never getScreenCTM
+    window.AT = (id, s, x, y) => {
+      const group = document.getElementById(id).querySelector(`[data-series="${s}"]`).parentNode;
+      const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
+      const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      let tx = 0, ty = 0;
+      for (let g = vp.parentNode; g && g !== root.parentNode; g = g.parentNode) { const t = (g.getAttribute && g.getAttribute('transform') || '').match(/translate\(([^)]*)\)/); if (t) { const [u, v] = t[1].split(/[\s,]+/).map(Number); tx += u; ty += v || 0; } }
+      return [box.left + (tx + (+vp.getAttribute('x') || 0) + a * x + e) * k, box.top + (ty + (+vp.getAttribute('y') || 0) + d * y + f) * k];
+    };
+  });
+  const at = async (id, s, x, y) => { const [cx, cy] = await page.evaluate(([id, s, x, y]) => window.AT(id, s, x, y), [id, s, x, y]); await page.mouse.move(0, 700); await moveTo(page, cx, cy); return page.evaluate(() => window.HOVER.at(-1) || null); };
+  const s0 = [[0, 0], [1, 1], [NaN, 2], [3, 1], [4, 0]], s1 = [0, 1, 2, 3, 4].map((i) => [i, 2]);
+  const axes = { x: { range: [0, 4] }, y: { range: [0, 3] }, width: 400 };
+  const cases = [
+    ['single', { series: [{ points: s0, index: 0 }, { points: s1, index: 1 }], ...axes }],
+    ['panels', { panels: [{ series: [{ points: s0, index: 0 }, { points: s1, index: 1 }] }], ...axes }],
+    ['zoomed', { series: [{ points: s0, index: 0 }, { points: s1, index: 1 }], ...axes, view: { x: [0.5, 4], y: [0, 3] } }],
+    ['panels zoomed', { panels: [{ series: [{ points: s0, index: 0 }, { points: s1, index: 1 }] }], ...axes, view: { x: [0.5, 4], y: [0, 3] } }],
+  ];
+  for (const [name, opts] of cases) {
+    await page.evaluate(([id, opts]) => window.MAKE(id, window.ELEO.curve(opts)), [name, opts]);
+    const ev = await at(name, 0, 3.5, 0.5);
+    expect(ev, `${name}: between x = 3 and 4 hovers`).toBeTruthy();
+    expect(ev.segment, `${name}: segment`).toEqual([3, 4]);
+    // the keyboard: series 1 at x = 3 is current, ArrowUp lands on series 0's point at x = 3
+    const on = await at(name, 1, 3, 2);
+    expect(on && on.series.index, `${name}: series 1 hovered`).toBe(1);
+    await page.evaluate((id) => document.getElementById(id).focus(), name);
+    await page.keyboard.press('ArrowUp');
+    const up = await page.evaluate(() => window.HOVER.at(-1));
+    expect([up.series.index, up.x, up.y], `${name}: ArrowUp lands on series 0 at x = 3`).toEqual([0, 3, 1]);
+    await page.evaluate((id) => document.getElementById(id).remove(), name);
+  }
+  // a spot: series 0's point 2 dead; the current point is series 1's point 3, ArrowUp lands on series 0's point 3
+  const dots = (y, dead) => [0, 1, 2, 3, 4].map((i) => [i === dead ? NaN : i, y]);
+  await page.evaluate(([html]) => window.MAKE('spot', html), [await page.evaluate(([a, b]) => window.ELEO.spot({ panels: [{ series: [{ index: 0, points: a }, { index: 1, points: b }] }], unit: 'µm', width: 400, height: 300 }), [dots(0, 2), dots(1, -1)])]);
+  const on = await at('spot', 1, 3, 1);
+  expect(on && on.series.index, 'spot: series 1 hovered').toBe(1);
+  await page.evaluate(() => document.getElementById('spot').focus());
+  await page.keyboard.press('ArrowUp');
+  const up = await page.evaluate(() => window.HOVER.at(-1));
+  expect([up.series.index, up.x, up.y], 'spot: ArrowUp lands on series 0 at x = 3').toEqual([0, 3, 0]);
+  await page.evaluate(() => window.STOPS.forEach((f) => f()));
 });
 
 // #858: hovering draws a dot on the point and drop lines to the frame's bottom (x axis) and left (y axis) edges, in an overlay on the host.
@@ -480,7 +532,7 @@ const install = (page) => page.evaluate(() => {
   const pts = (m) => {
     if (m.tagName === 'rect') { const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((k) => +m.getAttribute(k)); return [[x + w / 2, y + h / 2]]; }
     if (m.tagName === 'line') return [[+m.getAttribute('x1'), +m.getAttribute('y1')], [+m.getAttribute('x2'), +m.getAttribute('y2')]];
-    return H.subpaths(m.getAttribute('d') ?? `M${(m.getAttribute('points') || '').trim().replace(/ /g, ' L')}`).flat().filter((p) => p.every(Number.isFinite));
+    return H.pointsOf(m.getAttribute('d'), m.getAttribute('points'));
   };
   // data -> client px for a mark: its data group's matrix, the viewport's x/y, the translate of a panel wrapper, the root's client box.
   const proj = (m) => {
@@ -851,6 +903,50 @@ test('select events', async ({ page }) => {
     expect(await page.evaluate(() => window.HOST.querySelector('svg').outerHTML), `${tile}: markup unchanged`).toBe(before);
     await page.evaluate(() => window.STOP());
   }
+});
+
+// #1177 (plan #1175 M1, O1): `data-skip` lists the data indices of dropped points, so a drawn index maps to its data index.
+// oracle: closed-form the rule in the issue: a drawn index i + data-from gains 1 for each skipped index at or below it (sorted list).
+test('data-skip maps a drawn index to its data index', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(() => {
+    window.HOVER = [];
+    const host = document.createElement('div');
+    host.id = 'skip-host';
+    host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9';
+    host.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 0], [1, 1], [3, 1], [4, 0]], index: 0 }], x: { range: [0, 4] }, y: { range: [0, 2] }, width: 400 });
+    document.body.append(host);
+    window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) });
+    window.AT = (x, y) => {
+      const group = host.querySelector('[data-series]').parentNode;
+      const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
+      const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      return { clientX: box.left + ((+vp.getAttribute('x') || 0) + a * x + e) * k, clientY: box.top + ((+vp.getAttribute('y') || 0) + d * y + f) * k };
+    };
+  });
+  // the same drawn path, two runs, every time: drawn indices 0 1 | 2 3; a segment's midpoint is hovered
+  const segmentAt = async (skip, x, y) => {
+    await page.evaluate((skip) => {
+      const m = document.querySelector('#skip-host [data-series]');
+      m.setAttribute('d', 'M0,0 L1,1 M3,1 L4,0');
+      if (skip === null) m.removeAttribute('data-skip'); else m.setAttribute('data-skip', skip);
+    }, skip);
+    const p = await page.evaluate(([x, y]) => window.AT(x, y), [x, y]);
+    await page.mouse.move(0, 700);
+    await page.evaluate(() => { window.HOVER = []; });
+    await moveTo(page, p.clientX, p.clientY);
+    return page.evaluate(() => (window.HOVER.at(-1) || {}).segment);
+  };
+  expect(await segmentAt(null, 3.5, 0.5), 'no data-skip: the drawn index').toEqual([2, 3]);
+  expect(await segmentAt('2', 3.5, 0.5), 'one dropped point before the run').toEqual([3, 4]);
+  expect(await segmentAt('2', 0.5, 0.5), 'indices before the dropped point are unchanged').toEqual([0, 1]);
+  expect(await segmentAt('0', 0.5, 0.5), 'a leading dropped point').toEqual([1, 2]);
+  expect(await segmentAt('2,3', 3.5, 0.5), 'two dropped in a row').toEqual([4, 5]);
+  expect(await segmentAt('2,2', 3.5, 0.5), 'a duplicate entry counts once').toEqual([3, 4]);
+  expect(await segmentAt('-1', 3.5, 0.5), 'a negative entry is ignored').toEqual([2, 3]);
+  expect(await segmentAt('2.5', 3.5, 0.5), 'a fractional entry is ignored').toEqual([2, 3]);
+  await page.evaluate(() => { window.STOP(); document.querySelector('#skip-host').remove(); });
 });
 
 // #911: a [data-series] mark outside any matrix group is foreign markup: interact skips it, hovers nothing and throws nothing.

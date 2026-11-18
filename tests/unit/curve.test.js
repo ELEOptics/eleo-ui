@@ -9,7 +9,7 @@ import { niceRange } from '../../packages/plots/src/axis.js';
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
 
-import { TOL_PX, SIZES, subpaths, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
+import { TOL_PX, SIZES, subpaths, pointsOf, fixture, seriesGroup, panelGroups, toPx, toData, frame, assertPinned, marks } from './helpers/svg.js';
 
 // ELEOAdapters (classic script, tests/fixtures/phos-core/adapters.js, #174) builds { series, x, y } from a recording:
 // one tangential and one sagittal series per field, each { points: [[cycles/mm, modulus], …], index, role }.
@@ -467,7 +467,7 @@ test('non-finite points break panel series', () => {
   const auto = (points) => ELEO.curve({ panels: [{ series: [{ points, index: 0 }] }], width: 460, height: 260 });
   const base = [[0, 0], [1, 1]];
   assert.equal(auto([...base, [50, NaN]]), auto([...base, [50, null]]), 'NaN and null drop the point alike');
-  assert.equal(auto([...base, [50, NaN]]), auto(base), 'a point not drawn leaves the range alone');
+  assert.equal(auto([...base, [50, NaN]]).replace(/ data-skip="[^"]*"/, ''), auto(base), 'a point not drawn leaves the range alone');
   // a null entry is a break
   let two;
   assert.doesNotThrow(() => { two = auto([[0, 0], null, [1, 1]]); });
@@ -1041,7 +1041,7 @@ test('a zoomed curve draws only its window', () => {
     assert.ok(pieces.every((a) => a['data-from'] !== '0'), `${label}: data-from is left out when 0`);
     let total = 0, interior = 0;
     for (const a of pieces) {
-      const p = subpaths(tag === 'path' ? a.d : `M${a.points.trim().replace(/ /g, ' L')}`)[0], from = +(a['data-from'] || 0);
+      const p = pointsOf(a.d, a.points), from = +(a['data-from'] || 0);
       total += p.length;
       for (const q of p) {
         const [px, py] = toPx(M, q);
@@ -1092,7 +1092,7 @@ test('a cut dash keeps its phase', () => {
   const check = (svg, tag, M, live, starts, label) => {
     for (const a of tags(svg, tag).filter((t) => t['data-series'] !== undefined)) {
       const P = period(a['stroke-dasharray']), from = +(a['data-from'] || 0), run = starts.filter((r) => r <= from).pop();
-      const p = subpaths(tag === 'path' ? a.d : `M${a.points.trim().replace(/ /g, ' L')}`)[0], U = live.slice(run).map((q) => toPx(M, q)), q0 = toPx(M, p[0]);
+      const p = pointsOf(a.d, a.points), U = live.slice(run).map((q) => toPx(M, q)), q0 = toPx(M, p[0]);
       let len = Math.hypot(q0[0] - U[from - run][0], q0[1] - U[from - run][1]);
       for (let j = 0; j < from - run; j++) len += Math.hypot(U[j + 1][0] - U[j][0], U[j + 1][1] - U[j][1]);
       const off = +(a['stroke-dashoffset'] || 0), d = Math.abs((off - len) % P), want = len % P;
@@ -1178,4 +1178,20 @@ test('limit dash origin at data 0', () => {
     assert.ok(Math.abs(got - want) < 0.002 || Math.abs(Math.abs(got - want) - P) < 0.002, `${axis} limit, view ${JSON.stringify(view)}: offset ${got}, want ${want}`);
   }
   assert.doesNotMatch(ELEO.curve({ series, x: { range: [-50, 100] }, y: { range: [-1, 1] }, limits: [{ y: 0.3 }], width: 600, height: 300 }), /<line class="eleo-limit"[^>]*stroke-dashoffset/, 'unzoomed: no offset');
+});
+
+// Plan #1175 M1 (#1178): a series that dropped a point writes the dropped data indices as data-skip on every mark of the series.
+// oracle: metamorphic - the skip list is the indices of the points curve leaves out; a series with none writes no attribute; the list is the same whole list on each zoomed piece
+test('data-skip lists the dropped indices', () => {
+  const points = [[0, 0], [100, 0.2], [200, NaN], [300, 0.4], [400, null], [500, 0.5], [600, 0.6]], x = { range: [0, 1000] }, y = { range: [-1, 1] };
+  const marks = (svg) => [...svg.matchAll(/<(?:path|polyline)\b[^>]*data-series[^>]*>/g)].map((m) => m[0]);
+  const skips = (svg) => marks(svg).map((t) => (/ data-skip="([^"]*)"/.exec(t) || [])[1]);
+  const base = { x, y, width: 460, height: 300 };
+  assert.deepEqual(skips(ELEO.curve({ ...base, panels: [{ series: [{ points, index: 0 }] }] })), ['2,4']);
+  assert.deepEqual(skips(ELEO.curve({ ...base, series: [{ points, index: 0 }] })), ['2']); // a single plot reads a null coordinate as 0 and draws it
+  const view = { x: [0, 700], y: [-1, 1] };
+  const zoomed = skips(ELEO.curve({ ...base, series: [{ points, index: 0 }], view }));
+  assert.ok(zoomed.length >= 2 && zoomed.every((s) => s === '2'), `every zoomed piece has the whole list: ${zoomed}`);
+  const clean = [[0, 0], [100, 0.2], [200, 0.3]];
+  for (const o of [{ series: [{ points: clean, index: 0 }] }, { panels: [{ series: [{ points: clean, index: 0 }] }] }, { series: [{ points: clean, index: 0 }], view }]) assert.ok(!/data-skip/.test(ELEO.curve({ ...base, ...o })), 'no dropped point, no data-skip');
 });

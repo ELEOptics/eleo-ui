@@ -77,7 +77,8 @@ function spotPanel(x, y, side, half, o) {
   (o.series || []).forEach(function (se, si) {
     var ids = ' data-series="' + si + '"' + (se.role !== undefined ? ' data-role="' + esc(se.role) + '"' : "") + (se.label != null && String(se.label) !== "" ? ' data-label="' + esc(se.label) + '"' : "") + (o.panel !== undefined ? ' data-panel="' + o.panel + '"' : "") + (o.cell ? ' data-cell="' + o.cell + '"' : "");
     var d = (se.points || []).filter(live).map(function (q) { return "M" + +q[0] + "," + +q[1] + " h" + dot; }).join(" ");
-    g += '<path d="' + d + '"' + ids + ' fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * o.wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
+    var skip = []; (se.points || []).forEach(function (q, k) { if (!live(q)) skip.push(k); });
+    g += '<path d="' + d + '"' + (skip.length ? ' data-skip="' + skip.join(",") + '"' : "") + ids + ' fill="none" stroke="' + idx(se.index || 0) + '" stroke-width="' + +(2.2 * o.wt).toFixed(3) + '" stroke-linecap="round" stroke-opacity=".85" ' + NS + "/>";
   });
   (o.circles || []).forEach(function (r) { if (r) g += '<circle cx="0" cy="0" r="' + r + '" fill="none" stroke="var(--ink)" stroke-width=".8" ' + NS + "/>"; });
   return g + "</g></svg>";
