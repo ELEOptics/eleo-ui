@@ -1,5 +1,12 @@
 # @eleoptics/plots-svelte
 
+## 0.6.1
+
+### Patch Changes
+
+- 2628c93: A wrapper whose options change what its pointer action is made of (a callback or `values` turning on or off) keeps keyboard focus: the action now binds the new call before it stops the old one, so the box keeps its `tabindex`.
+- f3f621d: Peer `@eleoptics/plots` is now `>=0.10.0 <1`: the wrappers import `interact`, first in plots 0.10.0.
+
 ## 0.6.0
 
 ### Minor Changes
