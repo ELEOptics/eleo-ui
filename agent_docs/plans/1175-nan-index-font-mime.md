@@ -1,7 +1,7 @@
 # Plan #1175: Data indices past a dropped point, font MIME on export
 
 Status: approved 2026-11-17
-Branch: `plan/1175-nan-index-font-mime` PR: #<pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row T
+Branch: `plan/1175-nan-index-font-mime` PR: #1182 Depends on: none Roadmap: `agent_docs/roadmap.md`, row T
 
 ## Problem
 
