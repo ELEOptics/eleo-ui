@@ -38,10 +38,10 @@ export function clipPolyline(points, rect) {
 }
 
 // CR #984: a cut dashed run keeps the uncut line's dash phase. The attribute stroke-dashoffset = `px` (the cut-off length, in screen px
-// since the dashes are non-scaling) modulo the dash period (doubled for an odd count), to 3 decimals; "" for no dash, no cut-off or an offset of 0.
+// since the dashes are non-scaling) positive modulo the dash period (doubled for an odd count), to 3 decimals; "" for no dash, a non-finite px or an offset of 0.
 export function dashOffset(dash, px) {
-  if (!dash || !(px > 0)) return "";
-  const a = dash.split(" ").map(Number), P = (a.length % 2 ? a.concat(a) : a).reduce((u, v) => u + v, 0), o = +(px % P).toFixed(3);
+  if (!dash || !Number.isFinite(px)) return "";
+  const a = dash.split(" ").map(Number), P = (a.length % 2 ? a.concat(a) : a).reduce((u, v) => u + v, 0), o = +(((px % P) + P) % P).toFixed(3);
   return o ? ` stroke-dashoffset="${o}"` : "";
 }
 
