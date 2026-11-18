@@ -1,7 +1,7 @@
 # Plan #1193: Typed layout3D, then the breaking minor
 
 Status: approved 2026-11-18
-Branch: `plan/1193-layout3d-typed-major` PR: #<pr> Depends on: none Roadmap: `agent_docs/roadmap.md`, row J
+Branch: `plan/1193-layout3d-typed-major` PR: #1214 Depends on: none Roadmap: `agent_docs/roadmap.md`, row J
 Course check: M1 — it tests the riskiest assumption, a painter-sorted canvas mesh drawing 50 revolved surfaces in 16 ms at a face budget whose look the user accepts. Switch signal: item 3's first flushed median at the 50-surface reference size is over 16 ms with the item-2 face budget met, or the user rejects the M1 3D tiles in two demo rounds.
 
 ## Problem
