@@ -68,6 +68,10 @@ function seriesMarkup(s, panel, wt, si, pi, z, dot) {
   if (bad) pts = pts.map(function (p) { return [+p[0], +p[1]]; });
   var asPath = panel || bad;
   var ids = si === undefined ? "" : ' data-series="' + si + '"' + (s.role !== undefined ? ' data-role="' + s.role + '"' : "") + (s.label !== undefined && s.label !== null ? ' data-label="' + esc(s.label) + '"' : "") + (panel && pi !== undefined ? ' data-panel="' + pi + '"' : "");
+  /* The data indices this series dropped (a point drawn nowhere), whole on every mark of it: the markup is the only place they are known (hover and keyboard map a drawn index back by them). */
+  var skip = [];
+  if (asPath) pts.forEach(function (p, i) { if (!drawn(p)) skip.push(i); });
+  if (skip.length && si !== undefined) ids += ' data-skip="' + skip.join(",") + '"';
   var head = ' fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-linejoin="round"' + (st.dash ? ' stroke-dasharray="' + st.dash + '"' : ""), attrs = head + " " + NS + "/>";
   var num = function (p) { return String(+p[0]) + "," + String(+p[1]); };
   if (!z) {
