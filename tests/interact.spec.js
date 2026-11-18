@@ -905,6 +905,47 @@ test('select events', async ({ page }) => {
   }
 });
 
+// #1177 (plan #1175 M1, O1): `data-skip` lists the data indices of dropped points, so a drawn index maps to its data index.
+// oracle: closed-form the rule in the issue: a drawn index i + data-from gains 1 for each skipped index at or below it (sorted list).
+test('data-skip maps a drawn index to its data index', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(() => {
+    window.HOVER = [];
+    const host = document.createElement('div');
+    host.id = 'skip-host';
+    host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9';
+    host.innerHTML = window.ELEO.curve({ series: [{ points: [[0, 0], [1, 1], [3, 1], [4, 0]], index: 0 }], x: { range: [0, 4] }, y: { range: [0, 2] }, width: 400 });
+    document.body.append(host);
+    window.STOP = window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) });
+    window.AT = (x, y) => {
+      const group = host.querySelector('[data-series]').parentNode;
+      const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
+      const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      return { clientX: box.left + ((+vp.getAttribute('x') || 0) + a * x + e) * k, clientY: box.top + ((+vp.getAttribute('y') || 0) + d * y + f) * k };
+    };
+  });
+  // the same drawn path, two runs, every time: drawn indices 0 1 | 2 3; a segment's midpoint is hovered
+  const segmentAt = async (skip, x, y) => {
+    await page.evaluate((skip) => {
+      const m = document.querySelector('#skip-host [data-series]');
+      m.setAttribute('d', 'M0,0 L1,1 M3,1 L4,0');
+      if (skip === null) m.removeAttribute('data-skip'); else m.setAttribute('data-skip', skip);
+    }, skip);
+    const p = await page.evaluate(([x, y]) => window.AT(x, y), [x, y]);
+    await page.mouse.move(0, 700);
+    await page.evaluate(() => { window.HOVER = []; });
+    await moveTo(page, p.clientX, p.clientY);
+    return page.evaluate(() => (window.HOVER.at(-1) || {}).segment);
+  };
+  expect(await segmentAt(null, 3.5, 0.5), 'no data-skip: the drawn index').toEqual([2, 3]);
+  expect(await segmentAt('2', 3.5, 0.5), 'one dropped point before the run').toEqual([3, 4]);
+  expect(await segmentAt('2', 0.5, 0.5), 'indices before the dropped point are unchanged').toEqual([0, 1]);
+  expect(await segmentAt('0', 0.5, 0.5), 'a leading dropped point').toEqual([1, 2]);
+  expect(await segmentAt('2,3', 3.5, 0.5), 'two dropped in a row').toEqual([4, 5]);
+  await page.evaluate(() => { window.STOP(); document.querySelector('#skip-host').remove(); });
+});
+
 // #911: a [data-series] mark outside any matrix group is foreign markup: interact skips it, hovers nothing and throws nothing.
 test('foreign data-series markup is ignored', async ({ page }) => {
   const errors = [];
