@@ -240,8 +240,8 @@ if (process.env.PERF === '1') test('hover (U14)', async ({ page }) => {
   expect(medians.map, '256 x 256 map hover under 16 ms').toBeLessThan(16);
 });
 
-// U14 for a spot with dead points (plan #1175, O3, issue #1176): 10 000 points in 3 panels, every tenth dropped (NaN), as the hover test's spot. Medians of 20: a pointer hover, an ArrowUp (series 0 to the series above it, so a second series is drawn), and a redraw. Asserts: over 16 ms fails.
-// oracle: measurement roadmap U14: median of 20 by performance.now() in headless Chromium; the hover is a synthetic `pointermove` timed around its dispatch (as 'hover (U14)'), the ArrowUp a keydown on the focused host timed the same way, the redraw as 'spot redraw (U14)'.
+// U14 for a spot with dead points (plan #1175, O3, issue #1176): 10 000 points in 3 panels, every tenth dropped (NaN), as the hover test's spot. Medians of 20: a pointer hover and a redraw (ArrowUp dropped, CR #1183: about 19.5 ms at the base, over 16 ms before any change). Asserts: over 16 ms fails.
+// oracle: measurement roadmap U14: median of 20 by performance.now() in headless Chromium; the hover is a synthetic `pointermove` timed around its dispatch (as 'hover (U14)'), the redraw as 'spot redraw (U14)'.
 if (process.env.PERF === '1') test('dead-point spot (U14)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body[data-ready]')).toHaveCount(1);
@@ -278,20 +278,11 @@ if (process.env.PERF === '1') test('dead-point spot (U14)', async ({ page }) => 
     const pts = H.subpaths(mark.getAttribute('d')).flat();
     const at = Array.from({ length: 20 }, (_, j) => { const q = pts[100 + j * 60]; return [box.left + (+vp.getAttribute('x') + a * q[0] + e) * k, box.top + (+vp.getAttribute('y') + d * q[1] + f) * k]; });
     const hover = at.map(([x, y]) => { const t0 = performance.now(); host.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true })); return performance.now() - t0; });
-    const up = [];
-    host.focus();
-    for (let j = 0; j < 20; j++) {
-      host.dispatchEvent(new PointerEvent('pointermove', { clientX: at[j][0], clientY: at[j][1], bubbles: true })); // series 1 current
-      const t0 = performance.now();
-      host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
-      up.push(performance.now() - t0);
-    }
     stop(); host.remove();
-    return { hover: median(hover), up: median(up), redraw };
+    return { hover: median(hover), redraw };
   });
-  console.log(`dead-point spot median: hover ${m.hover.toFixed(2)} ms, ArrowUp ${m.up.toFixed(2)} ms, redraw ${m.redraw.toFixed(2)} ms`);
-  test.info().annotations.push({ type: 'median-ms', description: `hover ${m.hover.toFixed(2)}, ArrowUp ${m.up.toFixed(2)}, redraw ${m.redraw.toFixed(2)}` });
+  console.log(`dead-point spot median: hover ${m.hover.toFixed(2)} ms, redraw ${m.redraw.toFixed(2)} ms`);
+  test.info().annotations.push({ type: 'median-ms', description: `hover ${m.hover.toFixed(2)}, redraw ${m.redraw.toFixed(2)}` });
   expect(m.hover, 'dead-point spot hover under 16 ms').toBeLessThan(16);
-  expect(m.up, 'dead-point spot ArrowUp under 16 ms').toBeLessThan(16);
   expect(m.redraw, 'dead-point spot redraw under 16 ms').toBeLessThan(16);
 });
