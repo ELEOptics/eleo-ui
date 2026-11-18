@@ -9,14 +9,14 @@ function runs(mark) {
   var p = [], join = [], open = false; // `open`: the previous pair was kept and ended a run still open
   var from = Math.max(0, +mark.getAttribute("data-from") || 0); // one number for the whole mark
   var skip = (mark.getAttribute("data-skip") || "").split(/[\s,]+/).filter(Boolean).map(Number).filter(function (n) { return isFinite(n); }).sort(function (a, b) { return a - b; });
-  var index = function (i) { var k = i + from; skip.forEach(function (s) { if (s <= k) k++; }); return k; };
+  var at = [], index = function (i) { return at[i]; }; // `at[i]`: the data index of drawn point i, worked out once in fill()
   if (mark.points) {
     for (var k = 0; k < mark.points.numberOfItems; k++) {
       var q = mark.points.getItem(k);
       /* curve draws no polyline with a bad point (it is a path), but a caller's own polyline may hold one: Chromium parses none of its points, other engines may parse a NaN (#889). */
       if (isFinite(q.x) && isFinite(q.y)) { p.push([q.x, q.y]); join.push(open); open = true; } else open = false;
     }
-    return { p: p, join: join, index: index };
+    return fill();
   }
   (mark.getAttribute("d") || "").split(/(?=[ML])/).forEach(function (t) {
     if (t.charAt(0) === "M") open = false;
@@ -25,7 +25,12 @@ function runs(mark) {
       if (isFinite(n[i]) && isFinite(n[i + 1])) { p.push([n[i], n[i + 1]]); join.push(open); open = true; } else open = false;
     }
   });
-  return { p: p, join: join, index: index };
+  return fill();
+  /* one pass with a pointer into the sorted skip list: each skip is passed once */
+  function fill() {
+    for (var i = 0, j = 0, k = from; i < p.length; i++, k++) { while (j < skip.length && skip[j] <= k) { j++; k++; } at.push(k); }
+    return { p: p, join: join, index: index };
+  }
 }
 
 /* A bar's value end in its group's data units: its y when below zero, else its height. */

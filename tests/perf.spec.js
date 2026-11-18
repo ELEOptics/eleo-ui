@@ -286,3 +286,31 @@ if (process.env.PERF === '1') test('dead-point spot (U14)', async ({ page }) => 
   expect(m.hover, 'dead-point spot hover under 16 ms').toBeLessThan(16);
   expect(m.redraw, 'dead-point spot redraw under 16 ms').toBeLessThan(16);
 });
+
+// U14 for a gappy curve (plan #1175, O3, issue #1186, CR #1185): one 10 000-point curve, every tenth point NaN (so the mark carries 1 000 data-skip indices). Median of 20 pointer hovers, each a synthetic `pointermove` timed around its dispatch (as 'hover (U14)'). Asserts: over 16 ms fails.
+// oracle: measurement roadmap U14: median of 20 by performance.now() in headless Chromium.
+if (process.env.PERF === '1') test('gappy curve hover (U14)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  const hover = await page.evaluate(() => {
+    const points = Array.from({ length: 10000 }, (_, i) => (i % 10 === 1 ? [NaN, NaN] : [i, Math.sin(i / 50)]));
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:0;top:0;width:600px;background:#fff;z-index:9';
+    host.innerHTML = window.ELEO.curve({ series: [{ index: 0, points }], width: 600, height: 300 });
+    document.body.appendChild(host);
+    if (!host.querySelector('[data-skip]')) throw new Error('the gappy curve carries no data-skip');
+    const stop = window.ELEO.interact(host, { onhover: () => {} });
+    const box = host.querySelector('svg').getBoundingClientRect();
+    const times = Array.from({ length: 20 }, (_, j) => {
+      const t0 = performance.now();
+      host.dispatchEvent(new PointerEvent('pointermove', { clientX: box.left + 80 + j * 20, clientY: box.top + 150, bubbles: true }));
+      return performance.now() - t0;
+    });
+    stop(); host.remove();
+    times.sort((a, b) => a - b);
+    return (times[9] + times[10]) / 2;
+  });
+  console.log(`gappy curve hover median: ${hover.toFixed(2)} ms`);
+  test.info().annotations.push({ type: 'median-ms', description: hover.toFixed(2) });
+  expect(hover, 'gappy 10 000-point curve hover under 16 ms').toBeLessThan(16);
+});
