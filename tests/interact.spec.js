@@ -134,6 +134,58 @@ test('non-finite points are skipped', async ({ page }) => {
   expect((await read('nan-host', 2, 3)).ev, 'NaN gap hovers nothing').toBeNull();
 });
 
+// #1176 (plan #1175 O1; unskipped by #1181). oracle: closed-form the caller's points array (index i is the i-th entry): a point after a dropped (NaN) one keeps the index it has in the caller's array, in a hover's `segment` and under the keyboard.
+test.skip('data index past a dropped point', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await page.evaluate(() => {
+    window.HOVER = [];
+    window.MAKE = (id, html) => { const host = document.createElement('div'); host.id = id; host.style.cssText = 'position:fixed;left:0;top:0;width:400px;background:#fff;z-index:9'; host.innerHTML = html; document.body.append(host); host.tabIndex = 0; window.STOPS = (window.STOPS || []).concat(window.ELEO.interact(host, { onhover: (ev) => window.HOVER.push(ev) })); return host; };
+    // where data point (x, y) of series `s` is drawn in client px, from the data group's matrix attribute, never getScreenCTM
+    window.AT = (id, s, x, y) => {
+      const group = document.querySelector(`#${id} [data-series="${s}"]`).parentNode;
+      const [a, , , d, e, f] = H.matrixOf(group.getAttribute('transform'));
+      const vp = group.closest('svg'), root = vp.ownerSVGElement || vp, box = root.getBoundingClientRect(), k = box.width / root.viewBox.baseVal.width;
+      let tx = 0, ty = 0;
+      for (let g = vp.parentNode; g && g !== root.parentNode; g = g.parentNode) { const t = (g.getAttribute && g.getAttribute('transform') || '').match(/translate\(([^)]*)\)/); if (t) { const [u, v] = t[1].split(/[\s,]+/).map(Number); tx += u; ty += v || 0; } }
+      return [box.left + (tx + (+vp.getAttribute('x') || 0) + a * x + e) * k, box.top + (ty + (+vp.getAttribute('y') || 0) + d * y + f) * k];
+    };
+  });
+  const at = async (id, s, x, y) => { const [cx, cy] = await page.evaluate(([id, s, x, y]) => window.AT(id, s, x, y), [id, s, x, y]); await page.mouse.move(0, 700); await moveTo(page, cx, cy); return page.evaluate(() => window.HOVER.at(-1) || null); };
+  const s0 = [[0, 0], [1, 1], [NaN, 2], [3, 1], [4, 0]], s1 = [0, 1, 2, 3, 4].map((i) => [i, 2]);
+  const axes = { x: { range: [0, 4] }, y: { range: [0, 3] }, width: 400 };
+  const cases = [
+    ['single', { series: [{ points: s0, index: 0 }, { points: s1, index: 1 }], ...axes }],
+    ['panels', { panels: [{ series: [{ points: s0, index: 0 }, { points: s1, index: 1 }] }], ...axes }],
+    ['zoomed', { series: [{ points: s0, index: 0 }, { points: s1, index: 1 }], ...axes, view: { x: [0.5, 4], y: [0, 3] } }],
+    ['panels zoomed', { panels: [{ series: [{ points: s0, index: 0 }, { points: s1, index: 1 }] }], ...axes, view: { x: [0.5, 4], y: [0, 3] } }],
+  ];
+  for (const [name, opts] of cases) {
+    await page.evaluate(([id, opts]) => window.MAKE(id, window.ELEO.curve(opts)), [name, opts]);
+    const ev = await at(name, 0, 3.5, 0.5);
+    expect(ev, `${name}: between x = 3 and 4 hovers`).toBeTruthy();
+    expect(ev.segment, `${name}: segment`).toEqual([3, 4]);
+    // the keyboard: series 1 at x = 3 is current, ArrowUp lands on series 0's point at x = 3
+    const on = await at(name, 1, 3, 2);
+    expect(on && on.series.index, `${name}: series 1 hovered`).toBe(1);
+    await page.evaluate((id) => document.getElementById(id).focus(), name);
+    await page.keyboard.press('ArrowUp');
+    const up = await page.evaluate(() => window.HOVER.at(-1));
+    expect([up.series.index, up.x, up.y], `${name}: ArrowUp lands on series 0 at x = 3`).toEqual([0, 3, 1]);
+    await page.evaluate((id) => document.getElementById(id).remove(), name);
+  }
+  // a spot: series 0's point 2 dead; the current point is series 1's point 3, ArrowUp lands on series 0's point 3
+  const dots = (y, dead) => [0, 1, 2, 3, 4].map((i) => [i === dead ? NaN : i, y]);
+  await page.evaluate(([html]) => window.MAKE('spot', html), [await page.evaluate(([a, b]) => window.ELEO.spot({ panels: [{ series: [{ index: 0, points: a }, { index: 1, points: b }] }], unit: 'µm', width: 400, height: 300 }), [dots(0, 2), dots(1, -1)])]);
+  const on = await at('spot', 1, 3, 1);
+  expect(on && on.series.index, 'spot: series 1 hovered').toBe(1);
+  await page.evaluate(() => document.getElementById('spot').focus());
+  await page.keyboard.press('ArrowUp');
+  const up = await page.evaluate(() => window.HOVER.at(-1));
+  expect([up.series.index, up.x, up.y], 'spot: ArrowUp lands on series 0 at x = 3').toEqual([0, 3, 0]);
+  await page.evaluate(() => window.STOPS.forEach((f) => f()));
+});
+
 // #858: hovering draws a dot on the point and drop lines to the frame's bottom (x axis) and left (y axis) edges, in an overlay on the host.
 // #1058: reading the data group's matrix must not rewrite its `transform` attribute (Firefox re-serialized it through consolidate(), shortening its numbers).
 test('a hover leaves the data group transform attribute unchanged', async ({ page }) => {

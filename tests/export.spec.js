@@ -523,6 +523,21 @@ test('faceCheck loads a parameterised MIME', async ({ page, context }) => {
   expect(r.unloadable).toEqual([]);
 });
 
+// #1176 (plan #1175 O2; #1181 removes the P1175 guard; it is not `test.skip` because this file reads browserName and tests/unit/gate.test.js refuses a skip beside it). oracle: spec RFC 8081 (font/woff2 for a .woff2 resource): a font served as text/html is embedded as data:font/woff2.
+if (process.env.P1175 === '1') test('font MIME from a mislabelled response', async ({ page }) => {
+  await page.route(/\.woff2?(\?.*)?$/, async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, headers: { ...res.headers(), 'content-type': 'text/html; charset=utf-8' } });
+  });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  const out = await page.locator(TILE).first().evaluate((el) => window.ELEO.standalone(el));
+  const urls = [...out.matchAll(/@font-face[^}]*?url\(\s*["']?([^"')]+)/g)].map((m) => m[1]);
+  expect(urls.length, 'faces embedded').toBeGreaterThan(0);
+  for (const u of urls) expect(u.startsWith('data:font/woff2;base64,'), u.slice(0, 40)).toBe(true);
+  expect(out).not.toContain('data:text/html');
+});
+
 // #1093 (plan #1076 O1, O2). oracle: faces in @import, @layer and @media are embedded; each used family left without a face is named in one console.warn.
 test('nested and unmatched faces', async ({ page }) => {
   const warns = [];

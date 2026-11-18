@@ -104,3 +104,4 @@ One bullet per entry (bare lines render as one paragraph).
 [#995]: https://github.com/ELEOptics/eleo-ui/issues/995
 [#997]: https://github.com/ELEOptics/eleo-ui/issues/997
 - 2026-11-17 approved (user): published as plan #1175, milestone P1175 M1, items #1176 to #1181 with #1162, #1164 and #1169 reused.
+- 2026-11-17 #1176 base at b13f336 (Chromium): shots base `shots-base-1175-b13f336.tgz` (100 PNGs) on the `review-assets-2` release. U14 medians before: hover 10,000-point spot 2.3 ms, hover map 0.10 ms, spot redraw 3.6 ms, curve redraw 1.20 ms; new dead-point spot: hover 2.0 ms, ArrowUp about 19.5 ms (over 16 ms before any change), redraw 3.1 ms.
