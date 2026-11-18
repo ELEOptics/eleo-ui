@@ -26,7 +26,7 @@ Oracle: where the expected values come from, `<kind> <source>` (`agent_docs/agen
 | -- | -- | -- | -- | -- |
 | O1 | Points after a dropped point keep their data index, in a hover's `segment` and the keyboard, on curve (single plot, panels, zoomed) and spot. | Given curve series 0 = (0,0) (1,1) (NaN,2) (3,1) (4,0) and series 1 = (i, 2) for i = 0..4, single plot and panels, with and without a `view`: when the pointer hovers between x = 3 and 4, then `segment` is `[3, 4]`; when the current point is series 1 at x = 3 and ArrowUp is pressed, then series 0's point at x = 3 is current. Given a spot of two series of 5 points, series 0's point 2 dead: when the current point is series 1's point 3 and ArrowUp is pressed, then series 0's point 3 is current. | `closed-form: the caller's points array (index i is the i-th entry)` | `tests/interact.spec.js::data index past a dropped point` |
 | O2 | An exported font's data URL carries a font MIME whatever the server sent. | Given the gallery's font responses stubbed to `Content-Type: text/html; charset=utf-8` (`page.route`): when `ELEO.standalone` exports the MTF tile, then every embedded `@font-face` url starts `data:font/woff2;base64,` and none `data:text/html`. | `spec: RFC 8081 (font/woff2 for a .woff2 resource)` | `tests/export.spec.js::font MIME from a mislabelled response` |
-| O3 | Nothing else moves: every tile's screenshot unchanged; U14 holds for `interact`, including hover and ArrowUp on a 10,000-point spot with 10% dead points. | Given the base shot at the plan's start: when `SHOTS=1 SHOTS_BASE=<base> npx playwright test gallery-shots` runs, then 0 tiles differ; when `PERF=1 npx playwright test perf` runs, then the hover median, the dead-point spot's hover and ArrowUp medians, and its redraw stay under 16 ms. | `fixture: gallery-shots base recorded at the plan's start (#1153)`; `measurement: perf.spec.js median of 20 (U14)` | `tests/gallery-shots.spec.js`, `tests/perf.spec.js` |
+| O3 | Nothing else moves: every tile's screenshot unchanged; U14 holds for `interact`, including hover on a 10,000-point spot with 10% dead points (ArrowUp dropped, CR [#1183]). | Given the base shot at the plan's start: when `SHOTS=1 SHOTS_BASE=<base> npx playwright test gallery-shots` runs, then 0 tiles differ; when `PERF=1 npx playwright test perf` runs, then the hover median, the dead-point spot's hover median and its redraw stay under 16 ms. | `fixture: gallery-shots base recorded at the plan's start (#1153)`; `measurement: perf.spec.js median of 20 (U14)` | `tests/gallery-shots.spec.js`, `tests/perf.spec.js` |
 
 ## Non-goals
 
@@ -73,7 +73,8 @@ Demo: a curve with a NaN point hovered between x = 3 and 4 shows `segment [3, 4]
 | [#1164] reuse | one `pointsOf` helper replaces the six polyline conversions | forced ([#1164]: the conversion is a no-op `subpaths` already covers) | `tests/unit/helpers/svg.js`, `tests/page-helpers.js` (and the six sites) | `tests/unit/spec-helpers.test.js::pointsOf` | #1176, #1178 |
 | #1180 | `dashOffset` takes the positive modulo for any finite px; a non-finite px still gives `""` (serves [#1169], guarded by O3) | forced ([#1169]'s sketch: limitMarks then passes its raw offset); considered keeping the `px > 0` guard (limitMarks would keep its own modulo) | `packages/plots/src/clip.js` | `tests/unit/clip.test.js::dashOffset of a negative or missing offset` | #1176 |
 | [#1169] reuse | `limitStyle` returns `dash`; `limitMarks` reads it and drops its regex and period step (guarded by O3) | forced ([#1169], user round 2: as the issue says) | `packages/plots/src/limits.js`, `packages/plots/src/curve.js` | `tests/unit/limits.test.js::limit dash from limitStyle` (new file, `oracle:` line): `limitStyle().dash === '6 3 1 3'`, and `limitMarks` given `{ line: 'stroke="x"', dash: '6 4' }` with a cut writes the offset (red today: the regex finds nothing) | #1178, #1180 |
-| #1181 | Unskip O1 and O2; check O3 (`SHOTS=1 SHOTS_BASE=<base> npx playwright test gallery-shots`, `PERF=1 npx playwright test perf`) and log the medians | forced (`workflow.md`, TDD: the last item unskips them) | `tests/interact.spec.js`, `tests/export.spec.js`, this plan's Change log | O1, O2, O3 | all above |
+| #1184 | `dead-point spot (U14)` drops its ArrowUp measure and assertion (CR [#1183]) | forced (CR [#1183], user: drop ArrowUp from O3) | `tests/perf.spec.js` | `PERF=1 npx playwright test perf -g "dead-point spot"` green | #1176 |
+| #1181 | Unskip O1 and O2; check O3 (`SHOTS=1 SHOTS_BASE=<base> npx playwright test gallery-shots`, `PERF=1 npx playwright test perf`) and log the medians | forced (`workflow.md`, TDD: the last item unskips them) | `tests/interact.spec.js`, `tests/export.spec.js`, this plan's Change log | O1, O2, O3 | all above, and #1184 |
 
 ## Risks and spikes
 
@@ -81,7 +82,7 @@ Demo: a curve with a NaN point hovered between x = 3 and 4 shows `segment [3, 4]
 | -- | -- | -- |
 | A caller's mark already carries a `data-skip` attribute | it would now shift that mark's indices | none known; the README names the attribute |
 | Firefox or WebKit parse a dropped-point path differently | O1 differs by browser | O1 runs in all three browsers (S) |
-| Reading `data-skip` on every pointer move slows a hover | U14 misses on spot | O3 measures hover and ArrowUp on a 10,000-point spot with 10% dead points |
+| Reading `data-skip` on every pointer move slows a hover | U14 misses on spot | O3 measures hover on a 10,000-point spot with 10% dead points |
 
 ## Change log
 
@@ -92,6 +93,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-17 critique (general-purpose, claude-fable-5-1): 15 findings. Accepted 3-13 and 15. 1, 2 and 14 moot after round 3 (`data-from` keeps its meaning, so no pinned test changes and one mark per run is no longer weighed). The Approach finding on item 2 (a `data-skip` list) was contested and put to the user.
 - 2026-11-17 round 3 (user): `data-skip` (the dropped data indices) in place of a `data-from` list.
 
+[#1183]: https://github.com/ELEOptics/eleo-ui/issues/1183
 [#1144]: https://github.com/ELEOptics/eleo-ui/issues/1144
 [#1162]: https://github.com/ELEOptics/eleo-ui/issues/1162
 [#1163]: https://github.com/ELEOptics/eleo-ui/issues/1163
@@ -105,3 +107,4 @@ One bullet per entry (bare lines render as one paragraph).
 [#997]: https://github.com/ELEOptics/eleo-ui/issues/997
 - 2026-11-17 approved (user): published as plan #1175, milestone P1175 M1, items #1176 to #1181 with #1162, #1164 and #1169 reused.
 - 2026-11-17 #1176 base at b13f336 (Chromium): shots base `shots-base-1175-b13f336.tgz` (100 PNGs) on the `review-assets-2` release. U14 medians before: hover 10,000-point spot 2.3 ms, hover map 0.10 ms, spot redraw 3.6 ms, curve redraw 1.20 ms; new dead-point spot: hover 2.0 ms, ArrowUp about 19.5 ms (over 16 ms before any change), redraw 3.1 ms.
+- 2026-11-17 CR [#1183] (user): accepted, ArrowUp dropped from O3 (19.5 ms at the base, over U14 before any change); item #1184.
