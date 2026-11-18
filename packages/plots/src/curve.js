@@ -145,10 +145,10 @@ export function plotCell(sc, series, w, h, T, panel, body, limits, mg) {
   if (limits) g += limitLabels(limits, xr, yr, { X: X, Y: Y, right: Rt, top: T }, mg.t).replace(/<text [^>]*/g, function (m) { return m + ts; });
   return g;
 }
-/* The `limit` role's style, as attributes for a line and for a band; the `limits` option's marks stay 1 px. */
+/* The `limit` role's style, as attributes for a line and for a band, and its dash pattern; the `limits` option's marks stay 1 px. */
 export function limitStyle() {
   var st = roleStyle({ role: "limit" }, 1);
-  return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
+  return { line: 'fill="none" stroke="' + st.col + '" stroke-width="' + st.w + '" stroke-linecap="' + st.cap + '" stroke-dasharray="' + st.dash + '"', dash: st.dash, band: 'fill="' + st.fill + '" fill-opacity="' + st.fillOpacity + '" stroke="none"' };
 }
 /* ADR-0003's margins in text units (scale.js CURVE_MARGINS: left, bottom, top), the right one from the ticks. The cell's width gives the frame width F, which gives the text size and the series weight. */
 function curveMargins(sc, w) {
