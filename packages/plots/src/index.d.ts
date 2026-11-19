@@ -392,7 +392,7 @@ export interface ELEO {
   layoutBounds(layouts: RecordedLayout[]): LayoutBox;
   /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout (a system reads `layout`, else `layoutWl`). */
   glassLegend(data: RecordedLayout | LayoutSystem): string;
-  layout3D(canvas: HTMLCanvasElement, props?: Layout3DProps): void;
+  layout3D(canvas: HTMLCanvasElement, props: Layout3DProps): void;
   spot(props?: SpotDiagramProps): string;
   throughFocus(props?: ThroughFocusProps): string;
   rayFan(props?: RayFanProps): string;
