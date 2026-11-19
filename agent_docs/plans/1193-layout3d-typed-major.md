@@ -150,6 +150,7 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1234 | "empty fan is skipped" compares items, not only counts (review M1 round 2, finding 3) | deep-equal the tuples the test builds; considered counts per fan | `tests/unit/layout3d.test.js` | layout3d.test.js "empty fan is skipped" | #1233 |
 | #1236 | The rejected-fill gallery test loses its unused `px` canvas and `rgb` helper (review M1 round 3, finding 1) | delete because nothing references them; considered using them, which nothing needs | `tests/gallery.spec.js` | gallery.spec "layout3D rejected fill falls back to crown" | #1234 |
 | #1238 | layout3D draws edge outlines in `--glass-edge` at 1.25 px: each glazed surface's outer rim and each element's two silhouette lines, painter-sorted with the scene (CR [#1237], M1 demo no-go) | rims and silhouette lines as the base tile drew them, because the user asked for those edges back; considered outlining every face, which brings back the seam cost (#1230) | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js`, `tests/perf.spec.js` | layout3d.test.js "edge outlines"; perf.spec "layout3D redraw (U14)" under 16 ms | #1236 |
+| #1239 | Edges sort slightly nearer than their mid depth so faces sharing them paint first, and their width reads `--stroke-edge` (review M1 round 5, findings 1 and 2) | a small nearer bias because the shared face sorts at almost the same depth; considered drawing all edges after all faces, which lets a far rim show through a near lens | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "edge outlines" (extended) | #1238 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -219,6 +220,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: review M1 round 3: 0 blocking, 1 backlog, all 9 carried CRs resolved. The backlog finding is small and named, so it is pulled into M1 as #1236; round 4 follows.
 - 2026-11-19 review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; all 9 CRs resolved. Rounds: 1 (3 blocking, 4 pulled in), 2 (1 blocking, 1 pulled in), 3 (0 blocking, 1 pulled in), 4 (0, 0). M1 ticked.
 - 2026-11-19 course check M1 planned (user): no-go. "The 3D doesn't look good enough. Bring back edge outlines." Course reviewers (two passes) recommended continue; the user rejected the M1 tiles in demo round 1 (the switch signal fires at two). CR [#1237] (user): edge outlines back, item #1238; M1 is not accepted until a repeat demo says go.
+- 2026-11-19 orchestrator: review M1 round 5: 0 blocking, 2 backlog, all 10 CRs resolved (#1237 by #1238). Both findings are small and named in layout3d.js, and finding 1 (shared faces cover the inner half of most edges) bears on the repeat demo, so they are pulled into M1 as #1239; round 6 follows.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
