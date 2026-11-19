@@ -6,7 +6,7 @@ import { moveTo, pageHelpers } from './page-helpers.js';
 test.beforeEach(({ page }) => pageHelpers(page));
 
 // The gallery's tile count.
-const TILES = 26;
+const TILES = 25;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -134,7 +134,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   const mins = await page.$$eval('[data-tile][data-size]', (ts) => ts.map((t) => ({ tile: t.dataset.tile, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 })));
   expect(mins.length).toBeGreaterThan(0);
   for (const m of mins) expect(m.min, `${m.tile} --tile-min`).toBeGreaterThanOrEqual(m.floor - 0.5);
-  const ownData = ['layout2D-glasses', 'layout3D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
+  const ownData = ['layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
@@ -638,7 +638,7 @@ test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
 test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   const widths = () => page.locator('[data-canvas]').evaluateAll((els) => els.map((c) => ({
     id: c.dataset.canvas + '|' + c.closest('.theme').dataset.theme,
-    backing: c.width, backingH: c.height, rendered: c.getBoundingClientRect().width, renderedH: c.getBoundingClientRect().height, dpr: c.dataset.canvas.startsWith('layout3D') ? Math.max(2, Math.min(3, window.devicePixelRatio)) : window.devicePixelRatio,
+    backing: c.width, backingH: c.height, rendered: c.getBoundingClientRect().width, renderedH: c.getBoundingClientRect().height, dpr: c.dataset.canvas === 'layout3D' ? Math.max(2, Math.min(3, window.devicePixelRatio)) : window.devicePixelRatio,
   })));
   const at = async (w, before) => {
     await page.setViewportSize({ width: w, height: 900 });
@@ -648,7 +648,7 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const wide = await at(1440), narrow = await at(700, wide);
-  expect(wide.length, 'airy, layout3D and layout3D-glasses, in two themes').toBe(6);
+  expect(wide.length, 'airy and layout3D, in two themes').toBe(4);
   wide.forEach((c, i) => {
     expect(c.backing, `${c.id} redrawn`).not.toBe(narrow[i].backing);
     if (!c.id.startsWith('layout3D')) expect(Math.abs(c.renderedH - c.rendered), `${c.id} square`).toBeLessThanOrEqual(1);
@@ -823,34 +823,6 @@ test('fan and footprint keys', async ({ page }) => {
       expect(r.panels, `${theme} ${r.tile} has panels`).toBeGreaterThan(0);
       expect(r.gridFirst, `${theme} ${r.tile} grid before the series, per panel`).toEqual(r.gridFirst.map(() => true));
     }
-  }
-});
-
-// Plan #1193 (agent_docs/plans/1193-layout3d-typed-major.md), outcome O1 and O4 (issue #1198). The layout3D tile on the Cooke glasses fills each glass with glassFill's fill.
-// oracle: property, glassLegend's swatches give the fill of each named glass (N-SK16, F2); the gallery tile's own canvas (its backing pixels, rays included) holds at least 200 pixels shaded from each fill (same chromaticity within 0.015, a brightness scale only) and the two fills' chromaticities differ by more than 0.03.
-test('layout3D glasses tile draws', async ({ page }) => {
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const r = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`).evaluate(async (canvas) => {
-      const layout = await (await fetch('/tests/fixtures/layouts/analysis-glasses.json')).json();
-      const px = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-      px.canvas.width = px.canvas.height = 1;
-      const rgb = (css) => { const s = document.createElement('span'); s.style.color = css; canvas.parentNode.appendChild(s); px.clearRect(0, 0, 1, 1); px.fillStyle = getComputedStyle(s).color; px.fillRect(0, 0, 1, 1); s.remove(); return [...px.getImageData(0, 0, 1, 1).data.slice(0, 3)]; };
-      const chroma = ([r, g, b]) => [r / (r + g + b), g / (r + g + b)];
-      const fills = [...window.ELEO.glassLegend(layout).matchAll(/--c:([^"]*)"[^>]*>([^<]*)</g)].map((m) => ({ name: m[2], c: chroma(rgb(m[1])) }));
-      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-      const count = fills.map(() => 0);
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i] + data[i + 1] + data[i + 2] < 45) continue;
-        const c = chroma([data[i], data[i + 1], data[i + 2]]);
-        fills.forEach((f, k) => { if (Math.hypot(c[0] - f.c[0], c[1] - f.c[1]) <= 0.015) count[k]++; });
-      }
-      return { names: fills.map((f) => f.name), count, apart: fills.length === 2 ? Math.hypot(fills[0].c[0] - fills[1].c[0], fills[0].c[1] - fills[1].c[1]) : 0 };
-    });
-    expect(r.names, `${theme} the glasses`).toEqual(['N-SK16', 'F2']);
-    expect(r.apart, `${theme} the two fills differ`).toBeGreaterThan(0.03);
-    r.count.forEach((n, k) => expect(n, `${theme} ${r.names[k]} pixels`).toBeGreaterThanOrEqual(200));
   }
 });
 
