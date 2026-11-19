@@ -53,8 +53,8 @@ export function raySet(L, k, set) {
   var n = L.rays[k].length, c = chiefOf(L, k), pick = set === "fan" ? L.rays[k].map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, n - 1];
   return pick.filter(function (i, j) { return pick.indexOf(i) === j; });
 }
-// Where a ray is drawn to, by its statuses `st` (statusOf): its last point with `status`, else through its first Dead point and no further. Shared with layout3D (U17).
-export function statusEnd(L, st, n) { return L.status || st.indexOf("Dead") < 0 ? n - 1 : st.indexOf("Dead"); }
+// Where a ray is drawn to, by its statuses `st` (statusOf): its last point with `status`, else through its first Dead point and no further.
+function statusEnd(L, st, n) { return L.status || st.indexOf("Dead") < 0 ? n - 1 : st.indexOf("Dead"); }
 // The status of segment j (point j - 1 to point j) of a ray: its start point's with `status` (CR #663), else its end point's.
 export function segmentStatus(L, st, j) { return L.status ? st[j - 1] : st[j]; }
 // A mirror's body: the profile plus a flat back D/8 (sd/4) behind its far z, on the side away from the light, with |y| < hole left open.

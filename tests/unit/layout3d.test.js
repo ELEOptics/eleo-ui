@@ -147,6 +147,16 @@ test('dead and virtual cut', async () => {
   assert.deepEqual(segs((await scene(st(['Alive', 'Virtual', 'Virtual', 'Virtual', 'Virtual']), { rays: 'fan' })).items, 0, 0), [1]);
 });
 
+// Plan #1193, item #1225 (CRs #1222, #1223): a fan with no rays draws nothing, as in layout2D, and the others still draw.
+// oracle: the layout without the empty fan, whose scene the other fans' items must equal
+test('empty fan is skipped', async () => {
+  const L = air(sample.layout), withEmpty = { ...L, rays: [[], ...L.rays] };
+  const base = (await scene(L)).items.filter((x) => x.kind === 'ray').map((x) => [x.i, x.j, x.p]);
+  const got = (await scene(withEmpty)).items.filter((x) => x.kind === 'ray');
+  assert.ok(got.length > 0 && got.every((x) => x.k >= 1), 'only the non-empty fans draw');
+  assert.equal(got.length, base.length);
+});
+
 // Plan #1193, item #1218 (CR #1217): the default view frames what is drawn, faces and ray segments together.
 // oracle: the 16 px margin box of the 560 x 320 canvas, the pad of fitView's contract
 test('rays framed', async () => {

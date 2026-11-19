@@ -1,7 +1,7 @@
 import { STANDARD } from "./common.js";
 import { css } from "./color.js";
 import { glassFill, drawnGlasses } from "./glass.js";
-import { raySet, statusOf, statusEnd, segmentStatus } from "./layout2d.js";
+import { raySet, statusOf, segmentStatus } from "./layout2d.js";
 
 /* ---------------- Layout3D (canvas): the mesh, painter-sorted with the rays ---------------- */
 var LIGHT = (function () { var v = [-0.35, 0.75, -0.55], m = Math.hypot(v[0], v[1], v[2]); return v.map(function (x) { return x / m; }); })();
@@ -18,9 +18,10 @@ export function layout3dScene(layout, o, resolve) {
   function collect(which) {
     var out = [];
     layout.rays.forEach(function (fan, k) {
-      var c = fan.length ? raySet(layout, k, "chief")[0] : -1;
+      if (!fan.length) return;
+      var c = raySet(layout, k, "chief")[0];
       raySet(layout, k, which).forEach(function (i) {
-        var r = fan[i], st = statusOf(layout, k, i) || r.map(function () { return "Alive"; }), end = st.indexOf("Dead") < 0 ? statusEnd(layout, st, r.length) : st.indexOf("Dead");
+        var r = fan[i], st = statusOf(layout, k, i) || r.map(function () { return "Alive"; }), end = st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead");
         for (var j = 1; j <= end; j++) {
           if (segmentStatus(layout, st, j) === "Virtual" || (j >= 2 && S[j - 2] && S[j - 2].glass)) continue;
           out.push({ k: k, i: i, j: j, a: [0, r[j - 1][1], r[j - 1][0]], b: [0, r[j][1], r[j][0]], chief: i === c && which !== "chief" });
