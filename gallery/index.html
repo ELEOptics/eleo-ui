@@ -62,6 +62,7 @@
       <section class="eleo-plot" data-tile="distortion" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">distortion</span></div><div class="eleo-plot__body" data-svg="distortion"></div></section>
       <section class="eleo-plot" data-tile="chromaticFocus" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">chromatic focus</span></div><div class="eleo-plot__body" data-svg="chromaticFocus"></div></section>
       <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D"></canvas></div></section>
+      <section class="eleo-plot" data-tile="layout3D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16, iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D-glasses"></canvas></div></section>
       <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy"></canvas></div></section>
     <!-- Segmented control specimen, not a tile. Each column's <form> scopes its own radio group. -->
     <form><div class="eleo-seg" role="radiogroup" aria-label="Units"><label><input type="radio" name="units" value="um" checked><span>µm</span></label><label><input type="radio" name="units" value="waves"><span>waves</span></label><label><input type="radio" name="units" value="mm"><span>mm</span></label></div></form>
@@ -169,11 +170,11 @@
     // layout3D is given the logical width w and applies its own clamped ratio (2 to 3), so it stays at least 2x; a palette change redraws at the last width.
     function drawCanvas(el) {
       var w = el._w, k = el.dataset.canvas;
-      if (!w || (k !== 'airy' && !SAMPLE_BOX)) return;
-      var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k === 'layout3D' ? w * 320 / 560 : w;
+      if (!w || (k === 'layout3D-glasses' ? !GLASSES : k !== 'airy' && !SAMPLE_BOX)) return;
+      var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k.indexOf('layout3D') === 0 ? w * 320 / 560 : w;
       el.style.width = w + 'px'; el.style.height = h + 'px';
       if (k === 'airy') airyTile(el, n);
-      else ELEO.layout3D(el, { data: ELEO.sample.layout, width: w, height: h });
+      else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : ELEO.sample.layout, width: w, height: h });
     }
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
