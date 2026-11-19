@@ -17,10 +17,10 @@ var WIDE = /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe6f\u
 function cells(t) { return String(t).replace(WIDE, "  ").length; }
 
 // The fan's chief ray: `chief[k]` when recorded, else the middle ray (the site's rule; wrong for a vignetted fan).
-function chiefOf(L, k) {
+function chiefOf(L, k, who) {
   var c = L.chief && L.chief[k];
   if (c == null) return Math.floor(L.rays[k].length / 2);
-  if (!Number.isInteger(c) || c < 0 || c >= L.rays[k].length) throw new Error("layout2D: chief[" + k + "] is not a ray of fan " + k);
+  if (!Number.isInteger(c) || c < 0 || c >= L.rays[k].length) throw new Error((who || "layout2D") + ": chief[" + k + "] is not a ray of fan " + k);
   return c;
 }
 // A [z, y] pair of finite numbers.
@@ -48,9 +48,9 @@ export function statusOf(L, k, i) {
   var a = L.alive[k] && L.alive[k][i], d = L.dead && L.dead[k] && L.dead[k][i];
   return a == null ? null : r.map(function (_, j) { return d && j === a ? "Dead" : j < a ? "Alive" : "Virtual"; });
 }
-// The rays of fan k a set draws, as indices: "fan" every ray, "chief" the chief, else (marginal-chief) the first, the chief and the last. Shared with layout3D (U3).
-export function raySet(L, k, set) {
-  var n = L.rays[k].length, c = chiefOf(L, k), pick = set === "fan" ? L.rays[k].map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, n - 1];
+// The rays of fan k a set draws, as indices: "fan" every ray, "chief" the chief, else (marginal-chief) the first, the chief and the last. Shared with layout3D (U3); `who` names the caller in a bad chief's error (default layout2D).
+export function raySet(L, k, set, who) {
+  var n = L.rays[k].length, c = chiefOf(L, k, who), pick = set === "fan" ? L.rays[k].map(function (_, i) { return i; }) : set === "chief" ? [c] : [0, c, n - 1];
   return pick.filter(function (i, j) { return pick.indexOf(i) === j; });
 }
 // Where a ray is drawn to, by its statuses `st` (statusOf): its last point with `status`, else through its first Dead point and no further.

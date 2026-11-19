@@ -19,8 +19,8 @@ export function layout3dScene(layout, o, resolve) {
     var out = [];
     layout.rays.forEach(function (fan, k) {
       if (!fan.length) return;
-      var c = raySet(layout, k, "chief")[0];
-      raySet(layout, k, which).forEach(function (i) {
+      var c = raySet(layout, k, "chief", "layout3D")[0];
+      raySet(layout, k, which, "layout3D").forEach(function (i) {
         var r = fan[i], st = statusOf(layout, k, i) || r.map(function () { return "Alive"; }), end = st.indexOf("Dead") < 0 ? r.length - 1 : st.indexOf("Dead");
         for (var j = 1; j <= end; j++) {
           if (segmentStatus(layout, st, j) === "Virtual" || (j >= 2 && S[j - 2] && S[j - 2].glass)) continue;

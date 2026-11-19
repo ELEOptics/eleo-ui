@@ -173,6 +173,15 @@ test('rays framed', async () => {
   assert.equal((await scene(LAYOUTS.achromat, { scale: 3 })).view.scale, 3);
 });
 
+// Plan #1193, item #1228 (review M1 round 1, finding 6): a bad chief index names layout3D, not layout2D.
+// oracle: layout2D's message for the same defect, with the caller's name in its place
+test('bad chief names layout3D', async () => {
+  const L = air(sample.layout);
+  for (const chief of [[9, 9, 9], [-1, 0, 0], [1.5, 0, 0]]) {
+    await assert.rejects(scene({ ...L, chief }), { message: 'layout3D: chief[0] is not a ray of fan 0' }, `chief ${JSON.stringify(chief)}`);
+  }
+});
+
 // Plan #1193, item #1197 (CR #1219): the guard runs before the canvas is touched.
 test('layout3D without data throws', async () => {
   const { layout3D } = await mesh();
