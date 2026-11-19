@@ -193,6 +193,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: #1195 face density is min(128 × 16, 3,499 / glazed surfaces) per surface, so the achromat gets about 10 rings × 79 segments, not full density. "Full density for small systems" cannot hold under the 3,500 budget for more than one surface. The user judges the look at the M1 demo (O4, course check).
 - 2026-11-19 orchestrator: CR [#1216] accepted: #1196 adds `tests/unit/layout2d.test.js` to its Files, because its export-list test pins `layout2d.js` to two exports and #1196 exports `raySet` and the status rules. The package entry is unchanged.
 - 2026-11-19 #1196 first attempt: the first flushed U14 median is 20.45 ms (chromium, reference layout, marginal-chief rays, about 3,400 faces), over 16 ms with the face budget met. This is the M1 switch signal; it is not yet profiled, and the median at #1199 is the one recorded for O2.
+- 2026-11-19 #1196 (3109b7b): re-measured at 20.35-20.55 ms over three runs. About 3.5 ms is layout3dScene and about 16.5 ms is canvas painting, of which the per-face 0.7 px seam stroke is about 11 ms (8.85 ms without it, with hairline seams). Left for the M1 course check: dropping or batching the stroke changes the look (O4).
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
