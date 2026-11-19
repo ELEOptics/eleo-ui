@@ -9,7 +9,9 @@ var LIGHT = (function () { var v = [-0.35, 0.75, -0.55], m = Math.hypot(v[0], v[
 /**
  * What layout3D paints, far to near: the mesh's faces shaded by the light, and the air segments of the chosen ray sets (never inside glass, through the first Dead
  * point, never a Virtual segment) at their mid depth. `resolve(fill)` returns the [r, g, b] of a face's CSS fill, called once per distinct fill.
- * @returns {{ view: object, items: object[] }} faces `{ kind: "face", q: [px, py][], depth, color }`, segments `{ kind: "ray", k, i, j, p: [[px, py], [px, py]], depth, chief }`
+ * The element edges are in the scene too, so a near face hides a far rim: each rim segment (`{ kind: "edge", edge: "rim", surface, p, depth }`) and each element's two silhouette lines
+ * (`edge: "silhouette", element`, the glass gap's first surface; the rim points of least and greatest projected y, first rim to last) sit at their mid depth, as ray segments do.
+ * @returns {{ view: object, items: object[] }} faces `{ kind: "face", q: [px, py][], depth, color }`, segments `{ kind: "ray", k, i, j, p: [[px, py], [px, py]], depth, chief }`, edges `{ kind: "edge", edge, surface | element, p: [[px, py], [px, py]], depth }`
  */
 export function layout3dScene(layout, o, resolve) {
   o = o || {};
@@ -47,6 +49,17 @@ export function layout3dScene(layout, o, resolve) {
     var a = project(g.a, view), b = project(g.b, view);
     items.push({ kind: "ray", k: g.k, i: g.i, j: g.j, p: [[a[0], a[1]], [b[0], b[1]]], depth: (a[2] + b[2]) / 2, chief: g.chief });
   });
+  function edge(kind, key, id, a, b) { var e = { kind: "edge", edge: kind, p: [[a[0], a[1]], [b[0], b[1]]], depth: (a[2] + b[2]) / 2 }; e[key] = id; items.push(e); }
+  var ring = {};
+  mesh.rims.forEach(function (r) {
+    var q = r.v.map(function (p) { return project(p, view); }); ring[r.surface] = q;
+    q.forEach(function (a, j) { edge("rim", "surface", r.surface, a, q[(j + 1) % q.length]); });
+  });
+  S.forEach(function (x, i) {
+    var a = ring[i], b = ring[i + 1]; if (!x.glass || !a || !b) return;
+    var top = 0, bot = 0; a.forEach(function (p, j) { if (p[1] < a[top][1]) top = j; if (p[1] > a[bot][1]) bot = j; });
+    [top, bot].forEach(function (j) { edge("silhouette", "element", i, a[j], b[j]); });
+  });
   // The plane is drawn under the rays that end on it, from whichever side they are seen: its depth is no nearer than theirs.
   var im = S.findIndex(function (x) { return x.image; });
   items.forEach(function (f) { if (f.image) items.forEach(function (r) { if (r.kind === "ray" && r.j === im + 1 && r.depth > f.depth) f.depth = r.depth; }); });
@@ -72,9 +85,10 @@ export function layout3D(canvas, o) {
   c.lineCap = "round"; c.lineJoin = "round";
   var zs = o.data.surfaces.map(function (x) { return x.z; }), axis = [-10, 4].map(function (d, i) { var q = project([0, 0, i ? Math.max.apply(null, zs) + d : Math.min.apply(null, zs) + d], view); return [q[0], q[1]]; });
   path(axis); c.strokeStyle = C("plot-axis"); c.lineWidth = .75; c.setLineDash([3, 5]); c.stroke(); c.setLineDash([]);
-  var rw = parseFloat(C("stroke-ray")) || 1.1;
+  var edgeColor = C("glass-edge"), rw = parseFloat(C("stroke-ray")) || 1.1;
   sc.items.forEach(function (f) {
     path(f.p || f.q);
+    if (f.kind === "edge") { c.strokeStyle = edgeColor; c.lineWidth = 1.25; c.stroke(); return; }
     if (f.kind === "ray") { c.strokeStyle = fields(f.k); c.lineWidth = rw; c.setLineDash(f.chief ? [5, 4] : []); c.stroke(); c.setLineDash([]); return; }
     c.closePath(); c.fillStyle = f.color; c.fill();
   });
@@ -106,12 +120,13 @@ function isRecorded(L) {
  * y >= 0 half of its profile, a rim per glass gap, a flat ring outside an air-air stop's aperture (sd to sd + 2.5 mm, `stop: true`), and the image plane as a square at the image surface's sd (`image: true`).
  * Each face is `{ v: [[x, y, z], ...], glass?, fill }`; `glass` is the element's name ("crown", "flint" or a {name} glass's name) and `fill` its CSS fill.
  * Faces per surface are min(full density, 3,500 / surfaces), so a 50-surface system stays within the budget.
+ * `rims` holds each glazed surface's outer ring, `{ surface, glass, v }`, `v` the `segments` points at the profile's last radius.
  * @param {*} layout a RecordedLayout
  * @param {{ width?: number }} [o]
  */
 export function layout3dMesh(layout, o) {
   if (!isRecorded(layout)) throw new TypeError("layout3dMesh: expected a RecordedLayout ({ surfaces, rays }) with a profile on every surface");
-  var S = layout.surfaces, glasses = drawnGlasses(S, "layout3dMesh"), fills = glassFill(glasses), faces = [];
+  var S = layout.surfaces, glasses = drawnGlasses(S, "layout3dMesh"), fills = glassFill(glasses), faces = [], rims = [];
   var nameOf = function (g) { return typeof g === "object" ? g.name : g; };
   var fillOf = function (g) { return typeof g === "object" ? fills.get(g.name) : g === "flint" ? "var(--glass-flint)" : "var(--glass-crown)"; };
   // the element a surface's faces belong to: its own glass, else the glass gap it closes
@@ -128,7 +143,9 @@ export function layout3dMesh(layout, o) {
     if (s.image) return;
     var g = own(i), h = halfProfile(s);
     if (g) {
-      var rs = radii(h, rings);
+      var rs = radii(h, rings), ring = [];
+      for (var q = 0; q < segs; q++) ring.push(ringAt(h, h[h.length - 1][1], q));
+      rims.push({ surface: i, glass: nameOf(g), v: ring });
       for (var a = 0; a < rings; a++) for (var j = 0; j < segs; j++) add([ringAt(h, rs[a], j), ringAt(h, rs[a], j + 1), ringAt(h, rs[a + 1], j + 1), ringAt(h, rs[a + 1], j)], g);
       var n = S[i + 1];
       if (s.glass && n) { var hn = halfProfile(n), ro = h[h.length - 1][1], rn = hn[hn.length - 1][1]; for (var k = 0; k < segs; k++) add([ringAt(h, ro, k), ringAt(h, ro, k + 1), ringAt(hn, rn, k + 1), ringAt(hn, rn, k)], s.glass); }
@@ -140,7 +157,7 @@ export function layout3dMesh(layout, o) {
   });
   var im = S.filter(function (s) { return s.image; })[0];
   if (im) { var e = im.sd; faces.push({ v: [[-e, -e, im.z], [e, -e, im.z], [e, e, im.z], [-e, e, im.z]], image: true, fill: "var(--mech)" }); }
-  return { faces: faces, segments: segs, rings: rings };
+  return { faces: faces, rims: rims, segments: segs, rings: rings };
 }
 
 /**

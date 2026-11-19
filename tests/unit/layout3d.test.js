@@ -209,3 +209,41 @@ test('image plane and stop ring', async () => {
     assert.ok(Math.abs(p[2] - ze) < 1e-9, `stop ring z ${p[2]} at the profile edge ${ze}`);
   }
 });
+
+// Plan #1193, issue #1238 (CR #1237): the plan-base tile's edge outlines return, painter-sorted with the scene.
+// oracle: closed-form orthographic projection of each glazed surface's outer profile point revolved at 2 pi j / segments; the silhouette lines are the rim points of least and greatest projected y, joined first rim to last
+test('edge outlines', async () => {
+  const { layout3dMesh } = await mesh();
+  for (const name of ['achromat', 'cooke']) {
+    const L = LAYOUTS[name], S = L.surfaces, { segments } = layout3dMesh(L, { width: 560 });
+    const { view, items } = await scene(L);
+    const proj = ([x, y, z]) => {
+      const th = view.yaw * Math.PI / 180, ph = view.pitch * Math.PI / 180;
+      const h = z * Math.cos(th) - x * Math.sin(th), d = z * Math.sin(th) + x * Math.cos(th);
+      return [view.origin[0] + h * view.scale, view.origin[1] - (y * Math.cos(ph) - d * Math.sin(ph)) * view.scale, y * Math.sin(ph) + d * Math.cos(ph)];
+    };
+    const rimPt = (i, j) => { const top = S[i].profile.filter((p) => p[1] >= -1e-9).reduce((a, p) => (p[1] > a[1] ? p : a)); const t = 2 * Math.PI * j / segments; return proj([top[1] * Math.cos(t), top[1] * Math.sin(t), top[0]]); };
+    const glazed = S.map((s, i) => i).filter((i) => !S[i].image && (S[i].glass || (S[i - 1] && S[i - 1].glass)));
+    const close = (a, b) => Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
+    const edges = items.filter((x) => x.kind === 'edge');
+    for (const i of glazed) {
+      const rim = edges.filter((e) => e.edge === 'rim' && e.surface === i);
+      assert.equal(rim.length, segments, `${name} surface ${i}: one rim outline of ${segments} segments`);
+      for (let j = 0; j < segments; j++) {
+        const a = rimPt(i, j), b = rimPt(i, j + 1), e = rim.find((r) => close(r.p[0], a));
+        assert.ok(e && close(e.p[1], b), `${name} surface ${i} rim segment ${j} at the rim's projected points`);
+        assert.ok(Math.abs(e.depth - (a[2] + b[2]) / 2) < 1e-6, `${name} surface ${i} rim segment ${j} at its mid depth`);
+      }
+    }
+    assert.equal(edges.filter((e) => e.edge === 'rim').length, glazed.length * segments, `${name}: rims only on glazed surfaces`);
+    const gaps = S.map((s, i) => i).filter((i) => S[i].glass && glazed.includes(i + 1));
+    const sil = edges.filter((e) => e.edge === 'silhouette');
+    assert.equal(sil.length, 2 * gaps.length, `${name}: two silhouette lines per element`);
+    for (const i of gaps) {
+      const ring = Array.from({ length: segments }, (_, j) => rimPt(i, j)), ys = ring.map((q) => q[1]);
+      const top = ys.indexOf(Math.min(...ys)), bot = ys.indexOf(Math.max(...ys));
+      for (const j of [top, bot]) assert.ok(sil.some((e) => e.element === i && close(e.p[0], rimPt(i, j)) && close(e.p[1], rimPt(i + 1, j))), `${name} element ${i}: silhouette at ring point ${j}, first rim to last`);
+    }
+    for (let n = 1; n < items.length; n++) assert.ok(items[n - 1].depth >= items[n].depth - 1e-9, 'edges sort with the faces');
+  }
+});
