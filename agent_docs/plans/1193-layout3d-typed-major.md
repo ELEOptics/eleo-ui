@@ -143,6 +143,7 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1227 | `layout3D(canvas, props: Layout3DProps)`: props required in the types (review M1 finding 5) | the type follows #1197's runtime guard; considered keeping props optional, which types a call that always throws | `packages/plots/src/index.d.ts`, `tests/types/layout3d.ts` | types.test.js "layout3d.ts" | #1226 |
 | #1228 | A bad `chief` index under layout3D throws an error named layout3D (review M1 finding 6) | a name parameter as `drawnGlasses` takes; considered catch and rethrow, which loses the stack | `packages/plots/src/layout2d.js`, `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "bad chief names layout3D" | #1227 |
 | #1229 | layout3D falls back to the crown token for a fill the browser rejects (review M1 finding 4) | crown because layout2D's SVG falls back to it; considered throwing, which blanks a tile on an older browser | `packages/plots/src/layout3d.js`, `tests/gallery.spec.js` | gallery.spec "layout3D rejected fill falls back to crown" | #1228 |
+| #1230 | layout3D fills faces without the per-face 0.7 px seam stroke, so the U14 median falls under 16 ms (CR [#1224]) | drop the stroke because it is about 11 ms of the 20.4 ms median; considered batching it (unmeasured) and loosening O2 (the user chose this) | `packages/plots/src/layout3d.js`, `tests/perf.spec.js` | perf.spec "layout3D redraw (U14)" median under 16 ms | #1229 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -205,6 +206,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: CR [#1220] accepted: #1198 adds `tests/pixel-ratio.spec.js` to its Files, whose canvas count (4) and `=== 'layout3D'` dpr branch a second canvas tile breaks.
 - 2026-11-19 #1199: O2 median recorded: 20.55, 20.45 and 20.55 ms over three runs (PERF=1, chromium, the 50-surface reference layout, marginal-chief rays), over the 16 ms target. O2 is not met: this is the M1 switch signal (median over 16 ms with the face budget met), for the M1 course check. The perf test reports and does not assert, so the gate stays green.
 - 2026-11-19 orchestrator: review M1 round 1: 3 blocking, 4 backlog. CRs [#1222] and [#1223] accepted (item #1225); CR [#1224] (O2 not met) is the user's, decided at the M1 course check; the 4 backlog findings are small and named, so they are pulled into M1 as #1226-#1229.
+- 2026-11-19 CR [#1224] (user): Drop the seam stroke. Work item #1230; the look is judged at the M1 demo.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
