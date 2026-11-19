@@ -136,7 +136,8 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1197 | `Layout3DProps` typed (`data: RecordedLayout`, `rays`, `yaw`, `pitch`, `scale`, `width`, `height`), `<Layout3D data={layout} />`, the README section, a minor changeset: `layout3D(canvas, { data: layout, rays: "fan" })` draws; `layout3D(canvas, {})` throws `layout3D: pass { data: RecordedLayout }` | forced (core: `index.d.ts`, approved with this plan) | `packages/plots/src/index.d.ts`, `packages/plots-svelte/src/lib/Layout3D.svelte`, `packages/plots/README.md`, `packages/plots-svelte/README.md`, `.changeset/layout3d-typed.md`, `tests/types/layout3d.ts`, `tests/unit/types.test.js` | types.test.js "layout3d.ts" | #1196 |
 | #158 reuse | `--stroke-ray`'s usage text: "Rays in 3D drawings." and a tokens patch changeset | the text follows item 3, which makes layout3D its one user; considered dropping the token, a breaking tokens release for a text fix | `packages/tokens/src/tokens.json`, `.changeset/stroke-ray-3d.md`, `tests/unit/tokens.test.js` | tokens.test.js "--stroke-ray usage" | #1196 |
 | #1198 | Gallery: a layout3D tile on the Cooke glasses (`analysis-glasses.json`) | one new tile because O1 must show U12 fills and the sample has only crown and flint; considered a Wandersleb tile, whose elements are all `"crown"` | `gallery/index.html`, `tests/gallery.spec.js` | gallery.spec "layout3D glasses tile draws" (two distinct non-surface fills on the canvas, three browsers) | #1197 |
-| #1199 | Unskip O1 and O2; record the U14 median in the Change log | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/layout3d.test.js`, `tests/perf.spec.js` | O1, O2 | #1194, #1195, #1196, #1197, #158, #1198 |
+| #1218 | layout3D's default view fits the faces and the drawn ray segments together, so no drawn ray leaves the canvas; an explicit `scale` still overrides (CR [#1217]) | fit the scene's projected bounds (faces plus the drawn segments' endpoints) because O1's "framed to fit" means everything layout3D draws; considered clipping the rays at the canvas edge, which hides where they start | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "rays framed" | #1196 |
+| #1199 | Unskip O1 and O2; record the U14 median in the Change log | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/layout3d.test.js`, `tests/perf.spec.js` | O1, O2 | #1194, #1195, #1196, #1197, #158, #1198, #1218 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -194,11 +195,13 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: CR [#1216] accepted: #1196 adds `tests/unit/layout2d.test.js` to its Files, because its export-list test pins `layout2d.js` to two exports and #1196 exports `raySet` and the status rules. The package entry is unchanged.
 - 2026-11-19 #1196 first attempt: the first flushed U14 median is 20.45 ms (chromium, reference layout, marginal-chief rays, about 3,400 faces), over 16 ms with the face budget met. This is the M1 switch signal; it is not yet profiled, and the median at #1199 is the one recorded for O2.
 - 2026-11-19 #1196 (3109b7b): re-measured at 20.35-20.55 ms over three runs. About 3.5 ms is layout3dScene and about 16.5 ms is canvas painting, of which the per-face 0.7 px seam stroke is about 11 ms (8.85 ms without it, with hairline seams). Left for the M1 course check: dropping or batching the stroke changes the look (O4).
+- 2026-11-19 orchestrator: CR [#1217] accepted: the default view leaves the drawn rays' starts outside the canvas (wave-end shot on #1196). New item #1218 before #1199.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
 [#133]: https://github.com/ELEOptics/eleo-ui/issues/133
 [#1216]: https://github.com/ELEOptics/eleo-ui/issues/1216
+[#1217]: https://github.com/ELEOptics/eleo-ui/issues/1217
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
 [#158]: https://github.com/ELEOptics/eleo-ui/issues/158
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
