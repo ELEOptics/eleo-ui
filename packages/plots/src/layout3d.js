@@ -13,8 +13,27 @@ var LIGHT = (function () { var v = [-0.35, 0.75, -0.55], m = Math.hypot(v[0], v[
  */
 export function layout3dScene(layout, o, resolve) {
   o = o || {};
-  var W = o.width || 560, H = o.height || 320, mesh = layout3dMesh(layout, { width: W }), view = fitView(mesh, { width: W, height: H, yaw: o.yaw, pitch: o.pitch, scale: o.scale });
-  var items = [], tone = new Map(), S = layout.surfaces, s = view.scale;
+  var W = o.width || 560, H = o.height || 320, mesh = layout3dMesh(layout, { width: W });
+  var S = layout.surfaces, set = o.rays === undefined ? "marginal-chief" : o.rays;
+  function collect(which) {
+    var out = [];
+    layout.rays.forEach(function (fan, k) {
+      var c = fan.length ? raySet(layout, k, "chief")[0] : -1;
+      raySet(layout, k, which).forEach(function (i) {
+        var r = fan[i], st = statusOf(layout, k, i) || r.map(function () { return "Alive"; }), end = st.indexOf("Dead") < 0 ? statusEnd(layout, st, r.length) : st.indexOf("Dead");
+        for (var j = 1; j <= end; j++) {
+          if (segmentStatus(layout, st, j) === "Virtual" || (j >= 2 && S[j - 2] && S[j - 2].glass)) continue;
+          out.push({ k: k, i: i, j: j, a: [0, r[j - 1][1], r[j - 1][0]], b: [0, r[j][1], r[j][0]], chief: i === c && which !== "chief" });
+        }
+      });
+    });
+    return out;
+  }
+  // The view fits every recorded ray's drawable segments, whichever set is drawn, so the `rays` option never moves it.
+  var pts = []; collect("fan").forEach(function (g) { pts.push(g.a, g.b); });
+  var segs = set === false ? [] : collect(set);
+  var view = fitView(mesh, { width: W, height: H, yaw: o.yaw, pitch: o.pitch, scale: o.scale, points: pts });
+  var items = [], tone = new Map(), s = view.scale;
   function toneOf(fill) { if (!tone.has(fill)) tone.set(fill, resolve(fill)); return tone.get(fill); }
   mesh.faces.forEach(function (f) {
     var q = f.v.map(function (p) { return project(p, view); }), a = q.map(function (p) { return [p[0] / s, -p[1] / s, p[2]]; });
@@ -23,17 +42,9 @@ export function layout3dScene(layout, o, resolve) {
     var k = f.image ? 1 : 0.82 + 0.18 * Math.abs((n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]) / nm);
     items.push({ kind: "face", q: q.map(function (p) { return [p[0], p[1]]; }), depth: q.reduce(function (d, p) { return d + p[2]; }, 0) / q.length, color: "rgb(" + toneOf(f.fill).map(function (v) { return Math.min(255, Math.round(v * k)); }) + ")", image: !!f.image, stop: !!f.stop });
   });
-  var set = o.rays === undefined ? "marginal-chief" : o.rays;
-  if (set !== false) layout.rays.forEach(function (fan, k) {
-    var c = fan.length ? raySet(layout, k, "chief")[0] : -1;
-    raySet(layout, k, set).forEach(function (i) {
-      var r = fan[i], st = statusOf(layout, k, i) || r.map(function () { return "Alive"; }), end = st.indexOf("Dead") < 0 ? statusEnd(layout, st, r.length) : st.indexOf("Dead");
-      for (var j = 1; j <= end; j++) {
-        if (segmentStatus(layout, st, j) === "Virtual" || (j >= 2 && S[j - 2] && S[j - 2].glass)) continue;
-        var a = project([0, r[j - 1][1], r[j - 1][0]], view), b = project([0, r[j][1], r[j][0]], view);
-        items.push({ kind: "ray", k: k, i: i, j: j, p: [[a[0], a[1]], [b[0], b[1]]], depth: (a[2] + b[2]) / 2, chief: i === c && set !== "chief" });
-      }
-    });
+  segs.forEach(function (g) {
+    var a = project(g.a, view), b = project(g.b, view);
+    items.push({ kind: "ray", k: g.k, i: g.i, j: g.j, p: [[a[0], a[1]], [b[0], b[1]]], depth: (a[2] + b[2]) / 2, chief: g.chief });
   });
   // The plane is drawn under the rays that end on it, from whichever side they are seen: its depth is no nearer than theirs.
   var im = S.findIndex(function (x) { return x.image; });
@@ -143,15 +154,17 @@ export function project(p, view) {
 
 /**
  * The default view of a mesh: yaw -38, pitch 16 unless given, the rotated bounds centred in width x height with a 16 px margin and fitted
- * (`scale`, px/mm, overrides the fit).
+ * (`scale`, px/mm, overrides the fit). `points` (3D, like the mesh's) are fitted with the faces.
  * @param {{ faces: { v: number[][] }[] }} mesh
- * @param {{ width?: number, height?: number, yaw?: number, pitch?: number, scale?: number }} [o]
+ * @param {{ width?: number, height?: number, yaw?: number, pitch?: number, scale?: number, points?: number[][] }} [o]
  */
 export function fitView(mesh, o) {
   o = o || {};
   var W = o.width || 560, H = o.height || 320, view = { yaw: o.yaw == null ? -38 : o.yaw, pitch: o.pitch == null ? 16 : o.pitch, scale: 1, center: [0, 0, 0], origin: [0, 0] };
   var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  mesh.faces.forEach(function (f) { f.v.forEach(function (p) { var q = project(p, view); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }); });
+  function grow(p) { var q = project(p, view); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+  mesh.faces.forEach(function (f) { f.v.forEach(grow); });
+  (o.points || []).forEach(grow);
   var pad = 16, s = o.scale > 0 ? o.scale : Math.min((W - 2 * pad) / ((x1 - x0) || 1), (H - 2 * pad) / ((y1 - y0) || 1));
   view.scale = s; view.origin = [W / 2 - s * (x0 + x1) / 2, H / 2 - s * (y0 + y1) / 2];
   return view;

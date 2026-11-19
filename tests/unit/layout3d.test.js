@@ -147,6 +147,22 @@ test('dead and virtual cut', async () => {
   assert.deepEqual(segs((await scene(st(['Alive', 'Virtual', 'Virtual', 'Virtual', 'Virtual']), { rays: 'fan' })).items, 0, 0), [1]);
 });
 
+// Plan #1193, item #1218 (CR #1217): the default view frames what is drawn, faces and ray segments together.
+// oracle: the 16 px margin box of the 560 x 320 canvas, the pad of fitView's contract
+test('rays framed', async () => {
+  for (const L of [LAYOUTS.achromat, LAYOUTS.cooke]) {
+    const { items } = await scene(L);
+    const rays = items.filter((x) => x.kind === 'ray');
+    assert.ok(rays.length > 0, 'rays drawn');
+    for (const r of rays) for (const p of r.p) assert.ok(p[0] >= 16 - 0.5 && p[0] <= 560 - 16 + 0.5 && p[1] >= 16 - 0.5 && p[1] <= 320 - 16 + 0.5, `ray endpoint in the margin: ${p}`);
+    for (const f of items.filter((x) => x.kind === 'face')) for (const p of f.q) assert.ok(p[0] >= 16 - 0.5 && p[0] <= 560 - 16 + 0.5 && p[1] >= 16 - 0.5 && p[1] <= 320 - 16 + 0.5, `face point in the margin: ${p}`);
+  }
+  // oracle: the view is a function of the layout alone, so the rays option cannot move it
+  for (const L of [LAYOUTS.achromat, LAYOUTS.cooke]) assert.deepEqual((await scene(L, { rays: false })).view, (await scene(L)).view);
+  // an explicit scale still wins
+  assert.equal((await scene(LAYOUTS.achromat, { scale: 3 })).view.scale, 3);
+});
+
 // Plan #1193, item #1197 (CR #1219): the guard runs before the canvas is touched.
 test('layout3D without data throws', async () => {
   const { layout3D } = await mesh();
