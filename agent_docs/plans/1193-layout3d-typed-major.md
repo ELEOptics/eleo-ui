@@ -144,6 +144,8 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1228 | A bad `chief` index under layout3D throws an error named layout3D (review M1 finding 6) | a name parameter as `drawnGlasses` takes; considered catch and rethrow, which loses the stack | `packages/plots/src/layout2d.js`, `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "bad chief names layout3D" | #1227 |
 | #1229 | layout3D falls back to the crown token for a fill the browser rejects (review M1 finding 4) | crown because layout2D's SVG falls back to it; considered throwing, which blanks a tile on an older browser | `packages/plots/src/layout3d.js`, `tests/gallery.spec.js` | gallery.spec "layout3D rejected fill falls back to crown" | #1228 |
 | #1230 | layout3D fills faces without the per-face 0.7 px seam stroke, so the U14 median falls under 16 ms (CR [#1224]) | drop the stroke because it is about 11 ms of the 20.4 ms median; considered batching it (unmeasured) and loosening O2 (the user chose this) | `packages/plots/src/layout3d.js`, `tests/perf.spec.js` | perf.spec "layout3D redraw (U14)" median under 16 ms | #1229 |
+| #1233 | layout3D's fill probe inherits crown from a wrapper, so a fill invalid at computed-value time draws crown (CR [#1231]) | inherit crown because CSS computes an invalid `var()` value as `unset`; considered `CSS.supports`, which can't evaluate `var()` | `packages/plots/src/layout3d.js`, `tests/gallery.spec.js` | gallery.spec "layout3D rejected fill falls back to crown" (rewritten) | #1230 |
+| #1234 | "empty fan is skipped" compares items, not only counts (review M1 round 2, finding 3) | deep-equal the tuples the test builds; considered counts per fan | `tests/unit/layout3d.test.js` | layout3d.test.js "empty fan is skipped" | #1233 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -208,6 +210,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: review M1 round 1: 3 blocking, 4 backlog. CRs [#1222] and [#1223] accepted (item #1225); CR [#1224] (O2 not met) is the user's, decided at the M1 course check; the 4 backlog findings are small and named, so they are pulled into M1 as #1226-#1229.
 - 2026-11-19 CR [#1224] (user): Drop the seam stroke. Work item #1230; the look is judged at the M1 demo.
 - 2026-11-19 #1230 (3b374f2): O2 met. The U14 median without the seam stroke is 8.80-9.20 ms over four runs, against 20.55-20.65 ms with it (chromium, the 50-surface reference, marginal-chief), under 16 ms. perf.spec now asserts it under PERF=1. Whether seams show is judged at the M1 demo (O4).
+- 2026-11-19 orchestrator: review M1 round 2: 1 blocking, 2 backlog, all 7 carried CRs resolved. CR [#1231] accepted (item #1233); finding 3 pulled into M1 as #1234; finding 2's layout2D part filed as #1232 (unverified, outside the range).
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
@@ -219,6 +222,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1222]: https://github.com/ELEOptics/eleo-ui/issues/1222
 [#1223]: https://github.com/ELEOptics/eleo-ui/issues/1223
 [#1224]: https://github.com/ELEOptics/eleo-ui/issues/1224
+[#1231]: https://github.com/ELEOptics/eleo-ui/issues/1231
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
 [#158]: https://github.com/ELEOptics/eleo-ui/issues/158
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
