@@ -48,7 +48,7 @@ export function layout3dScene(layout, o, resolve) {
 }
 
 export function layout3D(canvas, o) {
-  o = o || {};
+  if (!o || !o.data) throw new TypeError("layout3D: pass { data: RecordedLayout }");
   var dpr = Math.max(2, Math.min(3, window.devicePixelRatio || 1)), Wc = o.width || 560, Hc = o.height || 320;
   canvas.width = Wc * dpr; canvas.height = Hc * dpr; var c = canvas.getContext("2d"); c.scale(dpr, dpr);
   var C = function (n) { return css(canvas, n); };

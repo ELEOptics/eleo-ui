@@ -69,13 +69,14 @@ export interface Layout2DProps {
   view?: PlotView;
 }
 export interface Layout3DProps {
-  data?: object;
-  /** Show 4 marginal rays + chief ray per field. Default true. */
-  rays?: boolean;
+  /** The recorded layout: its surfaces' profiles make the mesh, its rays are drawn in the air. */
+  data: RecordedLayout;
+  /** Which rays to draw: the marginal and chief rays of each field (default), every ray, the chief only, or none. */
+  rays?: "marginal-chief" | "fan" | "chief" | false;
   /** View angles in degrees. Default yaw -38, pitch 16 (Iso). */
   yaw?: number;
   pitch?: number;
-  /** Zoom factor. Default 4.6. */
+  /** Scale in px/mm. Default: the scale that frames the faces and rays. */
   scale?: number;
   width?: number;
   height?: number;

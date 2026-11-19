@@ -1,4 +1,4 @@
-<!-- Orthographic 3D view of the system: flat-shaded glass, rays hidden behind it. Redraws on prop, theme or palette change. -->
+<!-- Orthographic 3D view of the system: flat-shaded glass from a recorded layout, with its rays drawn in the air gaps (`rays` picks the set). Redraws on prop, theme or palette change. -->
 <script>
   import { layout3D } from '@eleoptics/plots';
   import { themeTick } from './theme.svelte.js';

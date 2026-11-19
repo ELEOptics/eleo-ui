@@ -114,3 +114,10 @@ test('standalone and png type-check', () => {
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/export.ts', import.meta.url))], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
+
+// Plan #1193, item #1197. tests/types/layout3d.ts: Layout3DProps takes a RecordedLayout and a ray set; @ts-expect-error on missing data, rays: true and a non-layout data.
+test('layout3d.ts', () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/layout3d.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});

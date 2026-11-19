@@ -159,3 +159,9 @@ test('rays framed', async () => {
   // an explicit scale still wins
   assert.equal((await scene(LAYOUTS.achromat, { scale: 3 })).view.scale, 3);
 });
+
+// Plan #1193, item #1197 (CR #1219): the guard runs before the canvas is touched.
+test('layout3D without data throws', async () => {
+  const { layout3D } = await mesh();
+  for (const o of [undefined, {}, { data: undefined }]) assert.throws(() => layout3D({}, o), { name: 'TypeError', message: 'layout3D: pass { data: RecordedLayout }' });
+});

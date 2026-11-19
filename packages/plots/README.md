@@ -68,7 +68,15 @@ afterEl.innerHTML = layout2D({ data: after, box, labels, marks: false });
 
 ### Migration: `data.layout` is a recorded layout
 
-This is a breaking change. `data.layout` used to be a bare rays array (`layout[field][ray]` of `[z, y]` points), drawn against `data.profiles` and `data.zimg`. It is now a recorded layout, `{surfaces, rays, chief?}`, and so is `data.layoutWl` (previously `{field, rays}`). Record your system in the format above: each lens surface becomes a `surfaces` entry with its `profile` and the `glass` after it, the stop and the image become surfaces with `stop` or `image` set, and the old rays array moves to `rays`. `layout2D` throws on the old shape. `layout3D` is unchanged: it still reads `profiles` and `rays3d`.
+This is a breaking change. `data.layout` used to be a bare rays array (`layout[field][ray]` of `[z, y]` points), drawn against `data.profiles` and `data.zimg`. It is now a recorded layout, `{surfaces, rays, chief?}`, and so is `data.layoutWl` (previously `{field, rays}`). Record your system in the format above: each lens surface becomes a `surfaces` entry with its `profile` and the `glass` after it, the stop and the image become surfaces with `stop` or `image` set, and the old rays array moves to `rays`. `layout2D` throws on the old shape. `layout3D` reads the same recorded layout, `layout3D(canvas, { data: layout })`; it no longer reads `profiles` or `rays3d`.
+
+### 3D view
+
+`layout3D(canvas, { data: layout })` draws the same recorded layout on a canvas as a shaded 3D mesh, with its rays in the air gaps. Options: `data` (required, a `RecordedLayout`), `rays` (`"marginal-chief"`, the default, `"fan"`, `"chief"` or `false`), `yaw`, `pitch` (degrees), `scale` (in px/mm; default: the scale that frames the faces and rays), `width` and `height`. It throws `layout3D: pass { data: RecordedLayout }` when `data` is missing.
+
+```js
+layout3D(canvas, { data: layout, rays: "fan" });
+```
 
 ## Curves
 

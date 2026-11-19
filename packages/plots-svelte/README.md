@@ -34,6 +34,8 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 <Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />
 ```
 
+`Layout3D` takes `layout3D`'s options, `data` (a recorded layout), `rays`, `yaw`, `pitch`, `scale`, `width` and `height`: `<Layout3D data={layout} rays="fan" label="Lens in 3D" />`.
+
 `Layout2D` takes `layout2D`'s options: `data` is a recorded layout or a system carrying one (see the [plots README](https://www.npmjs.com/package/@eleoptics/plots) for the format and the migration from the old `data.layout`). To compare two designs at one scale, give both the same `box` and `width`, and the same labels (drawings with one box, width and labels share a scale):
 
 ```svelte
