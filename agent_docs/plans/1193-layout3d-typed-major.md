@@ -151,7 +151,7 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1236 | The rejected-fill gallery test loses its unused `px` canvas and `rgb` helper (review M1 round 3, finding 1) | delete because nothing references them; considered using them, which nothing needs | `tests/gallery.spec.js` | gallery.spec "layout3D rejected fill falls back to crown" | #1234 |
 | #1238 | layout3D draws edge outlines in `--glass-edge` at 1.25 px: each glazed surface's outer rim and each element's two silhouette lines, painter-sorted with the scene (CR [#1237], M1 demo no-go) | rims and silhouette lines as the base tile drew them, because the user asked for those edges back; considered outlining every face, which brings back the seam cost (#1230) | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js`, `tests/perf.spec.js` | layout3d.test.js "edge outlines"; perf.spec "layout3D redraw (U14)" under 16 ms | #1236 |
 | #1239 | Edges sort slightly nearer than their mid depth so faces sharing them paint first, and their width reads `--stroke-edge` (review M1 round 5, findings 1 and 2) | a small nearer bias because the shared face sorts at almost the same depth; considered drawing all edges after all faces, which lets a far rim show through a near lens | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "edge outlines" (extended) | #1238 |
-| #1241 | Edge depth uses the sharing face's depth along the edge (its two shared vertices), the bias span is the faces' span, and "edge outlines" asserts the formula from independent values (CR [#1240]; review M1 round 6, findings 2 and 3) | the shared vertices' mean because that is where the shared face meets the edge; considered capping the pull, an arbitrary constant | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "edge outlines" (formula, Cooke default view occlusion) | #1239 |
+| #1241 | Edge outlines both full width (no sharing face over an edge) and correctly hidden (no edge over a nearer face): each edge drawn after its sharing faces and clipped against nearer faces; bias over the faces' span; tests from the plane-depth sampling (CRs [#1240], [#1242]; review M1 round 6, findings 2 and 3) | the user chose both properties at more cost (CR [#1242]); considered the c765907 rule (Cooke over-draw) and mid depth (half-covered edges), each failing one property | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "edge outlines" ((a) and (b), achromat and Cooke, two views) | #1239 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -223,6 +223,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 course check M1 planned (user): no-go. "The 3D doesn't look good enough. Bring back edge outlines." Course reviewers (two passes) recommended continue; the user rejected the M1 tiles in demo round 1 (the switch signal fires at two). CR [#1237] (user): edge outlines back, item #1238; M1 is not accepted until a repeat demo says go.
 - 2026-11-19 orchestrator: review M1 round 5: 0 blocking, 2 backlog, all 10 CRs resolved (#1237 by #1238). Both findings are small and named in layout3d.js, and finding 1 (shared faces cover the inner half of most edges) bears on the repeat demo, so they are pulled into M1 as #1239; round 6 follows.
 - 2026-11-19 orchestrator: review M1 round 6: 1 blocking, 2 backlog. The breaker tripped (blocking + pulled in: r4 0, r5 1, r6 3, no fall for 2 rounds): "Review M1 stuck: 1 blocking, no fall for 2 rounds". stuck (user, 2026-11-19): continue. CR [#1240] accepted; findings 2 (the Cooke default view's back rim drawn over the front band, 79 wrong samples against 44 before #1239) and 3 pulled in; all three fixed in #1241; round 7 follows.
+- 2026-11-19 CR [#1242] (user): Both, at more cost. One depth per edge cannot give full-width edges and correct occlusion together (#1241's counts: c765907 over-draws 77/73 Cooke samples, mid depth half-covers 283-306 edges), so #1241 draws each edge after its sharing faces, clipped against nearer faces, within O2.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
@@ -238,6 +239,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1235]: https://github.com/ELEOptics/eleo-ui/issues/1235
 [#1237]: https://github.com/ELEOptics/eleo-ui/issues/1237
 [#1240]: https://github.com/ELEOptics/eleo-ui/issues/1240
+[#1242]: https://github.com/ELEOptics/eleo-ui/issues/1242
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
 [#158]: https://github.com/ELEOptics/eleo-ui/issues/158
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
