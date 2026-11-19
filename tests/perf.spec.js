@@ -119,24 +119,29 @@ if (process.env.PERF === '1') test('bars redraw (U14)', async ({ page }) => {
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });
 
+// The 50-surface reference layout of U14 (plan #337, #345, #1193): 50 surfaces with 41-point profiles, 3 fields of 21 rays, half with a dotted tail (alive), collimated fans (parallel first segments, so the starts move). Shared by the layout2D and layout3D tests; built in node, passed to the page.
+function referenceLayout() {
+  const surfaces = Array.from({ length: 50 }, (_, s) => {
+    const sd = 10, z = s * 5, c = 0.02 * Math.cos(s);
+    return {
+      z, sd, stop: s === 25, image: s === 49,
+      glass: s === 49 ? null : s % 2 ? null : (s % 4 === 0 ? 'crown' : 'flint'),
+      profile: Array.from({ length: 41 }, (_, i) => { const y = -sd + (2 * sd * i) / 40; return [z + c * y * y, y]; }),
+    };
+  });
+  // one slope per fan on the first segment (collimated), so the moved-starts path runs; the rays converge after it
+  const pts = (f, r) => Array.from({ length: 51 }, (_, k) => [k * 5, (r / 20 - 0.5) * 18 * (1 - Math.max(0, k - 1) / 60) + f * k * 0.05]);
+  const rays = Array.from({ length: 3 }, (_, f) => Array.from({ length: 21 }, (_, r) => pts(f, r)));
+  const alive = rays.map((fan) => fan.map((_, r) => (r % 2 ? 30 : 51)));
+  return { surfaces, rays, alive };
+}
+
 // U14 for layout2D (plan #337, #345): 50 surfaces with 41-point profiles, 3 fields of 21 rays, half with a dotted tail (alive), collimated fans (parallel first segments, so the starts move), same method as above.
 if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body[data-ready]')).toHaveCount(1);
-  const median = await page.evaluate(() => {
-    const surfaces = Array.from({ length: 50 }, (_, s) => {
-      const sd = 10, z = s * 5, c = 0.02 * Math.cos(s);
-      return {
-        z, sd, stop: s === 25, image: s === 49,
-        glass: s === 49 ? null : s % 2 ? null : (s % 4 === 0 ? 'crown' : 'flint'),
-        profile: Array.from({ length: 41 }, (_, i) => { const y = -sd + (2 * sd * i) / 40; return [z + c * y * y, y]; }),
-      };
-    });
-    // one slope per fan on the first segment (collimated), so the moved-starts path runs; the rays converge after it
-    const pts = (f, r) => Array.from({ length: 51 }, (_, k) => [k * 5, (r / 20 - 0.5) * 18 * (1 - Math.max(0, k - 1) / 60) + f * k * 0.05]);
-    const rays = Array.from({ length: 3 }, (_, f) => Array.from({ length: 21 }, (_, r) => pts(f, r)));
-    const alive = rays.map((fan) => fan.map((_, r) => (r % 2 ? 30 : 51)));
-    const data = { surfaces, rays, alive };
+  const median = await page.evaluate((data) => {
+    // the 50-surface, 3-field, 21-ray reference layout (referenceLayout, above), shared with the layout3D test
     // the fixture must take the moved-starts path (#387): the drawn starts of collimated fans sit left of the first surface (z 0)
     if (!(window.ELEO.layoutBounds([data]).zmin < 0)) throw new Error('layout2D fixture does not take the moved-starts path');
     const host = document.createElement('div');
@@ -152,8 +157,30 @@ if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => 
     host.remove();
     times.sort((a, b) => a - b);
     return (times[9] + times[10]) / 2;
-  });
+  }, referenceLayout());
   console.log(`layout2D redraw median: ${median.toFixed(2)} ms`);
+  test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
+});
+
+// U14 for layout3D (plan #1193, O2): the reference layout above, 20 redraws on a canvas, each followed by a 1 px getImageData read (canvas 2D is deferred: an unflushed timing reads ~5x low). Written skipped; the plan's last item unskips it.
+if (process.env.PERF === '1') test.skip('layout3D redraw (U14)', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  const median = await page.evaluate((data) => {
+    const canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+    const times = [];
+    for (let r = 0; r < 20; r++) {
+      const t0 = performance.now();
+      window.ELEO.layout3D(canvas, { data, width: 560, height: 320 });
+      canvas.getContext('2d').getImageData(0, 0, 1, 1);
+      times.push(performance.now() - t0);
+    }
+    canvas.remove();
+    times.sort((a, b) => a - b);
+    return (times[9] + times[10]) / 2;
+  }, referenceLayout());
+  console.log(`layout3D redraw median: ${median.toFixed(2)} ms`);
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });
 
