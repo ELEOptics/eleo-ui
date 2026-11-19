@@ -173,7 +173,7 @@
       var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k === 'layout3D' ? w * 320 / 560 : w;
       el.style.width = w + 'px'; el.style.height = h + 'px';
       if (k === 'airy') airyTile(el, n);
-      else ELEO.layout3D(el, { width: w, height: h });
+      else ELEO.layout3D(el, { data: ELEO.sample.layout, width: w, height: h });
     }
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);

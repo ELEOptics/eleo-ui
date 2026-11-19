@@ -105,11 +105,13 @@ function layout3DStrokes(read) {
     get: (_, k) => (k === 'createImageData' ? () => ({ data: [] }) : () => {}),
     set: (_, k, v) => { if (k === 'strokeStyle') strokes.push(v); return true; },
   });
-  const saved = { window: globalThis.window, getComputedStyle: globalThis.getComputedStyle };
+  const saved = { window: globalThis.window, document: globalThis.document, getComputedStyle: globalThis.getComputedStyle };
   globalThis.window = { devicePixelRatio: 1 };
-  globalThis.getComputedStyle = () => ({ getPropertyValue: read });
+  // the fill probe: a span in the canvas, a 1 px canvas that reads it back
+  globalThis.document = { createElement: (t) => (t === 'canvas' ? { getContext: () => ({ canvas: {}, clearRect() {}, fillRect() {}, getImageData: () => ({ data: [90, 90, 90, 255] }) }) } : { style: {} }) };
+  globalThis.getComputedStyle = () => ({ getPropertyValue: read, color: 'rgb(90, 90, 90)' });
   try {
-    ELEO.layout3D({ getContext: () => ctx });
+    ELEO.layout3D({ getContext: () => ctx, appendChild() {}, removeChild() {} }, { data: ELEO.sample.layout });
   } finally {
     Object.assign(globalThis, saved);
   }

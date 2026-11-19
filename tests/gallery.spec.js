@@ -843,7 +843,7 @@ test('layout3D rays over the image plane', async ({ page }) => {
         c.remove();
         return on;
       };
-      const bare = planePixels({ rays: false }), withRays = planePixels({});
+      const data = window.ELEO.sample.layout, bare = planePixels({ data, rays: false }), withRays = planePixels({ data });
       return { bare: bare.size, withRays: withRays.size, outside: [...withRays].filter((p) => !bare.has(p)).length };
     });
     expect(r.bare, `${theme} the plane is drawn`).toBeGreaterThan(0);

@@ -15,7 +15,7 @@ const EXEMPT = [
   ['color.js', /^export var GRAY = /, 'gray map'],
   ['physics.js', /^const VIRIDIS = /, 'viridis map in colormap()'],
   ['physics.js', /stops = \['#000000', '#ffffff'\]/, 'gray map in colormap()'],
-  ['layout3d.js', /col: "rgb\(" \+ tone\[/, "layout3D's tone composition"],
+  ['layout3d.js', /color: "rgb\(" \+ toneOf\(/, "layout3D's tone composition"],
   ['layout3d.js', /c\.font = '10px "Fira Code", monospace'/, "layout3D's label font"],
   ['export.js', /^const GENERIC = /, 'generic families never have an @font-face; standalone leaves them out of its warning (#1099)'],
 ];

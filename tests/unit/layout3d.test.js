@@ -102,3 +102,47 @@ test('face budget at 50 surfaces', async () => {
   // anything but a RecordedLayout is a named error
   for (const bad of [null, {}, { surfaces: [] }, 'x']) assert.throws(() => layout3dMesh(bad, { width: 560 }), /layout3dMesh: expected a RecordedLayout/);
 });
+
+// Plan #1193, item 3 (#1196): layout3D draws the mesh. The drawing is a scene (faces and ray segments, painter-sorted) that the canvas then paints;
+// layout3dScene(layout, { width, height, rays, yaw, pitch, scale }, resolve) -> { view, items }, `resolve(fill)` standing in for the browser probe.
+const scene = async (layout, o = {}) => (await mesh()).layout3dScene(layout, { width: 560, height: 320, ...o }, () => [100, 100, 100]);
+const air = (L) => ({ ...L, surfaces: L.surfaces.map((s) => ({ ...s, glass: null })) });
+const segs = (items, k, i) => items.filter((x) => x.kind === 'ray' && x.k === k && x.i === i).map((x) => x.j);
+
+test('rays sort with the faces', async () => {
+  const { project } = await mesh();
+  const { view, items } = await scene(sample.layout, { rays: 'fan' });
+  const faces = items.filter((x) => x.kind === 'face'), rays = items.filter((x) => x.kind === 'ray');
+  assert.ok(faces.length > 0 && rays.length > 0, 'faces and rays');
+  for (let n = 1; n < items.length; n++) assert.ok(items[n - 1].depth >= items[n].depth - 1e-9, `item ${n} is not nearer than the one before it`);
+  // a ray segment sits at its mid depth (larger is farther)
+  const L = sample.layout;
+  for (const r of rays.slice(0, 20)) {
+    const a = L.rays[r.k][r.i][r.j - 1], b = L.rays[r.k][r.i][r.j];
+    assert.ok(Math.abs(r.depth - (project([0, a[1], a[0]], view)[2] + project([0, b[1], b[0]], view)[2]) / 2) < 1e-6, `segment ${r.k}/${r.i}/${r.j} mid depth`);
+  }
+  // sorted with the faces, not before or after them all
+  const at = items.map((x) => x.kind), first = at.indexOf('ray'), last = at.lastIndexOf('ray');
+  assert.ok(at.slice(first, last).includes('face'), 'a face lies between two ray segments');
+  // the achromat's two glass gaps draw no ray: only the air segments before the first surface and after the last
+  assert.deepEqual(segs(items, 0, 0), [1, 4]);
+  // the sets: marginal-chief is three rays per field, chief one, false none
+  const per = async (set) => new Set((await scene(L, { rays: set })).items.filter((x) => x.kind === 'ray' && x.k === 0).map((x) => x.i)).size;
+  assert.equal(await per(undefined), 3);
+  assert.equal(await per('chief'), 1);
+  assert.equal(await per('fan'), L.rays[0].length);
+  assert.equal(await per(false), 0);
+});
+
+test('dead and virtual cut', async () => {
+  const L = air(sample.layout), withAlive = (alive, dead) => ({ ...L, alive: L.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? alive : 4))), dead: L.rays.map((f, k) => f.map((_, i) => k === 0 && i === 0 && dead)) });
+  assert.deepEqual(segs((await scene(L, { rays: 'fan' })).items, 0, 0), [1, 2, 3, 4], 'air: every segment');
+  // Virtual from point 2: the segments ending in a Virtual point are not drawn
+  assert.deepEqual(segs((await scene(withAlive(2, false), { rays: 'fan' })).items, 0, 0), [1]);
+  // Dead at point 2: drawn through it, no further
+  assert.deepEqual(segs((await scene(withAlive(2, true), { rays: 'fan' })).items, 0, 0), [1, 2]);
+  // status: a segment takes its start point's status; none after the first Dead point, none from a Virtual one
+  const st = (s) => ({ ...L, status: L.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? s : Array(5).fill('Alive')))) });
+  assert.deepEqual(segs((await scene(st(['Alive', 'Alive', 'Dead', 'Virtual', 'Virtual']), { rays: 'fan' })).items, 0, 0), [1, 2]);
+  assert.deepEqual(segs((await scene(st(['Alive', 'Virtual', 'Virtual', 'Virtual', 'Virtual']), { rays: 'fan' })).items, 0, 0), [1]);
+});
