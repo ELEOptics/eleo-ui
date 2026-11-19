@@ -862,9 +862,6 @@ test('layout3D rejected fill falls back to crown', async ({ page }) => {
   for (const theme of ['light', 'dark']) {
     const r = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`).evaluate(async (canvas) => {
       const layout = await (await fetch('/tests/fixtures/layouts/analysis-glasses.json')).json();
-      const px = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-      px.canvas.width = px.canvas.height = 1;
-      const rgb = (css) => { const s = document.createElement('span'); s.style.color = css; canvas.parentNode.appendChild(s); px.clearRect(0, 0, 1, 1); px.fillStyle = getComputedStyle(s).color; px.fillRect(0, 0, 1, 1); s.remove(); return [...px.getImageData(0, 0, 1, 1).data.slice(0, 3)]; };
       const fills = Object.values(Object.fromEntries([...window.ELEO.glassLegend(layout).matchAll(/--c:([^"]*)"[^>]*>([^<]*)</g)].map((m) => [m[2], m[1]])));
       const make = document.createElement.bind(document);
       // `swap` is what the probe's color setter sets in place of a glass fill.
