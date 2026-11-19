@@ -163,7 +163,7 @@ if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => 
 });
 
 // U14 for layout3D (plan #1193, O2): the reference layout above, 20 redraws on a canvas, each followed by a 1 px getImageData read (canvas 2D is deferred: an unflushed timing reads ~5x low).
-// oracle: measurement roadmap U14: median of 20 redraws of the reference layout, each timed with performance.now() around layout3D plus a 1 px getImageData read, in headless Chromium; reported, not asserted (a measurement, as the other redraw tests).
+// oracle: measurement roadmap U14: median of 20 redraws of the reference layout, each timed with performance.now() around layout3D plus a 1 px getImageData read, in headless Chromium; asserted under 16 ms (O2's target), unlike the other redraw tests, which report.
 if (process.env.PERF === '1') test('layout3D redraw (U14)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body[data-ready]')).toHaveCount(1);
@@ -183,6 +183,7 @@ if (process.env.PERF === '1') test('layout3D redraw (U14)', async ({ page }) => 
   }, referenceLayout());
   console.log(`layout3D redraw median: ${median.toFixed(2)} ms`);
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
+  expect(median, 'O2: layout3D median under 16 ms').toBeLessThan(16);
 });
 
 // U14 for the typed map2D (plan #389): 256 x 256 cells, a Gaussian spot, PNG encode and markup, same method as above (the image's decode is not forced).

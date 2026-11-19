@@ -75,7 +75,7 @@ export function layout3D(canvas, o) {
   sc.items.forEach(function (f) {
     path(f.p || f.q);
     if (f.kind === "ray") { c.strokeStyle = fields(f.k); c.lineWidth = rw; c.setLineDash(f.chief ? [5, 4] : []); c.stroke(); c.setLineDash([]); return; }
-    c.closePath(); c.fillStyle = f.color; c.fill(); c.strokeStyle = f.color; c.lineWidth = .7; c.stroke();
+    c.closePath(); c.fillStyle = f.color; c.fill();
   });
   var t0 = [40, Hc - 28], flat = { yaw: view.yaw, pitch: view.pitch, scale: 1, center: [0, 0, 0], origin: [0, 0] };
   c.font = '10px "Fira Code", monospace'; c.fillStyle = C("ink-muted"); c.strokeStyle = C("ink-muted"); c.lineWidth = 1;
