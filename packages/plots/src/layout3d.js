@@ -10,7 +10,7 @@ var LIGHT = (function () { var v = [-0.35, 0.75, -0.55], m = Math.hypot(v[0], v[
  * What layout3D paints, far to near: the mesh's faces shaded by the light, and the air segments of the chosen ray sets (never inside glass, through the first Dead
  * point, never a Virtual segment) at their mid depth. `resolve(fill)` returns the [r, g, b] of a face's CSS fill, called once per distinct fill.
  * The element edges are in the scene too, so a near face hides a far rim: each rim segment (`{ kind: "edge", edge: "rim", surface, p, depth }`) and each element's two silhouette lines
- * (`edge: "silhouette", element`, the glass gap's first surface; the rim points of least and greatest projected y, first rim to last) sit at their mid depth, as ray segments do.
+ * (`edge: "silhouette", element`, the glass gap's first surface; the rim points of least and greatest projected y, first rim to last) sit at their mid depth, or the depth of the nearest face that shares them if nearer, less 1e-3 of the faces' depth span, so the faces that share them paint first.
  * @returns {{ view: object, items: object[] }} faces `{ kind: "face", q: [px, py][], depth, color }`, segments `{ kind: "ray", k, i, j, p: [[px, py], [px, py]], depth, chief }`, edges `{ kind: "edge", edge, surface | element, p: [[px, py], [px, py]], depth }`
  */
 export function layout3dScene(layout, o, resolve) {
@@ -49,7 +49,16 @@ export function layout3dScene(layout, o, resolve) {
     var a = project(g.a, view), b = project(g.b, view);
     items.push({ kind: "ray", k: g.k, i: g.i, j: g.j, p: [[a[0], a[1]], [b[0], b[1]]], depth: (a[2] + b[2]) / 2, chief: g.chief });
   });
-  function edge(kind, key, id, a, b) { var e = { kind: "edge", edge: kind, p: [[a[0], a[1]], [b[0], b[1]]], depth: (a[2] + b[2]) / 2 }; e[key] = id; items.push(e); }
+  // An edge sorts nearer than the faces that share it (and than its mid depth), by 1e-3 of the faces' depth span: they paint first and the line is not half covered. A face that is really nearer still hides it.
+  var zs3 = items.map(function (f) { return f.depth; }), bias = 1e-3 * (Math.max.apply(null, zs3) - Math.min.apply(null, zs3));
+  function pk(p) { return Math.round(p[0] * 1e3) + "," + Math.round(p[1] * 1e3); }
+  function sk(a, b) { var x = pk(a), y = pk(b); return x < y ? x + "|" + y : y + "|" + x; }
+  var side = new Map();
+  items.forEach(function (f) { if (f.kind === "face") f.q.forEach(function (a, j) { var k = sk(a, f.q[(j + 1) % f.q.length]); side.set(k, Math.min(side.has(k) ? side.get(k) : Infinity, f.depth)); }); });
+  function edge(kind, key, id, a, b) {
+    var d = Math.min((a[2] + b[2]) / 2, side.has(sk(a, b)) ? side.get(sk(a, b)) : Infinity) - bias;
+    var e = { kind: "edge", edge: kind, p: [[a[0], a[1]], [b[0], b[1]]], depth: d }; e[key] = id; items.push(e);
+  }
   var ring = {};
   mesh.rims.forEach(function (r) {
     var q = r.v.map(function (p) { return project(p, view); }); ring[r.surface] = q;
@@ -85,10 +94,10 @@ export function layout3D(canvas, o) {
   c.lineCap = "round"; c.lineJoin = "round";
   var zs = o.data.surfaces.map(function (x) { return x.z; }), axis = [-10, 4].map(function (d, i) { var q = project([0, 0, i ? Math.max.apply(null, zs) + d : Math.min.apply(null, zs) + d], view); return [q[0], q[1]]; });
   path(axis); c.strokeStyle = C("plot-axis"); c.lineWidth = .75; c.setLineDash([3, 5]); c.stroke(); c.setLineDash([]);
-  var edgeColor = C("glass-edge"), rw = parseFloat(C("stroke-ray")) || 1.1;
+  var edgeColor = C("glass-edge"), rw = parseFloat(C("stroke-ray")) || 1.1, ew = parseFloat(C("stroke-edge")) || 1.25;
   sc.items.forEach(function (f) {
     path(f.p || f.q);
-    if (f.kind === "edge") { c.strokeStyle = edgeColor; c.lineWidth = 1.25; c.stroke(); return; }
+    if (f.kind === "edge") { c.strokeStyle = edgeColor; c.lineWidth = ew; c.stroke(); return; }
     if (f.kind === "ray") { c.strokeStyle = fields(f.k); c.lineWidth = rw; c.setLineDash(f.chief ? [5, 4] : []); c.stroke(); c.setLineDash([]); return; }
     c.closePath(); c.fillStyle = f.color; c.fill();
   });

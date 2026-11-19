@@ -211,7 +211,7 @@ test('image plane and stop ring', async () => {
 });
 
 // Plan #1193, issue #1238 (CR #1237): the plan-base tile's edge outlines return, painter-sorted with the scene.
-// oracle: closed-form orthographic projection of each glazed surface's outer profile point revolved at 2 pi j / segments; the silhouette lines are the rim points of least and greatest projected y, joined first rim to last
+// oracle: closed-form orthographic projection (edge bias: the item depth is the mid depth less 1e-3 of the face depth span, so a face sharing both endpoints, nearer or not, sorts before it) of each glazed surface's outer profile point revolved at 2 pi j / segments; the silhouette lines are the rim points of least and greatest projected y, joined first rim to last
 test('edge outlines', async () => {
   const { layout3dMesh } = await mesh();
   for (const name of ['achromat', 'cooke']) {
@@ -225,14 +225,16 @@ test('edge outlines', async () => {
     const rimPt = (i, j) => { const top = S[i].profile.filter((p) => p[1] >= -1e-9).reduce((a, p) => (p[1] > a[1] ? p : a)); const t = 2 * Math.PI * j / segments; return proj([top[1] * Math.cos(t), top[1] * Math.sin(t), top[0]]); };
     const glazed = S.map((s, i) => i).filter((i) => !S[i].image && (S[i].glass || (S[i - 1] && S[i - 1].glass)));
     const close = (a, b) => Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
-    const edges = items.filter((x) => x.kind === 'edge');
+    const edges = items.filter((x) => x.kind === 'edge'), faces = items.filter((x) => x.kind === 'face');
+    const span = Math.max(...faces.map((f) => f.depth)) - Math.min(...faces.map((f) => f.depth));
     for (const i of glazed) {
       const rim = edges.filter((e) => e.edge === 'rim' && e.surface === i);
       assert.equal(rim.length, segments, `${name} surface ${i}: one rim outline of ${segments} segments`);
       for (let j = 0; j < segments; j++) {
         const a = rimPt(i, j), b = rimPt(i, j + 1), e = rim.find((r) => close(r.p[0], a));
         assert.ok(e && close(e.p[1], b), `${name} surface ${i} rim segment ${j} at the rim's projected points`);
-        assert.ok(Math.abs(e.depth - (a[2] + b[2]) / 2) < 1e-6, `${name} surface ${i} rim segment ${j} at its mid depth`);
+        const mid = (a[2] + b[2]) / 2, bias = mid - e.depth;
+        assert.ok(bias >= 1e-3 * span - 1e-9 && bias < 0.1 * span, `${name} surface ${i} rim segment ${j} sorts nearer than its mid depth by at least 1e-3 of the depth span`);
       }
     }
     assert.equal(edges.filter((e) => e.edge === 'rim').length, glazed.length * segments, `${name}: rims only on glazed surfaces`);
@@ -245,5 +247,16 @@ test('edge outlines', async () => {
       for (const j of [top, bot]) assert.ok(sil.some((e) => e.element === i && close(e.p[0], rimPt(i, j)) && close(e.p[1], rimPt(i + 1, j))), `${name} element ${i}: silhouette at ring point ${j}, first rim to last`);
     }
     for (let n = 1; n < items.length; n++) assert.ok(items[n - 1].depth >= items[n].depth - 1e-9, 'edges sort with the faces');
+    // Plan #1239: a face that shares both endpoints of an edge paints before it; a face clearly nearer than the edge still paints over it.
+    let shared = 0, hidden = 0;
+    for (const e of edges) {
+      const ei = items.indexOf(e);
+      for (const f of faces) {
+        const has = (pt) => f.q.some((v) => close(v, pt));
+        if (has(e.p[0]) && has(e.p[1])) { shared++; assert.ok(items.indexOf(f) < ei, `${name}: a face sharing the ${e.edge} edge paints before it`); }
+        else if (f.depth < e.depth - 1e-2 * span && f.q.some((v) => v)) { hidden++; assert.ok(items.indexOf(f) > ei, `${name}: a clearly nearer face still paints over the edge`); }
+      }
+    }
+    assert.ok(shared > 0 && hidden > 0, `${name}: some faces share an edge, and some nearer faces still cover far edges`);
   }
 });
