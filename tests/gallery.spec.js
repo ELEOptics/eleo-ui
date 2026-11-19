@@ -854,6 +854,44 @@ test('layout3D glasses tile draws', async ({ page }) => {
   }
 });
 
+// Plan #1193 M1, issue #1229 (review M1 round 1, finding 4). A fill the browser rejects (an older browser without oklch(from ...); simulated by a style proxy on the probe span that ignores both glasses' fills) paints the crown token, as layout2D's SVG does.
+// oracle: property, layout2D's SVG falls back to var(--glass-crown) (layout2d.js); a canvas drawn with the fills rejected equals, channel for channel, one drawn with the same fills set to var(--glass-crown), and that canvas holds at least 200 lit pixels.
+test('layout3D rejected fill falls back to crown', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`).evaluate(async (canvas) => {
+      const layout = await (await fetch('/tests/fixtures/layouts/analysis-glasses.json')).json();
+      const px = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+      px.canvas.width = px.canvas.height = 1;
+      const rgb = (css) => { const s = document.createElement('span'); s.style.color = css; canvas.parentNode.appendChild(s); px.clearRect(0, 0, 1, 1); px.fillStyle = getComputedStyle(s).color; px.fillRect(0, 0, 1, 1); s.remove(); return [...px.getImageData(0, 0, 1, 1).data.slice(0, 3)]; };
+      const fills = Object.values(Object.fromEntries([...window.ELEO.glassLegend(layout).matchAll(/--c:([^"]*)"[^>]*>([^<]*)</g)].map((m) => [m[2], m[1]])));
+      const make = document.createElement.bind(document);
+      // `swap` is what the probe's color setter does with a glass fill: undefined drops it (the browser rejects it), else it sets that instead.
+      const draw = (swap) => {
+        document.createElement = (tag, ...rest) => {
+          const el = make(tag, ...rest);
+          if (String(tag).toLowerCase() === 'span') Object.defineProperty(el, 'style', { value: new Proxy(el.style, { get: (t, k) => { const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; }, set: (t, k, v) => { if (k !== 'color' || !fills.includes(v)) t[k] = v; else if (swap) t[k] = swap; return true; } }) });
+          return el;
+        };
+        const c = make('canvas');
+        canvas.parentNode.appendChild(c);
+        try { window.ELEO.layout3D(c, { data: layout }); } finally { document.createElement = make; }
+        const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        c.remove();
+        return px;
+      };
+      const rejected = draw(undefined), crown = draw('var(--glass-crown)');
+      let differ = 0, shaded = 0;
+      for (let i = 0; i < crown.length; i++) if (rejected[i] !== crown[i]) differ++;
+      for (let i = 0; i < crown.length; i += 4) if (crown[i] + crown[i + 1] + crown[i + 2] >= 45) shaded++;
+      return { differ, shaded };
+    });
+    expect(r.shaded, `${theme} the glasses are drawn`).toBeGreaterThanOrEqual(200);
+    expect(r.differ, `${theme} channels that differ from fills set to crown`).toBe(0);
+  }
+});
+
 // Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips). layout3D paints the rays over the image plane they end on.
 // oracle: user request 9 (rays over the plane they end on); property: the --mech pixels with rays are a strict subset of those without (rays: false), in both themes, in the default iso view.
 test('layout3D rays over the image plane', async ({ page }) => {

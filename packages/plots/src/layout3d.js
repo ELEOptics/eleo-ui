@@ -60,10 +60,10 @@ export function layout3D(canvas, o) {
   canvas.width = Wc * dpr; canvas.height = Hc * dpr; var c = canvas.getContext("2d"); c.scale(dpr, dpr);
   var C = function (n) { return css(canvas, n); };
   c.fillStyle = C("surface"); c.fillRect(0, 0, Wc, Hc);
-  // Each distinct fill is CSS that only the browser resolves (var(), oklch()): a probe in the canvas's subtree takes its computed `color`, a 1 px canvas paints it, and the pixel is read back.
+  // Each distinct fill is CSS that only the browser resolves (var(), oklch()): a probe in the canvas's subtree takes its computed `color`, a 1 px canvas paints it, and the pixel is read back. A fill the browser rejects leaves `color` empty and takes the crown token, as layout2D's SVG does.
   var probe = document.createElement("span"), px = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
   px.canvas.width = px.canvas.height = 1; canvas.appendChild(probe);
-  function resolve(fill) { probe.style.color = fill; px.clearRect(0, 0, 1, 1); px.fillStyle = getComputedStyle(probe).color; px.fillRect(0, 0, 1, 1); return Array.prototype.slice.call(px.getImageData(0, 0, 1, 1).data, 0, 3); }
+  function resolve(fill) { probe.style.color = ""; probe.style.color = fill; if (!probe.style.color) probe.style.color = "var(--glass-crown)"; px.clearRect(0, 0, 1, 1); px.fillStyle = getComputedStyle(probe).color; px.fillRect(0, 0, 1, 1); return Array.prototype.slice.call(px.getImageData(0, 0, 1, 1).data, 0, 3); }
   var sc;
   try { sc = layout3dScene(o.data, { width: Wc, height: Hc, rays: o.rays, yaw: o.yaw, pitch: o.pitch, scale: o.scale }, resolve); } finally { canvas.removeChild(probe); }
   var view = sc.view, fields = function (k) { return C("series-" + (k + 1)) || C("field-" + STANDARD[k % STANDARD.length]); };
