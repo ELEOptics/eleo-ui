@@ -198,6 +198,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: CR [#1217] accepted: the default view leaves the drawn rays' starts outside the canvas (wave-end shot on #1196). New item #1218 before #1199.
 - 2026-11-19 orchestrator: CR [#1219] accepted: #1197 adds `packages/plots/src/layout3d.js` and `tests/unit/layout3d.test.js` to its Files, because its `layout3D: pass { data: RecordedLayout }` error can only be thrown there.
 - 2026-11-19 orchestrator: CR [#1220] accepted: #1198 adds `tests/pixel-ratio.spec.js` to its Files, whose canvas count (4) and `=== 'layout3D'` dpr branch a second canvas tile breaks.
+- 2026-11-19 #1199: O2 median recorded: 20.55, 20.45 and 20.55 ms over three runs (PERF=1, chromium, the 50-surface reference layout, marginal-chief rays), over the 16 ms target. O2 is not met: this is the M1 switch signal (median over 16 ms with the face budget met), for the M1 course check. The perf test reports and does not assert, so the gate stays green.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
