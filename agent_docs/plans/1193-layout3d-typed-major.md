@@ -207,6 +207,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 #1199: O2 median recorded: 20.55, 20.45 and 20.55 ms over three runs (PERF=1, chromium, the 50-surface reference layout, marginal-chief rays), over the 16 ms target. O2 is not met: this is the M1 switch signal (median over 16 ms with the face budget met), for the M1 course check. The perf test reports and does not assert, so the gate stays green.
 - 2026-11-19 orchestrator: review M1 round 1: 3 blocking, 4 backlog. CRs [#1222] and [#1223] accepted (item #1225); CR [#1224] (O2 not met) is the user's, decided at the M1 course check; the 4 backlog findings are small and named, so they are pulled into M1 as #1226-#1229.
 - 2026-11-19 CR [#1224] (user): Drop the seam stroke. Work item #1230; the look is judged at the M1 demo.
+- 2026-11-19 #1230 (3b374f2): O2 met. The U14 median without the seam stroke is 8.80-9.20 ms over four runs, against 20.55-20.65 ms with it (chromium, the 50-surface reference, marginal-chief), under 16 ms. perf.spec now asserts it under PERF=1. Whether seams show is judged at the M1 demo (O4).
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
