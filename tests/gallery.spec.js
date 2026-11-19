@@ -854,8 +854,8 @@ test('layout3D glasses tile draws', async ({ page }) => {
   }
 });
 
-// Plan #1193 M1, issue #1229 (review M1 round 1, finding 4). A fill the browser rejects (an older browser without oklch(from ...); simulated by a style proxy on the probe span that ignores both glasses' fills) paints the crown token, as layout2D's SVG does.
-// oracle: property, layout2D's SVG falls back to var(--glass-crown) (layout2d.js); a canvas drawn with the fills rejected equals, channel for channel, one drawn with the same fills set to var(--glass-crown), and that canvas holds at least 200 lit pixels.
+// Plan #1193 M1, issue #1233 (review M1 round 2, finding 1; was #1229). A fill valid at parse time but invalid at computed-value time (a browser without oklch(from ...); simulated by an unknown function that still holds var()) paints crown: the probe inherits it from a crown-coloured wrapper.
+// oracle: CSS Variables spec, a declaration whose var() substitution is invalid at computed-value time computes as `unset`, and `color` inherits; in Chromium `s.style.color = 'notacolorfn(var(--glass-crown))'` keeps the inline value yet computes to the parent's colour. A canvas drawn with the fills swapped for `oklchx(from ...)` equals, channel for channel, one drawn with the same fills set to var(--glass-crown), and that canvas holds at least 200 lit pixels.
 test('layout3D rejected fill falls back to crown', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -867,11 +867,11 @@ test('layout3D rejected fill falls back to crown', async ({ page }) => {
       const rgb = (css) => { const s = document.createElement('span'); s.style.color = css; canvas.parentNode.appendChild(s); px.clearRect(0, 0, 1, 1); px.fillStyle = getComputedStyle(s).color; px.fillRect(0, 0, 1, 1); s.remove(); return [...px.getImageData(0, 0, 1, 1).data.slice(0, 3)]; };
       const fills = Object.values(Object.fromEntries([...window.ELEO.glassLegend(layout).matchAll(/--c:([^"]*)"[^>]*>([^<]*)</g)].map((m) => [m[2], m[1]])));
       const make = document.createElement.bind(document);
-      // `swap` is what the probe's color setter does with a glass fill: undefined drops it (the browser rejects it), else it sets that instead.
+      // `swap` is what the probe's color setter sets in place of a glass fill.
       const draw = (swap) => {
         document.createElement = (tag, ...rest) => {
           const el = make(tag, ...rest);
-          if (String(tag).toLowerCase() === 'span') Object.defineProperty(el, 'style', { value: new Proxy(el.style, { get: (t, k) => { const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; }, set: (t, k, v) => { if (k !== 'color' || !fills.includes(v)) t[k] = v; else if (swap) t[k] = swap; return true; } }) });
+          if (String(tag).toLowerCase() === 'span') Object.defineProperty(el, 'style', { value: new Proxy(el.style, { get: (t, k) => { const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; }, set: (t, k, v) => { if (k !== 'color' || !fills.includes(v)) t[k] = v; else t[k] = swap; return true; } }) });
           return el;
         };
         const c = make('canvas');
@@ -881,7 +881,7 @@ test('layout3D rejected fill falls back to crown', async ({ page }) => {
         c.remove();
         return px;
       };
-      const rejected = draw(undefined), crown = draw('var(--glass-crown)');
+      const rejected = draw('oklchx(from var(--glass-crown) l c h)'), crown = draw('var(--glass-crown)');
       let differ = 0, shaded = 0;
       for (let i = 0; i < crown.length; i++) if (rejected[i] !== crown[i]) differ++;
       for (let i = 0; i < crown.length; i += 4) if (crown[i] + crown[i + 1] + crown[i + 2] >= 45) shaded++;

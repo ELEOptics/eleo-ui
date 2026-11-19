@@ -108,7 +108,7 @@ function layout3DStrokes(read) {
   const saved = { window: globalThis.window, document: globalThis.document, getComputedStyle: globalThis.getComputedStyle };
   globalThis.window = { devicePixelRatio: 1 };
   // the fill probe: a span in the canvas, a 1 px canvas that reads it back
-  globalThis.document = { createElement: (t) => (t === 'canvas' ? { getContext: () => ({ canvas: {}, clearRect() {}, fillRect() {}, getImageData: () => ({ data: [90, 90, 90, 255] }) }) } : { style: {} }) };
+  globalThis.document = { createElement: (t) => (t === 'canvas' ? { getContext: () => ({ canvas: {}, clearRect() {}, fillRect() {}, getImageData: () => ({ data: [90, 90, 90, 255] }) }) } : { style: {}, appendChild() {} }) };
   globalThis.getComputedStyle = () => ({ getPropertyValue: read, color: 'rgb(90, 90, 90)' });
   try {
     ELEO.layout3D({ getContext: () => ctx, appendChild() {}, removeChild() {} }, { data: ELEO.sample.layout });
