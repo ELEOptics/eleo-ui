@@ -154,7 +154,8 @@ test('empty fan is skipped', async () => {
   const base = (await scene(L)).items.filter((x) => x.kind === 'ray').map((x) => [x.i, x.j, x.p]);
   const got = (await scene(withEmpty)).items.filter((x) => x.kind === 'ray');
   assert.ok(got.length > 0 && got.every((x) => x.k >= 1), 'only the non-empty fans draw');
-  assert.equal(got.length, base.length);
+  // k shifts by one, so compare the rest
+  assert.deepEqual(got.map((x) => [x.i, x.j, x.p]), base);
 });
 
 // Plan #1193, item #1218 (CR #1217): the default view frames what is drawn, faces and ray segments together.
