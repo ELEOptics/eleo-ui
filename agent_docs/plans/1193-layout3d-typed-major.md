@@ -124,6 +124,8 @@ the real world yet (user, round 3).
 
 ### M1: layout3D draws any recorded lens system GitHub: `P1193 M1: typed layout3D for lens systems`
 
+Done 2026-11-19: review round 4 (Review M1: 0 blocking, nothing pulled in; backlog #1232, #1221 outside M1); full gate green on 9ec1c25 (553 passed); CI pending on 9ec1c25 at the tick. O2 met at 8.80-9.20 ms (#1230). Demo: pending, with the course check.
+
 Demo: `npm run gallery`: the achromat (the sample's recorded layout) and Cooke glasses 3D tiles in both themes beside
 the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `review-assets`);
 `PERF=1 npx playwright test perf -g layout3D` prints the median. Proves: O1, O2, O4 (lenses)
@@ -214,6 +216,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: review M1 round 2: 1 blocking, 2 backlog, all 7 carried CRs resolved. CR [#1231] accepted (item #1233); finding 3 pulled into M1 as #1234; finding 2's layout2D part filed as #1232 (unverified, outside the range).
 - 2026-11-19 orchestrator: CR [#1235] accepted: #1233 adds `tests/unit/field-order.test.js` to its Files, whose fake span lacks the `appendChild` the crown wrapper needs.
 - 2026-11-19 orchestrator: review M1 round 3: 0 blocking, 1 backlog, all 9 carried CRs resolved. The backlog finding is small and named, so it is pulled into M1 as #1236; round 4 follows.
+- 2026-11-19 review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; all 9 CRs resolved. Rounds: 1 (3 blocking, 4 pulled in), 2 (1 blocking, 1 pulled in), 3 (0 blocking, 1 pulled in), 4 (0, 0). M1 ticked.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
