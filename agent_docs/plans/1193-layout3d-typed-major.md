@@ -138,6 +138,11 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1198 | Gallery: a layout3D tile on the Cooke glasses (`analysis-glasses.json`) | one new tile because O1 must show U12 fills and the sample has only crown and flint; considered a Wandersleb tile, whose elements are all `"crown"` | `gallery/index.html`, `tests/gallery.spec.js`, `tests/pixel-ratio.spec.js` (CR [#1220]) | gallery.spec "layout3D glasses tile draws" (two distinct non-surface fills on the canvas, three browsers) | #1197 |
 | #1218 | layout3D's default view fits the faces and the drawn ray segments together, so no drawn ray leaves the canvas; an explicit `scale` still overrides (CR [#1217]) | fit the scene's projected bounds (faces plus the drawn segments' endpoints) because O1's "framed to fit" means everything layout3D draws; considered clipping the rays at the canvas edge, which hides where they start | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "rays framed" | #1196 |
 | #1199 | Unskip O1 and O2; record the U14 median in the Change log | forced (`workflow.md`, TDD: the last item unskips them) | `tests/unit/layout3d.test.js`, `tests/perf.spec.js` | O1, O2 | #1194, #1195, #1196, #1197, #158, #1198, #1218 |
+| #1225 | layout3D skips a fan with no rays instead of throwing; a ray ends at its first Dead point, else its last point, so `statusEnd` is no longer exported (CRs [#1222], [#1223]) | both findings change the same loop, so one item; the empty-fan rule copies layout2D's; considered keeping statusEnd shared, whose `status` rule layout3D never uses | `packages/plots/src/layout3d.js`, `packages/plots/src/layout2d.js`, `tests/unit/layout2d.test.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "empty fan is skipped" | #1199 |
+| #1226 | Tests: the image face is ±sd at the image surface's z, the stop ring's radii lie in [sd, sd + 2.5] (review M1 finding 7) | two assertions because the projection test exempts both faces; considered projecting them, which tests project() again | `tests/unit/layout3d.test.js` | layout3d.test.js "image plane and stop ring" | #1225 |
+| #1227 | `layout3D(canvas, props: Layout3DProps)`: props required in the types (review M1 finding 5) | the type follows #1197's runtime guard; considered keeping props optional, which types a call that always throws | `packages/plots/src/index.d.ts`, `tests/types/layout3d.ts` | types.test.js "layout3d.ts" | #1226 |
+| #1228 | A bad `chief` index under layout3D throws an error named layout3D (review M1 finding 6) | a name parameter as `drawnGlasses` takes; considered catch and rethrow, which loses the stack | `packages/plots/src/layout2d.js`, `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "bad chief names layout3D" | #1227 |
+| #1229 | layout3D falls back to the crown token for a fill the browser rejects (review M1 finding 4) | crown because layout2D's SVG falls back to it; considered throwing, which blanks a tile on an older browser | `packages/plots/src/layout3d.js`, `tests/gallery.spec.js` | gallery.spec "layout3D rejected fill falls back to crown" | #1228 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -199,6 +204,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: CR [#1219] accepted: #1197 adds `packages/plots/src/layout3d.js` and `tests/unit/layout3d.test.js` to its Files, because its `layout3D: pass { data: RecordedLayout }` error can only be thrown there.
 - 2026-11-19 orchestrator: CR [#1220] accepted: #1198 adds `tests/pixel-ratio.spec.js` to its Files, whose canvas count (4) and `=== 'layout3D'` dpr branch a second canvas tile breaks.
 - 2026-11-19 #1199: O2 median recorded: 20.55, 20.45 and 20.55 ms over three runs (PERF=1, chromium, the 50-surface reference layout, marginal-chief rays), over the 16 ms target. O2 is not met: this is the M1 switch signal (median over 16 ms with the face budget met), for the M1 course check. The perf test reports and does not assert, so the gate stays green.
+- 2026-11-19 orchestrator: review M1 round 1: 3 blocking, 4 backlog. CRs [#1222] and [#1223] accepted (item #1225); CR [#1224] (O2 not met) is the user's, decided at the M1 course check; the 4 backlog findings are small and named, so they are pulled into M1 as #1226-#1229.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
@@ -207,6 +213,9 @@ One bullet per entry (bare lines render as one paragraph).
 [#1217]: https://github.com/ELEOptics/eleo-ui/issues/1217
 [#1219]: https://github.com/ELEOptics/eleo-ui/issues/1219
 [#1220]: https://github.com/ELEOptics/eleo-ui/issues/1220
+[#1222]: https://github.com/ELEOptics/eleo-ui/issues/1222
+[#1223]: https://github.com/ELEOptics/eleo-ui/issues/1223
+[#1224]: https://github.com/ELEOptics/eleo-ui/issues/1224
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
 [#158]: https://github.com/ELEOptics/eleo-ui/issues/158
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
