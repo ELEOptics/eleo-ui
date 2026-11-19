@@ -146,6 +146,7 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1230 | layout3D fills faces without the per-face 0.7 px seam stroke, so the U14 median falls under 16 ms (CR [#1224]) | drop the stroke because it is about 11 ms of the 20.4 ms median; considered batching it (unmeasured) and loosening O2 (the user chose this) | `packages/plots/src/layout3d.js`, `tests/perf.spec.js` | perf.spec "layout3D redraw (U14)" median under 16 ms | #1229 |
 | #1233 | layout3D's fill probe inherits crown from a wrapper, so a fill invalid at computed-value time draws crown (CR [#1231]) | inherit crown because CSS computes an invalid `var()` value as `unset`; considered `CSS.supports`, which can't evaluate `var()` | `packages/plots/src/layout3d.js`, `tests/gallery.spec.js`, `tests/unit/field-order.test.js` (CR [#1235]) | gallery.spec "layout3D rejected fill falls back to crown" (rewritten) | #1230 |
 | #1234 | "empty fan is skipped" compares items, not only counts (review M1 round 2, finding 3) | deep-equal the tuples the test builds; considered counts per fan | `tests/unit/layout3d.test.js` | layout3d.test.js "empty fan is skipped" | #1233 |
+| #1236 | The rejected-fill gallery test loses its unused `px` canvas and `rgb` helper (review M1 round 3, finding 1) | delete because nothing references them; considered using them, which nothing needs | `tests/gallery.spec.js` | gallery.spec "layout3D rejected fill falls back to crown" | #1234 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -212,6 +213,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 #1230 (3b374f2): O2 met. The U14 median without the seam stroke is 8.80-9.20 ms over four runs, against 20.55-20.65 ms with it (chromium, the 50-surface reference, marginal-chief), under 16 ms. perf.spec now asserts it under PERF=1. Whether seams show is judged at the M1 demo (O4).
 - 2026-11-19 orchestrator: review M1 round 2: 1 blocking, 2 backlog, all 7 carried CRs resolved. CR [#1231] accepted (item #1233); finding 3 pulled into M1 as #1234; finding 2's layout2D part filed as #1232 (unverified, outside the range).
 - 2026-11-19 orchestrator: CR [#1235] accepted: #1233 adds `tests/unit/field-order.test.js` to its Files, whose fake span lacks the `appendChild` the crown wrapper needs.
+- 2026-11-19 orchestrator: review M1 round 3: 0 blocking, 1 backlog, all 9 carried CRs resolved. The backlog finding is small and named, so it is pulled into M1 as #1236; round 4 follows.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
