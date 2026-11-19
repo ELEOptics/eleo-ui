@@ -178,3 +178,24 @@ test('layout3D without data throws', async () => {
   const { layout3D } = await mesh();
   for (const o of [undefined, {}, { data: undefined }]) assert.throws(() => layout3D({}, o), { name: 'TypeError', message: 'layout3D: pass { data: RecordedLayout }' });
 });
+
+// Plan #1193, item #1226 (review M1 round 1, finding 7): the projection test exempts the image plane and the stop ring, so their shape is checked here.
+test('image plane and stop ring', async () => {
+  const { layout3dMesh } = await mesh();
+  const L = LAYOUTS.wandersleb, { faces } = layout3dMesh(L, { width: 560 });
+  // oracle: the layout's own image surface (sd, z): the plane is the square [-sd, sd]^2 at that z, written out corner by corner
+  const im = L.surfaces.find((s) => s.image), img = faces.filter((f) => f.image);
+  assert.equal(img.length, 1, 'wandersleb: one image face');
+  const corners = img[0].v.map((p) => p.map((c) => Math.round(c * 1e6) / 1e6).join(',')).sort();
+  const want = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [a * im.sd, b * im.sd, im.z].map((c) => Math.round(c * 1e6) / 1e6).join(',')).sort();
+  assert.deepEqual(corners, want, 'wandersleb: image plane is +-sd at the image surface z');
+  // oracle: layout2D's stop tick length (2.5 mm) and the profile's edge point: every stop-ring vertex has radius in [sd, sd + 2.5] and z at the last profile point
+  const st = L.surfaces.find((s) => s.stop), ring = faces.filter((f) => f.stop);
+  assert.ok(ring.length > 0, 'wandersleb: stop ring faces');
+  const ze = st.profile[st.profile.length - 1][0];
+  for (const f of ring) for (const p of f.v) {
+    const r = Math.hypot(p[0], p[1]);
+    assert.ok(r >= st.sd - 1e-9 && r <= st.sd + 2.5 + 1e-9, `stop ring radius ${r} within [${st.sd}, ${st.sd + 2.5}]`);
+    assert.ok(Math.abs(p[2] - ze) < 1e-9, `stop ring z ${p[2]} at the profile edge ${ze}`);
+  }
+});
