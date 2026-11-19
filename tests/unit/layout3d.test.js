@@ -1,4 +1,4 @@
-// Acceptance tests for plan #1193 (agent_docs/plans/1193-layout3d-typed-major.md), outcome O1. Written skipped; #1199 unskips them.
+// Acceptance tests for plan #1193 (agent_docs/plans/1193-layout3d-typed-major.md), outcome O1.
 // oracle: closed-form orthographic projection (rotation written below) of each recorded layout's revolved profile; property glassFill per glass name
 // Assumed mesh API (#1195): layout3dMesh(layout, { width }) -> { faces: [{ v: [[x, y, z], ...], glass, fill }] } with z the optical axis;
 // project(p, view) -> [px, py, depth] with view { yaw, pitch, scale, center: [x, y, z], origin: [ox, oy] }.
@@ -30,7 +30,7 @@ function profileZ(s, r) {
   return null;
 }
 
-test.skip('revolved profiles project', async () => {
+test('revolved profiles project', async () => {
   const { layout3dMesh, project } = await mesh();
   for (const [name, layout] of Object.entries(LAYOUTS)) for (const v of VIEWS) {
     const { faces } = layout3dMesh(layout, { width: 560 });
@@ -53,7 +53,7 @@ test.skip('revolved profiles project', async () => {
   }
 });
 
-test.skip('glass fills per element', async () => {
+test('glass fills per element', async () => {
   const { layout3dMesh } = await mesh();
   // {name, nd, vd} glasses: every glazed face carries glassFill's fill for its glass name, and every glass has faces
   const cooke = LAYOUTS.cooke, glasses = drawnGlasses(cooke.surfaces), fills = glassFill(glasses);

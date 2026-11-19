@@ -162,8 +162,9 @@ if (process.env.PERF === '1') test('layout2D redraw (U14)', async ({ page }) => 
   test.info().annotations.push({ type: 'median-ms', description: median.toFixed(2) });
 });
 
-// U14 for layout3D (plan #1193, O2): the reference layout above, 20 redraws on a canvas, each followed by a 1 px getImageData read (canvas 2D is deferred: an unflushed timing reads ~5x low). Written skipped; the plan's last item unskips it.
-if (process.env.PERF === '1') test.skip('layout3D redraw (U14)', async ({ page }) => {
+// U14 for layout3D (plan #1193, O2): the reference layout above, 20 redraws on a canvas, each followed by a 1 px getImageData read (canvas 2D is deferred: an unflushed timing reads ~5x low).
+// oracle: measurement roadmap U14: median of 20 redraws of the reference layout, each timed with performance.now() around layout3D plus a 1 px getImageData read, in headless Chromium; reported, not asserted (a measurement, as the other redraw tests).
+if (process.env.PERF === '1') test('layout3D redraw (U14)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body[data-ready]')).toHaveCount(1);
   const median = await page.evaluate((data) => {
