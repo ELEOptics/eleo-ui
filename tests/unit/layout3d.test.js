@@ -9,7 +9,7 @@ import sample from '../../packages/plots/src/sample.js';
 import { glassFill, drawnGlasses } from '../../packages/plots/src/glass.js';
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/layouts/${name}.json`, import.meta.url)));
-const LAYOUTS = { achromat: sample.layout, cooke: fixture('analysis-glasses'), wandersleb: JSON.parse(readFileSync(new URL('../fixtures/phos-core/wandersleb-layout.json', import.meta.url))).layout };
+const LAYOUTS = { achromat: sample.layout, cooke: fixture('analysis-glasses'), wandersleb: JSON.parse(readFileSync(new URL('../fixtures/phos-core/wandersleb-layout.json', import.meta.url))) };
 const VIEWS = [{ yaw: -38, pitch: 16 }, { yaw: 20, pitch: -10 }];
 const SCALE = 6, ORIGIN = [280, 160]; // px/mm, px
 const mesh = async () => import('../../packages/plots/src/layout3d.js');
@@ -46,8 +46,8 @@ test.skip('revolved profiles project', async () => {
         const want = ortho([r * Math.cos(phi), r * Math.sin(phi), z], v, zc);
         return Math.hypot(got[0] - want[0], got[1] - want[1]);
       }), Infinity);
-      // the image plane is square, not revolved: its corners are exempt
-      if (f.image) continue;
+      // the image plane is square and the stop ring a flat annulus outside the profile, neither revolved: their vertices are exempt
+      if (f.image || f.stop) continue;
       assert.ok(best <= 0.5, `${name} yaw ${v.yaw} pitch ${v.pitch}: vertex ${p} is ${best.toFixed(2)} px from the revolved profile`);
     }
   }
@@ -72,4 +72,33 @@ test.skip('glass fills per element', async () => {
   assert.equal(flint.size, 1, 'flint has one fill');
   assert.notEqual([...crown][0], [...flint][0], 'crown and flint differ');
   assert.deepEqual([...wand], [...crown], 'wandersleb crown elements keep the crown token');
+});
+
+// The 50-surface reference layout of U14 (tests/perf.spec.js referenceLayout): surfaces only, the mesh reads no rays.
+const reference = () => ({
+  rays: [],
+  surfaces: Array.from({ length: 50 }, (_, s) => {
+    const sd = 10, z = s * 5, c = 0.02 * Math.cos(s);
+    return {
+      z, sd, stop: s === 25, image: s === 49, glass: s === 49 ? null : s % 2 ? null : (s % 4 === 0 ? 'crown' : 'flint'),
+      profile: Array.from({ length: 41 }, (_, i) => { const y = -sd + (2 * sd * i) / 40; return [z + c * y * y, y]; }),
+    };
+  }),
+});
+
+test('face budget at 50 surfaces', async () => {
+  const { layout3dMesh, project, fitView } = await mesh();
+  const big = layout3dMesh(reference(), { width: 560 }).faces;
+  assert.ok(big.length <= 3500, `50 surfaces: ${big.length} faces within 3,500`);
+  assert.ok(big.length >= 2000, `50 surfaces: ${big.length} faces, not too coarse`);
+  assert.ok(big.some((f) => f.image), 'the image plane is a face');
+  // a small system keeps a higher density per surface than the 50-surface one
+  const per = (L) => { const m = layout3dMesh(L, { width: 560 }); return m.segments * m.rings; };
+  assert.ok(per(LAYOUTS.achromat) > per(reference()), 'achromat is denser per surface');
+  // the default view fits the rotated bounds into width x height; an explicit scale wins
+  const m = layout3dMesh(LAYOUTS.cooke, { width: 560 }), view = fitView(m, { width: 560, height: 320 });
+  for (const f of m.faces) for (const p of f.v) { const q = project(p, view); assert.ok(q[0] >= -0.5 && q[0] <= 560.5 && q[1] >= -0.5 && q[1] <= 320.5, `fits: ${q}`); }
+  assert.equal(fitView(m, { width: 560, height: 320, scale: 3 }).scale, 3);
+  // anything but a RecordedLayout is a named error
+  for (const bad of [null, {}, { surfaces: [] }, 'x']) assert.throws(() => layout3dMesh(bad, { width: 560 }), /layout3dMesh: expected a RecordedLayout/);
 });
