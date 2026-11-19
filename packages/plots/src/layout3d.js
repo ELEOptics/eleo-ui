@@ -10,8 +10,9 @@ var LIGHT = (function () { var v = [-0.35, 0.75, -0.55], m = Math.hypot(v[0], v[
  * What layout3D paints, far to near: the mesh's faces shaded by the light, and the air segments of the chosen ray sets (never inside glass, through the first Dead
  * point, never a Virtual segment) at their mid depth. `resolve(fill)` returns the [r, g, b] of a face's CSS fill, called once per distinct fill.
  * The element edges are in the scene too, so a near face hides a far rim: each rim segment (`{ kind: "edge", edge: "rim", surface, p, depth }`) and each element's two silhouette lines
- * (`edge: "silhouette", element`, the glass gap's first surface; the rim points of least and greatest projected y, first rim to last) sit at their mid depth, or the depth of the nearest face that shares them if nearer, less 1e-3 of the faces' depth span, so the faces that share them paint first.
- * @returns {{ view: object, items: object[] }} faces `{ kind: "face", q: [px, py][], depth, color }`, segments `{ kind: "ray", k, i, j, p: [[px, py], [px, py]], depth, chief }`, edges `{ kind: "edge", edge, surface | element, p: [[px, py], [px, py]], depth }`
+ * (`edge: "silhouette", element`, the glass gap's first surface; the rim points of least and greatest projected y, first rim to last) sit at their mid depth, or the depth of the nearest face that shares them if nearer, less 1e-3 of the faces' depth span (rays excluded), so the faces that share them paint first and the line keeps its full width.
+ * That can put an edge after a face that is nearer and does not share it, so each edge's `clip` lists the polygons (the part of such a face where its plane is nearer than the edge by more than 5e-3 of the faces' depth span) the painter keeps the line out of.
+ * @returns {{ view: object, items: object[] }} faces `{ kind: "face", q: [px, py][], depth, color }`, segments `{ kind: "ray", k, i, j, p: [[px, py], [px, py]], depth, chief }`, edges `{ kind: "edge", edge, surface | element, p: [[px, py], [px, py]], depth, clip: [px, py][][] }`
  */
 export function layout3dScene(layout, o, resolve) {
   o = o || {};
@@ -43,21 +44,21 @@ export function layout3dScene(layout, o, resolve) {
     var u = [0, 1, 2].map(function (i) { return a[2][i] - a[0][i]; }), w = [0, 1, 2].map(function (i) { return a[3][i] - a[1][i]; });
     var n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]], nm = Math.hypot(n[0], n[1], n[2]) || 1;
     var k = f.image ? 1 : 0.82 + 0.18 * Math.abs((n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]) / nm);
-    items.push({ kind: "face", q: q.map(function (p) { return [p[0], p[1]]; }), depth: q.reduce(function (d, p) { return d + p[2]; }, 0) / q.length, color: "rgb(" + toneOf(f.fill).map(function (v) { return Math.min(255, Math.round(v * k)); }) + ")", image: !!f.image, stop: !!f.stop });
+    items.push({ kind: "face", q: q.map(function (p) { return [p[0], p[1]]; }), depth: q.reduce(function (d, p) { return d + p[2]; }, 0) / q.length, color: "rgb(" + toneOf(f.fill).map(function (v) { return Math.min(255, Math.round(v * k)); }) + ")", image: !!f.image, stop: !!f.stop, z: q.map(function (p) { return p[2]; }) });
   });
   segs.forEach(function (g) {
     var a = project(g.a, view), b = project(g.b, view);
     items.push({ kind: "ray", k: g.k, i: g.i, j: g.j, p: [[a[0], a[1]], [b[0], b[1]]], depth: (a[2] + b[2]) / 2, chief: g.chief });
   });
   // An edge sorts nearer than the faces that share it (and than its mid depth), by 1e-3 of the faces' depth span: they paint first and the line is not half covered. A face that is really nearer still hides it.
-  var zs3 = items.map(function (f) { return f.depth; }), bias = 1e-3 * (Math.max.apply(null, zs3) - Math.min.apply(null, zs3));
+  var zs3 = items.filter(function (f) { return f.kind === "face"; }).map(function (f) { return f.depth; }), fspan = Math.max.apply(null, zs3) - Math.min.apply(null, zs3), bias = 1e-3 * fspan;
   function pk(p) { return Math.round(p[0] * 1e3) + "," + Math.round(p[1] * 1e3); }
   function sk(a, b) { var x = pk(a), y = pk(b); return x < y ? x + "|" + y : y + "|" + x; }
   var side = new Map();
   items.forEach(function (f) { if (f.kind === "face") f.q.forEach(function (a, j) { var k = sk(a, f.q[(j + 1) % f.q.length]); side.set(k, Math.min(side.has(k) ? side.get(k) : Infinity, f.depth)); }); });
   function edge(kind, key, id, a, b) {
     var d = Math.min((a[2] + b[2]) / 2, side.has(sk(a, b)) ? side.get(sk(a, b)) : Infinity) - bias;
-    var e = { kind: "edge", edge: kind, p: [[a[0], a[1]], [b[0], b[1]]], depth: d }; e[key] = id; items.push(e);
+    var e = { kind: "edge", edge: kind, p: [[a[0], a[1]], [b[0], b[1]]], depth: d, clip: [], z: [a[2], b[2]] }; e[key] = id; items.push(e);
   }
   var ring = {};
   mesh.rims.forEach(function (r) {
@@ -73,7 +74,72 @@ export function layout3dScene(layout, o, resolve) {
   var im = S.findIndex(function (x) { return x.image; });
   items.forEach(function (f) { if (f.image) items.forEach(function (r) { if (r.kind === "ray" && r.j === im + 1 && r.depth > f.depth) f.depth = r.depth; }); });
   items.sort(function (a, b) { return b.depth - a.depth; });
+  clipEdges(items, 5e-3 * fspan, pk);
   return { view: view, items: items };
+}
+
+// An edge sorts after the faces that share it, which can put it after a nearer face that does not. Each edge records, in `clip`, the part of every such face (one painted before the edge, not sharing it, covering it)
+// where the face's plane is nearer than the edge by more than `eps`: the painter paints the edge outside those polygons. `z` (the endpoint depths) is internal and is dropped.
+function clipEdges(items, eps, pk) {
+  var cell = 16, X0 = Infinity, Y0 = Infinity, X1 = -Infinity, Y1 = -Infinity;
+  items.forEach(function (f) { if (f.kind === "edge" || f.kind === "face") (f.p || f.q).forEach(function (p) { X0 = Math.min(X0, p[0]); X1 = Math.max(X1, p[0]); Y0 = Math.min(Y0, p[1]); Y1 = Math.max(Y1, p[1]); }); });
+  var nx = Math.floor((X1 - X0) / cell) + 1, ny = Math.floor((Y1 - Y0) / cell) + 1, grid = new Array(nx * ny);
+  function cells(x0, y0, x1, y1, fn) { for (var x = Math.floor((x0 - X0) / cell); x <= Math.floor((x1 - X0) / cell); x++) for (var y = Math.floor((y0 - Y0) / cell); y <= Math.floor((y1 - Y0) / cell); y++) fn(x * ny + y); }
+  items.forEach(function (f, n) {
+    if (f.kind !== "face" || f.image || f.q.length < 3) return;
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, zmin = Infinity;
+    f.q.forEach(function (p, i) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); zmin = Math.min(zmin, f.z[i]); });
+    var o = { f: f, n: n, zmin: zmin, stamp: -1, x0: x0, y0: y0, x1: x1, y1: y1 };
+    cells(x0, y0, x1, y1, function (k) { var l = grid[k]; if (l) l.push(o); else grid[k] = [o]; });
+  });
+  items.forEach(function (e, ei) {
+    if (e.kind !== "edge") return;
+    var a = e.p[0], b = e.p[1], dx = b[0] - a[0], dy = b[1] - a[1], len2 = dx * dx + dy * dy, ze = Math.max(e.z[0], e.z[1]) - eps, ka, kb, bx0 = Math.min(a[0], b[0]), bx1 = Math.max(a[0], b[0]), by0 = Math.min(a[1], b[1]), by1 = Math.max(a[1], b[1]);
+    // a face reaches the edge only if it paints before it and some of its plane is nearer than the edge's far end by eps
+    if (len2 > 1e-12) cells(bx0, by0, bx1, by1, function (k) {
+      var l = grid[k]; if (!l) return;
+      for (var m = 0; m < l.length; m++) {
+        var o = l[m]; if (o.stamp === ei || o.n > ei || o.zmin >= ze) continue; o.stamp = ei;
+        if (o.x1 < bx0 || o.x0 > bx1 || o.y1 < by0 || o.y0 > by1) continue;
+        var poly = nearer(o.f, e, eps, len2);
+        if (!poly || !reaches(poly, a, dx, dy)) continue;
+        if (ka === undefined) { ka = pk(a); kb = pk(b); }
+        var ks = o.f.q.map(pk); if (ks.indexOf(ka) < 0 || ks.indexOf(kb) < 0) e.clip.push(poly);
+      }
+    });
+    delete e.z;
+  });
+}
+// The part of face f's polygon where its plane is nearer than edge e's depth (linear from endpoint to endpoint along the edge) by more than eps; null if none.
+function nearer(f, e, eps, len2) {
+  var q = f.q, z = f.z, a = e.p[0], dx = e.p[1][0] - a[0], dy = e.p[1][1] - a[1];
+  // the plane through q[0..2]: z = z0 + u * (x - x0) + v * (y - y0)
+  var x1 = q[1][0] - q[0][0], y1 = q[1][1] - q[0][1], x2 = q[2][0] - q[0][0], y2 = q[2][1] - q[0][1], det = x1 * y2 - x2 * y1;
+  if (Math.abs(det) < 1e-9) return null;
+  var d1 = z[1] - z[0], d2 = z[2] - z[0], u = (d1 * y2 - d2 * y1) / det, v = (x1 * d2 - x2 * d1) / det;
+  var ez = e.z[0], ed = e.z[1] - e.z[0], any = false, gs = [];
+  for (var i = 0; i < q.length; i++) { var p = q[i], gi = z[0] + u * (p[0] - q[0][0]) + v * (p[1] - q[0][1]) - (ez + ed * ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2) + eps; gs.push(gi); if (gi < 0) any = true; }
+  if (!any) return null;
+  var out = [];
+  q.forEach(function (p, i) {
+    var j = (i + 1) % q.length, r = q[j], gi = gs[i], gj = gs[j];
+    if (gi < 0) out.push(p);
+    if ((gi < 0) !== (gj < 0)) { var t = gi / (gi - gj); out.push([p[0] + t * (r[0] - p[0]), p[1] + t * (r[1] - p[1])]); }
+  });
+  return out.length >= 3 ? out : null;
+}
+// Does the segment a + t (dx, dy), t in [0, 1], pass through the convex polygon (more than a sliver of it)?
+function reaches(poly, a, dx, dy) {
+  var area = 0; poly.forEach(function (p, i) { var r = poly[(i + 1) % poly.length]; area += p[0] * r[1] - r[0] * p[1]; });
+  if (Math.abs(area) < 1e-9) return false;
+  var sgn = area > 0 ? 1 : -1, t0 = 0, t1 = 1;
+  for (var i = 0; i < poly.length; i++) {
+    var p = poly[i], r = poly[(i + 1) % poly.length], ex = r[0] - p[0], ey = r[1] - p[1];
+    var side = sgn * (ex * (a[1] - p[1]) - ey * (a[0] - p[0])), rate = sgn * (ex * dy - ey * dx);
+    if (Math.abs(rate) < 1e-12) { if (side < 0) return false; continue; }
+    var t = -side / rate; if (rate > 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t);
+  }
+  return t1 - t0 > 1e-6;
 }
 
 export function layout3D(canvas, o) {
@@ -97,7 +163,13 @@ export function layout3D(canvas, o) {
   var edgeColor = C("glass-edge"), rw = parseFloat(C("stroke-ray")) || 1.1, ew = parseFloat(C("stroke-edge")) || 1.25;
   sc.items.forEach(function (f) {
     path(f.p || f.q);
-    if (f.kind === "edge") { c.strokeStyle = edgeColor; c.lineWidth = ew; c.stroke(); return; }
+    if (f.kind === "edge") {
+      c.strokeStyle = edgeColor; c.lineWidth = ew;
+      if (!f.clip.length) { c.stroke(); return; }
+      c.save();
+      f.clip.forEach(function (q) { c.beginPath(); c.rect(-1, -1, Wc + 2, Hc + 2); q.forEach(function (p, i) { if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); c.clip("evenodd"); });
+      path(f.p); c.stroke(); c.restore(); return;
+    }
     if (f.kind === "ray") { c.strokeStyle = fields(f.k); c.lineWidth = rw; c.setLineDash(f.chief ? [5, 4] : []); c.stroke(); c.setLineDash([]); return; }
     c.closePath(); c.fillStyle = f.color; c.fill();
   });
