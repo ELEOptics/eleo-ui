@@ -146,3 +146,16 @@ test('dead and virtual cut', async () => {
   assert.deepEqual(segs((await scene(st(['Alive', 'Alive', 'Dead', 'Virtual', 'Virtual']), { rays: 'fan' })).items, 0, 0), [1, 2]);
   assert.deepEqual(segs((await scene(st(['Alive', 'Virtual', 'Virtual', 'Virtual', 'Virtual']), { rays: 'fan' })).items, 0, 0), [1]);
 });
+
+// Plan #1193, item #1218 (CR #1217): the default view frames what is drawn, faces and ray segments together.
+test('rays framed', async () => {
+  for (const L of [LAYOUTS.achromat, LAYOUTS.cooke]) {
+    const { items } = await scene(L);
+    const rays = items.filter((x) => x.kind === 'ray');
+    assert.ok(rays.length > 0, 'rays drawn');
+    for (const r of rays) for (const p of r.p) assert.ok(p[0] >= 16 - 0.5 && p[0] <= 560 - 16 + 0.5 && p[1] >= 16 - 0.5 && p[1] <= 320 - 16 + 0.5, `ray endpoint in the margin: ${p}`);
+    for (const f of items.filter((x) => x.kind === 'face')) for (const p of f.q) assert.ok(p[0] >= 16 - 0.5 && p[0] <= 560 - 16 + 0.5 && p[1] >= 16 - 0.5 && p[1] <= 320 - 16 + 0.5, `face point in the margin: ${p}`);
+  }
+  // an explicit scale still wins
+  assert.equal((await scene(LAYOUTS.achromat, { scale: 3 })).view.scale, 3);
+});
