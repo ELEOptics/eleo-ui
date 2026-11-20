@@ -7,8 +7,13 @@ const CHROMIUM_ONLY = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'm
 // software (SwiftShader, 85-105 ms) and times nothing. Run: PERF=1 GPU=1 npx playwright test gallery.spec -g "layout3D tiles draw" --project=chromium
 const GPU = process.env.PERF === '1' && process.env.GPU === '1';
 
-// Chromium's WebGL backend. CI has no GPU: SwiftShader, explicitly allowed (newer Chromium refuses the fallback otherwise).
-const SOFT_GL = GPU ? ['--use-angle=metal', '--ignore-gpu-blocklist'] : process.env.CI ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [];
+// Chromium's WebGL backend: Metal only for the local GPU timing. CI passes no GL args: ANGLE flags there change how Chromium
+// rasterises 2D canvases and drift the pixel recordings (#1260), and Chromium falls back to SwiftShader on its own (run 44765032622).
+const GL_ARGS = GPU ? ['--use-angle=metal', '--ignore-gpu-blocklist'] : [];
+
+// Firefox on a GPU-less Linux runner has no hardware GL: force WebGL on so it takes the software path (Mesa llvmpipe; Playwright's
+// Firefox already sets webgl.forbid-software false). Prefs from Mozilla's all.js: webgl.force-enabled overrides the blocklist.
+const FIREFOX_PREFS = { 'webgl.disabled': false, 'webgl.force-enabled': true, 'webgl.forbid-software': false };
 
 export default defineConfig({
   testDir: 'tests',
@@ -16,8 +21,8 @@ export default defineConfig({
   use: { baseURL: 'http://localhost:4173', viewport: { width: 1440, height: 900 } },
   webServer: { command: 'node gallery/serve.mjs', url: 'http://localhost:4173/gallery/', reuseExistingServer: true },
   projects: [
-    { name: 'chromium', use: { browserName: 'chromium', launchOptions: { args: SOFT_GL } } },
-    { name: 'firefox', use: { browserName: 'firefox' }, testIgnore: CHROMIUM_ONLY },
+    { name: 'chromium', use: { browserName: 'chromium', launchOptions: { args: GL_ARGS } } },
+    { name: 'firefox', use: { browserName: 'firefox', launchOptions: { firefoxUserPrefs: FIREFOX_PREFS } }, testIgnore: CHROMIUM_ONLY },
     { name: 'webkit', use: { browserName: 'webkit' }, testIgnore: CHROMIUM_ONLY },
   ],
 });
