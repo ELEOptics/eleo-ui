@@ -25,7 +25,7 @@ function profileZ(s, r) {
   const half = s.profile.filter((p) => p[1] >= -1e-9);
   for (let i = 0; i + 1 < half.length; i++) {
     const [z0, y0] = half[i], [z1, y1] = half[i + 1];
-    if (r >= y0 - 1e-9 && r <= y1 + 1e-9) return z0 + ((z1 - z0) * (r - y0)) / (y1 - y0 || 1);
+    if (r >= y0 - 1e-5 && r <= y1 + 1e-5) return z0 + ((z1 - z0) * (r - y0)) / (y1 - y0 || 1);
   }
   return null;
 }
@@ -346,12 +346,14 @@ const viaCamera = (camera, [x, y, z], w, h) => {
 };
 
 // O1. oracle: closed-form orthographic projection (ortho above: yaw about y, pitch about x) of each recorded layout's revolved profile; every mesh vertex, projected by the camera's matrices, is within 0.5 px of it.
+// The camera centres the fitted bounds, ortho centres (0, 0, zc) at ORIGIN: the two differ by one translation, taken from where the camera puts (0, 0, zc), so rotation and scale are still checked.
 test.skip('revolved profiles project (three)', async () => {
   const { layout3dScene } = await three();
   for (const [name, layout] of Object.entries(LAYOUTS)) for (const v of [{ view: 'iso' }, { yaw: 20, pitch: -10 }]) {
     const { scene, camera } = layout3dScene(layout, { ...v, width: 560, height: 320, scale: SCALE }, () => 0x808080);
     const zc = layout.surfaces[layout.surfaces.length - 1].z / 2;
     const yp = v.view === 'iso' ? { yaw: -45, pitch: 35.264 } : v;
+    const c0 = viaCamera(camera, [0, 0, zc], 560, 320), dx = c0[0] - ORIGIN[0], dy = c0[1] - ORIGIN[1];
     let n = 0;
     scene.traverse((o) => {
       if (!o.isMesh || o.userData.image || o.userData.stop) return;
@@ -364,7 +366,7 @@ test.skip('revolved profiles project (three)', async () => {
           if (z === null) return Infinity;
           const want = ortho([r * Math.cos(phi), r * Math.sin(phi), z], yp, zc);
           const got = viaCamera(camera, p, 560, 320);
-          return Math.hypot(got[0] - want[0], got[1] - want[1]);
+          return Math.hypot(got[0] - dx - want[0], got[1] - dy - want[1]);
         }), Infinity);
         assert.ok(best <= 0.5, `${name}: vertex ${p} is ${best.toFixed(2)} px from the revolved profile`);
         n++;
@@ -378,12 +380,14 @@ test.skip('revolved profiles project (three)', async () => {
 test.skip('glass fills per element (three)', async () => {
   const { layout3dScene } = await three();
   const cooke = LAYOUTS.cooke, glasses = drawnGlasses(cooke.surfaces), fills = glassFill(glasses);
-  const seen = new Set();
-  const { scene } = layout3dScene(cooke, { width: 560, height: 320 }, (fill) => fill);
+  const seen = new Set(), hex = new Map();
+  // the CSS fill is a browser's to resolve: stand in a distinct colour per fill, so a mesh coloured from the wrong fill differs
+  const resolve = (fill) => { if (!hex.has(fill)) hex.set(fill, 0x101010 + 0x101010 * hex.size); return hex.get(fill); };
+  const { scene } = layout3dScene(cooke, { width: 560, height: 320 }, resolve);
   scene.traverse((o) => {
     if (!o.isMesh || o.userData.glass === undefined) return;
     assert.equal(o.userData.fill, fills.get(o.userData.glass), `a ${o.userData.glass} mesh carries glassFill's fill`);
-    assert.equal(o.material.color.getHex ? o.material.userData.fill ?? o.userData.fill : o.userData.fill, o.userData.fill);
+    assert.equal(o.material.color.getHex(), resolve(fills.get(o.userData.glass)), `a ${o.userData.glass} mesh is coloured resolve(its fill)`);
     seen.add(o.userData.glass);
   });
   for (const g of new Set(glasses.map((x) => x.name))) assert.ok(seen.has(g), `${g} has a mesh`);
@@ -400,14 +404,17 @@ test.skip('front view matches layout2D', async () => {
       i: Number(q[2]),
       pts: q[1].trim().split(/\s+/).map((p) => p.split(',').map(Number)).map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]),
     }));
+    // layout2D centres its own box; the camera centres its fitted bounds: one translation apart, taken at the first surface's axis point
+    const s0 = layout.surfaces[0], a0 = [m[0] * s0.profile[0][0] + m[4], m[5]];
     const { scene, camera } = layout3dScene(layout, { view: 'front', width: 560, height: 320, scale: m[0] }, () => 0x808080);
+    const c0 = viaCamera(camera, [0, 0, s0.profile[0][0]], 560, 320), dx = c0[0] - a0[0], dy = c0[1] - a0[1];
     let checked = 0;
     scene.traverse((o) => {
       if (!o.isMesh || o.userData.glass === undefined) return;
       const pos = o.geometry.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         if (Math.abs(pos.getX(i)) > 1e-9) continue;
-        const got = viaCamera(camera, [pos.getX(i), pos.getY(i), pos.getZ(i)], 560, 320);
+        const got = viaCamera(camera, [pos.getX(i), pos.getY(i), pos.getZ(i)], 560, 320).map((c, a) => c - (a ? dy : dx));
         const d = Math.min(...polys.flatMap((q) => q.pts.map((p) => Math.hypot(got[0] - p[0], got[1] - p[1]))));
         assert.ok(d <= 0.5, `${name}: meridian vertex is ${d.toFixed(2)} px from layout2D's polygons`);
         checked++;
