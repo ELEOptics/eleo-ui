@@ -153,6 +153,7 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1239 | Edges sort slightly nearer than their mid depth so faces sharing them paint first, and their width reads `--stroke-edge` (review M1 round 5, findings 1 and 2) | a small nearer bias because the shared face sorts at almost the same depth; considered drawing all edges after all faces, which lets a far rim show through a near lens | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "edge outlines" (extended) | #1238 |
 | #1241 | Edge outlines both full width (no sharing face over an edge) and correctly hidden (no edge over a nearer face): each edge drawn after its sharing faces and clipped against nearer faces; bias over the faces' span; tests from the plane-depth sampling (CRs [#1240], [#1242]; review M1 round 6, findings 2 and 3) | the user chose both properties at more cost (CR [#1242]); considered the c765907 rule (Cooke over-draw) and mid depth (half-covered edges), each failing one property | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "edge outlines" ((a) and (b), achromat and Cooke, two views) | #1239 |
 | #1243 | clipEdges returns early on an empty scene; no COUNTS log; faces drop `z`; silhouettes sampled and a gallery pixel check that the clip is applied (review M1 round 7, findings 1-4) | the reviewer's named fixes, each one or two lines; considered leaving 4 to the unit tests, which pass with the clip removed | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js`, `tests/gallery.spec.js` | layout3d.test.js "empty scene", sampling with silhouettes; gallery.spec "layout3D clips edges behind nearer faces" | #1241 |
+| #1245 | Face items never carry `z` (depths kept beside them), grid cells skipped for faces with no depth overlap with any edge, and the silhouette sampling asserted (CR [#1244]; review M1 round 8, finding 2) | depths beside the items because deleting a property on 3500 objects slows every later read; considered keeping `z` on faces, which leaks it to callers | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | perf.spec U14 median at most 15 ms over five runs; "no item keeps its internal z"; silhouette assertion | #1243 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -226,6 +227,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: review M1 round 6: 1 blocking, 2 backlog. The breaker tripped (blocking + pulled in: r4 0, r5 1, r6 3, no fall for 2 rounds): "Review M1 stuck: 1 blocking, no fall for 2 rounds". stuck (user, 2026-11-19): continue. CR [#1240] accepted; findings 2 (the Cooke default view's back rim drawn over the front band, 79 wrong samples against 44 before #1239) and 3 pulled in; all three fixed in #1241; round 7 follows.
 - 2026-11-19 CR [#1242] (user): Both, at more cost. One depth per edge cannot give full-width edges and correct occlusion together (#1241's counts: c765907 over-draws 77/73 Cooke samples, mid depth half-covers 283-306 edges), so #1241 draws each edge after its sharing faces, clipped against nearer faces, within O2.
 - 2026-11-19 orchestrator: review M1 round 7: 0 blocking, 4 backlog; all 12 CRs resolved (#1240, #1242 by #1241). Pulling the 4 in tripped the breaker again (r4 0, r5 1, r6 3, r7 4). stuck (user, 2026-11-19): continue. Item #1243; round 8 follows.
+- 2026-11-19 orchestrator: review M1 round 8: 1 blocking, 1 backlog (breaker count 2, down from 4). CR [#1244] accepted: #1243's `delete f.z` on face items raised the U14 median to about 16.1 ms (O2 failing 8 of 10 runs; the base was about 15.5 ms, failing 1 of 7). Item #1245 keeps depths off the items and restores headroom; finding 2 pulled in. Round 9 follows.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
@@ -242,6 +244,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1237]: https://github.com/ELEOptics/eleo-ui/issues/1237
 [#1240]: https://github.com/ELEOptics/eleo-ui/issues/1240
 [#1242]: https://github.com/ELEOptics/eleo-ui/issues/1242
+[#1244]: https://github.com/ELEOptics/eleo-ui/issues/1244
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
 [#158]: https://github.com/ELEOptics/eleo-ui/issues/158
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
