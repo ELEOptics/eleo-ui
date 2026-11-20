@@ -109,7 +109,7 @@ export function layout3dScene(layout, o, resolve) {
   scene.add(sun, new AmbientLight(0xffffff, 0.9));
 
   // the camera: basis from yaw and pitch (right, up, forward = away from the viewer), the bounds of every face and drawn ray point in that basis
-  const v = o.yaw != null || o.pitch != null ? { yaw: o.yaw ?? PRESETS.iso.yaw, pitch: o.pitch ?? PRESETS.iso.pitch } : PRESETS[o.view || 'iso'];
+  const v = o.yaw != null || o.pitch != null ? { yaw: o.yaw ?? PRESETS.iso.yaw, pitch: o.pitch ?? PRESETS.iso.pitch } : (Object.hasOwn(PRESETS, o.view || 'iso') ? PRESETS[o.view || 'iso'] : null);
   if (!v) throw new TypeError('layout3dScene: view is iso, front or top');
   const th = v.yaw * Math.PI / 180, ph = v.pitch * Math.PI / 180;
   const right = new Vector3(-Math.sin(th), 0, Math.cos(th)), up = new Vector3(-Math.cos(th) * Math.sin(ph), Math.cos(ph), -Math.sin(th) * Math.sin(ph));

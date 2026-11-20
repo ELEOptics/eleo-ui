@@ -269,3 +269,10 @@ test('silhouettes do not grow per redraw', async () => {
   assert.ok(geoms.size > 0);
   assert.equal(geoms.size, lines(layout3dScene(L, { view: 'front', width: 560, height: 320 }, () => 0x808080).scene, (u) => u.edge === 'silhouette').length, '10 redraws leave one geometry per silhouette line');
 });
+
+// Plan #1193 M2, issue #1278 (review M2 r1 finding 8): only the preset table's own keys name a view; inherited ones must not build a NaN camera.
+// oracle: spec (the named error in the issue; Object.prototype names are not views).
+test('unknown view names throw', async () => {
+  const { layout3dScene } = await three();
+  for (const view of ['toString', 'constructor', 'side']) assert.throws(() => layout3dScene(sample.layout, { view }, () => 0x808080), { name: 'TypeError', message: 'layout3dScene: view is iso, front or top' }, view);
+});
