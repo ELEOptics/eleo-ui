@@ -53,7 +53,7 @@ the real world yet (user, round 3).
 - Release: changesets on `main`. The Version Packages PR 1143 is open with a plots `minor` (export), so J's release is
   0.11.0 if J merges first, 0.12.0 if 1143 does. The npm publish follows a merged Version Packages PR and the `npm`
   environment's reviewer.
-- U14 is measured in `tests/perf.spec.js` (`PERF=1`, median of 20 redraws, reported, not asserted). Its layout2D test
+- U14 is measured in `tests/perf.spec.js` (`PERF=1`, median of 20 redraws, reported, not asserted; for layout3D since CR [#1257], `PERF=1 GPU=1` on a GPU-backed Chromium, asserted under 16 ms). Its layout2D test
   builds the 50-surface reference layout inline (`:127-139`). Canvas 2D is deferred: an unflushed timing reads ~5x low.
   The critic's synthetic timing (headless Chromium, dpr 2, surfaces only) puts 16 ms at about 3,500 faces in total:
   today's density is about 2,000 faces per surface.
@@ -168,7 +168,7 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 ### M2: layout3D on three.js (lenses) GitHub: `P1193 M2: layout3D on three.js`
 
 Demo: `npm run gallery`: achromat and Cooke 3D tiles in iso and an achromat front tile, both themes, beside the base
-and M1 shots; `PERF=1 npx playwright test perf -g layout3D`. Proves O1, O2, O4 (lenses), O8, O9.
+and M1 shots; `PERF=1 GPU=1 npx playwright test perf -g layout3D --project=chromium` (GPU only, CR [#1257]). Proves O1, O2, O4 (lenses), O8, O9.
 
 The three.js path is built beside the canvas painter (`layout3dThree.js`) and swapped in by one item (#1253), then
 packaged (#1254, #1255), so every commit keeps the gate green (re-plan critique).
@@ -287,6 +287,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-20 #1260 (15db187, a3d9686): CI green on a3d9686. A6 holds: the full-density spike draws on the runner in Chromium (124.10 ms), WebKit (128.50 ms) and Firefox (128.00 ms, under `xvfb-run`; without a display its WebGL exhausts its GL drivers), all software and untimed (CR [#1257]). No switch signal.
 - 2026-11-20 orchestrator: CR [#1261] accepted (stale doc from #1253's `noticed`, not Core): item #1262.
 - 2026-11-20 orchestrator: CR [#1264] accepted (a): moving layout3D out of the main entry breaks svelte-check through `Layout3D.svelte`'s imports, so #1254's Files gain that file for its two imports; `view` and docs stay in #1255.
+- 2026-11-20 #1256: O2 median recorded on the GPU (`PERF=1 GPU=1`, Chromium `--use-angle=metal`, Apple M2 Max, the 50-surface reference layout, marginal-chief): 15.50, 14.65 and 14.55 ms headless, under 16 ms with 0.5-1.5 ms to spare; one headed run read 16 ms and failed. The full layout3D is about ten times the spike's 1.3 ms (scene, materials, fill probes, lines and the 2D overlay per redraw), so O2 is met but tight.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
