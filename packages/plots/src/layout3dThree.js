@@ -13,7 +13,7 @@ import { glassFill, drawnGlasses } from './glass.js';
 import { raySet, statusOf, segmentStatus } from './layout2d.js';
 
 const SEGMENTS = 128, STOP_TICK = 2.5, PAD = 16;
-// Views as layout3dMesh's convention: yaw about y, then pitch about x; the viewer looks along +x at yaw 0, pitch 0 with +z to the right and +y up.
+// View convention (pinned by the "view convention" test): yaw about y, then pitch about x; at yaw 0, pitch 0 the viewer looks along +x, with +z to the right and +y up.
 const PRESETS = { iso: { yaw: -45, pitch: 35.264 }, front: { yaw: 0, pitch: 0 }, top: { yaw: 0, pitch: -90 } };
 
 const isRecorded = (L) => L != null && typeof L === 'object' && Array.isArray(L.surfaces) && L.surfaces.length > 0 && Array.isArray(L.rays)

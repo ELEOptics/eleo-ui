@@ -246,3 +246,17 @@ test('edge outlines', async () => {
     }
   }
 });
+
+// View convention (#1262): yaw about y, then pitch about x; at yaw 0, pitch 0 the viewer looks along +x, +z is to the right and +y up. `front` is that view.
+test('view convention', async () => {
+  const { layout3dScene } = await three();
+  const o = { width: 560, height: 320, scale: SCALE };
+  const { camera } = layout3dScene(sample.layout, { ...o, yaw: 0, pitch: 0 }, () => 0x808080);
+  const look = new (camera.position.constructor)(0, 0, -1).applyQuaternion(camera.quaternion);
+  assert.ok(look.distanceTo({ x: 1, y: 0, z: 0 }) < 1e-9, `looks along +x, got ${look.x} ${look.y} ${look.z}`);
+  const c0 = viaCamera(camera, [0, 0, 0], 560, 320), cz = viaCamera(camera, [0, 0, 1], 560, 320), cy = viaCamera(camera, [0, 1, 0], 560, 320);
+  assert.ok(cz[0] - c0[0] > 1 && Math.abs(cz[1] - c0[1]) < 1e-6, 'a +z step projects right');
+  assert.ok(c0[1] - cy[1] > 1 && Math.abs(cy[0] - c0[0]) < 1e-6, 'a +y step projects up');
+  const f = layout3dScene(sample.layout, { ...o, view: 'front' }, () => 0x808080).camera;
+  assert.deepEqual(f.quaternion.toArray(), camera.quaternion.toArray(), 'front is yaw 0, pitch 0');
+});
