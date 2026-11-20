@@ -1,6 +1,6 @@
 # Plan #1193: Typed layout3D, then the breaking minor
 
-Status: approved 2026-11-18
+Status: draft
 Branch: `plan/1193-layout3d-typed-major` PR: #1214 Depends on: none Roadmap: `agent_docs/roadmap.md`, row J
 Course check: M1 — it tests the riskiest assumption, a painter-sorted canvas mesh drawing 50 revolved surfaces in 16 ms at a face budget whose look the user accepts. Switch signal: item 3's first flushed median at the 50-surface reference size is over 16 ms with the item-2 face budget met, or the user rejects the M1 3D tiles in two demo rounds.
 
@@ -124,7 +124,7 @@ the real world yet (user, round 3).
 
 ### M1: layout3D draws any recorded lens system GitHub: `P1193 M1: typed layout3D for lens systems`
 
-Done 2026-11-19: review round 11 (Review M1: 0 blocking, nothing pulled in; backlog #1232, #1221 outside M1); full gate green on 7f653fd (556 passed); CI on 7f653fd: build, check and unit passed, playwright pending at the tick. O2 met at 13.1-14.1 ms. Demo round 1 (with the course check): no-go, "Bring back edge outlines" (CR [#1237]); the edge outlines landed in #1238, #1239, #1241, #1243, #1245, #1246 and #1248. Demo round 2: pending.
+Done 2026-11-19: review round 11 (Review M1: 0 blocking, nothing pulled in; backlog #1232, #1221 outside M1); full gate green on 7f653fd (556 passed); CI on 7f653fd: build, check and unit passed, playwright pending at the tick. O2 met at 13.1-14.1 ms. Demo round 1 (with the course check): no-go, "Bring back edge outlines" (CR [#1237]); the edge outlines landed in #1238, #1239, #1241, #1243, #1245, #1246 and #1248. Demo round 2 (with the triggered course check): no-go; the run stopped for /plan.
 
 Demo: `npm run gallery`: the achromat (the sample's recorded layout) and Cooke glasses 3D tiles in both themes beside
 the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `review-assets`);
@@ -233,6 +233,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: review M1 round 9: 0 blocking, 1 backlog (breaker count 1, down from 2); all 13 CRs resolved (#1244 by #1245, U14 13.3-14.0 ms; scene items identical to #1243's in 28 cases). The finding (unbounded clip grid at large `scale`) is small and named, so it is pulled in as #1246; round 10 follows.
 - 2026-11-19 orchestrator: review M1 round 10: 1 blocking, 0 backlog (breaker count 1, the same as round 9: one round without a fall). CR [#1247] accepted: CI run 44649623803 on 9d860e4 fails "large scale", whose sha256 depends on the Node build's last-bit floats. Item #1248 rounds before hashing. Round 11 follows.
 - 2026-11-19 review M1 round 11 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; all 14 CRs resolved. Rounds 5-11 (blocking + pulled in): 1, 3, 4, 2, 1, 1, 0. M1 re-ticked for demo round 2.
+- 2026-11-19 course check M1 triggered (user): no-go. "I'm confused about the projection. It looks like the lens is rotated differently than the image plane. What kind of camera projection is being used? Leverage 3rd party libraries like 3js where possible. A typical CAD or engineering type of projection to accurately represent objects is necessary." Course reviewers (two passes) recommended continue on a go. The orchestrator checked: layout3D is an orthographic orbit camera (yaw -38 about the vertical, pitch 16 about the screen horizontal), and the lens and image plane share it (a rim-sized circle at the image z projects to the same 91 x 146 px ellipse as the rim), but the drawing does not read as consistent. Second demo rejection: the switch signal's demo arm fires.
+- 2026-11-19 course check M1 stop (user): Stop, re-plan. layout3D moves to three.js with a CAD-style camera, which this plan's Non-goals (WebGL) and the roadmap's kill criterion leave to /plan (an ADR for the dependency, the camera, the demos, and whether the breaking minor, M3, splits off). M1's work stays on the branch; nothing is accepted.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
