@@ -913,13 +913,25 @@ HTMLCanvasElement.prototype.getContext = function (type, ...rest) { const c = ge
   expect(r.inked, 'the last canvas is drawn').toBeGreaterThan(0);
 });
 
-// O9 on the gallery's own 3D tiles (plan #1193, #1253 swapped them to three.js; #1256 unskips this).
-// oracle: property, as above, on each theme's layout3D and layout3D-glasses canvases; no console error.
-test.skip('layout3D tiles draw on the gallery', async ({ page }) => {
+// O9 on the gallery's own 3D tiles (plan #1193, #1253 swapped them to three.js; #1256 unskipped this).
+// oracle: property, as above (WebGL through three.js draws a full-density lens): each theme's layout3D, layout3D-front and layout3D-glasses canvases hold at least 200 pixels that differ from the tile's background (its corner pixel) by more than 30 in the channel sum; the glasses tile's two fills are checked by 'layout3D glasses tile draws'. No console error and no page error.
+test('layout3D tiles draw on the gallery', async ({ page }) => {
+  // every CI browser has software WebGL (about 125 ms a frame): six tiles drawn, and the full gate runs specs in parallel: 120 s.
+  test.setTimeout(120_000);
   const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
+  for (const theme of ['light', 'dark']) for (const tile of ['layout3D', 'layout3D-front', 'layout3D-glasses']) {
+    const lit = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="${tile}"]`).evaluate((canvas) => {
+      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+      let n = 0;
+      for (let i = 4; i < data.length; i += 4) if (Math.abs(data[i] - data[0]) + Math.abs(data[i + 1] - data[1]) + Math.abs(data[i + 2] - data[2]) > 30) n++;
+      return n;
+    });
+    expect(lit, `${theme} ${tile} pixels drawn over the background`).toBeGreaterThanOrEqual(200);
+  }
   expect(errors).toEqual([]);
 });
 

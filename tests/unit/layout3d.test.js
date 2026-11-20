@@ -75,8 +75,8 @@ test('empty scene', async () => {
   assert.deepEqual(kinds({ rays: false }), []);
 });
 
-// Plan #1193 M2, issue #1249: the three.js path's acceptance tests, written skipped; #1250 builds layout3dScene(layout, o, resolve) -> { scene, camera } in
-// packages/plots/src/layout3dThree.js, and #1256 unskips them (the painter and its tests died in #1253).
+// Plan #1193 M2, issue #1249: the three.js path's acceptance tests, written skipped; #1250 built layout3dScene(layout, o, resolve) -> { scene, camera } in
+// packages/plots/src/layout3dThree.js, and #1256 unskipped them (the painter and its tests died in #1253).
 const three = async () => import('../../packages/plots/src/layout3dThree.js');
 // Project a world point through an orthographic camera's matrices to px (y down) for a w x h canvas.
 const viaCamera = (camera, [x, y, z], w, h) => {
@@ -89,7 +89,7 @@ const viaCamera = (camera, [x, y, z], w, h) => {
 
 // O1. oracle: closed-form orthographic projection (ortho above: yaw about y, pitch about x) of each recorded layout's revolved profile; every mesh vertex, projected by the camera's matrices, is within 0.5 px of it.
 // The camera centres the fitted bounds, ortho centres (0, 0, zc) at ORIGIN: the two differ by one translation, taken from where the camera puts (0, 0, zc), so rotation and scale are still checked.
-test.skip('revolved profiles project', async () => {
+test('revolved profiles project', async () => {
   const { layout3dScene } = await three();
   for (const [name, layout] of Object.entries(LAYOUTS)) for (const v of [{ view: 'iso' }, { yaw: 20, pitch: -10 }]) {
     const { scene, camera } = layout3dScene(layout, { ...v, width: 560, height: 320, scale: SCALE }, () => 0x808080);
@@ -98,7 +98,7 @@ test.skip('revolved profiles project', async () => {
     const c0 = viaCamera(camera, [0, 0, zc], 560, 320), dx = c0[0] - ORIGIN[0], dy = c0[1] - ORIGIN[1];
     let n = 0;
     scene.traverse((o) => {
-      if (!o.isMesh || o.userData.image || o.userData.stop) return;
+      if (!o.isMesh || o.isLineSegments2 || o.userData.image || o.userData.stop) return; // a fat line's position attribute is its instanced quad template, not scene points
       const pos = o.geometry.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         const p = [pos.getX(i), pos.getY(i), pos.getZ(i)];
@@ -119,7 +119,7 @@ test.skip('revolved profiles project', async () => {
 });
 
 // O1. oracle: property, glassFill per glass name; each element's material colour is resolve(fill) and userData.fill is glassFill's fill.
-test.skip('glass fills per element', async () => {
+test('glass fills per element', async () => {
   const { layout3dScene } = await three();
   const cooke = LAYOUTS.cooke, glasses = drawnGlasses(cooke.surfaces), fills = glassFill(glasses);
   const seen = new Set(), hex = new Map();
@@ -136,7 +136,7 @@ test.skip('glass fills per element', async () => {
 });
 
 // O8. oracle: reference, layout2D's SVG: its matrix(s 0 0 s tx ty) and polygon[data-surface] points; the front-view mesh's meridian vertices (x = 0) lie within 0.5 px of them under that matrix.
-test.skip('front view matches layout2D', async () => {
+test('front view matches layout2D', async () => {
   const { layout2D } = await import('../../packages/plots/src/layout2d.js');
   const { layout3dScene } = await three();
   for (const name of ['achromat', 'cooke']) {
