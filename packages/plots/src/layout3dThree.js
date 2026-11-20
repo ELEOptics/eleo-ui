@@ -1,11 +1,15 @@
-// layout3D on three.js (plan #1193 M2, #1250): the scene and camera of a recorded layout. Rays and edges (#1251) and rendering (#1252) come after.
+// layout3D on three.js (plan #1193 M2, #1250, #1251): the scene and camera of a recorded layout, with its rays and edges as fat lines. Rendering (#1252) comes after.
 // Pure three.js objects and no DOM, so node tests run it; `resolve(fill)` is injected for the one thing only a browser can answer.
 import {
   AmbientLight, Color, DirectionalLight, DoubleSide, Group, LatheGeometry, Matrix4, Mesh, MeshLambertMaterial,
-  OrthographicCamera, PlaneGeometry, Quaternion, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3,
+  OrthographicCamera, PlaneGeometry, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3,
 } from 'three';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { STANDARD } from './common.js';
 import { glassFill, drawnGlasses } from './glass.js';
-import { statusOf } from './layout2d.js';
+import { raySet, statusOf, segmentStatus } from './layout2d.js';
 
 const SEGMENTS = 128, STOP_TICK = 2.5, PAD = 16;
 // Views as layout3dMesh's convention: yaw about y, then pitch about x; the viewer looks along +x at yaw 0, pitch 0 with +z to the right and +y up.
@@ -19,16 +23,19 @@ const halfProfile = (s) => s.profile.filter((p) => p[1] >= -1e-9).map(([z, y]) =
 // A lathe turns (radius, height) about y; baking a quarter turn about x puts the axis on z, so the position attributes are in the layout's frame.
 const lathe = (pts) => { const g = new LatheGeometry(pts.map(([z, r]) => new Vector2(r, z)), SEGMENTS); g.rotateX(Math.PI / 2); return g; };
 
-// The geometry of a layout, built once per `data` object: { parts: [{ geometry, key, glass?, stop?, image? }], rays: [[x, y, z]] }.
+// The geometry of a layout, built once per `data` object: { parts: [{ geometry, element, glass?, stop?, image? }], segs: every drawable ray segment { k, i, j, a, b },
+// rims: [{ surface, ring: [x, y, z][] }] per glazed surface, gaps: [{ element, a, b }] the rims either side of each glass gap, rayGeo: lazily per ray }.
 const CACHE = new WeakMap();
 function build(layout) {
-  const S = layout.surfaces, parts = [];
+  const S = layout.surfaces, parts = [], rims = new Map();
   // the element a surface belongs to: its own glass, else the glass gap it closes; keyed by the gap's first surface
   const own = (i) => (S[i].image ? null : S[i].glass ? [i, S[i].glass] : S[i - 1] && S[i - 1].glass ? [i - 1, S[i - 1].glass] : null);
   S.forEach((s, i) => {
     if (s.image) return;
     const e = own(i), h = halfProfile(s);
     if (e) {
+      const rz = h[h.length - 1][0], rr = h[h.length - 1][1];
+      rims.set(i, Array.from({ length: SEGMENTS }, (_, j) => { const t = 2 * Math.PI * j / SEGMENTS; return [rr * Math.cos(t), rr * Math.sin(t), rz]; }));
       parts.push({ geometry: lathe(h), element: e[0], glass: e[1] });
       const n = S[i + 1];
       if (s.glass && n) { // the rim: a two-point lathe between the gap's two edges
@@ -42,14 +49,21 @@ function build(layout) {
   });
   const im = S.find((s) => s.image);
   if (im) { const g = new PlaneGeometry(2 * im.sd, 2 * im.sd); g.translate(0, 0, im.z); parts.push({ geometry: g, image: true }); }
-  const rays = [];
+  // every drawable segment of every ray: through the first Dead point, none starting a Virtual segment, none inside glass (M1's rules)
+  const segs = [];
   layout.rays.forEach((fan, k) => fan.forEach((r, i) => {
-    const st = statusOf(layout, k, i), end = st && st.indexOf('Dead') >= 0 ? st.indexOf('Dead') : r.length - 1;
-    for (let j = 0; j <= end; j++) rays.push([0, r[j][1], r[j][0]]);
+    const st = statusOf(layout, k, i) || r.map(() => 'Alive'), end = st.indexOf('Dead') < 0 ? r.length - 1 : st.indexOf('Dead');
+    for (let j = 1; j <= end; j++) {
+      if (segmentStatus(layout, st, j) === 'Virtual' || (j >= 2 && S[j - 2] && S[j - 2].glass)) continue;
+      segs.push({ k, i, j, a: [0, r[j - 1][1], r[j - 1][0]], b: [0, r[j][1], r[j][0]] });
+    }
   }));
-  return { parts, rays };
+  const gaps = [];
+  S.forEach((x, i) => { if (x.glass && rims.has(i) && rims.has(i + 1)) gaps.push({ element: i, a: rims.get(i), b: rims.get(i + 1) }); });
+  return { parts, segs, rims, gaps, rayGeo: new Map() };
 }
 
+const lineGeometry = (pairs) => { const g = new LineSegmentsGeometry(); g.setPositions(pairs.flat(2)); return g; };
 const colour = (c) => (Array.isArray(c) ? new Color().setRGB(c[0] / 255, c[1] / 255, c[2] / 255, SRGBColorSpace) : new Color(c));
 
 /**
@@ -58,7 +72,10 @@ const colour = (c) => (Array.isArray(c) ? new Color().setRGB(c[0] / 255, c[1] / 
  * its `userData.fill` the element's CSS fill (glassFill's, or the crown / flint token) and its colour `resolve(fill)`: anything `Color.set` takes, or [r, g, b] in 0..255.
  * Every mesh of an element has `userData.glass` (its name) and `userData.fill`. Geometry is cached per `data` object; materials are made per call.
  * @param {*} layout a RecordedLayout
- * @param {{ width?: number, height?: number, view?: 'iso' | 'front' | 'top', yaw?: number, pitch?: number, scale?: number }} [o] `yaw` and `pitch` (degrees) win over `view`; `scale` (px/mm) overrides the fit
+ * Rays and edges are fat lines (`LineSegments2` / `LineMaterial`, depth-tested, `linewidth` in CSS px for a renderer at `setPixelRatio(dpr)`): one object per drawn ray (`userData.ray`, `k`, `i`, `chief`; the set's
+ * chief dashed unless the set is `chief`), one closed object per glazed surface's rim (`userData.edge = 'rim'`, `surface`) and two per glass gap for its silhouette (`edge = 'silhouette'`, `element`): the rim points of
+ * greatest and least projected y, first rim to last. Rays are cut at the first Dead point with no Virtual or in-glass segment; the camera fits every such segment of every ray, whichever set is drawn.
+ * @param {{ width?: number, height?: number, view?: 'iso' | 'front' | 'top', yaw?: number, pitch?: number, scale?: number, rays?: 'marginal-chief' | 'chief' | 'fan' | false, rayWidth?: number, edgeWidth?: number }} [o] `yaw` and `pitch` (degrees) win over `view`; `scale` (px/mm) overrides the fit; `rayWidth` and `edgeWidth` are CSS px (1.1 and 1.25)
  * @param {(fill: string) => *} resolve
  * @returns {{ scene: Scene, camera: OrthographicCamera }}
  */
@@ -99,7 +116,7 @@ export function layout3dScene(layout, o, resolve) {
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity], q = new Vector3();
   const grow = (x, y, z) => { q.set(x, y, z); [q.dot(right), q.dot(up), q.dot(fwd)].forEach((c, a) => { lo[a] = Math.min(lo[a], c); hi[a] = Math.max(hi[a], c); }); };
   for (const p of geo.parts) { const a = p.geometry.attributes.position; for (let i = 0; i < a.count; i++) grow(a.getX(i), a.getY(i), a.getZ(i)); }
-  for (const r of geo.rays) grow(r[0], r[1], r[2]);
+  for (const g of geo.segs) { grow(...g.a); grow(...g.b); }
   const s = o.scale > 0 ? o.scale : Math.min((W - 2 * PAD) / ((hi[0] - lo[0]) || 1), (H - 2 * PAD) / ((hi[1] - lo[1]) || 1));
   const mid = right.clone().multiplyScalar((lo[0] + hi[0]) / 2).addScaledVector(up, (lo[1] + hi[1]) / 2).addScaledVector(fwd, (lo[2] + hi[2]) / 2);
   const reach = (hi[2] - lo[2]) / 2 + 1;
@@ -108,5 +125,36 @@ export function layout3dScene(layout, o, resolve) {
   camera.quaternion.setFromRotationMatrix(new Matrix4().makeBasis(right, up, fwd.clone().negate()));
   camera.updateMatrixWorld(true);
   scene.add(camera);
+
+  // the lines: materials per call, resolution in CSS px
+  const lineMat = (fill, width, dashed) => {
+    const m = new LineMaterial({ color: colour(resolve(fill)), linewidth: width, dashed: !!dashed, dashSize: 5 / s, gapSize: 4 / s, depthTest: true });
+    m.resolution.set(W, H); m.userData.fill = fill; return m;
+  };
+  const line = (geometry, material, userData) => { const l = new LineSegments2(geometry, material); if (material.dashed) l.computeLineDistances(); l.userData = userData; scene.add(l); };
+  const set = o.rays === undefined ? 'marginal-chief' : o.rays, rw = o.rayWidth ?? 1.1, ew = o.edgeWidth ?? 1.25;
+  if (set !== false) {
+    const picked = new Map(), chiefs = new Map(), byRay = new Map(), mats = new Map();
+    for (const g of geo.segs) {
+      if (!picked.has(g.k)) { picked.set(g.k, new Set(raySet(layout, g.k, set, 'layout3D'))); chiefs.set(g.k, raySet(layout, g.k, 'chief', 'layout3D')[0]); }
+      if (!picked.get(g.k).has(g.i)) continue;
+      const id = g.k + '/' + g.i; if (!byRay.has(id)) byRay.set(id, []); byRay.get(id).push(g);
+    }
+    for (const [id, list] of byRay) {
+      const { k, i } = list[0], chief = i === chiefs.get(k) && set !== 'chief', key = k + (chief ? 'c' : '');
+      if (!geo.rayGeo.has(id)) geo.rayGeo.set(id, lineGeometry(list.map((g) => [g.a, g.b])));
+      if (!mats.has(key)) mats.set(key, lineMat(`var(--series-${k + 1}, var(--field-${STANDARD[k % STANDARD.length]}))`, rw, chief));
+      line(geo.rayGeo.get(id), mats.get(key), { ray: true, k, i, chief });
+    }
+  }
+  const edge = lineMat('var(--glass-edge)', ew), pairs = (ring) => ring.map((p, j) => [p, ring[(j + 1) % ring.length]]);
+  for (const [surface, ring] of geo.rims) {
+    if (!geo.rayGeo.has('rim' + surface)) geo.rayGeo.set('rim' + surface, lineGeometry(pairs(ring)));
+    line(geo.rayGeo.get('rim' + surface), edge, { edge: 'rim', surface });
+  }
+  for (const gap of geo.gaps) {
+    const h = gap.a.map((p) => q.set(...p).dot(up)), top = h.indexOf(Math.max(...h)), bot = h.indexOf(Math.min(...h));
+    for (const j of [top, bot]) line(lineGeometry([[gap.a[j], gap.b[j]]]), edge, { edge: 'silhouette', element: gap.element });
+  }
   return { scene, camera };
 }

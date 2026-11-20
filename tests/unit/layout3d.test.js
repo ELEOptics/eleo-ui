@@ -423,3 +423,84 @@ test.skip('front view matches layout2D', async () => {
     assert.ok(checked > 0, `${name}: meridian vertices`);
   }
 });
+
+// Plan #1193 M2, issue #1251: rays and edges of the three.js scene are fat lines (LineSegments2 / LineMaterial), depth-tested, linewidth in CSS px.
+// oracles: the segments each ray draws, written here from the recorded points (the M1 rules: through the first Dead point, none from a Virtual point, none inside glass); the rim and silhouette points in closed form.
+const lines = (scene, pick) => { const out = []; scene.traverse((o) => { if (o.isLineSegments2 && pick(o.userData)) out.push(o); }); return out; };
+const segsOf = (l) => { const a = l.geometry.attributes.instanceStart, b = l.geometry.attributes.instanceEnd; return Array.from({ length: a.count }, (_, n) => [[a.getX(n), a.getY(n), a.getZ(n)], [b.getX(n), b.getY(n), b.getZ(n)]]); };
+const drawn = (L, k, i, js) => js.map((j) => [[0, L.rays[k][i][j - 1][1], L.rays[k][i][j - 1][0]], [0, L.rays[k][i][j][1], L.rays[k][i][j][0]]]);
+const same = (got, want, msg) => { assert.equal(got.length, want.length, msg); got.forEach((g, n) => g.flat().forEach((c, m) => assert.ok(Math.abs(c - want[n].flat()[m]) < 1e-4, msg))); };
+const rayIn = async (L, k, i) => { const { scene } = (await three()).layout3dScene(L, { rays: 'fan', width: 560, height: 320 }, () => 0x808080); return lines(scene, (u) => u.ray && u.k === k && u.i === i).flatMap(segsOf); };
+
+test('dead and virtual cut (three)', async () => {
+  const L = air(sample.layout), withAlive = (alive, dead) => ({ ...L, alive: L.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? alive : 4))), dead: L.rays.map((f, k) => f.map((_, i) => k === 0 && i === 0 && dead)) });
+  same(await rayIn(L, 0, 0), drawn(L, 0, 0, [1, 2, 3, 4]), 'air: every segment');
+  same(await rayIn(withAlive(2, false), 0, 0), drawn(L, 0, 0, [1]), 'Virtual from point 2');
+  same(await rayIn(withAlive(2, true), 0, 0), drawn(L, 0, 0, [1, 2]), 'Dead at point 2: through it, no further');
+  const st = (s) => ({ ...L, status: L.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? s : Array(5).fill('Alive')))) });
+  same(await rayIn(st(['Alive', 'Alive', 'Dead', 'Virtual', 'Virtual']), 0, 0), drawn(L, 0, 0, [1, 2]), '');
+  same(await rayIn(st(['Alive', 'Virtual', 'Virtual', 'Virtual', 'Virtual']), 0, 0), drawn(L, 0, 0, [1]), '');
+  // the achromat's two glass gaps draw no ray: only the air segments before the first surface and after the last
+  same(await rayIn(sample.layout, 0, 0), drawn(sample.layout, 0, 0, [1, 4]), '');
+});
+
+test('ray sets, width and depth test (three)', async () => {
+  const { layout3dScene } = await three(), L = sample.layout;
+  const per = (rays) => new Set(lines(layout3dScene(L, { rays }, () => 0x808080).scene, (u) => u.ray && u.k === 0).map((l) => l.userData.i)).size;
+  assert.equal(per(undefined), 3);
+  assert.equal(per('chief'), 1);
+  assert.equal(per('fan'), L.rays[0].length);
+  assert.equal(per(false), 0);
+  const { scene } = layout3dScene(L, { width: 560, height: 320, rayWidth: 2, edgeWidth: 3 }, () => 0x808080);
+  for (const l of lines(scene, () => true)) {
+    assert.equal(l.material.linewidth, l.userData.ray ? 2 : 3, 'linewidth is the CSS px asked for');
+    assert.equal(l.material.depthTest, true);
+    assert.deepEqual([l.material.resolution.x, l.material.resolution.y], [560, 320], 'resolution is the CSS size');
+    assert.equal(l.material.worldUnits, false);
+  }
+  assert.ok(lines(scene, (u) => u.ray && u.chief).every((l) => l.material.dashed), 'the chief is dashed');
+});
+
+test('empty fan is skipped (three)', async () => {
+  const { layout3dScene } = await three(), L = air(sample.layout), withEmpty = { ...L, rays: [[], ...L.rays] };
+  const at = (X) => lines(layout3dScene(X, {}, () => 0x808080).scene, (u) => u.ray).map((l) => [l.userData.i, segsOf(l)]);
+  const got = lines(layout3dScene(withEmpty, {}, () => 0x808080).scene, (u) => u.ray);
+  assert.ok(got.length > 0 && got.every((l) => l.userData.k >= 1), 'only the non-empty fans draw');
+  assert.deepEqual(got.map((l) => l.userData.i), at(L).map((x) => x[0]));
+  got.forEach((l, n) => same(segsOf(l), at(L)[n][1], 'same segments'));
+});
+
+test('the camera fits the drawn ray points, not Virtual or in-glass ones (three)', async () => {
+  const { layout3dScene } = await three(), L = air(sample.layout);
+  // a Virtual tail far off axis would widen the fit if it counted
+  const far = { ...L, rays: L.rays.map((f, k) => f.map((r, i) => (k === 0 && i === 0 ? r.map((p, j) => (j >= 2 ? [p[0], 500] : p)) : r))) };
+  const alive = { ...far, alive: far.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? 2 : 4))) };
+  const o = { view: 'front', width: 560, height: 320 };
+  const a = layout3dScene(L, o, () => 0x808080).camera, b = layout3dScene(alive, o, () => 0x808080).camera;
+  const nofar = { ...L, rays: far.rays.map((f, k) => f.map((r, i) => (k === 0 && i === 0 ? r.slice(0, 2) : r))) };
+  const c = layout3dScene({ ...nofar, alive: nofar.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? 2 : 4))) }, o, () => 0x808080).camera;
+  assert.equal(b.top, c.top, 'the Virtual tail does not move the fit');
+  assert.ok(Math.abs(b.top - a.top) < 5, 'and is not a 500 mm tail');
+});
+
+test('edge outlines (three)', async () => {
+  const { layout3dScene } = await three();
+  for (const name of ['achromat', 'cooke']) for (const v of [{ view: 'iso' }, { yaw: 20, pitch: -10 }, { view: 'front' }]) {
+    const L = LAYOUTS[name], S = L.surfaces, { scene, camera } = layout3dScene(L, { ...v, width: 560, height: 320 }, () => 0x808080), N = 128;
+    const rimPt = (i, j) => { const top = S[i].profile.filter((p) => p[1] >= -1e-9).reduce((a, p) => (p[1] > a[1] ? p : a)); const t = 2 * Math.PI * j / N; return [top[1] * Math.cos(t), top[1] * Math.sin(t), top[0]]; };
+    const glazed = S.map((s, i) => i).filter((i) => !S[i].image && (S[i].glass || (S[i - 1] && S[i - 1].glass)));
+    const near = (a, b) => a.every((c, n) => Math.abs(c - b[n]) < 1e-4);
+    const rims = lines(scene, (u) => u.edge === 'rim');
+    assert.deepEqual(rims.map((l) => l.userData.surface).sort((a, b) => a - b), glazed, `${name}: a rim on each glazed surface, no other`);
+    for (const l of rims) {
+      const sg = segsOf(l); assert.equal(sg.length, N, 'a closed ring of 128 segments');
+      sg.forEach(([a, b], j) => assert.ok(near(a, rimPt(l.userData.surface, j)) && near(b, rimPt(l.userData.surface, (j + 1) % N)), `${name} rim ${l.userData.surface} segment ${j}`));
+    }
+    const gaps = S.map((s, i) => i).filter((i) => S[i].glass && glazed.includes(i + 1)), sil = lines(scene, (u) => u.edge === 'silhouette');
+    assert.equal(sil.length, 2 * gaps.length, `${name}: two silhouette lines per element`);
+    for (const i of gaps) {
+      const py = Array.from({ length: N }, (_, j) => viaCamera(camera, rimPt(i, j), 560, 320)[1]);
+      for (const j of [py.indexOf(Math.min(...py)), py.indexOf(Math.max(...py))]) assert.ok(sil.some((l) => l.userData.element === i && near(segsOf(l)[0][0], rimPt(i, j)) && near(segsOf(l)[0][1], rimPt(i + 1, j))), `${name} element ${i}: silhouette at ring point ${j}, first rim to last`);
+    }
+  }
+});
