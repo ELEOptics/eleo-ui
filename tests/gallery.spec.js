@@ -1,13 +1,14 @@
 // Every renderer draws, in both themes, without errors. Run after `npm run build`.
 import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
+import { Vector3 } from 'three';
 import { moveTo, pageHelpers } from './page-helpers.js';
-import { layout3dMesh, layout3dScene, project } from '../packages/plots/src/layout3d.js';
+import { layout3dScene } from '../packages/plots/src/layout3dThree.js';
 
 test.beforeEach(({ page }) => pageHelpers(page));
 
 // The gallery's tile count.
-const TILES = 26;
+const TILES = 27;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -649,7 +650,7 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const wide = await at(1440), narrow = await at(700, wide);
-  expect(wide.length, 'airy, layout3D and layout3D-glasses, in two themes').toBe(6);
+  expect(wide.length, 'airy, layout3D, layout3D-front and layout3D-glasses, in two themes').toBe(8);
   wide.forEach((c, i) => {
     expect(c.backing, `${c.id} redrawn`).not.toBe(narrow[i].backing);
     if (!c.id.startsWith('layout3D')) expect(Math.abs(c.renderedH - c.rendered), `${c.id} square`).toBeLessThanOrEqual(1);
@@ -691,6 +692,8 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
 // mtf-limits' vertical limit reads "50 cycles/mm".
 const CURVE_KEYS = { mtf: 6, 'mtf-limits': 6, fieldCurvature: 2, distortion: 1 };
 test('curve keys', async ({ page }) => {
+  // Each resize redraws the gallery's six three.js tiles (two themes) at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
+  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
@@ -760,6 +763,8 @@ const FAN_FOOT_KEYS = {
   'rayFan-opd': ['486.1 nm', '587.6 nm', '656.3 nm'],
 };
 test('fan and footprint keys', async ({ page }) => {
+  // Each resize redraws the gallery's six three.js tiles (two themes) at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
+  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
@@ -888,6 +893,8 @@ test('layout3D no WebGL names layout3D', async ({ page }) => {
 });
 
 test('layout3D 40 redraws, no context lost', async ({ page }) => {
+  // 40 draws at 280 x 160 take about 13 s alone on software WebGL (SwiftShader) and more when the full gate runs specs in parallel: 120 s.
+  test.setTimeout(120_000);
   const layout = JSON.parse(readFileSync(new URL('./fixtures/layouts/analysis-glasses.json', import.meta.url)));
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -906,7 +913,7 @@ HTMLCanvasElement.prototype.getContext = function (type, ...rest) { const c = ge
   expect(r.inked, 'the last canvas is drawn').toBeGreaterThan(0);
 });
 
-// O9 on the gallery's own 3D tiles (plan #1193, #1253 swaps them to three.js; #1256 unskips this).
+// O9 on the gallery's own 3D tiles (plan #1193, #1253 swapped them to three.js; #1256 unskips this).
 // oracle: property, as above, on each theme's layout3D and layout3D-glasses canvases; no console error.
 test.skip('layout3D tiles draw on the gallery', async ({ page }) => {
   const errors = [];
@@ -979,78 +986,36 @@ test('layout3D rejected fill falls back to crown', async ({ page }) => {
   }
 });
 
-// Plan #1193 M1, issue #1243 (review M1 round 7, finding 4). On the Cooke default view the painter keeps a rim out of the polygons of a nearer face that does not share it (`c.clip("evenodd")`): at rim samples such a face covers, the canvas pixel is not --glass-edge; at a rim sample nothing covers, it is.
-// oracle: plane-depth sampling written here, on the scene's own mesh (the reviewer's method): a sample is hidden where a covering non-sharing face's plane is nearer than the segment by more than 5e-3 of the faces' depth span; free where no non-sharing face covers it. Samples stay 0.7 px from every edge that is not itself clipped there, and from the image plane and the canvas border, so the pixel is the face's or the rim's; rays are off.
-test('layout3D clips edges behind nearer faces', async ({ page }) => {
-  const layout = JSON.parse(readFileSync(new URL('./fixtures/layouts/analysis-glasses.json', import.meta.url)));
-  const W = 560, H = 320, near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6;
-  const mesh = layout3dMesh(layout, { width: W }), { view, items } = layout3dScene(layout, { width: W, height: H, rays: false }, () => [100, 100, 100]);
-  const F = mesh.faces.map((f) => ({ q: f.v.map((p) => project(p, view)), image: !!f.image }));
-  const span = Math.max(...F.map((f) => f.q.reduce((d, p) => d + p[2], 0) / 4)) - Math.min(...F.map((f) => f.q.reduce((d, p) => d + p[2], 0) / 4));
-  const depth = new Map(); F.forEach((f) => f.q.forEach((p) => depth.set(Math.round(p[0] * 1e3) + ',' + Math.round(p[1] * 1e3), p[2])));
-  const inside = (q, p) => { let pos = 0, neg = 0; q.forEach((a, i) => { const b = q[(i + 1) % q.length], c = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]); if (c > 1e-6) pos++; else if (c < -1e-6) neg++; }); return !(pos && neg) && pos + neg === q.length; };
-  const planeZ = ([a, b, c, d], p) => {
-    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-    for (const w3 of [c, d]) { const w = [w3[0] - a[0], w3[1] - a[1], w3[2] - a[2]], nz = u[0] * w[1] - u[1] * w[0]; if (Math.abs(nz) < 1e-9) continue; return a[2] - ((u[1] * w[2] - u[2] * w[1]) * (p[0] - a[0]) + (u[2] * w[0] - u[0] * w[2]) * (p[1] - a[1])) / nz; }
-    return null;
-  };
-  const dist = (p, [a, b]) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
-  const hidden = [], free = [];
-  for (const e of items.filter((x) => x.kind === 'edge' && x.edge === 'rim')) {
-    const [a, b] = e.p, za = depth.get(Math.round(a[0] * 1e3) + ',' + Math.round(a[1] * 1e3)), zb = depth.get(Math.round(b[0] * 1e3) + ',' + Math.round(b[1] * 1e3));
-    const others = items.filter((x) => x.kind === 'edge' && !(x.edge === 'rim' && x.surface === e.surface));
-    for (const t of [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]) {
-      const p = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])], ze = za + t * (zb - za), covering = [];
-      if (others.some((x) => dist(p, x.p) < 0.7 && !x.clip.some((q) => inside(q, p))) || p[0] < 4 || p[0] > W - 4 || p[1] < 4 || p[1] > H - 4) continue;
-      for (const f of F) if (!(f.q.some((v) => near(v, a)) && f.q.some((v) => near(v, b))) && inside(f.q, p)) covering.push(f);
-      if (!covering.length) free.push(p);
-      else if (covering.some((f) => !f.image && planeZ(f.q, p) < ze - 5e-3 * span) && e.clip.some((q) => inside(q, p))) hidden.push(p);
-    }
-  }
-  expect(hidden.length, 'rim samples a nearer face hides').toBeGreaterThanOrEqual(5);
-  expect(free.length, 'rim samples nothing covers').toBeGreaterThanOrEqual(5);
-  await page.goto('/gallery/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  for (const theme of ['light', 'dark']) {
-    const r = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`).evaluate((canvas, pts) => {
-      const c = document.createElement('canvas');
-      canvas.parentNode.appendChild(c);
-      window.ELEO.layout3D(c, { data: pts.layout, rays: false });
-      const dpr = c.width / 560, g = c.getContext('2d');
-      const edge = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(c, 'glass-edge'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
-      const onEdge = (p) => { const d = g.getImageData(Math.floor(p[0] * dpr), Math.floor(p[1] * dpr), 1, 1).data; return Math.abs(d[0] - edge[0]) + Math.abs(d[1] - edge[1]) + Math.abs(d[2] - edge[2]) <= 6; };
-      const out = { hiddenOnEdge: pts.hidden.filter(onEdge).length, freeOnEdge: pts.free.filter(onEdge).length };
-      c.remove();
-      return out;
-    }, { hidden, free, layout });
-    expect(r.hiddenOnEdge, `${theme} hidden rim samples drawn in --glass-edge`).toBe(0);
-    expect(r.freeOnEdge, `${theme} uncovered rim samples drawn in --glass-edge (antialiasing may lighten a few)`).toBeGreaterThanOrEqual(0.9 * free.length);
-  }
-});
-
-// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips). layout3D paints the rays over the image plane they end on.
-// oracle: user request 9 (rays over the plane they end on); property: the --mech pixels with rays are a strict subset of those without (rays: false), in both themes, in the default iso view.
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips); plan #1193 #1253 moves it to three.js. layout3D draws the rays over the image plane they end on.
+// oracle: user request 9 (rays over the plane they end on); property: the image plane's projected square, from the scene's own camera matrices (three's Vector3.project, here in node), shrunk 10%: sampled points of it are not the background in the bare drawing (rays: false), and some of them differ once the rays are drawn, in both themes, in the default iso view.
 test('layout3D rays over the image plane', async ({ page }) => {
+  const data = (await import('../packages/plots/src/sample.js')).default.layout, W = 560, H = 320;
+  const { scene, camera } = layout3dScene(data, { width: W, height: H }, () => 0x808080);
+  const plane = []; scene.traverse((o) => { if (o.isMesh && o.userData.image) plane.push(o); });
+  const a = plane[0].geometry.attributes.position, c4 = Array.from({ length: a.count }, (_, i) => new Vector3(a.getX(i), a.getY(i), a.getZ(i)).project(camera)).map((v) => [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]);
+  const mid = [c4.reduce((s, p) => s + p[0], 0) / c4.length, c4.reduce((s, p) => s + p[1], 0) / c4.length];
+  const poly = c4.map((p) => [mid[0] + 0.9 * (p[0] - mid[0]), mid[1] + 0.9 * (p[1] - mid[1])]).sort((p, q) => Math.atan2(p[1] - mid[1], p[0] - mid[0]) - Math.atan2(q[1] - mid[1], q[0] - mid[0]));
+  const inside = (p) => { let pos = 0, neg = 0; poly.forEach((u, i) => { const v = poly[(i + 1) % poly.length], cr = (v[0] - u[0]) * (p[1] - u[1]) - (v[1] - u[1]) * (p[0] - u[0]); if (cr > 0) pos++; else if (cr < 0) neg++; }); return !(pos && neg); };
+  const pts = []; for (let x = 0; x < W; x += 1) for (let y = 0; y < H; y += 1) if (inside([x, y])) pts.push([x, y]);
+  expect(pts.length, 'the plane covers sample points').toBeGreaterThan(50);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
-    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout3D"] .eleo-plot__body`).evaluate((body) => {
-      const mech = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(body, 'mech'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
-      const planePixels = (o) => {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout3D"] .eleo-plot__body`).evaluate((body, pts) => {
+      const bg = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(body, 'surface'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
+      const read = (o) => {
         const c = document.createElement('canvas');
         body.appendChild(c);
         window.ELEO.layout3D(c, o);
-        const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height), on = new Set();
-        for (let i = 0; i < data.length; i += 4) if (data[i] === mech[0] && data[i + 1] === mech[1] && data[i + 2] === mech[2]) on.add(i / 4);
+        const dpr = c.width / 560, g = c.getContext('2d'), out = pts.map((p) => [...g.getImageData(Math.floor(p[0] * dpr), Math.floor(p[1] * dpr), 1, 1).data.slice(0, 3)]);
         c.remove();
-        return on;
+        return out;
       };
-      const data = window.ELEO.sample.layout, bare = planePixels({ data, rays: false }), withRays = planePixels({ data });
-      return { bare: bare.size, withRays: withRays.size, outside: [...withRays].filter((p) => !bare.has(p)).length };
-    });
-    expect(r.bare, `${theme} the plane is drawn`).toBeGreaterThan(0);
-    expect(r.outside, `${theme} --mech pixels with rays that the bare plane lacks`).toBe(0);
-    expect(r.withRays, `${theme} rays cover part of the plane`).toBeLessThan(r.bare);
+      const data = window.ELEO.sample.layout, bare = read({ data, rays: false }), withRays = read({ data });
+      return { planeDrawn: bare.filter((p) => p.some((v, n) => Math.abs(v - bg[n]) > 3)).length, rayOver: withRays.filter((p, i) => p.some((v, n) => Math.abs(v - bare[i][n]) > 3)).length };
+    }, pts);
+    expect(r.planeDrawn, `${theme} the plane is drawn`).toBeGreaterThan(0.9 * pts.length);
+    expect(r.rayOver, `${theme} rays are drawn over the plane`).toBeGreaterThan(0);
   }
 });
 
@@ -1080,6 +1045,8 @@ test('map tiles', async ({ page }) => {
 // The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
 const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
 test('layout keys',async ({ page }) => {
+  // The gallery's six three.js tiles (two themes) redraw at about 0.3 s each on software WebGL (SwiftShader) at every width this test visits; under the full gate's parallel load that passes 30 s: 90 s.
+  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const expected = await page.evaluate(async (kinds) => {

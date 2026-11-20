@@ -1,7 +1,5 @@
 // Acceptance tests for plan #1193 (agent_docs/plans/1193-layout3d-typed-major.md), outcome O1.
 // oracle: closed-form orthographic projection (rotation written below) of each recorded layout's revolved profile; property glassFill per glass name
-// Assumed mesh API (#1195): layout3dMesh(layout, { width }) -> { faces: [{ v: [[x, y, z], ...], glass, fill }] } with z the optical axis;
-// project(p, view) -> [px, py, depth] with view { yaw, pitch, scale, center: [x, y, z], origin: [ox, oy] }.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -10,7 +8,6 @@ import { glassFill, drawnGlasses } from '../../packages/plots/src/glass.js';
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/layouts/${name}.json`, import.meta.url)));
 const LAYOUTS = { achromat: sample.layout, cooke: fixture('analysis-glasses'), wandersleb: JSON.parse(readFileSync(new URL('../fixtures/phos-core/wandersleb-layout.json', import.meta.url))) };
-const VIEWS = [{ yaw: -38, pitch: 16 }, { yaw: 20, pitch: -10 }];
 const SCALE = 6, ORIGIN = [280, 160]; // px/mm, px
 const mesh = async () => import('../../packages/plots/src/layout3d.js');
 
@@ -30,165 +27,13 @@ function profileZ(s, r) {
   return null;
 }
 
-test('revolved profiles project', async () => {
-  const { layout3dMesh, project } = await mesh();
-  for (const [name, layout] of Object.entries(LAYOUTS)) for (const v of VIEWS) {
-    const { faces } = layout3dMesh(layout, { width: 560 });
-    const zc = layout.surfaces[layout.surfaces.length - 1].z / 2;
-    const view = { ...v, scale: SCALE, center: [0, 0, zc], origin: ORIGIN };
-    assert.ok(faces.length > 0, `${name}: faces`);
-    for (const f of faces) for (const p of f.v) {
-      const r = Math.hypot(p[0], p[1]), phi = Math.atan2(p[1], p[0]);
-      const got = project(p, view);
-      const best = Math.min(...layout.surfaces.map((s) => {
-        const z = profileZ(s, r);
-        if (z === null) return Infinity;
-        const want = ortho([r * Math.cos(phi), r * Math.sin(phi), z], v, zc);
-        return Math.hypot(got[0] - want[0], got[1] - want[1]);
-      }), Infinity);
-      // the image plane is square and the stop ring a flat annulus outside the profile, neither revolved: their vertices are exempt
-      if (f.image || f.stop) continue;
-      assert.ok(best <= 0.5, `${name} yaw ${v.yaw} pitch ${v.pitch}: vertex ${p} is ${best.toFixed(2)} px from the revolved profile`);
-    }
-  }
-});
-
-test('glass fills per element', async () => {
-  const { layout3dMesh } = await mesh();
-  // {name, nd, vd} glasses: every glazed face carries glassFill's fill for its glass name, and every glass has faces
-  const cooke = LAYOUTS.cooke, glasses = drawnGlasses(cooke.surfaces), fills = glassFill(glasses);
-  const named = layout3dMesh(cooke, { width: 560 }).faces.filter((f) => !f.image && f.glass !== undefined);
-  assert.ok(named.length > 0, 'cooke: glazed faces');
-  for (const f of named) {
-    assert.ok(fills.has(f.glass), `cooke: glassFill has an entry for ${f.glass}`);
-    assert.equal(f.fill, fills.get(f.glass), `cooke: a ${f.glass} face carries glassFill's fill`);
-  }
-  for (const g of new Set(glasses.map((x) => x.name))) assert.ok(named.some((f) => f.glass === g), `cooke: ${g} has faces`);
-  // The "crown"/"flint" shorthand is not in glassFill's map (it takes {name, nd, vd} only), so its elements keep their
-  // tokens instead: one fill per shorthand, the same in every layout, and crown differs from flint.
-  const tone = (layout, g) => new Set(layout3dMesh(layout, { width: 560 }).faces.filter((f) => !f.image && f.glass === g).map((f) => f.fill));
-  const crown = tone(LAYOUTS.achromat, 'crown'), flint = tone(LAYOUTS.achromat, 'flint'), wand = tone(LAYOUTS.wandersleb, 'crown');
-  assert.equal(crown.size, 1, 'crown has one fill');
-  assert.equal(flint.size, 1, 'flint has one fill');
-  assert.notEqual([...crown][0], [...flint][0], 'crown and flint differ');
-  assert.deepEqual([...wand], [...crown], 'wandersleb crown elements keep the crown token');
-});
-
-// The 50-surface reference layout of U14 (tests/perf.spec.js referenceLayout): surfaces only, the mesh reads no rays.
-const reference = () => ({
-  rays: [],
-  surfaces: Array.from({ length: 50 }, (_, s) => {
-    const sd = 10, z = s * 5, c = 0.02 * Math.cos(s);
-    return {
-      z, sd, stop: s === 25, image: s === 49, glass: s === 49 ? null : s % 2 ? null : (s % 4 === 0 ? 'crown' : 'flint'),
-      profile: Array.from({ length: 41 }, (_, i) => { const y = -sd + (2 * sd * i) / 40; return [z + c * y * y, y]; }),
-    };
-  }),
-});
-
-test('face budget at 50 surfaces', async () => {
-  const { layout3dMesh, project, fitView } = await mesh();
-  const big = layout3dMesh(reference(), { width: 560 }).faces;
-  assert.ok(big.length <= 3500, `50 surfaces: ${big.length} faces within 3,500`);
-  assert.ok(big.length >= 2000, `50 surfaces: ${big.length} faces, not too coarse`);
-  assert.ok(big.some((f) => f.image), 'the image plane is a face');
-  // a small system keeps a higher density per surface than the 50-surface one
-  const per = (L) => { const m = layout3dMesh(L, { width: 560 }); return m.segments * m.rings; };
-  assert.ok(per(LAYOUTS.achromat) > per(reference()), 'achromat is denser per surface');
-  // the default view fits the rotated bounds into width x height; an explicit scale wins
-  const m = layout3dMesh(LAYOUTS.cooke, { width: 560 }), view = fitView(m, { width: 560, height: 320 });
-  for (const f of m.faces) for (const p of f.v) { const q = project(p, view); assert.ok(q[0] >= -0.5 && q[0] <= 560.5 && q[1] >= -0.5 && q[1] <= 320.5, `fits: ${q}`); }
-  assert.equal(fitView(m, { width: 560, height: 320, scale: 3 }).scale, 3);
-  // anything but a RecordedLayout is a named error
-  for (const bad of [null, {}, { surfaces: [] }, 'x']) assert.throws(() => layout3dMesh(bad, { width: 560 }), /layout3dMesh: expected a RecordedLayout/);
-});
-
-// Plan #1193, item 3 (#1196): layout3D draws the mesh. The drawing is a scene (faces and ray segments, painter-sorted) that the canvas then paints;
-// layout3dScene(layout, { width, height, rays, yaw, pitch, scale }, resolve) -> { view, items }, `resolve(fill)` standing in for the browser probe.
-const scene = async (layout, o = {}) => (await mesh()).layout3dScene(layout, { width: 560, height: 320, ...o }, () => [100, 100, 100]);
-const air = (L) => ({ ...L, surfaces: L.surfaces.map((s) => ({ ...s, glass: null })) });
-const segs = (items, k, i) => items.filter((x) => x.kind === 'ray' && x.k === k && x.i === i).map((x) => x.j);
-
-test('rays sort with the faces', async () => {
-  const { project } = await mesh();
-  const { view, items } = await scene(sample.layout, { rays: 'fan' });
-  const faces = items.filter((x) => x.kind === 'face'), rays = items.filter((x) => x.kind === 'ray');
-  assert.ok(faces.length > 0 && rays.length > 0, 'faces and rays');
-  for (let n = 1; n < items.length; n++) assert.ok(items[n - 1].depth >= items[n].depth - 1e-9, `item ${n} is not nearer than the one before it`);
-  // a ray segment sits at its mid depth (larger is farther)
-  const L = sample.layout;
-  for (const r of rays.slice(0, 20)) {
-    const a = L.rays[r.k][r.i][r.j - 1], b = L.rays[r.k][r.i][r.j];
-    assert.ok(Math.abs(r.depth - (project([0, a[1], a[0]], view)[2] + project([0, b[1], b[0]], view)[2]) / 2) < 1e-6, `segment ${r.k}/${r.i}/${r.j} mid depth`);
-  }
-  // sorted with the faces, not before or after them all
-  const at = items.map((x) => x.kind), first = at.indexOf('ray'), last = at.lastIndexOf('ray');
-  assert.ok(at.slice(first, last).includes('face'), 'a face lies between two ray segments');
-  // the achromat's two glass gaps draw no ray: only the air segments before the first surface and after the last
-  assert.deepEqual(segs(items, 0, 0), [1, 4]);
-  // the sets: marginal-chief is three rays per field, chief one, false none
-  const per = async (set) => new Set((await scene(L, { rays: set })).items.filter((x) => x.kind === 'ray' && x.k === 0).map((x) => x.i)).size;
-  assert.equal(await per(undefined), 3);
-  assert.equal(await per('chief'), 1);
-  assert.equal(await per('fan'), L.rays[0].length);
-  assert.equal(await per(false), 0);
-});
-
-test('dead and virtual cut', async () => {
-  const L = air(sample.layout), withAlive = (alive, dead) => ({ ...L, alive: L.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? alive : 4))), dead: L.rays.map((f, k) => f.map((_, i) => k === 0 && i === 0 && dead)) });
-  assert.deepEqual(segs((await scene(L, { rays: 'fan' })).items, 0, 0), [1, 2, 3, 4], 'air: every segment');
-  // Virtual from point 2: the segments ending in a Virtual point are not drawn
-  assert.deepEqual(segs((await scene(withAlive(2, false), { rays: 'fan' })).items, 0, 0), [1]);
-  // Dead at point 2: drawn through it, no further
-  assert.deepEqual(segs((await scene(withAlive(2, true), { rays: 'fan' })).items, 0, 0), [1, 2]);
-  // status: a segment takes its start point's status; none after the first Dead point, none from a Virtual one
-  const st = (s) => ({ ...L, status: L.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? s : Array(5).fill('Alive')))) });
-  assert.deepEqual(segs((await scene(st(['Alive', 'Alive', 'Dead', 'Virtual', 'Virtual']), { rays: 'fan' })).items, 0, 0), [1, 2]);
-  assert.deepEqual(segs((await scene(st(['Alive', 'Virtual', 'Virtual', 'Virtual', 'Virtual']), { rays: 'fan' })).items, 0, 0), [1]);
-});
-
-// Plan #1193, item #1225 (CRs #1222, #1223): a fan with no rays draws nothing, as in layout2D, and the others still draw.
-// oracle: the layout without the empty fan, whose scene the other fans' items must equal
-test('empty fan is skipped', async () => {
-  const L = air(sample.layout), withEmpty = { ...L, rays: [[], ...L.rays] };
-  const base = (await scene(L)).items.filter((x) => x.kind === 'ray').map((x) => [x.i, x.j, x.p]);
-  const got = (await scene(withEmpty)).items.filter((x) => x.kind === 'ray');
-  assert.ok(got.length > 0 && got.every((x) => x.k >= 1), 'only the non-empty fans draw');
-  // k shifts by one, so compare the rest
-  assert.deepEqual(got.map((x) => [x.i, x.j, x.p]), base);
-});
-
-// Plan #1193, issue #1243 (review M1 round 7, finding 1): a layout with no glazed surface, stop or image has no edges and no bounds; layout3dScene still returns a scene.
-// oracle: the same layout's rays, which the achromat records and an air-only layout still draws; no face and no edge exist, so items are exactly the ray segments
-test('empty scene', async () => {
-  const L = air(sample.layout), bare = { ...L, surfaces: L.surfaces.map((s) => ({ ...s, stop: false, image: false })) };
-  const { items } = await scene(bare);
-  assert.ok(items.length > 0 && items.every((x) => x.kind === 'ray'), 'only ray segments');
-  assert.deepEqual((await scene(bare, { rays: false })).items, []);
-});
-
-// Plan #1193, item #1218 (CR #1217): the default view frames what is drawn, faces and ray segments together.
-// oracle: the 16 px margin box of the 560 x 320 canvas, the pad of fitView's contract
-test('rays framed', async () => {
-  for (const L of [LAYOUTS.achromat, LAYOUTS.cooke]) {
-    const { items } = await scene(L);
-    const rays = items.filter((x) => x.kind === 'ray');
-    assert.ok(rays.length > 0, 'rays drawn');
-    for (const r of rays) for (const p of r.p) assert.ok(p[0] >= 16 - 0.5 && p[0] <= 560 - 16 + 0.5 && p[1] >= 16 - 0.5 && p[1] <= 320 - 16 + 0.5, `ray endpoint in the margin: ${p}`);
-    for (const f of items.filter((x) => x.kind === 'face')) for (const p of f.q) assert.ok(p[0] >= 16 - 0.5 && p[0] <= 560 - 16 + 0.5 && p[1] >= 16 - 0.5 && p[1] <= 320 - 16 + 0.5, `face point in the margin: ${p}`);
-  }
-  // oracle: the view is a function of the layout alone, so the rays option cannot move it
-  for (const L of [LAYOUTS.achromat, LAYOUTS.cooke]) assert.deepEqual((await scene(L, { rays: false })).view, (await scene(L)).view);
-  // an explicit scale still wins
-  assert.equal((await scene(LAYOUTS.achromat, { scale: 3 })).view.scale, 3);
-});
-
 // Plan #1193, item #1228 (review M1 round 1, finding 6): a bad chief index names layout3D, not layout2D.
 // oracle: layout2D's message for the same defect, with the caller's name in its place
+const air = (L) => ({ ...L, surfaces: L.surfaces.map((s) => ({ ...s, glass: null })) });
 test('bad chief names layout3D', async () => {
-  const L = air(sample.layout);
+  const { layout3dScene } = await three(), L = air(sample.layout);
   for (const chief of [[9, 9, 9], [-1, 0, 0], [1.5, 0, 0]]) {
-    await assert.rejects(scene({ ...L, chief }), { message: 'layout3D: chief[0] is not a ray of fan 0' }, `chief ${JSON.stringify(chief)}`);
+    assert.throws(() => layout3dScene({ ...L, chief }, {}, () => 0x808080), { message: 'layout3D: chief[0] is not a ray of fan 0' }, `chief ${JSON.stringify(chief)}`);
   }
 });
 
@@ -200,141 +45,38 @@ test('layout3D without data throws', async () => {
 
 // Plan #1193, item #1226 (review M1 round 1, finding 7): the projection test exempts the image plane and the stop ring, so their shape is checked here.
 test('image plane and stop ring', async () => {
-  const { layout3dMesh } = await mesh();
-  const L = LAYOUTS.wandersleb, { faces } = layout3dMesh(L, { width: 560 });
+  const { layout3dScene } = await three();
+  const L = LAYOUTS.wandersleb, { scene } = layout3dScene(L, { width: 560, height: 320 }, () => 0x808080), img = [], ring = [];
+  scene.traverse((o) => { if (o.isMesh && o.userData.image) img.push(o); if (o.isMesh && o.userData.stop) ring.push(o); });
+  const pts = (o) => { const a = o.geometry.attributes.position; return Array.from({ length: a.count }, (_, i) => [a.getX(i), a.getY(i), a.getZ(i)]); };
   // oracle: the layout's own image surface (sd, z): the plane is the square [-sd, sd]^2 at that z, written out corner by corner
-  const im = L.surfaces.find((s) => s.image), img = faces.filter((f) => f.image);
-  assert.equal(img.length, 1, 'wandersleb: one image face');
-  const corners = img[0].v.map((p) => p.map((c) => Math.round(c * 1e6) / 1e6).join(',')).sort();
-  const want = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [a * im.sd, b * im.sd, im.z].map((c) => Math.round(c * 1e6) / 1e6).join(',')).sort();
-  assert.deepEqual(corners, want, 'wandersleb: image plane is +-sd at the image surface z');
+  const im = L.surfaces.find((s) => s.image);
+  assert.equal(img.length, 1, 'wandersleb: one image plane');
+  const corners = pts(img[0]), want = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [a * im.sd, b * im.sd, im.z]);
+  for (const w of want) assert.ok(corners.some((p) => p.every((c, n) => Math.abs(c - w[n]) < 1e-3)), `wandersleb: image plane has the corner ${w}`);
+  for (const p of corners) assert.ok(want.some((w) => p.every((c, n) => Math.abs(c - w[n]) < 1e-3)), `wandersleb: image plane has no other vertex than ${p}`);
   // oracle: layout2D's stop tick length (2.5 mm) and the profile's edge point: every stop-ring vertex has radius in [sd, sd + 2.5] and z at the last profile point
-  const st = L.surfaces.find((s) => s.stop), ring = faces.filter((f) => f.stop);
-  assert.ok(ring.length > 0, 'wandersleb: stop ring faces');
-  const ze = st.profile[st.profile.length - 1][0];
-  for (const f of ring) for (const p of f.v) {
+  const st = L.surfaces.find((s) => s.stop), ze = st.profile[st.profile.length - 1][0];
+  assert.ok(ring.length > 0, 'wandersleb: a stop ring');
+  for (const p of ring.flatMap(pts)) {
     const r = Math.hypot(p[0], p[1]);
-    assert.ok(r >= st.sd - 1e-9 && r <= st.sd + 2.5 + 1e-9, `stop ring radius ${r} within [${st.sd}, ${st.sd + 2.5}]`);
-    assert.ok(Math.abs(p[2] - ze) < 1e-9, `stop ring z ${p[2]} at the profile edge ${ze}`);
+    assert.ok(r >= st.sd - 1e-4 && r <= st.sd + 2.5 + 1e-4, `stop ring radius ${r} within [${st.sd}, ${st.sd + 2.5}]`);
+    assert.ok(Math.abs(p[2] - ze) < 1e-4, `stop ring z ${p[2]} at the profile edge ${ze}`);
   }
 });
 
-// Plan #1193, issue #1238 (CR #1237): the plan-base tile's edge outlines return, painter-sorted with the scene.
-// oracle: closed-form orthographic projection (written in the test) of each glazed surface's outer profile point revolved at 2 pi j / segments; the silhouette lines are the rim points of least and greatest projected y, joined first rim to last; each rim segment's depth is min(its endpoints' mean depth, the mean depth of every mesh face that shares both endpoints) less 1e-3 of the mesh faces' depth span, all computed here from the mesh and the projection; faces sort far to near
-test('edge outlines', async () => {
-  const { layout3dMesh } = await mesh();
-  for (const name of ['achromat', 'cooke']) {
-    const L = LAYOUTS[name], S = L.surfaces, { segments, faces: mf } = layout3dMesh(L, { width: 560 });
-    const { view, items } = await scene(L);
-    const proj = ([x, y, z]) => {
-      const th = view.yaw * Math.PI / 180, ph = view.pitch * Math.PI / 180;
-      const h = z * Math.cos(th) - x * Math.sin(th), d = z * Math.sin(th) + x * Math.cos(th);
-      return [view.origin[0] + h * view.scale, view.origin[1] - (y * Math.cos(ph) - d * Math.sin(ph)) * view.scale, y * Math.sin(ph) + d * Math.cos(ph)];
-    };
-    const rimPt = (i, j) => { const top = S[i].profile.filter((p) => p[1] >= -1e-9).reduce((a, p) => (p[1] > a[1] ? p : a)); const t = 2 * Math.PI * j / segments; return proj([top[1] * Math.cos(t), top[1] * Math.sin(t), top[0]]); };
-    const glazed = S.map((s, i) => i).filter((i) => !S[i].image && (S[i].glass || (S[i - 1] && S[i - 1].glass)));
-    const close = (a, b) => Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
-    const edges = items.filter((x) => x.kind === 'edge');
-    // the faces' depth span and each face's mean depth, from the mesh and the test's own projection (not from the scene's items)
-    const fz = mf.map((f) => ({ q: f.v.map(proj), d: f.v.map(proj).reduce((s, p) => s + p[2], 0) / f.v.length })), span = Math.max(...fz.map((f) => f.d)) - Math.min(...fz.map((f) => f.d));
-    for (const i of glazed) {
-      const rim = edges.filter((e) => e.edge === 'rim' && e.surface === i);
-      assert.equal(rim.length, segments, `${name} surface ${i}: one rim outline of ${segments} segments`);
-      for (let j = 0; j < segments; j++) {
-        const a = rimPt(i, j), b = rimPt(i, j + 1), e = rim.find((r) => close(r.p[0], a));
-        assert.ok(e && close(e.p[1], b), `${name} surface ${i} rim segment ${j} at the rim's projected points`);
-        const mid = (a[2] + b[2]) / 2;
-        const share = fz.filter((f) => f.q.some((v) => close(v, a)) && f.q.some((v) => close(v, b))).map((f) => f.d);
-        assert.ok(share.length > 0, `${name} surface ${i} rim segment ${j}: a mesh face shares it`);
-        assert.ok(Math.abs(e.depth - (Math.min(mid, ...share) - 1e-3 * span)) < 1e-9, `${name} surface ${i} rim segment ${j} sorts at min(mid, sharing faces' means) less 1e-3 of the faces' span`);
-      }
-    }
-    assert.equal(edges.filter((e) => e.edge === 'rim').length, glazed.length * segments, `${name}: rims only on glazed surfaces`);
-    const gaps = S.map((s, i) => i).filter((i) => S[i].glass && glazed.includes(i + 1));
-    const sil = edges.filter((e) => e.edge === 'silhouette');
-    assert.equal(sil.length, 2 * gaps.length, `${name}: two silhouette lines per element`);
-    for (const i of gaps) {
-      const ring = Array.from({ length: segments }, (_, j) => rimPt(i, j)), ys = ring.map((q) => q[1]);
-      const top = ys.indexOf(Math.min(...ys)), bot = ys.indexOf(Math.max(...ys));
-      for (const j of [top, bot]) assert.ok(sil.some((e) => e.element === i && close(e.p[0], rimPt(i, j)) && close(e.p[1], rimPt(i + 1, j))), `${name} element ${i}: silhouette at ring point ${j}, first rim to last`);
-    }
-    for (let n = 1; n < items.length; n++) assert.ok(items[n - 1].depth >= items[n].depth - 1e-9, 'edges sort with the faces');
-  }
-});
-
-// Plan #1193, issue #1241 (CR #1240, #1242): an edge is full width and correctly hidden: every face that shares it paints before it and none of them clips it, and a face nearer than it that does not share it hides it, by painting after it or by its polygon in the edge's `clip`.
-// (wandersleb at yaw 20 pitch -10 is a view where a silhouette line is over-drawn without its clip.)
-// oracle: the reviewer's 3-point plane-depth sampling, written here. Each rim segment and silhouette line (its endpoints are rim points, so their depths are the mesh vertices' projected depths) at t = 0.25, 0.5, 0.75, against the plane depth (the plane through a face's projected vertices) of every covering face that does not share the segment. (a) sharing faces (both endpoints among the face's projected vertices) paint before the edge and are never in its clip. (b) a sample a face's plane is nearer than the segment's interpolated depth by more than 5e-3 of the faces' depth span is hidden: the face paints after the edge, or the sample is inside the edge's clip. (c) a sample no covering face is nearer at is outside the edge's clip
-for (const name of ['achromat', 'cooke', 'wandersleb']) for (const view0 of [{ yaw: -38, pitch: 16 }, { yaw: 20, pitch: -10 }, { yaw: 45, pitch: 5 }]) test(`edge outlines: full width and hidden by nearer faces (${name} yaw ${view0.yaw} pitch ${view0.pitch})`, async () => {
-  const { layout3dMesh, project } = await mesh();
-  const L = LAYOUTS[name], { segments, faces: mf } = layout3dMesh(L, { width: 560 });
-  const { view, items } = await scene(L, view0);
-  const F = mf.map((f) => { const q = f.v.map((p) => project(p, view)); return { q, depth: q.reduce((d, p) => d + p[2], 0) / q.length }; });
-  const span = Math.max(...F.map((f) => f.depth)) - Math.min(...F.map((f) => f.depth));
-  const S = L.surfaces, top = (i) => S[i].profile.filter((p) => p[1] >= -1e-9).reduce((a, p) => (p[1] > a[1] ? p : a));
-  const rimPt = (i, j) => { const t = 2 * Math.PI * j / segments, r = top(i); return project([r[1] * Math.cos(t), r[1] * Math.sin(t), r[0]], view); };
-  const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6;
-  const inside = (q, p) => { let pos = 0, neg = 0; q.forEach((a, i) => { const b = q[(i + 1) % q.length], c = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]); if (c > 1e-6) pos++; else if (c < -1e-6) neg++; }); return !(pos && neg) && pos + neg === q.length; };
-  const planeZ = (q, p) => {
-    const [a, b, c, d] = q, u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-    for (const w3 of [c, d]) { if (!w3) continue; const w = [w3[0] - a[0], w3[1] - a[1], w3[2] - a[2]], nz = u[0] * w[1] - u[1] * w[0]; if (Math.abs(nz) < 1e-9) continue; const nx = u[1] * w[2] - u[2] * w[1], ny = u[2] * w[0] - u[0] * w[2]; return a[2] - (nx * (p[0] - a[0]) + ny * (p[1] - a[1])) / nz; }
-    return null;
-  };
-  const sorted = items.filter((x) => x.kind === 'face'), edges = items.filter((x) => x.kind === 'edge');
-  // the scene's faces are sorted, the mesh's are not: pair them by their projected vertices
-  const faces = F.map((f) => sorted.find((x) => x.q.length === f.q.length && x.q.every((v, k) => near(v, f.q[k]))));
-  assert.ok(faces.every(Boolean), 'every mesh face is a scene item');
-  const glazed = S.map((s, i) => i).filter((i) => !S[i].image && (S[i].glass || (S[i - 1] && S[i - 1].glass)));
-  let hiddenSamples = 0, covered = 0, over = 0, cut = 0, clipped = 0;
-  for (const e of edges) {
-    const ei = items.indexOf(e);
-    F.forEach((f, fi) => { if (f.q.some((v) => near(v, e.p[0])) && f.q.some((v) => near(v, e.p[1])) && items.indexOf(faces[fi]) > ei) covered++; });
-    for (const q of e.clip) { assert.ok(q.length >= 3, 'a clip polygon has at least 3 points'); clipped++; }
-  }
-  assert.ok(items.every((x) => !('z' in x)), 'no item keeps its internal z');
-  assert.equal(edges.filter((e) => e.edge === 'rim').length, glazed.length * segments, 'a rim segment per glazed surface point');
-  assert.ok(edges.some((e) => e.edge === 'silhouette'), 'silhouette lines are in the scene');
-  const zOf = new Map(); mf.forEach((f) => f.v.forEach((p) => { const q = project(p, view); zOf.set(Math.round(q[0] * 1e3) + ',' + Math.round(q[1] * 1e3), q[2]); }));
-  const depthAt = (p) => zOf.get(Math.round(p[0] * 1e3) + ',' + Math.round(p[1] * 1e3));
-  const kinds = { rim: 0, silhouette: 0 };
-  for (const e of edges) {
-    const a = e.p[0], b = e.p[1], za = depthAt(a), zb = depthAt(b), ei = items.indexOf(e);
-    assert.ok(za !== undefined && zb !== undefined, 'an edge ends at mesh rim points');
-    F.forEach((f, fi) => {
-      if (f.q.some((v) => near(v, a)) && f.q.some((v) => near(v, b))) return;
-      for (const t of [0.25, 0.5, 0.75]) {
-        const p = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-        if (!inside(f.q, p)) continue;
-        const z = planeZ(f.q, p); if (z == null) continue;
-        const ze = za + t * (zb - za), clippedHere = e.clip.some((q) => inside(q, p));
-        if (z < ze - 5e-3 * span) { hiddenSamples++; kinds[e.edge]++; if (items.indexOf(faces[fi]) < ei && !clippedHere) over++; }
-        else if (z >= ze && clippedHere && !F.some((g) => inside(g.q, p) && planeZ(g.q, p) < ze - 1e-9 && !(g.q.some((v) => near(v, a)) && g.q.some((v) => near(v, b))))) cut++;
-      }
-    });
-  }
-  assert.equal(covered, 0, 'no face that shares an edge paints after it');
-  assert.equal(over, 0, 'no rim or silhouette line paints over a nearer non-sharing face');
-  assert.equal(cut, 0, 'no clip cuts an edge where no face is nearer');
-  assert.ok(kinds.rim > 0, 'some rim samples are really hidden');
-  // oracle: the reviewer's sampling above: at wandersleb yaw 20 pitch -10 a silhouette line has samples under a nearer face, so a missing silhouette clip is caught
-  if (name === 'wandersleb' && view0.yaw === 20 && view0.pitch === -10) assert.ok(kinds.silhouette > 0, 'some silhouette samples are really hidden');
-});
-
-// oracle: the scene at HEAD before the clip grid was bounded (commit e198143), recorded as the sha256 of JSON.stringify(items) with every number rounded to 1e-6 (last-bit float differences between Node builds are not behaviour), with the fill resolver () => [120, 140, 160]: achromat at the default view (no clip polygons) and wandersleb at yaw 20 pitch -10 (33 edges with clip polygons). Same items, same order, same clip polygons, or the hash differs. And a child process with a 512 MB heap, which on HEAD dies at scale 4000.
-test('large scale', async () => {
-  const { createHash } = await import('node:crypto');
-  const { execFileSync } = await import('node:child_process');
-  const { layout3dScene } = await mesh();
-  const hash = (layout, o) => createHash('sha256').update(JSON.stringify(layout3dScene(layout, o, () => [120, 140, 160]).items, (k, v) => typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)).digest('hex');
-  assert.equal(hash(LAYOUTS.achromat, {}), 'a750a587a6b81b8c54482f82dc6961a85bed323ad8c12edd99bd05b2f6afb225', 'achromat default view is unchanged item for item');
-  assert.equal(hash(LAYOUTS.wandersleb, { yaw: 20, pitch: -10 }), '9c0a550e7edacce7c776e9273d6c0a44413cc8962e2278a88c7a45d22a87bba2', 'wandersleb clip polygons are unchanged');
-  const src = `import sample from ${JSON.stringify(new URL('../../packages/plots/src/sample.js', import.meta.url).href)}; import { layout3dScene } from ${JSON.stringify(new URL('../../packages/plots/src/layout3d.js', import.meta.url).href)}; const s = layout3dScene(sample.layout, { scale: 4000 }, () => [120, 140, 160]); console.log(s.items.length);`;
-  const out = execFileSync(process.execPath, ['--max-old-space-size=512', '--input-type=module', '-e', src], { encoding: 'utf8', timeout: 20000 });
-  assert.ok(Number(out) > 0, 'scale 4000 returns items');
+// Plan #1193, issue #1243 (review M1 round 7, finding 4): a layout with no glazed surface, stop or image has no edges; layout3dScene still returns a scene.
+// oracle: the same layout's rays, which an air-only layout still draws: no mesh and no rim exist, so the scene's objects are exactly the ray lines
+test('empty scene', async () => {
+  const { layout3dScene } = await three(), L = air(sample.layout), bare = { ...L, surfaces: L.surfaces.map((s) => ({ ...s, stop: false, image: false })) };
+  const kinds = (o) => { const out = []; layout3dScene(bare, o, () => 0x808080).scene.traverse((n) => { if (n.isMesh) out.push(n.isLineSegments2 ? (n.userData.ray ? 'ray' : 'edge') : n.isMesh ? 'mesh' : null); }); return out; };
+  const k = kinds({});
+  assert.ok(k.length > 0 && k.every((x) => x === 'ray'), 'only ray lines');
+  assert.deepEqual(kinds({ rays: false }), []);
 });
 
 // Plan #1193 M2, issue #1249: the three.js path's acceptance tests, written skipped; #1250 builds layout3dScene(layout, o, resolve) -> { scene, camera } in
-// packages/plots/src/layout3dThree.js, and #1256 unskips them (the old-API tests above die with the painter in #1253, then these take their names).
+// packages/plots/src/layout3dThree.js, and #1256 unskips them (the painter and its tests died in #1253).
 const three = async () => import('../../packages/plots/src/layout3dThree.js');
 // Project a world point through an orthographic camera's matrices to px (y down) for a w x h canvas.
 const viaCamera = (camera, [x, y, z], w, h) => {
@@ -347,7 +89,7 @@ const viaCamera = (camera, [x, y, z], w, h) => {
 
 // O1. oracle: closed-form orthographic projection (ortho above: yaw about y, pitch about x) of each recorded layout's revolved profile; every mesh vertex, projected by the camera's matrices, is within 0.5 px of it.
 // The camera centres the fitted bounds, ortho centres (0, 0, zc) at ORIGIN: the two differ by one translation, taken from where the camera puts (0, 0, zc), so rotation and scale are still checked.
-test.skip('revolved profiles project (three)', async () => {
+test.skip('revolved profiles project', async () => {
   const { layout3dScene } = await three();
   for (const [name, layout] of Object.entries(LAYOUTS)) for (const v of [{ view: 'iso' }, { yaw: 20, pitch: -10 }]) {
     const { scene, camera } = layout3dScene(layout, { ...v, width: 560, height: 320, scale: SCALE }, () => 0x808080);
@@ -377,7 +119,7 @@ test.skip('revolved profiles project (three)', async () => {
 });
 
 // O1. oracle: property, glassFill per glass name; each element's material colour is resolve(fill) and userData.fill is glassFill's fill.
-test.skip('glass fills per element (three)', async () => {
+test.skip('glass fills per element', async () => {
   const { layout3dScene } = await three();
   const cooke = LAYOUTS.cooke, glasses = drawnGlasses(cooke.surfaces), fills = glassFill(glasses);
   const seen = new Set(), hex = new Map();
@@ -432,7 +174,7 @@ const drawn = (L, k, i, js) => js.map((j) => [[0, L.rays[k][i][j - 1][1], L.rays
 const same = (got, want, msg) => { assert.equal(got.length, want.length, msg); got.forEach((g, n) => g.flat().forEach((c, m) => assert.ok(Math.abs(c - want[n].flat()[m]) < 1e-4, msg))); };
 const rayIn = async (L, k, i) => { const { scene } = (await three()).layout3dScene(L, { rays: 'fan', width: 560, height: 320 }, () => 0x808080); return lines(scene, (u) => u.ray && u.k === k && u.i === i).flatMap(segsOf); };
 
-test('dead and virtual cut (three)', async () => {
+test('dead and virtual cut', async () => {
   const L = air(sample.layout), withAlive = (alive, dead) => ({ ...L, alive: L.rays.map((f, k) => f.map((_, i) => (k === 0 && i === 0 ? alive : 4))), dead: L.rays.map((f, k) => f.map((_, i) => k === 0 && i === 0 && dead)) });
   same(await rayIn(L, 0, 0), drawn(L, 0, 0, [1, 2, 3, 4]), 'air: every segment');
   same(await rayIn(withAlive(2, false), 0, 0), drawn(L, 0, 0, [1]), 'Virtual from point 2');
@@ -444,7 +186,7 @@ test('dead and virtual cut (three)', async () => {
   same(await rayIn(sample.layout, 0, 0), drawn(sample.layout, 0, 0, [1, 4]), '');
 });
 
-test('ray sets, width and depth test (three)', async () => {
+test('ray sets, width and depth test', async () => {
   const { layout3dScene } = await three(), L = sample.layout;
   const per = (rays) => new Set(lines(layout3dScene(L, { rays }, () => 0x808080).scene, (u) => u.ray && u.k === 0).map((l) => l.userData.i)).size;
   assert.equal(per(undefined), 3);
@@ -461,7 +203,7 @@ test('ray sets, width and depth test (three)', async () => {
   assert.ok(lines(scene, (u) => u.ray && u.chief).every((l) => l.material.dashed), 'the chief is dashed');
 });
 
-test('empty fan is skipped (three)', async () => {
+test('empty fan is skipped', async () => {
   const { layout3dScene } = await three(), L = air(sample.layout), withEmpty = { ...L, rays: [[], ...L.rays] };
   const at = (X) => lines(layout3dScene(X, {}, () => 0x808080).scene, (u) => u.ray).map((l) => [l.userData.i, segsOf(l)]);
   const got = lines(layout3dScene(withEmpty, {}, () => 0x808080).scene, (u) => u.ray);
@@ -470,7 +212,7 @@ test('empty fan is skipped (three)', async () => {
   got.forEach((l, n) => same(segsOf(l), at(L)[n][1], 'same segments'));
 });
 
-test('the camera fits the drawn ray points, not Virtual or in-glass ones (three)', async () => {
+test('the camera fits the drawn ray points, not Virtual or in-glass ones', async () => {
   const { layout3dScene } = await three(), L = air(sample.layout);
   // a Virtual tail far off axis would widen the fit if it counted
   const far = { ...L, rays: L.rays.map((f, k) => f.map((r, i) => (k === 0 && i === 0 ? r.map((p, j) => (j >= 2 ? [p[0], 500] : p)) : r))) };
@@ -483,7 +225,7 @@ test('the camera fits the drawn ray points, not Virtual or in-glass ones (three)
   assert.ok(Math.abs(b.top - a.top) < 5, 'and is not a 500 mm tail');
 });
 
-test('edge outlines (three)', async () => {
+test('edge outlines', async () => {
   const { layout3dScene } = await three();
   for (const name of ['achromat', 'cooke']) for (const v of [{ view: 'iso' }, { yaw: 20, pitch: -10 }, { view: 'front' }]) {
     const L = LAYOUTS[name], S = L.surfaces, { scene, camera } = layout3dScene(L, { ...v, width: 560, height: 320 }, () => 0x808080), N = 128;

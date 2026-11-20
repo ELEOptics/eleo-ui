@@ -62,6 +62,7 @@
       <section class="eleo-plot" data-tile="distortion" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">distortion</span></div><div class="eleo-plot__body" data-svg="distortion"></div></section>
       <section class="eleo-plot" data-tile="chromaticFocus" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">chromatic focus</span></div><div class="eleo-plot__body" data-svg="chromaticFocus"></div></section>
       <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D"></canvas></div></section>
+      <section class="eleo-plot" data-tile="layout3D-front"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">front</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D-front"></canvas></div></section>
       <section class="eleo-plot" data-tile="layout3D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16, iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D-glasses"></canvas></div></section>
       <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy"></canvas></div></section>
     <!-- Segmented control specimen, not a tile. Each column's <form> scopes its own radio group. -->
@@ -173,10 +174,10 @@
       if (!w || (k === 'layout3D-glasses' ? !GLASSES : k !== 'airy' && !SAMPLE_BOX)) return;
       var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k.indexOf('layout3D') === 0 ? w * 320 / 560 : w;
       el.style.width = w + 'px'; el.style.height = h + 'px';
-      // The glasses tile is the last of its column's tiles that the specs mount hosts after, and a fractional page offset moves a 1 px ray off the pixel they aim at (interact.spec 'layout zoom pan and reset', map2d.spec U8 clip): trim its canvas so the tile is a whole number of px tall and the tiles below stay where they were.
-      if (k === 'layout3D-glasses') { var frac = el.closest('[data-tile]').getBoundingClientRect().height % 1; if (frac && frac < h) el.style.height = (h -= frac) + 'px'; }
+      // The layout3D tiles (iso, front, glasses) sit above tiles the specs mount hosts after, and a fractional page offset moves a 1 px ray off the pixel they aim at (interact.spec 'layout zoom pan and reset', map2d.spec U8 clip): trim its canvas so the tile is a whole number of px tall and the tiles below stay where they were.
+      if (k.indexOf('layout3D') === 0) { var frac = el.closest('[data-tile]').getBoundingClientRect().height % 1; if (frac && frac < h) el.style.height = (h -= frac) + 'px'; }
       if (k === 'airy') airyTile(el, n);
-      else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : ELEO.sample.layout, width: w, height: h });
+      else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : ELEO.sample.layout, view: k === 'layout3D-front' ? 'front' : undefined, width: w, height: h });
     }
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
