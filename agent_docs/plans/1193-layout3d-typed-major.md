@@ -186,6 +186,11 @@ packaged (#1254, #1255), so every commit keeps the gate green (re-plan critique)
 | #1255 | Docs and wrapper: `Layout3D.svelte` imports `@eleoptics/plots/layout3d` and passes `view`; both READMEs (the new import, `view`, the iso default, three as a peer); the changeset says layout3D moved | forced (A4: each change carries the docs it invalidates) | `packages/plots-svelte/src/lib/Layout3D.svelte`, `packages/plots/README.md`, `packages/plots-svelte/README.md`, `.changeset/layout3d-typed.md` | plots-svelte.test.js; svelte-check | #1254 |
 | #1256 | Unskip O1, O2, O8, O9; record the U14 median | forced (`workflow.md`, TDD) | `tests/unit/layout3d.test.js`, `tests/perf.spec.js`, `tests/gallery.spec.js` | O1, O2, O8, O9 | #1255 |
 | #1266 | `tests/perf.spec.js`'s header names the GPU-only layout3D U14 test (CR [#1265], stale doc) | forced (stale doc from #1256's `noticed`) | `tests/perf.spec.js` | `--list` with and without `GPU=1` | #1256 |
+| #1274 | README and `layout3d.d.ts` give the iso default (yaw -45, pitch 35.264), `front` as a side view, the per-`data` geometry cache and `layout3dThree.js` as the renderer; one changeset clause on the angles (CR [#1269], #1272, #1273) | forced (A4: docs follow the code; review M2 round 1, findings 3, 9, 10) | `packages/plots/README.md`, `packages/plots/src/layout3d.d.ts`, `.changeset/layout3d-typed.md`, `tests/unit/plots-svelte.test.js` | plots-svelte.test.js docs test extended | #1256 |
+| #1275 | `layout3d.js` re-exports `render3d` as `layout3D` (CR [#1271]) | a re-export because the wrapper adds nothing (review M2 round 1, finding 5); considered merging the modules, which exposes `layout3dScene` from the public entry | `packages/plots/src/layout3d.js`, `packages/plots/src/layout3dThree.js`, `tests/unit/types.test.js` | export test: `layout3D === render3d` | #1256 |
+| #1276 | Silhouette geometries cached per gap and view (or disposed), so redraws do not grow GPU state (review M2 round 1, finding 6) | small and named, in a file M2 changed (pulled in) | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | "silhouettes do not grow per redraw" | #1256 |
+| #1277 | The gallery's canvas tiles are guarded as `drawMap` is, so a failing 3D tile skips only itself (review M2 round 1, finding 7) | small and named (pulled in) | `gallery/index.html`, `tests/gallery.spec.js` | "a failing 3D tile skips only itself" | #1256 |
+| #1278 | `view` takes only own preset keys; `toString` and `constructor` throw the named error (review M2 round 1, finding 8) | small and named (pulled in) | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | "unknown view names throw" | #1256 |
 
 ### M3: mirrors in 3D, on three.js GitHub: `P1193 M3: mirrors, holes and obscurations in 3D`
 
@@ -290,11 +295,17 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-20 orchestrator: CR [#1264] accepted (a): moving layout3D out of the main entry breaks svelte-check through `Layout3D.svelte`'s imports, so #1254's Files gain that file for its two imports; `view` and docs stay in #1255.
 - 2026-11-20 #1256: O2 median recorded on the GPU (`PERF=1 GPU=1`, Chromium `--use-angle=metal`, Apple M2 Max, the 50-surface reference layout, marginal-chief): 15.50, 14.65 and 14.55 ms headless, under 16 ms with 0.5-1.5 ms to spare; one headed run read 16 ms and failed. The full layout3D is about ten times the spike's 1.3 ms (scene, materials, fill probes, lines and the 2D overlay per redraw), so O2 is met but tight.
 - 2026-11-20 orchestrator: CR [#1265] accepted (stale doc from #1256's `noticed`, not Core): item #1266, after the M2 review round 1.
+- 2026-11-20 orchestrator: review M2 round 1: 5 blocking, 5 backlog (breaker count 10). CRs [#1269] and [#1271] accepted (items #1274, #1275); CRs [#1267] (plots-svelte needs three through its index), [#1268] (plots-svelte peer and plots 0.11.0) and [#1270] (ADR-0001 clause) are the user's. Backlog 6, 7, 8 pulled in as #1276-#1278; 9 and 10 (#1272, #1273) through #1274.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
 [#1264]: https://github.com/ELEOptics/eleo-ui/issues/1264
 [#1265]: https://github.com/ELEOptics/eleo-ui/issues/1265
+[#1267]: https://github.com/ELEOptics/eleo-ui/issues/1267
+[#1268]: https://github.com/ELEOptics/eleo-ui/issues/1268
+[#1269]: https://github.com/ELEOptics/eleo-ui/issues/1269
+[#1270]: https://github.com/ELEOptics/eleo-ui/issues/1270
+[#1271]: https://github.com/ELEOptics/eleo-ui/issues/1271
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
 [#133]: https://github.com/ELEOptics/eleo-ui/issues/133
