@@ -5,7 +5,7 @@ import { pageHelpers } from './page-helpers.js';
 
 test.beforeEach(({ page }) => pageHelpers(page));
 
-// U14 is a measurement, not a gate: the test exists only when PERF=1 (opt-in), so a normal run neither runs nor lists it.
+// U14 is a measurement, not a gate: each test exists only when PERF=1 (opt-in), so a normal run neither runs nor lists it. One exception: "layout3D redraw (U14)" exists only under PERF=1 GPU=1, on a GPU-backed Chromium (CR #1257).
 if (process.env.PERF === '1') test('curve redraw (U14)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body[data-ready]')).toHaveCount(1);
