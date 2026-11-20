@@ -124,7 +124,7 @@ the real world yet (user, round 3).
 
 ### M1: layout3D draws any recorded lens system GitHub: `P1193 M1: typed layout3D for lens systems`
 
-Done 2026-11-19: review round 4 (Review M1: 0 blocking, nothing pulled in; backlog #1232, #1221 outside M1); full gate green on 9ec1c25 (553 passed); CI pending on 9ec1c25 at the tick. O2 met at 8.80-9.20 ms (#1230). Demo round 1 (2026-11-19, with the course check): no-go, "Bring back edge outlines" (CR [#1237], item #1238); the demo is repeated after #1238.
+Done 2026-11-19: review round 11 (Review M1: 0 blocking, nothing pulled in; backlog #1232, #1221 outside M1); full gate green on 7f653fd (556 passed); CI on 7f653fd: build, check and unit passed, playwright pending at the tick. O2 met at 13.1-14.1 ms. Demo round 1 (with the course check): no-go, "Bring back edge outlines" (CR [#1237]); the edge outlines landed in #1238, #1239, #1241, #1243, #1245, #1246 and #1248. Demo round 2: pending.
 
 Demo: `npm run gallery`: the achromat (the sample's recorded layout) and Cooke glasses 3D tiles in both themes beside
 the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `review-assets`);
@@ -232,6 +232,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: review M1 round 8: 1 blocking, 1 backlog (breaker count 2, down from 4). CR [#1244] accepted: #1243's `delete f.z` on face items raised the U14 median to about 16.1 ms (O2 failing 8 of 10 runs; the base was about 15.5 ms, failing 1 of 7). Item #1245 keeps depths off the items and restores headroom; finding 2 pulled in. Round 9 follows.
 - 2026-11-19 orchestrator: review M1 round 9: 0 blocking, 1 backlog (breaker count 1, down from 2); all 13 CRs resolved (#1244 by #1245, U14 13.3-14.0 ms; scene items identical to #1243's in 28 cases). The finding (unbounded clip grid at large `scale`) is small and named, so it is pulled in as #1246; round 10 follows.
 - 2026-11-19 orchestrator: review M1 round 10: 1 blocking, 0 backlog (breaker count 1, the same as round 9: one round without a fall). CR [#1247] accepted: CI run 44649623803 on 9d860e4 fails "large scale", whose sha256 depends on the Node build's last-bit floats. Item #1248 rounds before hashing. Round 11 follows.
+- 2026-11-19 review M1 round 11 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; all 14 CRs resolved. Rounds 5-11 (blocking + pulled in): 1, 3, 4, 2, 1, 1, 0. M1 re-ticked for demo round 2.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
