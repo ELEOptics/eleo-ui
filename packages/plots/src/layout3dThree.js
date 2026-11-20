@@ -25,7 +25,7 @@ const halfProfile = (s) => s.profile.filter((p) => p[1] >= -1e-9).map(([z, y]) =
 const lathe = (pts) => { const g = new LatheGeometry(pts.map(([z, r]) => new Vector2(r, z)), SEGMENTS); g.rotateX(Math.PI / 2); return g; };
 
 // The geometry of a layout, built once per `data` object: { parts: [{ geometry, element, glass?, stop?, image? }], segs: every drawable ray segment { k, i, j, a, b },
-// rims: [{ surface, ring: [x, y, z][] }] per glazed surface, gaps: [{ element, a, b }] the rims either side of each glass gap, rayGeo: lazily per ray }.
+// rims: [{ surface, ring: [x, y, z][] }] per glazed surface, gaps: [{ element, a, b }] the rims either side of each glass gap, rayGeo: line geometries made lazily per ray, rim and silhouette segment }.
 const CACHE = new WeakMap();
 function build(layout) {
   const S = layout.surfaces, parts = [], rims = new Map();

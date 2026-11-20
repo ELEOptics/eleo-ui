@@ -938,8 +938,7 @@ test('layout3D tiles draw on the gallery', async ({ page }) => {
 // Plan #1193, #1277 (review M2 round 1, finding 7): a canvas tile that throws skips only itself, as a map tile does.
 // oracle: property, with getContext('webgl2'|'webgl') stubbed to null before load, layout3D throws on every 3D tile: the console names each of the six skipped tiles (three kinds, two themes), no page error, and the airy canvases still hold ink.
 test('a failing 3D tile skips only itself', async ({ page }) => {
-  // software WebGL is slow (about 0.3 s a tile) and the stub makes each 3D tile fail after building its renderer; the full gate runs specs in parallel: 120 s.
-  test.setTimeout(120_000);
+  // the stub makes renderer() throw `layout3D: WebGL is not available` on every 3D tile, so no renderer is built and the test needs only the default timeout.
   const skipped = [];
   const thrown = [];
   page.on('pageerror', (e) => thrown.push(e.message));
