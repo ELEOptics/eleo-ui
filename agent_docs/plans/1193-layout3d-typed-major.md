@@ -185,6 +185,7 @@ packaged (#1254, #1255), so every commit keeps the gate green (re-plan critique)
 | #1254 | Packaging: `three` optional peer (`>=0.170 <1`, `peerDependenciesMeta`); `./layout3d` export; esbuild `external: ['three', 'three/*']` for the ESM build, bundled in the new `eleo-layout3d.js` IIFE (`src/iife-layout3d.js` attaching to `window.ELEO`, as `iife-layout.js` does); layout3D out of `renderers.js`, `index.js`, `eleo-plots.js`; `index.d.ts` → `layout3d.d.ts` (with `view`), the `.d.ts` copy loop; the gallery's script tag | the user chose an own entry (round 1, user); considered a lazy `import('three')` in the main entry, which makes layout3D async and cannot run in the classic-script IIFE | `packages/plots/package.json`, `packages/plots/build.mjs`, `packages/plots/src/iife-layout3d.js`, `packages/plots/src/index.js`, `packages/plots/src/renderers.js`, `packages/plots/src/index.d.ts`, `packages/plots/src/layout3d.d.ts`, `gallery/index.html`, `tests/types/layout3d.ts`, `tests/unit/types.test.js`, `packages/plots-svelte/src/lib/Layout3D.svelte` (its two imports, CR [#1264]) | types.test.js "layout3d.ts"; export test: main entry has no `layout3D`, `./layout3d` has, `dist/index.js` has no three | #1253 |
 | #1255 | Docs and wrapper: `Layout3D.svelte` imports `@eleoptics/plots/layout3d` and passes `view`; both READMEs (the new import, `view`, the iso default, three as a peer); the changeset says layout3D moved | forced (A4: each change carries the docs it invalidates) | `packages/plots-svelte/src/lib/Layout3D.svelte`, `packages/plots/README.md`, `packages/plots-svelte/README.md`, `.changeset/layout3d-typed.md` | plots-svelte.test.js; svelte-check | #1254 |
 | #1256 | Unskip O1, O2, O8, O9; record the U14 median | forced (`workflow.md`, TDD) | `tests/unit/layout3d.test.js`, `tests/perf.spec.js`, `tests/gallery.spec.js` | O1, O2, O8, O9 | #1255 |
+| #1266 | `tests/perf.spec.js`'s header names the GPU-only layout3D U14 test (CR [#1265], stale doc) | forced (stale doc from #1256's `noticed`) | `tests/perf.spec.js` | `--list` with and without `GPU=1` | #1256 |
 
 ### M3: mirrors in 3D, on three.js GitHub: `P1193 M3: mirrors, holes and obscurations in 3D`
 
@@ -288,10 +289,12 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-20 orchestrator: CR [#1261] accepted (stale doc from #1253's `noticed`, not Core): item #1262.
 - 2026-11-20 orchestrator: CR [#1264] accepted (a): moving layout3D out of the main entry breaks svelte-check through `Layout3D.svelte`'s imports, so #1254's Files gain that file for its two imports; `view` and docs stay in #1255.
 - 2026-11-20 #1256: O2 median recorded on the GPU (`PERF=1 GPU=1`, Chromium `--use-angle=metal`, Apple M2 Max, the 50-surface reference layout, marginal-chief): 15.50, 14.65 and 14.55 ms headless, under 16 ms with 0.5-1.5 ms to spare; one headed run read 16 ms and failed. The full layout3D is about ten times the spike's 1.3 ms (scene, materials, fill probes, lines and the 2D overlay per redraw), so O2 is met but tight.
+- 2026-11-20 orchestrator: CR [#1265] accepted (stale doc from #1256's `noticed`, not Core): item #1266, after the M2 review round 1.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
 [#1264]: https://github.com/ELEOptics/eleo-ui/issues/1264
+[#1265]: https://github.com/ELEOptics/eleo-ui/issues/1265
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
 [#133]: https://github.com/ELEOptics/eleo-ui/issues/133
