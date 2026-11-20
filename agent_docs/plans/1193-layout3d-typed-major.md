@@ -120,7 +120,7 @@ the real world yet (user, round 3).
   IIFE `eleo-layout3d.js`, the only bundle that carries three; an orthographic camera, isometric by default, rendered
   once (no controls). Considered: a regular dependency (every 2D user downloads three), a lazy `import('three')`
   (async, no classic IIFE), a 2D overlay for lines (no depth test).
-- ADR-0001: layout3D's tone composition stays a style-lint exemption; the exemption follows the code (#1253).
+- ADR-0001: layout3D's tone composition and label font were style-lint exemptions; #1253 removed both (colours from `resolve`, the font from `--font-mono`), and #1281 drops them from the ADR (CR [#1270], user).
 - Moving layout3D out of the main entry is breaking: it rides the plots minor M1's changeset already makes (#1255).
 - Roadmap edits (re-plan, user): row J is 3D only; new row K carries the breaking minor; U10's oracle gains O8's
   front-view reference.
@@ -191,6 +191,8 @@ packaged (#1254, #1255), so every commit keeps the gate green (re-plan critique)
 | #1276 | Silhouette geometries cached per gap and view (or disposed), so redraws do not grow GPU state (review M2 round 1, finding 6) | small and named, in a file M2 changed (pulled in) | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | "silhouettes do not grow per redraw" | #1256 |
 | #1277 | The gallery's canvas tiles are guarded as `drawMap` is, so a failing 3D tile skips only itself (review M2 round 1, finding 7) | small and named (pulled in) | `gallery/index.html`, `tests/gallery.spec.js` | "a failing 3D tile skips only itself" | #1256 |
 | #1278 | `view` takes only own preset keys; `toString` and `constructor` throw the named error (review M2 round 1, finding 8) | small and named (pulled in) | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | "unknown view names throw" | #1256 |
+| #1280 | `Layout3D` moves out of plots-svelte's index to `@eleoptics/plots-svelte/layout3d`, so 2D Svelte apps bundle without three; README and changeset follow (CR [#1267], user) | a subpath because ADR-0005 keeps three off 2D users (user chose it over a required peer) | `packages/plots-svelte/package.json`, `packages/plots-svelte/src/lib/index.js`, `packages/plots-svelte/src/lib/layout3d.js`, `packages/plots-svelte/README.md`, `.changeset/layout3d-typed.md`, `tests/unit/plots-svelte.test.js` | index has no `Layout3D`, `./layout3d` has; Map2D-only bundle resolves without three | #1256 |
+| #1281 | ADR-0001 drops the layout3D style-lint exemptions #1253 deleted (CR [#1270], user) | forced (stale Core doc, user approved) | `agent_docs/adr/0001-plot-boundary.md` | style-lint "every exemption is in use" | #1256 |
 
 ### M3: mirrors in 3D, on three.js GitHub: `P1193 M3: mirrors, holes and obscurations in 3D`
 
@@ -296,6 +298,9 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-20 #1256: O2 median recorded on the GPU (`PERF=1 GPU=1`, Chromium `--use-angle=metal`, Apple M2 Max, the 50-surface reference layout, marginal-chief): 15.50, 14.65 and 14.55 ms headless, under 16 ms with 0.5-1.5 ms to spare; one headed run read 16 ms and failed. The full layout3D is about ten times the spike's 1.3 ms (scene, materials, fill probes, lines and the 2D overlay per redraw), so O2 is met but tight.
 - 2026-11-20 orchestrator: CR [#1265] accepted (stale doc from #1256's `noticed`, not Core): item #1266, after the M2 review round 1.
 - 2026-11-20 orchestrator: review M2 round 1: 5 blocking, 5 backlog (breaker count 10). CRs [#1269] and [#1271] accepted (items #1274, #1275); CRs [#1267] (plots-svelte needs three through its index), [#1268] (plots-svelte peer and plots 0.11.0) and [#1270] (ADR-0001 clause) are the user's. Backlog 6, 7, 8 pulled in as #1276-#1278; 9 and 10 (#1272, #1273) through #1274.
+- 2026-11-20 CR #1267 (user): Subpath. `Layout3D` moves to `@eleoptics/plots-svelte/layout3d` (item #1280); 2D Svelte apps need no three.
+- 2026-11-20 CR #1268 (user): After publish. The plots-svelte peer is raised to `>=0.11.0 <1` once plots 0.11.0 is on npm (follow-up #1279, outside this plan); not fixed in this PR.
+- 2026-11-20 CR #1270 (user): Yes, delete it. ADR-0001's layout3D exemption clause goes (item #1281); the plan's Decisions line corrected.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
