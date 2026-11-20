@@ -827,6 +827,47 @@ test('fan and footprint keys', async ({ page }) => {
   }
 });
 
+// Plan #1193 M2, issue #1249 (spike for ADR-0005, outcome O9): WebGL through three.js draws a full-density lens in Chromium, Firefox and WebKit.
+// oracle: property, the fixture page's 2D canvas (an offscreen WebGLRenderer copied by drawImage) holds at least 200 pixels shaded from each of its two fills (same chromaticity within 0.03) and the fills differ; no console error. The U14 median is attached as an annotation and asserted under 16 ms only when Chromium is launched on a GPU (PERF=1 GPU=1, --use-angle=metal; CR #1257); CI's WebGL is software and times nothing.
+test('layout3D tiles draw', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await page.goto('/tests/fixtures/layout3d-spike.html');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  const r = await page.evaluate(() => {
+    const chroma = ([r, g, b]) => [r / (r + g + b), g / (r + g + b)];
+    const fills = window.__spike.fills?.map((c) => chroma([c >> 16, (c >> 8) & 255, c & 255])) ?? [];
+    const canvas = document.getElementById('out');
+    const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    const count = fills.map(() => 0);
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] + data[i + 1] + data[i + 2] < 45 || data[i + 3] === 0) continue;
+      const c = chroma([data[i], data[i + 1], data[i + 2]]);
+      fills.forEach((f, k) => { if (Math.hypot(c[0] - f[0], c[1] - f[1]) <= 0.03) count[k]++; });
+    }
+    return { spike: window.__spike, count, apart: fills.length === 2 ? Math.hypot(fills[0][0] - fills[1][0], fills[0][1] - fills[1][1]) : 0 };
+  });
+  expect(r.spike.error, 'WebGL context').toBeNull();
+  expect(errors).toEqual([]);
+  expect(r.apart, 'the two fills differ').toBeGreaterThan(0.03);
+  r.count.forEach((n, k) => expect(n, `fill ${k} pixels`).toBeGreaterThanOrEqual(200));
+  const gpu = test.info().project.use.launchOptions?.args?.includes('--use-angle=metal');
+  console.log(`layout3D spike median (${gpu ? 'GPU' : page.context().browser().browserType().name()}): ${r.spike.median.toFixed(2)} ms, ${r.spike.faces} faces`);
+  test.info().annotations.push({ type: 'median-ms', description: r.spike.median.toFixed(2) });
+  if (gpu) expect(r.spike.median, 'U14: full-density redraw under 16 ms on a GPU').toBeLessThan(16);
+});
+
+// O9 on the gallery's own 3D tiles (plan #1193, #1253 swaps them to three.js; #1256 unskips this).
+// oracle: property, as above, on each theme's layout3D and layout3D-glasses canvases; no console error.
+test.skip('layout3D tiles draw on the gallery', async ({ page }) => {
+  const errors = [];
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  expect(errors).toEqual([]);
+});
+
 // Plan #1193 (agent_docs/plans/1193-layout3d-typed-major.md), outcome O1 and O4 (issue #1198). The layout3D tile on the Cooke glasses fills each glass with glassFill's fill.
 // oracle: property, glassLegend's swatches give the fill of each named glass (N-SK16, F2); the gallery tile's own canvas (its backing pixels, rays included) holds at least 200 pixels shaded from each fill (same chromaticity within 0.015, a brightness scale only) and the two fills' chromaticities differ by more than 0.03.
 test('layout3D glasses tile draws', async ({ page }) => {

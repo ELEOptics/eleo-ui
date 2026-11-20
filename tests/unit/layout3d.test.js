@@ -332,3 +332,87 @@ test('large scale', async () => {
   const out = execFileSync(process.execPath, ['--max-old-space-size=512', '--input-type=module', '-e', src], { encoding: 'utf8', timeout: 20000 });
   assert.ok(Number(out) > 0, 'scale 4000 returns items');
 });
+
+// Plan #1193 M2, issue #1249: the three.js path's acceptance tests, written skipped; #1250 builds layout3dScene(layout, o, resolve) -> { scene, camera } in
+// packages/plots/src/layout3dThree.js, and #1256 unskips them (the old-API tests above die with the painter in #1253, then these take their names).
+const three = async () => import('../../packages/plots/src/layout3dThree.js');
+// Project a world point through an orthographic camera's matrices to px (y down) for a w x h canvas.
+const viaCamera = (camera, [x, y, z], w, h) => {
+  camera.updateMatrixWorld(true); camera.updateProjectionMatrix();
+  const p = { x, y, z }, m = camera.projectionMatrix.elements, v = camera.matrixWorldInverse.elements;
+  const e = [v[0] * p.x + v[4] * p.y + v[8] * p.z + v[12], v[1] * p.x + v[5] * p.y + v[9] * p.z + v[13], v[2] * p.x + v[6] * p.y + v[10] * p.z + v[14]];
+  const nx = m[0] * e[0] + m[12], ny = m[5] * e[1] + m[13];
+  return [((nx + 1) / 2) * w, ((1 - ny) / 2) * h];
+};
+
+// O1. oracle: closed-form orthographic projection (ortho above: yaw about y, pitch about x) of each recorded layout's revolved profile; every mesh vertex, projected by the camera's matrices, is within 0.5 px of it.
+test.skip('revolved profiles project (three)', async () => {
+  const { layout3dScene } = await three();
+  for (const [name, layout] of Object.entries(LAYOUTS)) for (const v of [{ view: 'iso' }, { yaw: 20, pitch: -10 }]) {
+    const { scene, camera } = layout3dScene(layout, { ...v, width: 560, height: 320, scale: SCALE }, () => 0x808080);
+    const zc = layout.surfaces[layout.surfaces.length - 1].z / 2;
+    const yp = v.view === 'iso' ? { yaw: -45, pitch: 35.264 } : v;
+    let n = 0;
+    scene.traverse((o) => {
+      if (!o.isMesh || o.userData.image || o.userData.stop) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const p = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+        const r = Math.hypot(p[0], p[1]), phi = Math.atan2(p[1], p[0]);
+        const best = Math.min(...layout.surfaces.map((s) => {
+          const z = profileZ(s, r);
+          if (z === null) return Infinity;
+          const want = ortho([r * Math.cos(phi), r * Math.sin(phi), z], yp, zc);
+          const got = viaCamera(camera, p, 560, 320);
+          return Math.hypot(got[0] - want[0], got[1] - want[1]);
+        }), Infinity);
+        assert.ok(best <= 0.5, `${name}: vertex ${p} is ${best.toFixed(2)} px from the revolved profile`);
+        n++;
+      }
+    });
+    assert.ok(n > 0, `${name}: vertices`);
+  }
+});
+
+// O1. oracle: property, glassFill per glass name; each element's material colour is resolve(fill) and userData.fill is glassFill's fill.
+test.skip('glass fills per element (three)', async () => {
+  const { layout3dScene } = await three();
+  const cooke = LAYOUTS.cooke, glasses = drawnGlasses(cooke.surfaces), fills = glassFill(glasses);
+  const seen = new Set();
+  const { scene } = layout3dScene(cooke, { width: 560, height: 320 }, (fill) => fill);
+  scene.traverse((o) => {
+    if (!o.isMesh || o.userData.glass === undefined) return;
+    assert.equal(o.userData.fill, fills.get(o.userData.glass), `a ${o.userData.glass} mesh carries glassFill's fill`);
+    assert.equal(o.material.color.getHex ? o.material.userData.fill ?? o.userData.fill : o.userData.fill, o.userData.fill);
+    seen.add(o.userData.glass);
+  });
+  for (const g of new Set(glasses.map((x) => x.name))) assert.ok(seen.has(g), `${g} has a mesh`);
+});
+
+// O8. oracle: reference, layout2D's SVG: its matrix(s 0 0 s tx ty) and polygon[data-surface] points; the front-view mesh's meridian vertices (x = 0) lie within 0.5 px of them under that matrix.
+test.skip('front view matches layout2D', async () => {
+  const { layout2D } = await import('../../packages/plots/src/layout2d.js');
+  const { layout3dScene } = await three();
+  for (const name of ['achromat', 'cooke']) {
+    const layout = LAYOUTS[name], svg = layout2D({ data: layout });
+    const m = svg.match(/matrix\(([-\d.e]+) ([-\d.e]+) ([-\d.e]+) ([-\d.e]+) ([-\d.e]+) ([-\d.e]+)\)/).slice(1).map(Number);
+    const polys = [...svg.matchAll(/<polygon points="([^"]+)"[^>]*data-surface="(\d+)"/g)].map((q) => ({
+      i: Number(q[2]),
+      pts: q[1].trim().split(/\s+/).map((p) => p.split(',').map(Number)).map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]),
+    }));
+    const { scene, camera } = layout3dScene(layout, { view: 'front', width: 560, height: 320, scale: m[0] }, () => 0x808080);
+    let checked = 0;
+    scene.traverse((o) => {
+      if (!o.isMesh || o.userData.glass === undefined) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        if (Math.abs(pos.getX(i)) > 1e-9) continue;
+        const got = viaCamera(camera, [pos.getX(i), pos.getY(i), pos.getZ(i)], 560, 320);
+        const d = Math.min(...polys.flatMap((q) => q.pts.map((p) => Math.hypot(got[0] - p[0], got[1] - p[1]))));
+        assert.ok(d <= 0.5, `${name}: meridian vertex is ${d.toFixed(2)} px from layout2D's polygons`);
+        checked++;
+      }
+    });
+    assert.ok(checked > 0, `${name}: meridian vertices`);
+  }
+});
