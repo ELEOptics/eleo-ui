@@ -216,6 +216,12 @@ test('Layout3D passes view through and the docs describe the layout3d entry', ()
   assert.match(plots, /@eleoptics\/plots\/layout3d/, 'plots README does not name the layout3d entry');
   assert.match(plots, /`view`/, 'plots README does not describe view');
   assert.match(plots, /three/, 'plots README does not name the three peer');
+  const d3 = readFileSync(new URL('packages/plots/src/layout3d.d.ts', root), 'utf8');
+  for (const [name, text] of [['plots README', plots], ['layout3d.d.ts', d3]]) {
+    assert.match(text, /yaw -45/, name + ' does not name yaw -45');
+    assert.match(text, /pitch 35\.264/, name + ' does not name pitch 35.264');
+    assert.doesNotMatch(text, /-38|pitch 16/, name + ' still names the old -38 or 16 angles');
+  }
   const svelte = readFileSync(new URL('packages/plots-svelte/README.md', root), 'utf8');
   assert.match(svelte, /`view`/, 'plots-svelte README does not describe view');
   assert.match(svelte, /three/, 'plots-svelte README does not name the three peer');
@@ -223,4 +229,5 @@ test('Layout3D passes view through and the docs describe the layout3d entry', ()
   assert.match(cs, /@eleoptics\/plots\/layout3d/, 'changeset does not name the layout3d entry');
   assert.match(cs, /eleo-layout3d\.js/, 'changeset does not name the IIFE');
   assert.match(cs, /optional peer/, 'changeset does not name three as an optional peer');
+  assert.match(cs, /35\.264/, 'changeset does not name the new iso angles');
 });

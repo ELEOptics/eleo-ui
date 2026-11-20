@@ -3,13 +3,13 @@
 import type { RecordedLayout } from './index.js';
 
 export interface Layout3DProps {
-  /** The recorded layout: its surfaces' profiles make the mesh, its rays are drawn in the air. */
+  /** The recorded layout: its surfaces' profiles make the mesh, its rays are drawn in the air. Geometry is cached per `data` object: pass changed data as a new object. */
   data: RecordedLayout;
   /** Which rays to draw: the marginal and chief rays of each field (default), every ray, the chief only, or none. */
   rays?: "marginal-chief" | "fan" | "chief" | false;
-  /** The camera: isometric (default), looking along the axis from the side (`front`, the layout2D view), or from above (`top`). `yaw` and `pitch` override it. */
+  /** The camera: isometric (default, yaw -45, pitch 35.264), a side view with the optical axis to the right (`front`, as layout2D draws it), or from above (`top`). `yaw` and `pitch` override it. */
   view?: "iso" | "front" | "top";
-  /** View angles in degrees, overriding `view`. Default yaw -38, pitch 16 (Iso). */
+  /** View angles in degrees, overriding `view`. A missing one takes the iso value: yaw -45, pitch 35.264. */
   yaw?: number;
   pitch?: number;
   /** Scale in px/mm. Default: the scale that frames the faces and rays. */
