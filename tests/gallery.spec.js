@@ -935,6 +935,31 @@ test('layout3D tiles draw on the gallery', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+// Plan #1193, #1277 (review M2 round 1, finding 7): a canvas tile that throws skips only itself, as a map tile does.
+// oracle: property, with getContext('webgl2'|'webgl') stubbed to null before load, layout3D throws on every 3D tile: the console names each of the six skipped tiles (three kinds, two themes), no page error, and the airy canvases still hold ink.
+test('a failing 3D tile skips only itself', async ({ page }) => {
+  // software WebGL is slow (about 0.3 s a tile) and the stub makes each 3D tile fail after building its renderer; the full gate runs specs in parallel: 120 s.
+  test.setTimeout(120_000);
+  const skipped = [];
+  const thrown = [];
+  page.on('pageerror', (e) => thrown.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && skipped.push(m.text()));
+  await page.addInitScript(() => {
+    const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) { return /^webgl/.test(type) ? null : get.call(this, type, ...rest); };
+  });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
+  expect(thrown).toEqual([]);
+  for (const k of ['layout3D', 'layout3D-front', 'layout3D-glasses']) {
+    expect(skipped.filter((t) => t.includes(`gallery: ${k} tile skipped:`)).length, `${k} skipped once per theme`).toBeGreaterThanOrEqual(2);
+  }
+  for (const theme of ['light', 'dark']) {
+    const airy = (await inkByTile(page, theme)).find((t) => t.tile === 'airy');
+    expect(airy.svgMarks + airy.inked, `${theme} airy drew`).toBeGreaterThan(0);
+  }
+});
+
 // Plan #1193 (agent_docs/plans/1193-layout3d-typed-major.md), outcome O1 and O4 (issue #1198). The layout3D tile on the Cooke glasses fills each glass with glassFill's fill.
 // oracle: property, glassLegend's swatches give the fill of each named glass (N-SK16, F2); the gallery tile's own canvas (its backing pixels, rays included) holds at least 200 pixels shaded from each fill (same chromaticity within 0.015, a brightness scale only) and the two fills' chromaticities differ by more than 0.03.
 test('layout3D glasses tile draws', async ({ page }) => {

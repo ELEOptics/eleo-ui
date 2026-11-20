@@ -177,8 +177,11 @@
       el.style.width = w + 'px'; el.style.height = h + 'px';
       // The layout3D tiles (iso, front, glasses) sit above tiles the specs mount hosts after, and a fractional page offset moves a 1 px ray off the pixel they aim at (interact.spec 'layout zoom pan and reset', map2d.spec U8 clip): trim its canvas so the tile is a whole number of px tall and the tiles below stay where they were.
       if (k.indexOf('layout3D') === 0) { var frac = el.closest('[data-tile]').getBoundingClientRect().height % 1; if (frac && frac < h) el.style.height = (h -= frac) + 'px'; }
-      if (k === 'airy') airyTile(el, n);
-      else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : ELEO.sample.layout, view: k === 'layout3D-front' ? 'front' : undefined, width: w, height: h });
+      // A tile that throws (no WebGL, or the layout3D script failed to load) skips only itself, as drawMap's does.
+      try {
+        if (k === 'airy') airyTile(el, n);
+        else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : ELEO.sample.layout, view: k === 'layout3D-front' ? 'front' : undefined, width: w, height: h });
+      } catch (e) { console.error('gallery: ' + k + ' tile skipped:', e); }
     }
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
