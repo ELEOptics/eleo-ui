@@ -83,18 +83,21 @@ export function layout3dScene(layout, o, resolve) {
   var im = S.findIndex(function (x) { return x.image; });
   items.forEach(function (f) { if (f.image) items.forEach(function (r) { if (r.kind === "ray" && r.j === im + 1 && r.depth > f.depth) f.depth = r.depth; }); });
   items.sort(function (a, b) { return b.depth - a.depth; });
-  clipEdges(items, 5e-3 * fspan, pk, zs);
+  clipEdges(items, 5e-3 * fspan, pk, zs, W, H);
   return { view: view, items: items };
 }
 
 // An edge sorts after the faces that share it, which can put it after a nearer face that does not. Each edge records, in `clip`, the part of every such face (one painted before the edge, not sharing it, covering it)
 // where the face's plane is nearer than the edge by more than `eps`: the painter paints the edge outside those polygons. `zs` (item to its endpoint or vertex depths) keeps those depths off the items.
-function clipEdges(items, eps, pk, zs) {
-  var cell = 16, X0 = Infinity, Y0 = Infinity, X1 = -Infinity, Y1 = -Infinity;
-  items.forEach(function (f) { if (f.kind === "edge" || f.kind === "face") (f.p || f.q).forEach(function (p) { X0 = Math.min(X0, p[0]); X1 = Math.max(X1, p[0]); Y0 = Math.min(Y0, p[1]); Y1 = Math.max(Y1, p[1]); }); });
-  if (!items.some(function (f) { return f.kind === "edge"; }) || !isFinite(X0 + X1 + Y0 + Y1)) return;
-  var nx = Math.floor((X1 - X0) / cell) + 1, ny = Math.floor((Y1 - Y0) / cell) + 1, grid = new Array(nx * ny);
-  function cells(x0, y0, x1, y1, fn) { for (var x = Math.floor((x0 - X0) / cell); x <= Math.floor((x1 - X0) / cell); x++) for (var y = Math.floor((y0 - Y0) / cell); y <= Math.floor((y1 - Y0) / cell); y++) fn(x * ny + y); }
+function clipEdges(items, eps, pk, zs, W, H) {
+  var cell = 16, X0 = -cell, Y0 = -cell, anyEdge = false;
+  items.forEach(function (f) { if (f.kind === "edge") anyEdge = true; });
+  if (!anyEdge) return;
+  // The grid covers the canvas [0, W] x [0, H] plus one cell: geometry off the canvas is never painted, so what lies beyond shares the border cells (indices clamp), and the grid does not grow with the scale.
+  var nx = Math.ceil(W / cell) + 2, ny = Math.ceil(H / cell) + 2, grid = new Array(nx * ny);
+  function ix(x) { return Math.max(0, Math.min(nx - 1, Math.floor((x - X0) / cell))); }
+  function iy(y) { return Math.max(0, Math.min(ny - 1, Math.floor((y - Y0) / cell))); }
+  function cells(x0, y0, x1, y1, fn) { var xa = ix(x0), xb = ix(x1), ya = iy(y0), yb = iy(y1); for (var x = xa; x <= xb; x++) for (var y = ya; y <= yb; y++) fn(x * ny + y); }
   // a face matters only if it paints before the last edge and some of it is nearer than the farthest edge end by eps: no other face's cells are listed
   var last = -1, zfar = -Infinity;
   items.forEach(function (e, n) { if (e.kind === "edge") { last = n; zfar = Math.max(zfar, zs.get(e)[0], zs.get(e)[1]); } });

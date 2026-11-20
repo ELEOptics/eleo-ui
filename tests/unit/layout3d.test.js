@@ -319,3 +319,16 @@ for (const name of ['achromat', 'cooke', 'wandersleb']) for (const view0 of [{ y
   // oracle: the reviewer's sampling above: at wandersleb yaw 20 pitch -10 a silhouette line has samples under a nearer face, so a missing silhouette clip is caught
   if (name === 'wandersleb' && view0.yaw === 20 && view0.pitch === -10) assert.ok(kinds.silhouette > 0, 'some silhouette samples are really hidden');
 });
+
+// oracle: the scene at HEAD before the clip grid was bounded (commit e198143), recorded as the sha256 of JSON.stringify(items) with the fill resolver () => [120, 140, 160]: achromat at the default view (no clip polygons) and wandersleb at yaw 20 pitch -10 (33 edges with clip polygons). Same items, same order, same clip polygons, or the hash differs. And a child process with a 512 MB heap, which on HEAD dies at scale 4000.
+test('large scale', async () => {
+  const { createHash } = await import('node:crypto');
+  const { execFileSync } = await import('node:child_process');
+  const { layout3dScene } = await mesh();
+  const hash = (layout, o) => createHash('sha256').update(JSON.stringify(layout3dScene(layout, o, () => [120, 140, 160]).items)).digest('hex');
+  assert.equal(hash(LAYOUTS.achromat, {}), 'a049f133471830047c03cd626fc0740ddebf6cd37cd9e4a7ec5cc375b35f9789', 'achromat default view is unchanged item for item');
+  assert.equal(hash(LAYOUTS.wandersleb, { yaw: 20, pitch: -10 }), 'cf62cb4feeb4447b52d27626500eebaf9ae86367cde7c6ffcd309b0a6430bbf9', 'wandersleb clip polygons are unchanged');
+  const src = `import sample from ${JSON.stringify(new URL('../../packages/plots/src/sample.js', import.meta.url).href)}; import { layout3dScene } from ${JSON.stringify(new URL('../../packages/plots/src/layout3d.js', import.meta.url).href)}; const s = layout3dScene(sample.layout, { scale: 4000 }, () => [120, 140, 160]); console.log(s.items.length);`;
+  const out = execFileSync(process.execPath, ['--max-old-space-size=512', '--input-type=module', '-e', src], { encoding: 'utf8', timeout: 20000 });
+  assert.ok(Number(out) > 0, 'scale 4000 returns items');
+});
