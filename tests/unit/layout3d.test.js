@@ -158,6 +158,15 @@ test('empty fan is skipped', async () => {
   assert.deepEqual(got.map((x) => [x.i, x.j, x.p]), base);
 });
 
+// Plan #1193, issue #1243 (review M1 round 7, finding 1): a layout with no glazed surface, stop or image has no edges and no bounds; layout3dScene still returns a scene.
+// oracle: the same layout's rays, which the achromat records and an air-only layout still draws; no face and no edge exist, so items are exactly the ray segments
+test('empty scene', async () => {
+  const L = air(sample.layout), bare = { ...L, surfaces: L.surfaces.map((s) => ({ ...s, stop: false, image: false })) };
+  const { items } = await scene(bare);
+  assert.ok(items.length > 0 && items.every((x) => x.kind === 'ray'), 'only ray segments');
+  assert.deepEqual((await scene(bare, { rays: false })).items, []);
+});
+
 // Plan #1193, item #1218 (CR #1217): the default view frames what is drawn, faces and ray segments together.
 // oracle: the 16 px margin box of the 560 x 320 canvas, the pad of fitView's contract
 test('rays framed', async () => {
@@ -254,8 +263,9 @@ test('edge outlines', async () => {
 });
 
 // Plan #1193, issue #1241 (CR #1240, #1242): an edge is full width and correctly hidden: every face that shares it paints before it and none of them clips it, and a face nearer than it that does not share it hides it, by painting after it or by its polygon in the edge's `clip`.
-// oracle: the reviewer's 3-point plane-depth sampling, written here. Each rim segment at t = 0.25, 0.5, 0.75, against the plane depth (the plane through a face's projected vertices) of every covering face that does not share the segment. (a) sharing faces (both endpoints among the face's projected vertices) paint before the edge and are never in its clip. (b) a sample a face's plane is nearer than the segment's interpolated depth by more than 5e-3 of the faces' depth span is hidden: the face paints after the edge, or the sample is inside the edge's clip. (c) a sample no covering face is nearer at is outside the edge's clip
-for (const name of ['achromat', 'cooke']) for (const view0 of [{ yaw: -38, pitch: 16 }, { yaw: 20, pitch: -10 }]) test(`edge outlines: full width and hidden by nearer faces (${name} yaw ${view0.yaw} pitch ${view0.pitch})`, async () => {
+// (wandersleb at yaw 20 pitch -10 is a view where a silhouette line is over-drawn without its clip.)
+// oracle: the reviewer's 3-point plane-depth sampling, written here. Each rim segment and silhouette line (its endpoints are rim points, so their depths are the mesh vertices' projected depths) at t = 0.25, 0.5, 0.75, against the plane depth (the plane through a face's projected vertices) of every covering face that does not share the segment. (a) sharing faces (both endpoints among the face's projected vertices) paint before the edge and are never in its clip. (b) a sample a face's plane is nearer than the segment's interpolated depth by more than 5e-3 of the faces' depth span is hidden: the face paints after the edge, or the sample is inside the edge's clip. (c) a sample no covering face is nearer at is outside the edge's clip
+for (const name of ['achromat', 'cooke', 'wandersleb']) for (const view0 of [{ yaw: -38, pitch: 16 }, { yaw: 20, pitch: -10 }, { yaw: 45, pitch: 5 }]) test(`edge outlines: full width and hidden by nearer faces (${name} yaw ${view0.yaw} pitch ${view0.pitch})`, async () => {
   const { layout3dMesh, project } = await mesh();
   const L = LAYOUTS[name], { segments, faces: mf } = layout3dMesh(L, { width: 560 });
   const { view, items } = await scene(L, view0);
@@ -281,23 +291,29 @@ for (const name of ['achromat', 'cooke']) for (const view0 of [{ yaw: -38, pitch
     F.forEach((f, fi) => { if (f.q.some((v) => near(v, e.p[0])) && f.q.some((v) => near(v, e.p[1])) && items.indexOf(faces[fi]) > ei) covered++; });
     for (const q of e.clip) { assert.ok(q.length >= 3, 'a clip polygon has at least 3 points'); clipped++; }
   }
-  for (const i of glazed) for (let j = 0; j < segments; j++) {
-    const a = rimPt(i, j), b = rimPt(i, j + 1), e = edges.find((r) => r.edge === 'rim' && r.surface === i && near(r.p[0], a)), ei = items.indexOf(e);
+  assert.ok(items.every((x) => !('z' in x)), 'no item keeps its internal z');
+  assert.equal(edges.filter((e) => e.edge === 'rim').length, glazed.length * segments, 'a rim segment per glazed surface point');
+  assert.ok(edges.some((e) => e.edge === 'silhouette'), 'silhouette lines are in the scene');
+  const zOf = new Map(); mf.forEach((f) => f.v.forEach((p) => { const q = project(p, view); zOf.set(Math.round(q[0] * 1e3) + ',' + Math.round(q[1] * 1e3), q[2]); }));
+  const depthAt = (p) => zOf.get(Math.round(p[0] * 1e3) + ',' + Math.round(p[1] * 1e3));
+  const kinds = { rim: 0, silhouette: 0 };
+  for (const e of edges) {
+    const a = e.p[0], b = e.p[1], za = depthAt(a), zb = depthAt(b), ei = items.indexOf(e);
+    assert.ok(za !== undefined && zb !== undefined, 'an edge ends at mesh rim points');
     F.forEach((f, fi) => {
       if (f.q.some((v) => near(v, a)) && f.q.some((v) => near(v, b))) return;
       for (const t of [0.25, 0.5, 0.75]) {
         const p = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
         if (!inside(f.q, p)) continue;
         const z = planeZ(f.q, p); if (z == null) continue;
-        const ze = a[2] + t * (b[2] - a[2]), clippedHere = e.clip.some((q) => inside(q, p));
-        if (z < ze - 5e-3 * span) { hiddenSamples++; if (items.indexOf(faces[fi]) < ei && !clippedHere) over++; }
+        const ze = za + t * (zb - za), clippedHere = e.clip.some((q) => inside(q, p));
+        if (z < ze - 5e-3 * span) { hiddenSamples++; kinds[e.edge]++; if (items.indexOf(faces[fi]) < ei && !clippedHere) over++; }
         else if (z >= ze && clippedHere && !F.some((g) => inside(g.q, p) && planeZ(g.q, p) < ze - 1e-9 && !(g.q.some((v) => near(v, a)) && g.q.some((v) => near(v, b))))) cut++;
       }
     });
   }
-  console.log('COUNTS', name, view0.yaw, 'covered', covered, 'over', over, 'cut', cut, 'hidden', hiddenSamples, 'clips', clipped);
   assert.equal(covered, 0, 'no face that shares an edge paints after it');
-  assert.equal(over, 0, 'no rim paints over a nearer non-sharing face');
-  assert.equal(cut, 0, 'no clip cuts a rim where no face is nearer');
-  assert.ok(hiddenSamples > 0, 'some rim samples are really hidden');
+  assert.equal(over, 0, 'no rim or silhouette line paints over a nearer non-sharing face');
+  assert.equal(cut, 0, 'no clip cuts an edge where no face is nearer');
+  assert.ok(kinds.rim > 0, 'some rim samples are really hidden');
 });

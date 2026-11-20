@@ -79,10 +79,11 @@ export function layout3dScene(layout, o, resolve) {
 }
 
 // An edge sorts after the faces that share it, which can put it after a nearer face that does not. Each edge records, in `clip`, the part of every such face (one painted before the edge, not sharing it, covering it)
-// where the face's plane is nearer than the edge by more than `eps`: the painter paints the edge outside those polygons. `z` (the endpoint depths) is internal and is dropped.
+// where the face's plane is nearer than the edge by more than `eps`: the painter paints the edge outside those polygons. `z` (the endpoint and vertex depths, on edges and faces) is internal and is dropped.
 function clipEdges(items, eps, pk) {
   var cell = 16, X0 = Infinity, Y0 = Infinity, X1 = -Infinity, Y1 = -Infinity;
   items.forEach(function (f) { if (f.kind === "edge" || f.kind === "face") (f.p || f.q).forEach(function (p) { X0 = Math.min(X0, p[0]); X1 = Math.max(X1, p[0]); Y0 = Math.min(Y0, p[1]); Y1 = Math.max(Y1, p[1]); }); });
+  if (!items.some(function (f) { return f.kind === "edge"; }) || !isFinite(X0 + X1 + Y0 + Y1)) { items.forEach(function (f) { delete f.z; }); return; }
   var nx = Math.floor((X1 - X0) / cell) + 1, ny = Math.floor((Y1 - Y0) / cell) + 1, grid = new Array(nx * ny);
   function cells(x0, y0, x1, y1, fn) { for (var x = Math.floor((x0 - X0) / cell); x <= Math.floor((x1 - X0) / cell); x++) for (var y = Math.floor((y0 - Y0) / cell); y <= Math.floor((y1 - Y0) / cell); y++) fn(x * ny + y); }
   items.forEach(function (f, n) {
@@ -107,8 +108,8 @@ function clipEdges(items, eps, pk) {
         var ks = o.f.q.map(pk); if (ks.indexOf(ka) < 0 || ks.indexOf(kb) < 0) e.clip.push(poly);
       }
     });
-    delete e.z;
   });
+  items.forEach(function (f) { delete f.z; });
 }
 // The part of face f's polygon where its plane is nearer than edge e's depth (linear from endpoint to endpoint along the edge) by more than eps; null if none.
 function nearer(f, e, eps, len2) {

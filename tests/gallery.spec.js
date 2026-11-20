@@ -2,6 +2,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { moveTo, pageHelpers } from './page-helpers.js';
+import { layout3dMesh, layout3dScene, project } from '../packages/plots/src/layout3d.js';
 
 test.beforeEach(({ page }) => pageHelpers(page));
 
@@ -886,6 +887,55 @@ test('layout3D rejected fill falls back to crown', async ({ page }) => {
     });
     expect(r.shaded, `${theme} the glasses are drawn`).toBeGreaterThanOrEqual(200);
     expect(r.differ, `${theme} channels that differ from fills set to crown`).toBe(0);
+  }
+});
+
+// Plan #1193 M1, issue #1243 (review M1 round 7, finding 4). On the Cooke default view the painter keeps a rim out of the polygons of a nearer face that does not share it (`c.clip("evenodd")`): at rim samples such a face covers, the canvas pixel is not --glass-edge; at a rim sample nothing covers, it is.
+// oracle: plane-depth sampling written here, on the scene's own mesh (the reviewer's method): a sample is hidden where a covering non-sharing face's plane is nearer than the segment by more than 5e-3 of the faces' depth span; free where no non-sharing face covers it. Samples stay 0.7 px from every edge that is not itself clipped there, and from the image plane and the canvas border, so the pixel is the face's or the rim's; rays are off.
+test('layout3D clips edges behind nearer faces', async ({ page }) => {
+  const layout = JSON.parse(readFileSync(new URL('./fixtures/layouts/analysis-glasses.json', import.meta.url)));
+  const W = 560, H = 320, near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6;
+  const mesh = layout3dMesh(layout, { width: W }), { view, items } = layout3dScene(layout, { width: W, height: H, rays: false }, () => [100, 100, 100]);
+  const F = mesh.faces.map((f) => ({ q: f.v.map((p) => project(p, view)), image: !!f.image }));
+  const span = Math.max(...F.map((f) => f.q.reduce((d, p) => d + p[2], 0) / 4)) - Math.min(...F.map((f) => f.q.reduce((d, p) => d + p[2], 0) / 4));
+  const depth = new Map(); F.forEach((f) => f.q.forEach((p) => depth.set(Math.round(p[0] * 1e3) + ',' + Math.round(p[1] * 1e3), p[2])));
+  const inside = (q, p) => { let pos = 0, neg = 0; q.forEach((a, i) => { const b = q[(i + 1) % q.length], c = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]); if (c > 1e-6) pos++; else if (c < -1e-6) neg++; }); return !(pos && neg) && pos + neg === q.length; };
+  const planeZ = ([a, b, c, d], p) => {
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    for (const w3 of [c, d]) { const w = [w3[0] - a[0], w3[1] - a[1], w3[2] - a[2]], nz = u[0] * w[1] - u[1] * w[0]; if (Math.abs(nz) < 1e-9) continue; return a[2] - ((u[1] * w[2] - u[2] * w[1]) * (p[0] - a[0]) + (u[2] * w[0] - u[0] * w[2]) * (p[1] - a[1])) / nz; }
+    return null;
+  };
+  const dist = (p, [a, b]) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+  const hidden = [], free = [];
+  for (const e of items.filter((x) => x.kind === 'edge' && x.edge === 'rim')) {
+    const [a, b] = e.p, za = depth.get(Math.round(a[0] * 1e3) + ',' + Math.round(a[1] * 1e3)), zb = depth.get(Math.round(b[0] * 1e3) + ',' + Math.round(b[1] * 1e3));
+    const others = items.filter((x) => x.kind === 'edge' && !(x.edge === 'rim' && x.surface === e.surface));
+    for (const t of [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]) {
+      const p = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])], ze = za + t * (zb - za), covering = [];
+      if (others.some((x) => dist(p, x.p) < 0.7 && !x.clip.some((q) => inside(q, p))) || p[0] < 4 || p[0] > W - 4 || p[1] < 4 || p[1] > H - 4) continue;
+      for (const f of F) if (!(f.q.some((v) => near(v, a)) && f.q.some((v) => near(v, b))) && inside(f.q, p)) covering.push(f);
+      if (!covering.length) free.push(p);
+      else if (covering.some((f) => !f.image && planeZ(f.q, p) < ze - 5e-3 * span) && e.clip.some((q) => inside(q, p))) hidden.push(p);
+    }
+  }
+  expect(hidden.length, 'rim samples a nearer face hides').toBeGreaterThanOrEqual(5);
+  expect(free.length, 'rim samples nothing covers').toBeGreaterThanOrEqual(5);
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`).evaluate((canvas, pts) => {
+      const c = document.createElement('canvas');
+      canvas.parentNode.appendChild(c);
+      window.ELEO.layout3D(c, { data: pts.layout, rays: false });
+      const dpr = c.width / 560, g = c.getContext('2d');
+      const edge = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(c, 'glass-edge'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
+      const onEdge = (p) => { const d = g.getImageData(Math.floor(p[0] * dpr), Math.floor(p[1] * dpr), 1, 1).data; return Math.abs(d[0] - edge[0]) + Math.abs(d[1] - edge[1]) + Math.abs(d[2] - edge[2]) <= 6; };
+      const out = { hiddenOnEdge: pts.hidden.filter(onEdge).length, freeOnEdge: pts.free.filter(onEdge).length };
+      c.remove();
+      return out;
+    }, { hidden, free, layout });
+    expect(r.hiddenOnEdge, `${theme} hidden rim samples drawn in --glass-edge`).toBe(0);
+    expect(r.freeOnEdge, `${theme} uncovered rim samples drawn in --glass-edge (antialiasing may lighten a few)`).toBeGreaterThanOrEqual(0.9 * free.length);
   }
 });
 
