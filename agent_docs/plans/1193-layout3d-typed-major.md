@@ -283,6 +283,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-20 CR #1257 (user): GPU-only timing. Option 2: three.js stays at full density; U14 is measured locally on a GPU-backed Chromium (`--use-angle=metal`, 1.6 ms in the spike); CI runs O9 in all three browsers with no timing, because its WebGL is SwiftShader (85-105 ms). #1249 carries it.
 - 2026-11-20 #1249: U14 spike median 1.30, 1.30, 1.60 ms (Apple M2 Max, Chromium `--use-angle=metal`, 50 × 128 × 16 LatheGeometry, 192,000 faces), under 16 ms; software WebGL (SwiftShader) 96-99 ms, not timed (CR [#1257]). WebGL draws in all three browsers locally; CI unverified until the push runs. ADR-0005 proposed, its verdict waits for the M2 demo.
 - 2026-11-20 orchestrator: CI on 4ffd6b2 failed 6: Firefox has no WebGL context on the runner; Chromium's 2D raster tests drift under #1249's CI-only SwiftShader args. Work item #1260 (CI config), before #1251. WebKit and Chromium drew the spike in CI (Chromium 143.95 ms, software).
+- 2026-11-20 #1260 (15db187, a3d9686): CI green on a3d9686. A6 holds: the full-density spike draws on the runner in Chromium (124.10 ms), WebKit (128.50 ms) and Firefox (128.00 ms, under `xvfb-run`; without a display its WebGL exhausts its GL drivers), all software and untimed (CR [#1257]). No switch signal.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
