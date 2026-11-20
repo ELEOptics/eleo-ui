@@ -260,3 +260,12 @@ test('view convention', async () => {
   const f = layout3dScene(sample.layout, { ...o, view: 'front' }, () => 0x808080).camera;
   assert.deepEqual(f.quaternion.toArray(), camera.quaternion.toArray(), 'front is yaw 0, pitch 0');
 });
+
+// Plan #1193 M2, issue #1276 (review M2 r1 finding 6): the shared renderer keeps GPU state per geometry id until dispose(), so a redraw must not make new silhouette geometries.
+// oracle: property (the geometry objects of the silhouette lines are the same objects on every call for one layout and view).
+test('silhouettes do not grow per redraw', async () => {
+  const { layout3dScene } = await three(), L = LAYOUTS.achromat, geoms = new Set();
+  for (let n = 0; n < 10; n++) for (const l of lines(layout3dScene(L, { view: 'front', width: 560, height: 320 }, () => 0x808080).scene, (u) => u.edge === 'silhouette')) geoms.add(l.geometry);
+  assert.ok(geoms.size > 0);
+  assert.equal(geoms.size, lines(layout3dScene(L, { view: 'front', width: 560, height: 320 }, () => 0x808080).scene, (u) => u.edge === 'silhouette').length, '10 redraws leave one geometry per silhouette line');
+});

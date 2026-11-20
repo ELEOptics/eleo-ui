@@ -155,7 +155,11 @@ export function layout3dScene(layout, o, resolve) {
   }
   for (const gap of geo.gaps) {
     const h = gap.a.map((p) => q.set(...p).dot(up)), top = h.indexOf(Math.max(...h)), bot = h.indexOf(Math.min(...h));
-    for (const j of [top, bot]) line(lineGeometry([[gap.a[j], gap.b[j]]]), edge, { edge: 'silhouette', element: gap.element });
+    for (const j of [top, bot]) {
+      const key = 'sil' + gap.element + '/' + j; // the segment is rim point j to rim point j, whatever the view: cached so a redraw makes no geometry for the renderer to keep
+      if (!geo.rayGeo.has(key)) geo.rayGeo.set(key, lineGeometry([[gap.a[j], gap.b[j]]]));
+      line(geo.rayGeo.get(key), edge, { edge: 'silhouette', element: gap.element });
+    }
   }
   return { scene, camera };
 }
