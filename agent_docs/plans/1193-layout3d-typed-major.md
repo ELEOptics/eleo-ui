@@ -193,6 +193,7 @@ packaged (#1254, #1255), so every commit keeps the gate green (re-plan critique)
 | #1278 | `view` takes only own preset keys; `toString` and `constructor` throw the named error (review M2 round 1, finding 8) | small and named (pulled in) | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | "unknown view names throw" | #1256 |
 | #1280 | `Layout3D` moves out of plots-svelte's index to `@eleoptics/plots-svelte/layout3d`, so 2D Svelte apps bundle without three; README and changeset follow (CR [#1267], user) | a subpath because ADR-0005 keeps three off 2D users (user chose it over a required peer) | `packages/plots-svelte/package.json`, `packages/plots-svelte/src/lib/index.js`, `packages/plots-svelte/src/lib/layout3d.js`, `packages/plots-svelte/README.md`, `.changeset/layout3d-typed.md`, `tests/unit/plots-svelte.test.js` | index has no `Layout3D`, `./layout3d` has; Map2D-only bundle resolves without three | #1256 |
 | #1281 | ADR-0001 drops the layout3D style-lint exemptions #1253 deleted (CR [#1270], user) | forced (stale Core doc, user approved) | `agent_docs/adr/0001-plot-boundary.md` | style-lint "every exemption is in use" | #1256 |
+| #1283 | Comments: the failing-tile test's timeout reason (the stub throws before WebGL runs) and `build`'s `rayGeo` (rays, rims, silhouettes) (review M2 round 2, findings 1 and 2; #1282) | small and named, in files M2 changed (pulled in) | `tests/gallery.spec.js`, `packages/plots/src/layout3dThree.js` | "a failing 3D tile skips only itself" at the default timeout, three browsers | #1277 |
 
 ### M3: mirrors in 3D, on three.js GitHub: `P1193 M3: mirrors, holes and obscurations in 3D`
 
@@ -301,6 +302,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-20 CR #1267 (user): Subpath. `Layout3D` moves to `@eleoptics/plots-svelte/layout3d` (item #1280); 2D Svelte apps need no three.
 - 2026-11-20 CR #1268 (user): After publish. The plots-svelte peer is raised to `>=0.11.0 <1` once plots 0.11.0 is on npm (follow-up #1279, outside this plan); not fixed in this PR.
 - 2026-11-20 CR #1270 (user): Yes, delete it. ADR-0001's layout3D exemption clause goes (item #1281); the plan's Decisions line corrected.
+- 2026-11-20 orchestrator: review M2 round 2: 0 blocking, 2 backlog (breaker count 1, down from 10); carried CRs resolved, #1268 holds (user: after publish, #1279). Both findings small and named: pulled in as #1283 (with #1282). Round 3 follows.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
