@@ -1,6 +1,6 @@
 /* @eleoptics/plots. SVG output reads colors from tokens.css
    variables, except the typed `map2D(props)`, which returns SVG with its grid baked into one image at draw time: draw it
-   again after a theme or palette change. The sample `map2D(canvas, ...)` and `layout3D` are canvas renderers that read
+   again after a theme or palette change. The sample `map2D(canvas, ...)` is a canvas renderer that reads
    the variables at draw time, so call them again after a theme or palette change. */
 
 export type IndexKey = "field" | "wavelength";
@@ -67,19 +67,6 @@ export interface Layout2DProps {
   key?: (PlotKeyEntry | "glass")[] | "glass";
   /** The window in mm the drawing shows, `{ x: [zlo, zhi], y: [ylo, yhi] }`: fitted into the geometry band (inside the pads, below the label room, above the scale bar) at one scale on both axes and centred; geometry beyond it is clipped, text keeps its px size, and the scale bar takes a 1-2-5 mm length at the new scale. An axis that is not a finite increasing pair keeps the box's range, and a view with no valid axis is ignored. The size does not depend on it. `interact`'s `onview` sends it. */
   view?: PlotView;
-}
-export interface Layout3DProps {
-  /** The recorded layout: its surfaces' profiles make the mesh, its rays are drawn in the air. */
-  data: RecordedLayout;
-  /** Which rays to draw: the marginal and chief rays of each field (default), every ray, the chief only, or none. */
-  rays?: "marginal-chief" | "fan" | "chief" | false;
-  /** View angles in degrees. Default yaw -38, pitch 16 (Iso). */
-  yaw?: number;
-  pitch?: number;
-  /** Scale in px/mm. Default: the scale that frames the faces and rays. */
-  scale?: number;
-  width?: number;
-  height?: number;
 }
 /** One spot series: dots in the panel's unit, one palette slot. Every dot is the same size; there is no color option (ADR-0001). */
 export interface SpotSeries {
@@ -392,7 +379,6 @@ export interface ELEO {
   layoutBounds(layouts: RecordedLayout[]): LayoutBox;
   /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout (a system reads `layout`, else `layoutWl`). */
   glassLegend(data: RecordedLayout | LayoutSystem): string;
-  layout3D(canvas: HTMLCanvasElement, props: Layout3DProps): void;
   spot(props?: SpotDiagramProps): string;
   throughFocus(props?: ThroughFocusProps): string;
   rayFan(props?: RayFanProps): string;
@@ -426,7 +412,7 @@ interface ScaleRule {
 }
 declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
-export declare const layout2D: ELEO['layout2D'], layout3D: ELEO['layout3D'], spot: ELEO['spot'],
+export declare const layout2D: ELEO['layout2D'], spot: ELEO['spot'],
   throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
   css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
