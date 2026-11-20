@@ -203,3 +203,24 @@ test('wrappers and the hover action type onselect without null (#908)', () => {
     assert.doesNotMatch(src, /SelectEvent \| null/, `${f} types onselect with | null`);
   }
 });
+
+// Plan #1193 M2 (issue #1255). oracle: closed-form (the wrapper hands every prop, `view` included, to layout3D from the ./layout3d entry; the docs name the entry, `view` and the three peer).
+test('Layout3D passes view through and the docs describe the layout3d entry', () => {
+  const root = new URL('../../', import.meta.url);
+  const src = readFileSync(new URL('packages/plots-svelte/src/lib/Layout3D.svelte', root), 'utf8');
+  assert.match(src, /from '@eleoptics\/plots\/layout3d'/, 'Layout3D does not import the layout3d entry');
+  assert.match(src, /layout3D\(canvas, \{ \.\.\.props \}\)/, 'Layout3D does not pass its props (view included) to layout3D');
+  assert.doesNotMatch(src, /flat-shaded/, 'Layout3D still says flat-shaded');
+  const plots = readFileSync(new URL('packages/plots/README.md', root), 'utf8');
+  assert.doesNotMatch(plots, /import \{[^}]*layout3D[^}]*\} from '@eleoptics\/plots';/, 'plots README imports layout3D from the main entry');
+  assert.match(plots, /@eleoptics\/plots\/layout3d/, 'plots README does not name the layout3d entry');
+  assert.match(plots, /`view`/, 'plots README does not describe view');
+  assert.match(plots, /three/, 'plots README does not name the three peer');
+  const svelte = readFileSync(new URL('packages/plots-svelte/README.md', root), 'utf8');
+  assert.match(svelte, /`view`/, 'plots-svelte README does not describe view');
+  assert.match(svelte, /three/, 'plots-svelte README does not name the three peer');
+  const cs = readFileSync(new URL('.changeset/layout3d-typed.md', root), 'utf8');
+  assert.match(cs, /@eleoptics\/plots\/layout3d/, 'changeset does not name the layout3d entry');
+  assert.match(cs, /eleo-layout3d\.js/, 'changeset does not name the IIFE');
+  assert.match(cs, /optional peer/, 'changeset does not name three as an optional peer');
+});
