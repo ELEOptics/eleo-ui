@@ -1,8 +1,8 @@
-# Plan #1193: Typed layout3D, then the breaking minor
+# Plan #1193: Typed layout3D on three.js
 
-Status: draft
+Status: approved 2026-11-20
 Branch: `plan/1193-layout3d-typed-major` PR: #1214 Depends on: none Roadmap: `agent_docs/roadmap.md`, row J
-Course check: M1 — it tests the riskiest assumption, a painter-sorted canvas mesh drawing 50 revolved surfaces in 16 ms at a face budget whose look the user accepts. Switch signal: item 3's first flushed median at the 50-surface reference size is over 16 ms with the item-2 face budget met, or the user rejects the M1 3D tiles in two demo rounds.
+Course check: M2 — it tests the re-plan's riskiest assumptions, WebGL through three.js in all three Playwright browsers in CI and a full-density mesh in 16 ms, and the user's look. Switch signal: #1249's spike finds a browser with no WebGL in CI that a launch flag cannot fix, or its full-density median is over 16 ms, or the user rejects the M2 tiles at the demo (a third rejection overall).
 
 ## Problem
 
@@ -58,67 +58,75 @@ the real world yet (user, round 3).
   The critic's synthetic timing (headless Chromium, dpr 2, surfaces only) puts 16 ms at about 3,500 faces in total:
   today's density is about 2,000 faces per surface.
 
+### Ground truth at the re-plan (2026-11-20)
+
+- M1 stopped at its course check: the user rejected the canvas, painter-sorted layout3D twice (orientation,
+  shading/depth, edges and rays, round 1 of the re-plan) and asked for three.js and a CAD-style projection.
+- `packages/plots/src/layout3d.js` is 288 lines: `layout3dMesh`, `project`/`fitView`, `layout3dScene` (painter sort,
+  edge depth bias, the `clipEdges` grid), the CSS fill probe. Everything after the mesh emulates a depth buffer.
+- No three.js in eleo-ui. phos has `three@^0.176` through threlte (`phos/src/lib/Scene.svelte`): an
+  `OrthographicCamera` with `TrackballControls`, a directional and an ambient light.
+- layout3D ships in the main entry (`packages/plots/src/renderers.js:11,25`, `index.js:18`) and the `eleo-plots.js`
+  IIFE; `build.mjs:9-11` bundles with no `external`. No consumer calls layout3D (A1).
+- layout2D draws a section (`layout2d.js:304`) under an SVG `matrix(...)` whose scale is internal (`:275`).
+
 ## Outcomes
 
 | ID | Outcome | Acceptance test (given / when / then) | Oracle | Test |
 | -- | -- | -- | -- | -- |
-| O1 | `layout3D(canvas, { data: RecordedLayout })` draws any recorded lens system in 3D: each surface revolved from its profile, each glass gap filled with U12's fill for that glass (the `"crown"`/`"flint"` shorthand keeps its tokens), the meridional rays by layout2D's ray sets, a stop ring, and the image plane at the image surface's `sd`; framed to fit the canvas by default. (U10) | given the recorded sample achromat, Cooke glasses and Wandersleb layouts at full density and an explicit `scale`, when each mesh vertex is projected at yaw −38, pitch 16 and at yaw 20, pitch −10, then it lies within 0.5 px of an independent orthographic projection of the revolved profile point, and every face of an element carries `glassFill`'s fill for that element's glass name | `closed-form` orthographic projection, rotation matrices written in the test, of the recorded layouts (U10's oracle, changed by the user in round 1); `property` U12's fill per glass name | `tests/unit/layout3d.test.js` "revolved profiles project", "glass fills per element" |
-| O2 | layout3D keeps U14. | given the 50-surface, 3-field, 21-ray reference layout, when layout3D redraws 20 times, each followed by a 1 px `getImageData` read, then the median, recorded in the Change log, is under 16 ms | `measurement` U14's (roadmap) | `tests/perf.spec.js` "layout3D redraw (U14)" |
+| O1 | `layout3D(canvas, { data })` from `@eleoptics/plots/layout3d` draws a recorded lens system with three.js: an orthographic camera, true isometric by default (`view: "iso" \| "front" \| "top" \| { yaw, pitch }`), lit faces depth-tested, U12 fills per glass, meridional rays, rims and silhouettes. | given the achromat, Cooke and Wandersleb layouts at full density (128 × 16) and an explicit `scale`, when each mesh vertex is projected through the layout3D camera's matrices in the iso view and at yaw 20, pitch −10, then it lies within 0.5 px of the test's own orthographic projection, and each element's material carries `glassFill`'s colour for its glass | `closed-form` as U10 (rotation matrices written in the test); `property` U12's fill per glass | `tests/unit/layout3d.test.js` "revolved profiles project", "glass fills per element" |
+| O8 | The 3D camera agrees with the 2D drawing. | given the achromat and Cooke layouts, when layout3D builds the `view: "front"` scene with `scale` set to the `s` of the `matrix(...)` parsed from layout2D's SVG for the same layout, then the mesh's meridian vertices (x = 0), projected by the front camera, lie within 0.5 px of layout2D's `polygon[data-surface]` points under that matrix (meridian, not silhouette: a concave face's side-on silhouette is its rim chord) | `reference` layout2D's element polygons (round 2, user: new oracle) | `tests/unit/layout3d.test.js` "front view matches layout2D" |
+| O2 | layout3D keeps U14 at full density. | given the 50-surface, 3-field, 21-ray reference layout, when layout3D redraws 20 times, each followed by a 1 px `getImageData` read, then the median is under 16 ms | `measurement` U14 | `tests/perf.spec.js` "layout3D redraw (U14)" |
 | O3 | Mirrors, obscurations and annular holes draw in 3D: a mirror as its layout2D body (flat back, D/8) revolved, a hole left open, an obscuration as an opaque disc. | given the recorded Cassegrain layout, when the mesh is built, then each mirror body's revolved points project within 0.5 px of the independent projection of layout2D's body polygon, no mirror face lies at a radius under its `hole`, and the obscuration is one disc of its `sd` | `reference` layout2D's `mirrorBodies` (U17's tested polygons); `closed-form` as O1; `property` no face inside the hole | `tests/unit/layout3d.test.js` "mirror bodies revolve", "holes stay open" |
-| O4 | The 3D tiles look as good as today's. | given today's layout3D tile shots (both themes, captured at the plan base) beside the new achromat, Cooke and Cassegrain tiles, then the user approves them at the M1 and M2 demos | `user` the gallery's layout3D tiles at the M1 and M2 demos (round 3) | the demo |
-| O5 | No renderer reads the sample or takes an analysis `kind`; each removed call throws a named error. The gallery draws every sample tile from data it passes, through its own adapters, and each draws the same SVG as before. | given the built package, when the removed calls are compiled and called, then each fails the type check and throws `<fn>: <what> was removed in 0.11; see the README migration table`, `./sample` and `./eleo-plots-sample.js` are not exported and no `dist` file carries the sample, and every `renderers-baseline.json` entry drawn through `gallery/sample-adapters.js` and a typed call equals its recorded string | `spec` this plan's removal list; `fixture` `tests/fixtures/renderers-baseline.json` (recorded from the plan base, `chromaticFocus` and `rayFan-opd` added by item 11 from the base build, never re-recorded in J) | `tests/types/removed.ts` (through `types.test.js`), `tests/unit/sample-free.test.js`, `tests/unit/split.test.js` |
-| O6 | `throughFocus` is typed: the caller passes the defocus values and a row of spot series per field. | given the sample's through-focus spots adapted by the gallery, when `throughFocus` draws them, then the SVG equals the baseline's `throughFocus` entry | `fixture` `renderers-baseline.json` `throughFocus` | `tests/unit/split.test.js` |
-| O7 | The breaking release is ready: plots and plots-svelte bump the next minor (plots-svelte's peer `>=<that version> <1`), tokens a patch ([#158]), and the README migration table names each removed call and its typed replacement, padded glass names included. | given `npx changeset status`, then plots and plots-svelte bump minor and tokens patch, the peer equals the next plots version, and the migration table names every removal in O5 | `spec` semver for 0.x (a minor may break) and this plan's removal list | `tests/unit/release.test.js` "J changesets", "migration table" |
+| O4 | The 3D tiles look right to the user: a standard CAD view, real shading and occlusion, crisp edges, rays at token width. | given the M1 base shots and M1's rejected shots beside the new achromat, Cooke (M2) and Cassegrain (M3) tiles in both themes, then the user approves them | `user` at the M2 and M3 demos | the demo |
+| O9 | The 3D tiles draw in Chromium, Firefox and WebKit, locally and in CI. | given the gallery, when the 3D tile tests run in all three Playwright projects, then each tile has two distinct non-background fills and no console error | `property` (round 2, user: must pass all three) | `tests/gallery.spec.js` "layout3D tiles draw" |
 
 ## Non-goals
 
+- The breaking minor (no sample, no `kind`; O5-O7, items #1203-#1213, #139): roadmap row K, its own plan (user,
+  re-plan round 1). Its outcomes and items are kept below under "Moved to row K" for that planner.
+- Interactive orbit or trackball controls, hover: phos keeps the interactive viewport (re-plan round 1).
+- A perspective camera (re-plan round 1).
+- three.js through threlte in plots-svelte: the Svelte wrapper keeps calling the framework-free renderer.
 - 1.0: waits until a consumer has used the API (user, round 3).
 - phos-core's 3D `visualize` as input: its Python client does not expose it; next plan, once phos-core does.
 - Sagittal or skew rays in 3D: a `RecordedLayout` holds meridional rays only (user, round 2).
 - Ray status styles in 3D (dotted, `show`): a ray is drawn solid through its first Dead point and never through a Virtual point; next plan if asked.
-- An interactive 3D viewport (phos's, threlte), hover on layout3D, WebGL.
 - `colorBy` on layout3D: a RecordedLayout's rays are coloured by fan, as in layout2D.
-- Publishing to npm: the user merges the Version Packages PR after the plan PR; row J turns done at the plan PR's merge, and its exit is reworded at publish to "the breaking minor's changesets are on `main`".
-- Moving `sample.json`: it stays in `packages/plots/src` as a dev fixture; no entry imports it (user, round 3).
+- Publishing to npm: the user merges the Version Packages PR.
 
 ## Existing issues
 
 | Issue | Bucket | Where or why |
 | -- | -- | -- |
-| [#158] | absorb | item 5: layout3D draws rays at `--stroke-ray`; its text becomes "Rays in 3D drawings." |
-| [#139] | absorb | item 20: reject padded glass names, a breaking change that belongs in this release |
-| [#125] | supersede | item 18: `LayoutSystem` (`layout` vs `layoutWl`) goes |
-| [#639] | supersede | item 17: the sample canvas `map2D` goes |
-| [#424] | supersede | item 17: its test (`map2d-sample.spec.js`) goes with the sample canvas |
-| [#132] | supersede | item 21: `iife.js`'s sample getter goes with `eleo-plots-sample.js` |
-| [#133] | supersede | item 21: `classic-merge.html` loses `eleo-plots-sample.js` |
-| [#86] | related | J needs no `release.yml` edit; CR [#79] (user) kept the line |
+| [#158] | absorb (done in M1) | layout3D draws rays at `--stroke-ray` |
+| [#139], [#125], [#639], [#424], [#132], [#133] | moved to row K | with the breaking minor (re-plan round 1) |
+| #1232, #1221 | related | M1 review backlog, outside 3D |
+| [#86] | related | untouched |
 | others | related | untouched |
 
 ## Constraints and assumptions
 
-- A1: no consumer calls anything O5 removes (checked in phos and eleo-website, 2026-11-18).
-- A2: the sample tiles stay; the gallery adapts `sample.json` itself through `gallery/sample-adapters.js`, a classic
-  script setting a global as `tests/fixtures/phos-core/adapters.js` does.
-- A3: every removal lands after the gallery and `record-renderers.mjs` stop using it (items 12-13 before 14-21), and
-  each item carries every test, type file and README section its change breaks, so each commit keeps the gate green.
-- A4: a removal item lists the README section it invalidates; item 22 adds only the migration table.
+- A1: no consumer calls layout3D (checked in phos and eleo-website, 2026-11-18).
+- A3: each item carries every test, type file and README section its change breaks, so each commit keeps the gate
+  green; the three.js path is built beside the painter (#1250-#1252) and swapped in by one item (#1253).
 - A5: PR 1143 may merge before or after J; nothing in J names a literal version.
-- Kill criterion (roadmap, D on / U14): a layout3D median over 16 ms whose fix needs WebGL stops and asks.
+- A6: Playwright's Chromium, Firefox and WebKit can create a WebGL context headless in CI (#1249 tests it).
 
 ## Decisions
 
-- ADR-0001: layout3D's tone composition stays a style-lint exemption; the exemption's regex follows the code (item 3).
-- No ADR: the 0.x policy (no 1.0 until a consumer uses the API) goes in the roadmap's Constraints at publish.
-- Roadmap edits at publish (user decisions, rounds 1 and 3): U10's oracle; row J's "major release" becomes "the
-  breaking minor", and its exit as in Non-goals.
-- `PLOT_SIZES.rayFan` and `minWidth('rayFan', props)` stay as the fan-panel size: the gallery's recorded fan tile uses
-  them (`gallery/index.html:54,115`); `minWidth('rayFan')` reads curve panels props instead of the sample.
-- Core changes: `packages/plots/src/index.d.ts`: `Layout3DProps` (required props), `ThroughFocusProps`,
-  `Layout2DProps.data`, `glassLegend`'s parameter, `SpotDiagramProps`, `legend`'s doc, the named exports; removes
-  `CurveKindProps`, `RayFanProps`, `Map2DProps`, `SpotSampleProps`, `LayoutSystem`, `sample`, `useSample`, `rayFan`,
-  `map2D(canvas)`. `packages/plots/package.json`: exports drop `./sample` and `./eleo-plots-sample.js`, `sideEffects`
-  drops `./dist/sample.js`.
+- ADR-0005 (`proposed` in #1249, M2 exercises it): `three` is an optional peer dependency of `@eleoptics/plots`
+  (`>=0.170 <1`, matching phos's 0.176) and a devDependency; layout3D moves to the `./layout3d` export and its own
+  IIFE `eleo-layout3d.js`, the only bundle that carries three; an orthographic camera, isometric by default, rendered
+  once (no controls). Considered: a regular dependency (every 2D user downloads three), a lazy `import('three')`
+  (async, no classic IIFE), a 2D overlay for lines (no depth test).
+- ADR-0001: layout3D's tone composition stays a style-lint exemption; the exemption follows the code (#1253).
+- Moving layout3D out of the main entry is breaking: it rides the plots minor M1's changeset already makes (#1255).
+- Roadmap edits (re-plan, user): row J is 3D only; new row K carries the breaking minor; U10's oracle gains O8's
+  front-view reference.
+- Core changes: `packages/plots/package.json` (`exports` gains `./layout3d` and `./eleo-layout3d.js`;
+  `peerDependencies` and `peerDependenciesMeta` gain `three`), `packages/plots/src/index.d.ts` (layout3D and
+  `Layout3DProps` move to `layout3d.d.ts`, with `view`), ADR-0005, the roadmap.
 
 ## Milestones
 
@@ -157,17 +165,58 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1246 | clipEdges' grid covers the canvas rect plus a margin, cells clamped, so a large `scale` no longer runs out of memory (review M1 round 9, finding 1) | clamp the grid to the canvas because off-canvas geometry is never painted; considered a cell-size cap | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "large scale" | #1245 |
 | #1248 | "large scale" hashes scene items with numbers rounded to 1e-6, so the hashes hold across Node builds (CR [#1247]) | round before hashing because last-bit float differences between V8 builds are not behaviour; considered a JSON fixture with a tolerance | `tests/unit/layout3d.test.js` | layout3d.test.js "large scale", locally and on CI | #1246 |
 
-### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
+### M2: layout3D on three.js (lenses) GitHub: `P1193 M2: layout3D on three.js`
+
+Demo: `npm run gallery`: achromat and Cooke 3D tiles in iso and an achromat front tile, both themes, beside the base
+and M1 shots; `PERF=1 npx playwright test perf -g layout3D`. Proves O1, O2, O4 (lenses), O8, O9.
+
+The three.js path is built beside the canvas painter (`layout3dThree.js`) and swapped in by one item (#1253), then
+packaged (#1254, #1255), so every commit keeps the gate green (re-plan critique).
+
+| Issue | Work item | Approach | Files | Test | After |
+| -- | -- | -- | -- | -- | -- |
+| #1249 | Spike: `three` devDependency and lockfile; a fixture page rendering a full-density synthetic lens (50 × 128 × 16, LatheGeometry) through one offscreen WebGLRenderer + `drawImage`, timed as U14 (20 flushed redraws); it runs as the O9 test in all three Playwright projects, locally and in CI, with whatever launch flags WebGL needs; O1, O8, O9 written skipped; ADR-0005 `proposed`, its `dev_docs/adr/` link and `zensical.toml` nav line | the spike is the O9 test on a fixture page because the user requires all three browsers (round 2) and that page outlives the spike; considered a throwaway spike script, which proves nothing in CI. Stop and ask if a browser lacks WebGL in CI or the median is over 16 ms | `package.json`, `package-lock.json`, `tests/fixtures/layout3d-spike.html`, `tests/gallery.spec.js`, `tests/unit/layout3d.test.js`, `playwright.config.js`, `.github/workflows/ci.yml`, `agent_docs/adr/0005-three-layout3d.md`, `dev_docs/adr/`, `zensical.toml` | O9 spike test green in three browsers on CI; median in the Change log |  |
+| #1250 | `layout3dThree.js`: `layout3dScene(layout, o, resolve)` returns `{ scene, camera }`: per surface a `LatheGeometry` from its profile (rotated onto z), rims as two-point lathes, the stop a `RingGeometry`, the image plane a square at the image `sd`; `MeshLambertMaterial` per element, `userData.fill` = glassFill's fill, colour = `resolve(fill)` (injected, so node tests run); a directional + ambient light; `OrthographicCamera` presets `iso` (default) / `front` / `top` / `{ yaw, pitch }` fitted to faces and drawn rays, `scale` overrides; geometry cached per `data` | LatheGeometry because it is indexed with smooth normals and removes the hand face code (critic C); considered reusing `layout3dMesh`, whose non-indexed quads shade flat without `mergeVertices` and allocate per face per redraw | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | O1 "revolved profiles project", "glass fills per element"; O8 "front view matches layout2D" | #1249 |
+| #1251 | Rays and edges in `layout3dThree.js`: `LineSegments2`/`LineMaterial` (`three/addons/lines/`), renderer at `setPixelRatio(dpr)` so `linewidth` is CSS px = `--stroke-ray` / `--stroke-edge`, depth-tested; rays by `raySet`, cut at the first Dead point, no Virtual or in-glass segment (M1 rules); rims as closed lines; silhouettes by M1's limb rule (the rim points of extreme projected y) | fat lines because WebGL lines are 1 px (round 2, user); considered `EdgesGeometry`, which finds rims but not a smooth surface's silhouette | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | "dead and virtual cut", "empty fan is skipped", "edge outlines" against the line objects | #1250 |
+| #1252 | Render in `layout3dThree.js`: `render3d(canvas, props)` with one shared offscreen `WebGLRenderer`, the dpr clamp to 2-3 kept, `drawImage` into the caller's 2D canvas, then the dashed axis, XYZ triad and labels drawn as today's 2D overlay; `layout3D: WebGL is not available` when the context fails | one shared context because browsers cap live WebGL contexts (~16) and the gallery redraws on theme change; considered a renderer per canvas, which leaks contexts on redraw | `packages/plots/src/layout3dThree.js`, `tests/gallery.spec.js` | "no WebGL names layout3D" (stubbed `getContext`); "40 redraws, no context lost" | #1251 |
+| #1253 | Swap: `layout3D` calls `render3d`; the painter, `project`, `fitView`, `clipEdges`, `layout3dMesh` and their tests ("face budget at 50 surfaces", "rays sort with the faces", "rays framed", "large scale") deleted; the style-lint exemption, gallery.spec's imports, field-order's call follow; gallery gets the achromat `front` tile, pixel-ratio and canvas counts follow | one swap because the old tests pin the old behaviour and must die with it; considered swapping in C, which leaves the gallery red until E | `packages/plots/src/layout3d.js`, `packages/plots/src/renderers.js`, `gallery/index.html`, `tests/unit/layout3d.test.js`, `tests/unit/style-lint.test.js`, `tests/unit/field-order.test.js`, `tests/gallery.spec.js`, `tests/pixel-ratio.spec.js` | all gallery and unit suites; O9 on the real tiles | #1252 |
+| #1254 | Packaging: `three` optional peer (`>=0.170 <1`, `peerDependenciesMeta`); `./layout3d` export; esbuild `external: ['three', 'three/*']` for the ESM build, bundled in the new `eleo-layout3d.js` IIFE (`src/iife-layout3d.js` attaching to `window.ELEO`, as `iife-layout.js` does); layout3D out of `renderers.js`, `index.js`, `eleo-plots.js`; `index.d.ts` → `layout3d.d.ts` (with `view`), the `.d.ts` copy loop; the gallery's script tag | the user chose an own entry (round 1, user); considered a lazy `import('three')` in the main entry, which makes layout3D async and cannot run in the classic-script IIFE | `packages/plots/package.json`, `packages/plots/build.mjs`, `packages/plots/src/iife-layout3d.js`, `packages/plots/src/index.js`, `packages/plots/src/renderers.js`, `packages/plots/src/index.d.ts`, `packages/plots/src/layout3d.d.ts`, `gallery/index.html`, `tests/types/layout3d.ts`, `tests/unit/types.test.js` | types.test.js "layout3d.ts"; export test: main entry has no `layout3D`, `./layout3d` has, `dist/index.js` has no three | #1253 |
+| #1255 | Docs and wrapper: `Layout3D.svelte` imports `@eleoptics/plots/layout3d` and passes `view`; both READMEs (the new import, `view`, the iso default, three as a peer); the changeset says layout3D moved | forced (A4: each change carries the docs it invalidates) | `packages/plots-svelte/src/lib/Layout3D.svelte`, `packages/plots/README.md`, `packages/plots-svelte/README.md`, `.changeset/layout3d-typed.md` | plots-svelte.test.js; svelte-check | #1254 |
+| #1256 | Unskip O1, O2, O8, O9; record the U14 median | forced (`workflow.md`, TDD) | `tests/unit/layout3d.test.js`, `tests/perf.spec.js`, `tests/gallery.spec.js` | O1, O2, O8, O9 | #1255 |
+
+### M3: mirrors in 3D, on three.js GitHub: `P1193 M3: mirrors, holes and obscurations in 3D`
 
 Demo: the Cassegrain 3D tile in both themes, `layout3D(canvas, { data: cassegrain })`. Proves: O3, O4 (mirrors)
 
 | Issue | Work item | Approach | Files | Test | After |
 | -- | -- | -- | -- | -- | -- |
-| #1200 | O3 acceptance tests, skipped | forced (`workflow.md`, TDD: the first item writes them skipped) | `tests/unit/layout3d.test.js` | "mirror bodies revolve", "holes stay open" | #1199 |
-| #1201 | A mirror's layout2D body (its y ≥ 0 polygon from `mirrorBodies`, exported) revolved, shaded `--mech`, open inside `hole`; an obscuration as an opaque disc | revolve the body layout2D already settles (the back's side, the hole's crossing, U17) because a second rule would let 2D and 3D disagree; considered building the body from the profile alone | `packages/plots/src/layout3d.js`, `packages/plots/src/layout2d.js`, `tests/unit/layout3d.test.js` | the O3 tests | #1200 |
-| #1202 | Gallery: the Cassegrain 3D tile; unskip O3 | forced (`workflow.md`, TDD: the last item unskips them); the tile is O4's demo | `gallery/index.html`, `tests/gallery.spec.js`, `tests/unit/layout3d.test.js` | gallery.spec "layout3D cassegrain tile draws", O3 | #1201 |
+| #1200 | O3 acceptance tests, skipped | forced (`workflow.md`, TDD: the first item writes them skipped) | `tests/unit/layout3d.test.js` | "mirror bodies revolve", "holes stay open" | #1256 |
+| #1201 | A mirror's layout2D body (its y ≥ 0 polygon from `mirrorBodies`, exported) revolved as three geometry in `layout3dThree.js`, shaded `--mech`, open inside `hole`; an obscuration as a disc mesh | revolve the body layout2D already settles (the back's side, the hole's crossing, U17) because a second rule would let 2D and 3D disagree; considered building the body from the profile alone | `packages/plots/src/layout3dThree.js`, `packages/plots/src/layout2d.js`, `tests/unit/layout3d.test.js` | the O3 tests | #1200 |
+| #1202 | Gallery: the Cassegrain 3D tile; unskip O3 | forced (`workflow.md`, TDD: the last item unskips them); the tile is O4's demo | `gallery/index.html`, `tests/gallery.spec.js`, `tests/unit/layout3d.test.js` | gallery.spec "layout3D cassegrain tile draws" (three browsers), O3 | #1201 |
 
-### M3: the breaking minor GitHub: `P1193 M3: no sample, no kind`
+Items #1249, #1253 and #1254 list more than two files: each moves one behaviour with the tests and wiring it
+breaks (A3).
+
+## Risks and spikes
+
+| Risk | Impact | Spike or mitigation |
+| -- | -- | -- |
+| Firefox or WebKit has no WebGL headless in CI | O9 fails; the user requires all three | #1249's spike first; stop and ask (course check) |
+| A full-density mesh misses 16 ms through WebGL + `drawImage` + readback | O2 fails | #1249 times the exact loop; geometry cached per `data` (#1250) |
+| Fat lines' width differs with dpr | rays and edges off-token | `setPixelRatio(dpr)`, `linewidth` in CSS px (#1251) |
+| The look is rejected a third time | O4 | M2 demo with front and iso views beside the base and M1 shots (course check) |
+
+## Moved to row K
+
+O5-O7 and the old M3, kept as written for row K's planner (not run by this plan).
+
+| ID | Outcome | Acceptance test (given / when / then) | Oracle | Test |
+| -- | -- | -- | -- | -- |
+| O5 | No renderer reads the sample or takes an analysis `kind`; each removed call throws a named error. The gallery draws every sample tile from data it passes, through its own adapters, and each draws the same SVG as before. | given the built package, when the removed calls are compiled and called, then each fails the type check and throws `<fn>: <what> was removed in 0.11; see the README migration table`, `./sample` and `./eleo-plots-sample.js` are not exported and no `dist` file carries the sample, and every `renderers-baseline.json` entry drawn through `gallery/sample-adapters.js` and a typed call equals its recorded string | `spec` this plan's removal list; `fixture` `tests/fixtures/renderers-baseline.json` (recorded from the plan base, `chromaticFocus` and `rayFan-opd` added by item 11 from the base build, never re-recorded in J) | `tests/types/removed.ts` (through `types.test.js`), `tests/unit/sample-free.test.js`, `tests/unit/split.test.js` |
+| O6 | `throughFocus` is typed: the caller passes the defocus values and a row of spot series per field. | given the sample's through-focus spots adapted by the gallery, when `throughFocus` draws them, then the SVG equals the baseline's `throughFocus` entry | `fixture` `renderers-baseline.json` `throughFocus` | `tests/unit/split.test.js` |
+| O7 | The breaking release is ready: plots and plots-svelte bump the next minor (plots-svelte's peer `>=<that version> <1`), tokens a patch ([#158]), and the README migration table names each removed call and its typed replacement, padded glass names included. | given `npx changeset status`, then plots and plots-svelte bump minor and tokens patch, the peer equals the next plots version, and the migration table names every removal in O5 | `spec` semver for 0.x (a minor may break) and this plan's removal list | `tests/unit/release.test.js` "J changesets", "migration table" |
+
+### Old M3 (moved to roadmap row K; for its planner, not run here)
 
 Demo: `SHOTS=1 SHOTS_BASE=<M2 shots> npx playwright test gallery-shots` (zero differing tiles);
 `node --test tests/unit/types.test.js` (each removed call in `removed.ts` fails without its `@ts-expect-error`);
@@ -190,15 +239,6 @@ Demo: `SHOTS=1 SHOTS_BASE=<M2 shots> npx playwright test gallery-shots` (zero di
 
 Items 3, 13-18 and 21 list more than two files: each source change carries the tests, type files and README sections
 it breaks (A3, A4), and each is one behaviour.
-
-## Risks and spikes
-
-| Risk | Impact | Spike or mitigation |
-| -- | -- | -- |
-| 3,500 faces at 50 surfaces still misses 16 ms, or looks too coarse | O2 or O4 fails; kill criterion (WebGL) | item 2 tests the budget, item 3 records a flushed median (course check) |
-| Revolved meshes look worse than today's sphere mesh | O4 rejected | M1 demo beside the base shots (course check) |
-| The fill probe differs across browsers | wrong fills in WebKit or Firefox | item 6's tile test runs in all three |
-| A moved adapter drifts from its baseline string | O5 fails late | item 12 runs split.test.js through the adapters before any removal |
 
 ## Change log
 
@@ -235,6 +275,10 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 review M1 round 11 (code-reviewer, claude-opus-5-5): 0 blocking, nothing pulled in; all 14 CRs resolved. Rounds 5-11 (blocking + pulled in): 1, 3, 4, 2, 1, 1, 0. M1 re-ticked for demo round 2.
 - 2026-11-19 course check M1 triggered (user): no-go. "I'm confused about the projection. It looks like the lens is rotated differently than the image plane. What kind of camera projection is being used? Leverage 3rd party libraries like 3js where possible. A typical CAD or engineering type of projection to accurately represent objects is necessary." Course reviewers (two passes) recommended continue on a go. The orchestrator checked: layout3D is an orthographic orbit camera (yaw -38 about the vertical, pitch 16 about the screen horizontal), and the lens and image plane share it (a rim-sized circle at the image z projects to the same 91 x 146 px ellipse as the rim), but the drawing does not read as consistent. Second demo rejection: the switch signal's demo arm fires.
 - 2026-11-19 course check M1 stop (user): Stop, re-plan. layout3D moves to three.js with a CAD-style camera, which this plan's Non-goals (WebGL) and the roadmap's kill criterion leave to /plan (an ADR for the dependency, the camera, the demos, and whether the breaking minor, M3, splits off). M1's work stays on the branch; nothing is accepted.
+- 2026-11-20 re-plan (from the course check M1 stop): round 1 (user): three as an optional peer with its own entry; an orthographic camera, isometric by default, static; the breaking minor splits off to a new roadmap row K; the M1 tiles read wrong in orientation, shading/depth, edges and rays.
+- 2026-11-20 re-plan round 2 (user): a new oracle, the front view matches layout2D (O8); three's Line2 fat lines; the 3D tests must pass in all three browsers (a spike failure stops and asks); U14 kept at full density.
+- 2026-11-20 re-plan critique (plan critic, claude-fable-5-1): 15 findings, all applied: three's devDependency in the spike; the three.js path built beside the painter and swapped by one item (#1253), packaging after (#1254, #1255), so the gate stays green; esbuild `external`, the `.d.ts` copy loop, `three/addons`; O8 on meridian vertices under layout2D's parsed matrix (a concave face's silhouette is its rim chord); the injected `resolve`; the spike times full density and the course check gains its count; the dpr clamp kept; `setPixelRatio` so line widths are CSS px; the axis overlay kept (#1252); `view` docs with the wrapper (#1255); CI flags folded into the spike; ADR site wiring; packaging split; a stubbed `getContext` and a context-cap test. Approach: #1250 takes LatheGeometry over reusing `layout3dMesh`; #1254's lazy-import alternative rejected (async, no classic IIFE); #1251 keeps M1's limb rule.
+- 2026-11-20 re-plan approved (user). M1 stays as written (done, not accepted); new M2 #1249-#1256; old M2 is M3 (#1200-#1202, after #1256); old M3's items #1203-#1213 and #139 leave the P1193 milestones for row K.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
