@@ -858,6 +858,54 @@ test('layout3D tiles draw', async ({ page }) => {
   if (gpu) expect(r.spike.median, 'U14: full-density redraw under 16 ms on a GPU').toBeLessThan(16);
 });
 
+// Plan #1193 M2, issue #1252 (outcome O9, O2): render3d draws through one shared offscreen WebGLRenderer. The page is served by a route so no fixture file is needed.
+// oracle: property. "no WebGL names layout3D": with the page's WebGL getContext stubbed to null, render3d throws an error whose message names layout3D. "40 redraws, no context lost": 40 renders into 40 canvases create one WebGL context, it is not lost, and the last canvas holds ink.
+const render3dPage = async (page, before = '') => {
+  await page.route('**/render3d-test.html', (route) => route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><meta charset="utf-8"><script type="importmap">{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }</script>
+<script type="module">
+${before}
+import { render3d } from '/packages/plots/src/layout3dThree.js';
+window.__render3d = render3d;
+document.body.dataset.ready = 'true';
+</script>`,
+  }));
+  await page.goto('/render3d-test.html');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+};
+
+test('layout3D no WebGL names layout3D', async ({ page }) => {
+  const layout = JSON.parse(readFileSync(new URL('./fixtures/layouts/analysis-glasses.json', import.meta.url)));
+  await render3dPage(page);
+  const message = await page.evaluate((data) => {
+    const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) { return /webgl/.test(type) ? null : get.call(this, type, ...rest); };
+    try { window.__render3d(document.body.appendChild(document.createElement('canvas')), { data }); return null; } catch (e) { return e.message; } finally { HTMLCanvasElement.prototype.getContext = get; }
+  }, layout);
+  expect(message, 'render3d throws').not.toBeNull();
+  expect(message).toContain('layout3D: WebGL is not available');
+});
+
+test('layout3D 40 redraws, no context lost', async ({ page }) => {
+  const layout = JSON.parse(readFileSync(new URL('./fixtures/layouts/analysis-glasses.json', import.meta.url)));
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await render3dPage(page, `const get = HTMLCanvasElement.prototype.getContext; window.__gl = [];
+HTMLCanvasElement.prototype.getContext = function (type, ...rest) { const c = get.call(this, type, ...rest); if (/webgl/.test(type) && c) window.__gl.push(c); return c; };`);
+  const r = await page.evaluate((data) => {
+    let c;
+    for (let i = 0; i < 40; i++) { c = document.body.appendChild(document.createElement('canvas')); window.__render3d(c, { data, width: 280, height: 160 }); }
+    const { data: px } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+    let inked = 0; for (let i = 3; i < px.length; i += 4) if (px[i]) inked++;
+    return { contexts: window.__gl.length, lost: window.__gl.filter((g) => g.isContextLost()).length, inked };
+  }, layout);
+  expect(errors).toEqual([]);
+  expect(r.contexts, 'one shared WebGL context').toBe(1);
+  expect(r.lost, 'contexts lost').toBe(0);
+  expect(r.inked, 'the last canvas is drawn').toBeGreaterThan(0);
+});
+
 // O9 on the gallery's own 3D tiles (plan #1193, #1253 swaps them to three.js; #1256 unskips this).
 // oracle: property, as above, on each theme's layout3D and layout3D-glasses canvases; no console error.
 test.skip('layout3D tiles draw on the gallery', async ({ page }) => {

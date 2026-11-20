@@ -1,13 +1,14 @@
-// layout3D on three.js (plan #1193 M2, #1250, #1251): the scene and camera of a recorded layout, with its rays and edges as fat lines. Rendering (#1252) comes after.
+// layout3D on three.js (plan #1193 M2, #1250, #1251): the scene and camera of a recorded layout, with its rays and edges as fat lines. `render3d` (#1252) draws it through one shared offscreen WebGL renderer.
 // Pure three.js objects and no DOM, so node tests run it; `resolve(fill)` is injected for the one thing only a browser can answer.
 import {
   AmbientLight, Color, DirectionalLight, DoubleSide, Group, LatheGeometry, Matrix4, Mesh, MeshLambertMaterial,
-  OrthographicCamera, PlaneGeometry, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3,
+  OrthographicCamera, PlaneGeometry, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer,
 } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { STANDARD } from './common.js';
+import { css } from './color.js';
 import { glassFill, drawnGlasses } from './glass.js';
 import { raySet, statusOf, segmentStatus } from './layout2d.js';
 
@@ -157,4 +158,54 @@ export function layout3dScene(layout, o, resolve) {
     for (const j of [top, bot]) line(lineGeometry([[gap.a[j], gap.b[j]]]), edge, { edge: 'silhouette', element: gap.element });
   }
   return { scene, camera };
+}
+
+// One offscreen renderer for every canvas: browsers cap live WebGL contexts (~16) and the gallery redraws on theme change. Made on first use, again if its context is lost.
+let shared = null;
+function renderer() {
+  if (shared && !shared.getContext().isContextLost()) return shared;
+  try { shared = new WebGLRenderer({ canvas: document.createElement('canvas'), antialias: true, alpha: true }); } catch (e) { shared = null; throw new Error('layout3D: WebGL is not available'); }
+  shared.setClearColor(0xffffff, 0);
+  return shared;
+}
+
+/**
+ * Draws a recorded layout into a 2D canvas: the scene through the shared renderer (the dpr clamped to 2-3), copied with `drawImage`, then the dashed axis, the XYZ triad and its labels in 2D.
+ * Colours and widths come from the canvas's tokens (`--stroke-ray`, `--stroke-edge`); `resolve` turns a CSS fill into a colour through a probe element in the canvas's subtree.
+ * @param {HTMLCanvasElement} canvas
+ * @param {{ data: *, width?: number, height?: number, view?: 'iso' | 'front' | 'top', yaw?: number, pitch?: number, scale?: number, rays?: 'marginal-chief' | 'chief' | 'fan' | false }} o
+ * @throws {Error} `layout3D: WebGL is not available` when no WebGL context can be made
+ */
+export function render3d(canvas, o) {
+  if (!o || !o.data) throw new TypeError('layout3D: pass { data: RecordedLayout }');
+  const gl = renderer();
+  const dpr = Math.max(2, Math.min(3, window.devicePixelRatio || 1)), W = o.width || 560, H = o.height || 320;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const c = canvas.getContext('2d'); c.scale(dpr, dpr);
+  const C = (n) => css(canvas, n);
+  c.fillStyle = C('surface'); c.fillRect(0, 0, W, H);
+  // a fill is CSS only the browser resolves (var(), oklch()): a probe in the canvas's subtree takes its computed `color`, a 1 px canvas paints it and the pixel is read back. The probe sits in a wrapper coloured crown: a fill invalid at computed-value time computes as unset, which inherits, so it paints crown.
+  const probe = document.createElement('span'), px = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  px.canvas.width = px.canvas.height = 1;
+  const wrap = document.createElement('span'); wrap.style.color = 'var(--glass-crown)'; wrap.appendChild(probe); canvas.appendChild(wrap);
+  const resolve = (fill) => { probe.style.color = ''; probe.style.color = fill; px.clearRect(0, 0, 1, 1); px.fillStyle = getComputedStyle(probe).color; px.fillRect(0, 0, 1, 1); return Array.from(px.getImageData(0, 0, 1, 1).data.slice(0, 3)); };
+  let sc;
+  try {
+    sc = layout3dScene(o.data, { width: W, height: H, view: o.view, yaw: o.yaw, pitch: o.pitch, scale: o.scale, rays: o.rays, rayWidth: parseFloat(C('stroke-ray')) || undefined, edgeWidth: parseFloat(C('stroke-edge')) || undefined }, resolve);
+  } finally { canvas.removeChild(wrap); }
+  gl.setPixelRatio(dpr); gl.setSize(W, H, false);
+  gl.render(sc.scene, sc.camera);
+  c.drawImage(gl.domElement, 0, 0, W, H);
+  sc.scene.traverse((n) => { if (n.material) n.material.dispose(); });
+
+  // the 2D overlay: the dashed optical axis, then the XYZ triad with its labels
+  const at = (p) => { const v = new Vector3(...p).project(sc.camera); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]; };
+  const zs = o.data.surfaces.map((x) => x.z), axis = [Math.min(...zs) - 10, Math.max(...zs) + 4].map((z) => at([0, 0, z]));
+  c.beginPath(); c.moveTo(...axis[0]); c.lineTo(...axis[1]); c.strokeStyle = C('plot-axis'); c.lineWidth = 0.75; c.setLineDash([3, 5]); c.stroke(); c.setLineDash([]);
+  const r = new Vector3(1, 0, 0).applyQuaternion(sc.camera.quaternion), u = new Vector3(0, 1, 0).applyQuaternion(sc.camera.quaternion), t0 = [40, H - 28];
+  c.font = `10px ${C('font-mono')}`; c.fillStyle = C('ink-muted'); c.strokeStyle = C('ink-muted'); c.lineWidth = 1;
+  for (const [label, d] of [['X', new Vector3(1, 0, 0)], ['Y', new Vector3(0, 1, 0)], ['Z', new Vector3(0, 0, 1)]]) {
+    const e = [t0[0] + d.dot(r) * 20, t0[1] - d.dot(u) * 20];
+    c.beginPath(); c.moveTo(...t0); c.lineTo(...e); c.stroke(); c.fillText(label, e[0] + 3, e[1] + 3);
+  }
 }
