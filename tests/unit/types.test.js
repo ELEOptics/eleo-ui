@@ -141,3 +141,12 @@ test('layout3D is only in the ./layout3d entry, and three is not bundled into th
   assert.doesNotMatch(readFileSync(new URL('eleo-plots.js', dist), 'utf8'), /layout3D|WebGLRenderer/, 'eleo-plots.js has no layout3D');
   assert.match(readFileSync(new URL('eleo-layout3d.js', dist), 'utf8'), /LatheGeometry/, 'eleo-layout3d.js bundles three');
 });
+
+// Plan #1193, item #1275 (CR #1271). layout3d.js re-exports render3d as layout3D: the entry exports exactly layout3D, and it is render3d.
+// oracle: spec plan #1193 item #1275 (Behaviour: export { render3d as layout3D })
+test('./layout3d exports exactly layout3D, which is render3d', async () => {
+  const entry = await import('../../packages/plots/src/layout3d.js');
+  const three = await import('../../packages/plots/src/layout3dThree.js');
+  assert.deepEqual(Object.keys(entry), ['layout3D']);
+  assert.equal(entry.layout3D, three.render3d);
+});
