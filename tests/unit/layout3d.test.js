@@ -316,4 +316,6 @@ for (const name of ['achromat', 'cooke', 'wandersleb']) for (const view0 of [{ y
   assert.equal(over, 0, 'no rim or silhouette line paints over a nearer non-sharing face');
   assert.equal(cut, 0, 'no clip cuts an edge where no face is nearer');
   assert.ok(kinds.rim > 0, 'some rim samples are really hidden');
+  // oracle: the reviewer's sampling above: at wandersleb yaw 20 pitch -10 a silhouette line has samples under a nearer face, so a missing silhouette clip is caught
+  if (name === 'wandersleb' && view0.yaw === 20 && view0.pitch === -10) assert.ok(kinds.silhouette > 0, 'some silhouette samples are really hidden');
 });
