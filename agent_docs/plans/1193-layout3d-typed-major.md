@@ -155,6 +155,7 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 | #1243 | clipEdges returns early on an empty scene; no COUNTS log; faces drop `z`; silhouettes sampled and a gallery pixel check that the clip is applied (review M1 round 7, findings 1-4) | the reviewer's named fixes, each one or two lines; considered leaving 4 to the unit tests, which pass with the clip removed | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js`, `tests/gallery.spec.js` | layout3d.test.js "empty scene", sampling with silhouettes; gallery.spec "layout3D clips edges behind nearer faces" | #1241 |
 | #1245 | Face items never carry `z` (depths kept beside them), grid cells skipped for faces with no depth overlap with any edge, and the silhouette sampling asserted (CR [#1244]; review M1 round 8, finding 2) | depths beside the items because deleting a property on 3500 objects slows every later read; considered keeping `z` on faces, which leaks it to callers | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | perf.spec U14 median at most 15 ms over five runs; "no item keeps its internal z"; silhouette assertion | #1243 |
 | #1246 | clipEdges' grid covers the canvas rect plus a margin, cells clamped, so a large `scale` no longer runs out of memory (review M1 round 9, finding 1) | clamp the grid to the canvas because off-canvas geometry is never painted; considered a cell-size cap | `packages/plots/src/layout3d.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "large scale" | #1245 |
+| #1248 | "large scale" hashes scene items with numbers rounded to 1e-6, so the hashes hold across Node builds (CR [#1247]) | round before hashing because last-bit float differences between V8 builds are not behaviour; considered a JSON fixture with a tolerance | `tests/unit/layout3d.test.js` | layout3d.test.js "large scale", locally and on CI | #1246 |
 
 ### M2: mirrors in 3D GitHub: `P1193 M2: mirrors, holes and obscurations in 3D`
 
@@ -230,6 +231,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-19 orchestrator: review M1 round 7: 0 blocking, 4 backlog; all 12 CRs resolved (#1240, #1242 by #1241). Pulling the 4 in tripped the breaker again (r4 0, r5 1, r6 3, r7 4). stuck (user, 2026-11-19): continue. Item #1243; round 8 follows.
 - 2026-11-19 orchestrator: review M1 round 8: 1 blocking, 1 backlog (breaker count 2, down from 4). CR [#1244] accepted: #1243's `delete f.z` on face items raised the U14 median to about 16.1 ms (O2 failing 8 of 10 runs; the base was about 15.5 ms, failing 1 of 7). Item #1245 keeps depths off the items and restores headroom; finding 2 pulled in. Round 9 follows.
 - 2026-11-19 orchestrator: review M1 round 9: 0 blocking, 1 backlog (breaker count 1, down from 2); all 13 CRs resolved (#1244 by #1245, U14 13.3-14.0 ms; scene items identical to #1243's in 28 cases). The finding (unbounded clip grid at large `scale`) is small and named, so it is pulled in as #1246; round 10 follows.
+- 2026-11-19 orchestrator: review M1 round 10: 1 blocking, 0 backlog (breaker count 1, the same as round 9: one round without a fall). CR [#1247] accepted: CI run 44649623803 on 9d860e4 fails "large scale", whose sha256 depends on the Node build's last-bit floats. Item #1248 rounds before hashing. Round 11 follows.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
@@ -247,6 +249,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1240]: https://github.com/ELEOptics/eleo-ui/issues/1240
 [#1242]: https://github.com/ELEOptics/eleo-ui/issues/1242
 [#1244]: https://github.com/ELEOptics/eleo-ui/issues/1244
+[#1247]: https://github.com/ELEOptics/eleo-ui/issues/1247
 [#139]: https://github.com/ELEOptics/eleo-ui/issues/139
 [#158]: https://github.com/ELEOptics/eleo-ui/issues/158
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
