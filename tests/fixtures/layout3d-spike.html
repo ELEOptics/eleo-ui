@@ -1,0 +1,70 @@
+<!doctype html>
+<!-- Plan #1193 (agent_docs/plans/1193-layout3d-typed-major.md), issue #1249: the layout3D three.js spike (ADR-0005).
+     A full-density synthetic lens (50 surfaces x 128 segments x 16 profile points, LatheGeometry) is drawn by one
+     offscreen WebGLRenderer, copied with drawImage onto a 2D canvas and read back (1 px getImageData flushes the GPU),
+     20 times; window.__spike.median is the U14 median in ms. Run by tests/gallery.spec.js "layout3D tiles draw". -->
+<meta charset="utf-8">
+<title>layout3D spike</title>
+<style>body { margin: 0; background: #fff; } canvas { display: block; }</style>
+<canvas id="out" width="560" height="320"></canvas>
+<script type="importmap">{ "imports": { "three": "/node_modules/three/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+
+const W = 560, H = 320, SURFACES = 50, SEGMENTS = 128, POINTS = 16, REDRAWS = 20;
+const FILLS = [0x2a9d8f, 0xe76f51]; // two glasses, alternating
+window.__spike = { error: null };
+try {
+  const gl = document.createElement('canvas'); // offscreen: never in the DOM
+  gl.width = W; gl.height = H;
+  const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true });
+  renderer.setSize(W, H, false);
+  renderer.setClearColor(0xffffff, 0);
+
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+  sun.position.set(-1, 2, 3);
+  scene.add(sun);
+
+  const R = 8; // semi-diameter, mm
+  const materials = FILLS.map((c) => new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide }));
+  for (let s = 0; s < SURFACES; s++) {
+    const c = (s % 2 ? -1 : 1) / (40 + s); // curvature, 1/mm
+    const profile = Array.from({ length: POINTS }, (_, i) => {
+      const r = (R * i) / (POINTS - 1);
+      return new THREE.Vector2(r, (c * r * r) / (1 + Math.sqrt(1 - c * c * r * r))); // sag along the lathe axis (y)
+    });
+    const mesh = new THREE.Mesh(new THREE.LatheGeometry(profile, SEGMENTS), materials[Math.floor(s / 3) % 2]);
+    mesh.rotation.x = Math.PI / 2; // lathe axis y -> optical axis z
+    mesh.position.z = s * 3;
+    scene.add(mesh);
+  }
+
+  const half = 90; // mm: fits the 150 mm long, 16 mm wide lens rotated to iso
+  const camera = new THREE.OrthographicCamera((-half * W) / H, (half * W) / H, half, -half, -1000, 1000);
+  camera.position.set(1, 1, 1).multiplyScalar(300); // true isometric
+  camera.up.set(0, 1, 0);
+  camera.lookAt(0, 0, 72);
+
+  const out = document.getElementById('out').getContext('2d', { willReadFrequently: true });
+  const draw = () => {
+    renderer.render(scene, camera);
+    out.fillStyle = '#fff';
+    out.fillRect(0, 0, W, H);
+    out.drawImage(gl, 0, 0);
+    out.getImageData(0, 0, 1, 1); // flush
+  };
+  draw(); // warm-up: shader compile and first upload are not a redraw
+  const times = [];
+  for (let r = 0; r < REDRAWS; r++) { const t0 = performance.now(); draw(); times.push(performance.now() - t0); }
+  times.sort((a, b) => a - b);
+  window.__spike.median = (times[9] + times[10]) / 2;
+  window.__spike.faces = scene.children.reduce((n, m) => n + (m.geometry ? m.geometry.index.count / 3 : 0), 0);
+  window.__spike.fills = FILLS;
+} catch (e) {
+  window.__spike.error = String(e && e.message || e);
+  console.error(window.__spike.error);
+}
+document.body.dataset.ready = 'true';
+</script>

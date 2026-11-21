@@ -19,4 +19,7 @@ jobs:
       - run: npm run check
       - run: npm run test:unit
       - run: npx playwright install --with-deps chromium firefox webkit
-      - run: npx playwright test
+      # WebGL here is software (SwiftShader, 85-105 ms full density): the 3D tests assert drawing only. U14 is timed locally on a GPU (PERF=1 GPU=1; ADR-0005).
+      # Firefox's headless WebGL needs an X display for its EGL/GLX path (Mesa llvmpipe); without one it reports "Exhausted GL driver options" (#1260). Only Firefox runs under xvfb.
+      - run: npx playwright test --project=chromium --project=webkit
+      - run: xvfb-run -a npx playwright test --project=firefox

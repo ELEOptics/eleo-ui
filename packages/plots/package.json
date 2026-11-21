@@ -38,18 +38,29 @@
       "types": "./dist/physics.d.ts",
       "default": "./dist/physics.js"
     },
+    "./layout3d": {
+      "types": "./dist/layout3d.d.ts",
+      "default": "./dist/layout3d.js"
+    },
     "./plots.css": "./dist/plots.css",
     "./eleo-plots.js": "./dist/eleo-plots.js",
     "./eleo-plots-sample.js": "./dist/eleo-plots-sample.js",
     "./eleo-physics.js": "./dist/eleo-physics.js",
-    "./eleo-layout.js": "./dist/eleo-layout.js"
+    "./eleo-layout.js": "./dist/eleo-layout.js",
+    "./eleo-layout3d.js": "./dist/eleo-layout3d.js"
   },
   "files": [
     "dist",
     "LICENSE"
   ],
   "peerDependencies": {
-    "@eleoptics/tokens": ">=0.1.0 <1"
+    "@eleoptics/tokens": ">=0.1.0 <1",
+    "three": ">=0.170 <1"
+  },
+  "peerDependenciesMeta": {
+    "three": {
+      "optional": true
+    }
   },
   "scripts": {
     "build": "node build.mjs",

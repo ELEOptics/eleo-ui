@@ -1,12 +1,14 @@
 // Every renderer draws, in both themes, without errors. Run after `npm run build`.
 import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
+import { Vector3 } from 'three';
 import { moveTo, pageHelpers } from './page-helpers.js';
+import { layout3dScene } from '../packages/plots/src/layout3dThree.js';
 
 test.beforeEach(({ page }) => pageHelpers(page));
 
 // The gallery's tile count.
-const TILES = 25;
+const TILES = 27;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -134,7 +136,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   const mins = await page.$$eval('[data-tile][data-size]', (ts) => ts.map((t) => ({ tile: t.dataset.tile, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 })));
   expect(mins.length).toBeGreaterThan(0);
   for (const m of mins) expect(m.min, `${m.tile} --tile-min`).toBeGreaterThanOrEqual(m.floor - 0.5);
-  const ownData = ['layout2D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
+  const ownData = ['layout2D-glasses', 'layout3D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
@@ -638,7 +640,7 @@ test('text follows ADR-0003 on every framed tile (U18)', async ({ page }) => {
 test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   const widths = () => page.locator('[data-canvas]').evaluateAll((els) => els.map((c) => ({
     id: c.dataset.canvas + '|' + c.closest('.theme').dataset.theme,
-    backing: c.width, backingH: c.height, rendered: c.getBoundingClientRect().width, renderedH: c.getBoundingClientRect().height, dpr: c.dataset.canvas === 'layout3D' ? Math.max(2, Math.min(3, window.devicePixelRatio)) : window.devicePixelRatio,
+    backing: c.width, backingH: c.height, rendered: c.getBoundingClientRect().width, renderedH: c.getBoundingClientRect().height, dpr: c.dataset.canvas.startsWith('layout3D') ? Math.max(2, Math.min(3, window.devicePixelRatio)) : window.devicePixelRatio,
   })));
   const at = async (w, before) => {
     await page.setViewportSize({ width: w, height: 900 });
@@ -648,7 +650,7 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const wide = await at(1440), narrow = await at(700, wide);
-  expect(wide.length, 'airy and layout3D, in two themes').toBe(4);
+  expect(wide.length, 'airy, layout3D, layout3D-front and layout3D-glasses, in two themes').toBe(8);
   wide.forEach((c, i) => {
     expect(c.backing, `${c.id} redrawn`).not.toBe(narrow[i].backing);
     if (!c.id.startsWith('layout3D')) expect(Math.abs(c.renderedH - c.rendered), `${c.id} square`).toBeLessThanOrEqual(1);
@@ -690,6 +692,8 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
 // mtf-limits' vertical limit reads "50 cycles/mm".
 const CURVE_KEYS = { mtf: 6, 'mtf-limits': 6, fieldCurvature: 2, distortion: 1 };
 test('curve keys', async ({ page }) => {
+  // Each resize redraws the gallery's six three.js tiles (two themes) at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
+  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
@@ -759,6 +763,8 @@ const FAN_FOOT_KEYS = {
   'rayFan-opd': ['486.1 nm', '587.6 nm', '656.3 nm'],
 };
 test('fan and footprint keys', async ({ page }) => {
+  // Each resize redraws the gallery's six three.js tiles (two themes) at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
+  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
@@ -826,29 +832,226 @@ test('fan and footprint keys', async ({ page }) => {
   }
 });
 
-// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips). layout3D paints the rays over the image plane they end on.
-// oracle: user request 9 (rays over the plane they end on); property: the --mech pixels with rays are a strict subset of those without (rays: false), in both themes, in the default iso view.
-test('layout3D rays over the image plane', async ({ page }) => {
+// Plan #1193 M2, issue #1249 (spike for ADR-0005, outcome O9): WebGL through three.js draws a full-density lens in Chromium, Firefox and WebKit.
+// oracle: property, the fixture page's 2D canvas (an offscreen WebGLRenderer copied by drawImage) holds at least 200 pixels shaded from each of its two fills (same chromaticity within 0.03) and the fills differ; no console error. The U14 median is attached as an annotation and asserted under 16 ms only when Chromium is launched on a GPU (PERF=1 GPU=1, --use-angle=metal; CR #1257); CI's WebGL is software and times nothing.
+test('layout3D tiles draw', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await page.goto('/tests/fixtures/layout3d-spike.html');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+  const r = await page.evaluate(() => {
+    const chroma = ([r, g, b]) => [r / (r + g + b), g / (r + g + b)];
+    const fills = window.__spike.fills?.map((c) => chroma([c >> 16, (c >> 8) & 255, c & 255])) ?? [];
+    const canvas = document.getElementById('out');
+    const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    const count = fills.map(() => 0);
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] + data[i + 1] + data[i + 2] < 45 || data[i + 3] === 0) continue;
+      const c = chroma([data[i], data[i + 1], data[i + 2]]);
+      fills.forEach((f, k) => { if (Math.hypot(c[0] - f[0], c[1] - f[1]) <= 0.03) count[k]++; });
+    }
+    return { spike: window.__spike, count, apart: fills.length === 2 ? Math.hypot(fills[0][0] - fills[1][0], fills[0][1] - fills[1][1]) : 0 };
+  });
+  expect(r.spike.error, 'WebGL context').toBeNull();
+  expect(errors).toEqual([]);
+  expect(r.apart, 'the two fills differ').toBeGreaterThan(0.03);
+  r.count.forEach((n, k) => expect(n, `fill ${k} pixels`).toBeGreaterThanOrEqual(200));
+  const gpu = test.info().project.use.launchOptions?.args?.includes('--use-angle=metal');
+  console.log(`layout3D spike median (${gpu ? 'GPU' : page.context().browser().browserType().name()}): ${r.spike.median.toFixed(2)} ms, ${r.spike.faces} faces`);
+  test.info().annotations.push({ type: 'median-ms', description: r.spike.median.toFixed(2) });
+  if (gpu) expect(r.spike.median, 'U14: full-density redraw under 16 ms on a GPU').toBeLessThan(16);
+});
+
+// Plan #1193 M2, issue #1252 (outcome O9, O2): render3d draws through one shared offscreen WebGLRenderer. The page is served by a route so no fixture file is needed.
+// oracle: property. "no WebGL names layout3D": with the page's WebGL getContext stubbed to null, render3d throws an error whose message names layout3D. "40 redraws, no context lost": 40 renders into 40 canvases create one WebGL context, it is not lost, and the last canvas holds ink.
+const render3dPage = async (page, before = '') => {
+  await page.route('**/render3d-test.html', (route) => route.fulfill({
+    contentType: 'text/html',
+    body: `<!doctype html><meta charset="utf-8"><script type="importmap">{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }</script>
+<script type="module">
+${before}
+import { render3d } from '/packages/plots/src/layout3dThree.js';
+window.__render3d = render3d;
+document.body.dataset.ready = 'true';
+</script>`,
+  }));
+  await page.goto('/render3d-test.html');
+  await expect(page.locator('body[data-ready]')).toHaveCount(1);
+};
+
+test('layout3D no WebGL names layout3D', async ({ page }) => {
+  const layout = JSON.parse(readFileSync(new URL('./fixtures/layouts/analysis-glasses.json', import.meta.url)));
+  await render3dPage(page);
+  const message = await page.evaluate((data) => {
+    const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) { return /webgl/.test(type) ? null : get.call(this, type, ...rest); };
+    try { window.__render3d(document.body.appendChild(document.createElement('canvas')), { data }); return null; } catch (e) { return e.message; } finally { HTMLCanvasElement.prototype.getContext = get; }
+  }, layout);
+  expect(message, 'render3d throws').not.toBeNull();
+  expect(message).toContain('layout3D: WebGL is not available');
+});
+
+test('layout3D 40 redraws, no context lost', async ({ page }) => {
+  // 40 draws at 280 x 160 take about 13 s alone on software WebGL (SwiftShader) and more when the full gate runs specs in parallel: 120 s.
+  test.setTimeout(120_000);
+  const layout = JSON.parse(readFileSync(new URL('./fixtures/layouts/analysis-glasses.json', import.meta.url)));
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await render3dPage(page, `const get = HTMLCanvasElement.prototype.getContext; window.__gl = [];
+HTMLCanvasElement.prototype.getContext = function (type, ...rest) { const c = get.call(this, type, ...rest); if (/webgl/.test(type) && c) window.__gl.push(c); return c; };`);
+  const r = await page.evaluate((data) => {
+    let c;
+    for (let i = 0; i < 40; i++) { c = document.body.appendChild(document.createElement('canvas')); window.__render3d(c, { data, width: 280, height: 160 }); }
+    const { data: px } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+    let inked = 0; for (let i = 3; i < px.length; i += 4) if (px[i]) inked++;
+    return { contexts: window.__gl.length, lost: window.__gl.filter((g) => g.isContextLost()).length, inked };
+  }, layout);
+  expect(errors).toEqual([]);
+  expect(r.contexts, 'one shared WebGL context').toBe(1);
+  expect(r.lost, 'contexts lost').toBe(0);
+  expect(r.inked, 'the last canvas is drawn').toBeGreaterThan(0);
+});
+
+// O9 on the gallery's own 3D tiles (plan #1193, #1253 swapped them to three.js; #1256 unskipped this).
+// oracle: property, as above (WebGL through three.js draws a full-density lens): each theme's layout3D, layout3D-front and layout3D-glasses canvases hold at least 200 pixels that differ from the tile's background (its corner pixel) by more than 30 in the channel sum; the glasses tile's two fills are checked by 'layout3D glasses tile draws'. No console error and no page error.
+test('layout3D tiles draw on the gallery', async ({ page }) => {
+  // every CI browser has software WebGL (about 125 ms a frame): six tiles drawn, and the full gate runs specs in parallel: 120 s.
+  test.setTimeout(120_000);
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
+  for (const theme of ['light', 'dark']) for (const tile of ['layout3D', 'layout3D-front', 'layout3D-glasses']) {
+    const lit = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="${tile}"]`).evaluate((canvas) => {
+      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+      let n = 0;
+      for (let i = 4; i < data.length; i += 4) if (Math.abs(data[i] - data[0]) + Math.abs(data[i + 1] - data[1]) + Math.abs(data[i + 2] - data[2]) > 30) n++;
+      return n;
+    });
+    expect(lit, `${theme} ${tile} pixels drawn over the background`).toBeGreaterThanOrEqual(200);
+  }
+  expect(errors).toEqual([]);
+});
+
+// Plan #1193, #1277 (review M2 round 1, finding 7): a canvas tile that throws skips only itself, as a map tile does.
+// oracle: property, with getContext('webgl2'|'webgl') stubbed to null before load, layout3D throws on every 3D tile: the console names each of the six skipped tiles (three kinds, two themes), no page error, and the airy canvases still hold ink.
+test('a failing 3D tile skips only itself', async ({ page }) => {
+  // the stub makes renderer() throw `layout3D: WebGL is not available` on every 3D tile, so no renderer is built and the test needs only the default timeout.
+  const skipped = [];
+  const thrown = [];
+  page.on('pageerror', (e) => thrown.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && skipped.push(m.text()));
+  await page.addInitScript(() => {
+    const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) { return /^webgl/.test(type) ? null : get.call(this, type, ...rest); };
+  });
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
+  expect(thrown).toEqual([]);
+  for (const k of ['layout3D', 'layout3D-front', 'layout3D-glasses']) {
+    expect(skipped.filter((t) => t.includes(`gallery: ${k} tile skipped:`)).length, `${k} skipped once per theme`).toBeGreaterThanOrEqual(2);
+  }
+  for (const theme of ['light', 'dark']) {
+    const airy = (await inkByTile(page, theme)).find((t) => t.tile === 'airy');
+    expect(airy.svgMarks + airy.inked, `${theme} airy drew`).toBeGreaterThan(0);
+  }
+});
+
+// Plan #1193 (agent_docs/plans/1193-layout3d-typed-major.md), outcome O1 and O4 (issue #1198). The layout3D tile on the Cooke glasses fills each glass with glassFill's fill.
+// oracle: property, glassLegend's swatches give the fill of each named glass (N-SK16, F2); the gallery tile's own canvas (its backing pixels, rays included) holds at least 200 pixels shaded from each fill (same chromaticity within 0.015, a brightness scale only) and the two fills' chromaticities differ by more than 0.03.
+test('layout3D glasses tile draws', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
-    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout3D"] .eleo-plot__body`).evaluate((body) => {
-      const mech = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(body, 'mech'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
-      const planePixels = (o) => {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`).evaluate(async (canvas) => {
+      const layout = await (await fetch('/tests/fixtures/layouts/analysis-glasses.json')).json();
+      const px = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+      px.canvas.width = px.canvas.height = 1;
+      const rgb = (css) => { const s = document.createElement('span'); s.style.color = css; canvas.parentNode.appendChild(s); px.clearRect(0, 0, 1, 1); px.fillStyle = getComputedStyle(s).color; px.fillRect(0, 0, 1, 1); s.remove(); return [...px.getImageData(0, 0, 1, 1).data.slice(0, 3)]; };
+      const chroma = ([r, g, b]) => [r / (r + g + b), g / (r + g + b)];
+      const fills = [...window.ELEO.glassLegend(layout).matchAll(/--c:([^"]*)"[^>]*>([^<]*)</g)].map((m) => ({ name: m[2], c: chroma(rgb(m[1])) }));
+      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+      const count = fills.map(() => 0);
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] + data[i + 1] + data[i + 2] < 45) continue;
+        const c = chroma([data[i], data[i + 1], data[i + 2]]);
+        fills.forEach((f, k) => { if (Math.hypot(c[0] - f.c[0], c[1] - f.c[1]) <= 0.015) count[k]++; });
+      }
+      return { names: fills.map((f) => f.name), count, apart: fills.length === 2 ? Math.hypot(fills[0].c[0] - fills[1].c[0], fills[0].c[1] - fills[1].c[1]) : 0 };
+    });
+    expect(r.names, `${theme} the glasses`).toEqual(['N-SK16', 'F2']);
+    expect(r.apart, `${theme} the two fills differ`).toBeGreaterThan(0.03);
+    r.count.forEach((n, k) => expect(n, `${theme} ${r.names[k]} pixels`).toBeGreaterThanOrEqual(200));
+  }
+});
+
+// Plan #1193 M1, issue #1233 (review M1 round 2, finding 1; was #1229). A fill valid at parse time but invalid at computed-value time (a browser without oklch(from ...); simulated by an unknown function that still holds var()) paints crown: the probe inherits it from a crown-coloured wrapper.
+// oracle: CSS Variables spec, a declaration whose var() substitution is invalid at computed-value time computes as `unset`, and `color` inherits; in Chromium `s.style.color = 'notacolorfn(var(--glass-crown))'` keeps the inline value yet computes to the parent's colour. A canvas drawn with the fills swapped for `oklchx(from ...)` equals, channel for channel, one drawn with the same fills set to var(--glass-crown), and that canvas holds at least 200 lit pixels.
+test('layout3D rejected fill falls back to crown', async ({ page }) => {
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`).evaluate(async (canvas) => {
+      const layout = await (await fetch('/tests/fixtures/layouts/analysis-glasses.json')).json();
+      const fills = Object.values(Object.fromEntries([...window.ELEO.glassLegend(layout).matchAll(/--c:([^"]*)"[^>]*>([^<]*)</g)].map((m) => [m[2], m[1]])));
+      const make = document.createElement.bind(document);
+      // `swap` is what the probe's color setter sets in place of a glass fill.
+      const draw = (swap) => {
+        document.createElement = (tag, ...rest) => {
+          const el = make(tag, ...rest);
+          if (String(tag).toLowerCase() === 'span') Object.defineProperty(el, 'style', { value: new Proxy(el.style, { get: (t, k) => { const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; }, set: (t, k, v) => { if (k !== 'color' || !fills.includes(v)) t[k] = v; else t[k] = swap; return true; } }) });
+          return el;
+        };
+        const c = make('canvas');
+        canvas.parentNode.appendChild(c);
+        try { window.ELEO.layout3D(c, { data: layout }); } finally { document.createElement = make; }
+        const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        c.remove();
+        return px;
+      };
+      const rejected = draw('oklchx(from var(--glass-crown) l c h)'), crown = draw('var(--glass-crown)');
+      let differ = 0, shaded = 0;
+      for (let i = 0; i < crown.length; i++) if (rejected[i] !== crown[i]) differ++;
+      for (let i = 0; i < crown.length; i += 4) if (crown[i] + crown[i + 1] + crown[i + 2] >= 45) shaded++;
+      return { differ, shaded };
+    });
+    expect(r.shaded, `${theme} the glasses are drawn`).toBeGreaterThanOrEqual(200);
+    expect(r.differ, `${theme} channels that differ from fills set to crown`).toBe(0);
+  }
+});
+
+// Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips); plan #1193 #1253 moves it to three.js. layout3D draws the rays over the image plane they end on.
+// oracle: user request 9 (rays over the plane they end on); property: the image plane's projected square, from the scene's own camera matrices (three's Vector3.project, here in node), shrunk 10%: sampled points of it are not the background in the bare drawing (rays: false), and some of them differ once the rays are drawn, in both themes, in the default iso view.
+test('layout3D rays over the image plane', async ({ page }) => {
+  const data = (await import('../packages/plots/src/sample.js')).default.layout, W = 560, H = 320;
+  const { scene, camera } = layout3dScene(data, { width: W, height: H }, () => 0x808080);
+  const plane = []; scene.traverse((o) => { if (o.isMesh && o.userData.image) plane.push(o); });
+  const a = plane[0].geometry.attributes.position, c4 = Array.from({ length: a.count }, (_, i) => new Vector3(a.getX(i), a.getY(i), a.getZ(i)).project(camera)).map((v) => [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]);
+  const mid = [c4.reduce((s, p) => s + p[0], 0) / c4.length, c4.reduce((s, p) => s + p[1], 0) / c4.length];
+  const poly = c4.map((p) => [mid[0] + 0.9 * (p[0] - mid[0]), mid[1] + 0.9 * (p[1] - mid[1])]).sort((p, q) => Math.atan2(p[1] - mid[1], p[0] - mid[0]) - Math.atan2(q[1] - mid[1], q[0] - mid[0]));
+  const inside = (p) => { let pos = 0, neg = 0; poly.forEach((u, i) => { const v = poly[(i + 1) % poly.length], cr = (v[0] - u[0]) * (p[1] - u[1]) - (v[1] - u[1]) * (p[0] - u[0]); if (cr > 0) pos++; else if (cr < 0) neg++; }); return !(pos && neg); };
+  const pts = []; for (let x = 0; x < W; x += 1) for (let y = 0; y < H; y += 1) if (inside([x, y])) pts.push([x, y]);
+  expect(pts.length, 'the plane covers sample points').toBeGreaterThan(50);
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  for (const theme of ['light', 'dark']) {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout3D"] .eleo-plot__body`).evaluate((body, pts) => {
+      const bg = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(body, 'surface'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
+      const read = (o) => {
         const c = document.createElement('canvas');
         body.appendChild(c);
         window.ELEO.layout3D(c, o);
-        const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height), on = new Set();
-        for (let i = 0; i < data.length; i += 4) if (data[i] === mech[0] && data[i + 1] === mech[1] && data[i + 2] === mech[2]) on.add(i / 4);
+        const dpr = c.width / 560, g = c.getContext('2d'), out = pts.map((p) => [...g.getImageData(Math.floor(p[0] * dpr), Math.floor(p[1] * dpr), 1, 1).data.slice(0, 3)]);
         c.remove();
-        return on;
+        return out;
       };
-      const bare = planePixels({ rays: false }), withRays = planePixels({});
-      return { bare: bare.size, withRays: withRays.size, outside: [...withRays].filter((p) => !bare.has(p)).length };
-    });
-    expect(r.bare, `${theme} the plane is drawn`).toBeGreaterThan(0);
-    expect(r.outside, `${theme} --mech pixels with rays that the bare plane lacks`).toBe(0);
-    expect(r.withRays, `${theme} rays cover part of the plane`).toBeLessThan(r.bare);
+      const data = window.ELEO.sample.layout, bare = read({ data, rays: false }), withRays = read({ data });
+      return { planeDrawn: bare.filter((p) => p.some((v, n) => Math.abs(v - bg[n]) > 3)).length, rayOver: withRays.filter((p, i) => p.some((v, n) => Math.abs(v - bare[i][n]) > 3)).length };
+    }, pts);
+    expect(r.planeDrawn, `${theme} the plane is drawn`).toBeGreaterThan(0.9 * pts.length);
+    expect(r.rayOver, `${theme} rays are drawn over the plane`).toBeGreaterThan(0);
   }
 });
 
@@ -878,6 +1081,8 @@ test('map tiles', async ({ page }) => {
 // The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
 const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
 test('layout keys',async ({ page }) => {
+  // The gallery's six three.js tiles (two themes) redraw at about 0.3 s each on software WebGL (SwiftShader) at every width this test visits; under the full gate's parallel load that passes 30 s: 90 s.
+  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const expected = await page.evaluate(async (kinds) => {

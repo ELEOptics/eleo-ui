@@ -1,6 +1,6 @@
 # @eleoptics/plots-svelte
 
-Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleoptics/plots): `PlotCard`, `Layout2D`, `Layout3D`, `SpotDiagram`, `RayFan`, `CurvePlot`, `BarPlot`, `Map2D`, `Icon`, `Legend` and `Colorbar`. Canvas plots redraw when their props, the theme or the palette change.
+Svelte 5 components for [`@eleoptics/plots`](https://www.npmjs.com/package/@eleoptics/plots): `PlotCard`, `Layout2D`, `SpotDiagram`, `RayFan`, `CurvePlot`, `BarPlot`, `Map2D`, `Icon`, `Legend` and `Colorbar`, and `Layout3D` from `@eleoptics/plots-svelte/layout3d`. Canvas plots redraw when their props, the theme or the palette change.
 
 ```bash
 npm install @eleoptics/tokens @eleoptics/plots @eleoptics/plots-svelte
@@ -33,6 +33,8 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 ```svelte
 <Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />
 ```
+
+`Layout3D` takes `layout3D`'s options, `data` (a recorded layout), `rays`, `view` (`"iso"`, the default, `"front"` or `"top"`), `yaw`, `pitch` (these override `view`), `scale`, `width` and `height`: `<Layout3D data={layout} rays="fan" view="front" label="Lens in 3D" />`. Import it from its own entry, `import { Layout3D } from '@eleoptics/plots-svelte/layout3d';`, not from `@eleoptics/plots-svelte`. It draws through `@eleoptics/plots/layout3d`, which needs `three` (`npm i three`, an optional peer dependency of `@eleoptics/plots`): `three` is needed only for `@eleoptics/plots-svelte/layout3d`, so an app that imports only the 2D wrappers bundles without it.
 
 `Layout2D` takes `layout2D`'s options: `data` is a recorded layout or a system carrying one (see the [plots README](https://www.npmjs.com/package/@eleoptics/plots) for the format and the migration from the old `data.layout`). To compare two designs at one scale, give both the same `box` and `width`, and the same labels (drawings with one box, width and labels share a scale):
 

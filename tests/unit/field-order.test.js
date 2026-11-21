@@ -8,6 +8,7 @@ import {
 } from 'culori';
 import { STANDARD } from '../../packages/plots/src/common.js';
 import ELEO from '../../packages/plots/src/renderers.js';
+import { layout3dScene } from '../../packages/plots/src/layout3dThree.js';
 import '../../packages/plots/src/sample.js';
 
 const json = JSON.parse(readFileSync(new URL('../../packages/tokens/src/tokens.json', import.meta.url)));
@@ -98,24 +99,13 @@ function floorFailures(order, visions) {
 // The series indices an SVG drawing uses, in order of first use.
 const series = (text) => [...new Set([...text.matchAll(/--series-(\d+)/g)].map((m) => Number(m[1])))];
 
-// layout3D draws on a canvas: record the strokeStyle it sets. `read(name)` stands in for a computed custom property.
-function layout3DStrokes(read) {
-  const strokes = [];
-  const ctx = new Proxy({}, {
-    get: (_, k) => (k === 'createImageData' ? () => ({ data: [] }) : () => {}),
-    set: (_, k, v) => { if (k === 'strokeStyle') strokes.push(v); return true; },
-  });
-  const saved = { window: globalThis.window, getComputedStyle: globalThis.getComputedStyle };
-  globalThis.window = { devicePixelRatio: 1 };
-  globalThis.getComputedStyle = () => ({ getPropertyValue: read });
-  try {
-    ELEO.layout3D({ getContext: () => ctx });
-  } finally {
-    Object.assign(globalThis, saved);
-  }
-  return strokes;
+// layout3D's rays are three.js lines coloured by CSS the browser resolves: the fills its scene asks `resolve` for, in order, each a `var(--series-N, var(--field-X))`.
+function layout3DFills() {
+  const fills = [];
+  layout3dScene(ELEO.sample.layout, {}, (fill) => { fills.push(fill); return 0x808080; });
+  return fills;
 }
-const firstUse = (names) => [...new Set(names.filter((n) => /^--(series|field)-\d+$/.test(n)))];
+const firstUse = (fills, name) => [...new Set(fills.flatMap((f) => [...f.matchAll(new RegExp(`--${name}-\\d+`, 'g'))].map((m) => m[0])))];
 
 test('standard order is rule R under normal vision', (t) => {
   const { visions } = PALETTES.standard;
@@ -159,13 +149,10 @@ test('standard order is rule R under normal vision', (t) => {
     'legend: every index 1 to 8 carries a field fallback',
   );
 
-  // layout3D: --series-1..3 when plots.css is loaded, the standard fields when --series-* reads empty.
-  assert.deepEqual(firstUse(layout3DStrokes((n) => n)), ['--series-1', '--series-2', '--series-3'], 'layout3D with plots.css');
-  assert.deepEqual(
-    firstUse(layout3DStrokes((n) => (n.startsWith('--series-') ? '' : n))),
-    standard.slice(0, 3).map((n) => `--field-${n}`),
-    'layout3D without plots.css',
-  );
+  // layout3D: --series-1..3 first, each with the standard field as its fallback for when plots.css is not loaded.
+  const fills = layout3DFills();
+  assert.deepEqual(firstUse(fills, 'series'), ['--series-1', '--series-2', '--series-3'], 'layout3D with plots.css');
+  assert.deepEqual(firstUse(fills, 'field').slice(0, 3), standard.slice(0, 3).map((n) => `--field-${n}`), 'layout3D without plots.css');
 });
 
 test('each palette is rule R under its conditions', (t) => {

@@ -16,6 +16,11 @@
       "types": "./dist/index.d.ts",
       "svelte": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./layout3d": {
+      "types": "./dist/layout3d.d.ts",
+      "svelte": "./dist/layout3d.js",
+      "default": "./dist/layout3d.js"
     }
   },
   "files": [

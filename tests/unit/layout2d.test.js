@@ -449,9 +449,9 @@ test('labels follow ADR-0003, hidden below 630', () => {
   }
 });
 
-// oracle: spec the plan's Public API list (layout2D, layoutBounds).
-test('layout2d.js exports layout2D and layoutBounds only', () => {
-  assert.deepEqual(Object.keys(layout2dModule).sort(), ['layout2D', 'layoutBounds']);
+// oracle: spec the plan's Public API list (layout2D, layoutBounds), plus the ray set and status rules layout3D shares (plan #1193 item 3, #1196: raySet, statusOf, segmentStatus; U3 and U17 define them).
+test('layout2d.js exports layout2D, layoutBounds and the shared ray rules only', () => {
+  assert.deepEqual(Object.keys(layout2dModule).sort(), ['layout2D', 'layoutBounds', 'raySet', 'segmentStatus', 'statusOf']);
 });
 
 // Plan #30, #35: `box` is public. layoutBounds is on the ES entry and on ELEO (so eleo-plots.js has it), and a box
