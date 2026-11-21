@@ -1,7 +1,7 @@
 // layout3D on three.js (plan #1193 M2, #1250, #1251): the scene and camera of a recorded layout, with its rays and edges as fat lines. `render3d` (#1252) draws it through one shared offscreen WebGL renderer.
 // Pure three.js objects and no DOM, so node tests run it; `resolve(fill)` is injected for the one thing only a browser can answer.
 import {
-  AmbientLight, Color, DirectionalLight, DoubleSide, Group, LatheGeometry, Matrix4, Mesh, MeshLambertMaterial,
+  AmbientLight, CircleGeometry, Color, DirectionalLight, DoubleSide, Group, LatheGeometry, Matrix4, Mesh, MeshLambertMaterial,
   OrthographicCamera, PlaneGeometry, RingGeometry, Scene, SRGBColorSpace, Vector2, Vector3, WebGLRenderer,
 } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -10,7 +10,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { STANDARD } from './common.js';
 import { css } from './color.js';
 import { glassFill, drawnGlasses } from './glass.js';
-import { raySet, statusOf, segmentStatus } from './layout2d.js';
+import { raySet, statusOf, segmentStatus, mirrorBodies } from './layout2d.js';
 
 const SEGMENTS = 128, STOP_TICK = 2.5, PAD = 16;
 // View convention (pinned by the "view convention" test): yaw about y, then pitch about x; at yaw 0, pitch 0 the viewer looks along +x, with +z to the right and +y up.
@@ -21,6 +21,16 @@ const isRecorded = (L) => L != null && typeof L === 'object' && Array.isArray(L.
     && s.profile.every((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])) && s.profile.some((p) => p[1] >= -1e-9));
 // The y >= 0 half of a surface's [z, y] profile, ascending in y.
 const halfProfile = (s) => s.profile.filter((p) => p[1] >= -1e-9).map(([z, y]) => [z, Math.max(0, y)]).sort((a, b) => a[1] - b[1]);
+// A closed [z, y] polygon cut to its y >= 0 part (Sutherland-Hodgman against y = 0), as [z, r] points.
+const upperHalf = (poly) => {
+  const out = [];
+  poly.forEach((p, j) => {
+    const w = poly[(j + poly.length - 1) % poly.length];
+    if ((p[1] >= 0) !== (w[1] >= 0)) out.push([w[0] + (p[0] - w[0]) * (0 - w[1]) / (p[1] - w[1]), 0]);
+    if (p[1] >= 0) out.push(p);
+  });
+  return out;
+};
 // A lathe turns (radius, height) about y; baking a quarter turn about x puts the axis on z, so the position attributes are in the layout's frame.
 const lathe = (pts) => { const g = new LatheGeometry(pts.map(([z, r]) => new Vector2(r, z)), SEGMENTS); g.rotateX(Math.PI / 2); return g; };
 
@@ -33,6 +43,14 @@ function build(layout) {
   const own = (i) => (S[i].image ? null : S[i].glass ? [i, S[i].glass] : S[i - 1] && S[i - 1].glass ? [i - 1, S[i - 1].glass] : null);
   S.forEach((s, i) => {
     if (s.image) return;
+    if (s.mirror) { // layout2D's body, revolved once: a hole splits it into two mirror-image polygons (revolve the first, at radius |y|), no hole makes one spanning -sd..sd (revolve its y >= 0 half)
+      const polys = mirrorBodies(layout, i);
+      if (polys.length) {
+        const ring = s.hole > 0 ? polys[0].map(([z, y]) => [z, Math.abs(y)]) : upperHalf(polys[0]);
+        if (ring.length > 2) parts.push({ geometry: lathe(ring.concat([ring[0]])), mirror: i });
+      }
+    }
+    if (s.obscuration) { const g = new CircleGeometry(Math.abs(s.sd), SEGMENTS); g.translate(0, 0, s.z); parts.push({ geometry: g, obscuration: i }); }
     const e = own(i), h = halfProfile(s);
     if (e) {
       const rz = h[h.length - 1][0], rr = h[h.length - 1][1];
@@ -96,12 +114,14 @@ export function layout3dScene(layout, o, resolve) {
     return mats.get(key);
   };
   for (const p of geo.parts) {
-    const fill = p.glass ? fillOf(p.glass) : p.stop ? 'var(--ink)' : 'var(--mech)';
-    const mesh = new Mesh(p.geometry, material(p.glass ? 'e' + p.element : p.stop ? 'stop' : 'image', fill));
+    const fill = p.glass ? fillOf(p.glass) : p.stop || p.obscuration !== undefined ? 'var(--ink)' : 'var(--mech)';
+    const mesh = new Mesh(p.geometry, material(p.glass ? 'e' + p.element : p.stop ? 'stop' : p.obscuration !== undefined ? 'obscuration' : p.mirror !== undefined ? 'mirror' : 'image', fill));
     mesh.userData = { fill };
     if (p.glass) mesh.userData.glass = nameOf(p.glass);
     if (p.stop) mesh.userData.stop = true;
     if (p.image) mesh.userData.image = true;
+    if (p.mirror !== undefined) mesh.userData.mirror = p.mirror;
+    if (p.obscuration !== undefined) mesh.userData.obscuration = p.obscuration;
     group.add(mesh);
   }
   scene.add(group);

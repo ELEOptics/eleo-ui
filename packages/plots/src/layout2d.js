@@ -60,7 +60,7 @@ export function segmentStatus(L, st, j) { return L.status ? st[j - 1] : st[j]; }
 // A mirror's body: the profile plus a flat back D/8 (sd/4) behind its far z, on the side away from the light, with |y| < hole left open.
 // The light's way is the ray's step from its point at surface i to its point at surface i + 1 (rays carry one point per surface after their start;
 // a mirror with no next point takes its incoming step), from a ray alive past the mirror before any ray. A polygon per side of the hole, or one.
-function mirrorBodies(L, i) {
+export function mirrorBodies(L, i) {
   var a = L.surfaces[i], t = a.sd / 4, dir = 0, h = a.hole > 0 ? a.hole : 0;
   // A ray alive past the mirror first (its point i + 2 drawn and not Virtual): a virtual tail may run any way.
   [true, false].forEach(function (strict) { L.rays.forEach(function (fan, k) { fan.forEach(function (r, j) {
