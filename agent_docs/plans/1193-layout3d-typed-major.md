@@ -115,7 +115,7 @@ the real world yet (user, round 3).
 
 ## Decisions
 
-- ADR-0005 (`proposed` in #1249, M2 exercises it): `three` is an optional peer dependency of `@eleoptics/plots`
+- ADR-0005 (`proposed` in #1249, accepted at the M2 demo, 2026-11-20): `three` is an optional peer dependency of `@eleoptics/plots`
   (`>=0.170 <1`, matching phos's 0.176) and a devDependency; layout3D moves to the `./layout3d` export and its own
   IIFE `eleo-layout3d.js`, the only bundle that carries three; an orthographic camera, isometric by default, rendered
   once (no controls). Considered: a regular dependency (every 2D user downloads three), a lazy `import('three')`
@@ -167,7 +167,7 @@ the base shots (`SHOTS=1 npx playwright test gallery-shots`, item 1's base in `r
 
 ### M2: layout3D on three.js (lenses) GitHub: `P1193 M2: layout3D on three.js`
 
-Done 2026-11-20: review round 3 (Review M2: 0 blocking, nothing pulled in; rounds 10 → 1 → 0); full gate green on cc38030 (568 passed); CI green on 99c82bd (chromium and webkit 380 passed, firefox under xvfb 188 passed). O2 met on the GPU at 14.55-15.50 ms (tight; software WebGL untimed, CR [#1257]). CRs: [#1257], [#1261], [#1264], [#1265], [#1267], [#1269], [#1270], [#1271] accepted; [#1268] deferred by the user to after publish (#1279). Backlog #1263 (the gallery's three.js cost; it raised timeouts in #1253 and #1284). Demo and course check pending.
+Done 2026-11-20: review round 3 (Review M2: 0 blocking, nothing pulled in; rounds 10 → 1 → 0); full gate green on cc38030 (568 passed); CI green on 99c82bd (chromium and webkit 380 passed, firefox under xvfb 188 passed). O2 met on the GPU at 14.55-15.50 ms (tight; software WebGL untimed, CR [#1257]). CRs: [#1257], [#1261], [#1264], [#1265], [#1267], [#1269], [#1270], [#1271] accepted; [#1268] deferred by the user to after publish (#1279). Backlog #1263 (the gallery's three.js cost; it raised timeouts in #1253 and #1284). Demo and course check (2026-11-20): go; ADR-0005 accepted.
 
 Demo: `npm run gallery`: achromat and Cooke 3D tiles in iso and an achromat front tile, both themes, beside the base
 and M1 shots; `PERF=1 GPU=1 npx playwright test perf -g layout3D --project=chromium` (GPU only, CR [#1257]). Proves O1, O2, O4 (lenses), O8, O9.
@@ -307,6 +307,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-20 CR #1270 (user): Yes, delete it. ADR-0001's layout3D exemption clause goes (item #1281); the plan's Decisions line corrected.
 - 2026-11-20 orchestrator: review M2 round 2: 0 blocking, 2 backlog (breaker count 1, down from 10); carried CRs resolved, #1268 holds (user: after publish, #1279). Both findings small and named: pulled in as #1283 (with #1282). Round 3 follows.
 - 2026-11-20 orchestrator: the full gate on 4720c83 failed 1 (Chromium interact.spec "select events" timed out at 30 s; 15.4 s alone): the three.js gallery tiles slow every gallery load (#1263). Item #1284 raises the default test timeout and the expect timeout; #1283 did not cause it (comments and one test's timeout).
+- 2026-11-20 course check M2 planned (user): go. "M2 demo is go." Course reviewers (two passes) recommended continue on a go: no switch-signal clause fired (WebGL in all three CI browsers, Firefox under `xvfb-run`; the GPU median 14.55-15.50 ms; the demo a go). M2 is accepted as built and ADR-0005 is accepted (Decision as built, Verdict). Their watch points for M3: rerun `PERF=1 GPU=1` after #1201, which adds code to the file holding the tight U14 median, and the Cassegrain tile (#1202) adds three.js load to the gallery (#1263). Pass 2 was given the plan text with the "Moved to row K" tables and some M1 Change log lines condensed.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
