@@ -205,7 +205,7 @@ Demo: the Cassegrain 3D tile in both themes, `layout3D(canvas, { data: cassegrai
 | Issue | Work item | Approach | Files | Test | After |
 | -- | -- | -- | -- | -- | -- |
 | #1200 | O3 acceptance tests, skipped | forced (`workflow.md`, TDD: the first item writes them skipped) | `tests/unit/layout3d.test.js` | "mirror bodies revolve", "holes stay open" | #1256 |
-| #1201 | A mirror's layout2D body (its y ≥ 0 polygon from `mirrorBodies`, exported) revolved as three geometry in `layout3dThree.js`, shaded `--mech`, open inside `hole`; an obscuration as a disc mesh | revolve the body layout2D already settles (the back's side, the hole's crossing, U17) because a second rule would let 2D and 3D disagree; considered building the body from the profile alone | `packages/plots/src/layout3dThree.js`, `packages/plots/src/layout2d.js`, `tests/unit/layout3d.test.js` | the O3 tests | #1200 |
+| #1201 | A mirror's layout2D body (its y ≥ 0 polygon from `mirrorBodies`, exported) revolved as three geometry in `layout3dThree.js`, shaded `--mech`, open inside `hole`; an obscuration as a disc mesh | revolve the body layout2D already settles (the back's side, the hole's crossing, U17) because a second rule would let 2D and 3D disagree; considered building the body from the profile alone | `packages/plots/src/layout3dThree.js`, `packages/plots/src/layout2d.js`, `tests/unit/layout3d.test.js`, `tests/unit/layout2d.test.js` (its export list, CR [#1286]) | the O3 tests | #1200 |
 | #1202 | Gallery: the Cassegrain 3D tile; unskip O3 | forced (`workflow.md`, TDD: the last item unskips them); the tile is O4's demo | `gallery/index.html`, `tests/gallery.spec.js`, `tests/unit/layout3d.test.js` | gallery.spec "layout3D cassegrain tile draws" (three browsers), O3 | #1201 |
 
 Items #1249, #1253 and #1254 list more than two files: each moves one behaviour with the tests and wiring it
@@ -308,6 +308,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-20 orchestrator: review M2 round 2: 0 blocking, 2 backlog (breaker count 1, down from 10); carried CRs resolved, #1268 holds (user: after publish, #1279). Both findings small and named: pulled in as #1283 (with #1282). Round 3 follows.
 - 2026-11-20 orchestrator: the full gate on 4720c83 failed 1 (Chromium interact.spec "select events" timed out at 30 s; 15.4 s alone): the three.js gallery tiles slow every gallery load (#1263). Item #1284 raises the default test timeout and the expect timeout; #1283 did not cause it (comments and one test's timeout).
 - 2026-11-20 course check M2 planned (user): go. "M2 demo is go." Course reviewers (two passes) recommended continue on a go: no switch-signal clause fired (WebGL in all three CI browsers, Firefox under `xvfb-run`; the GPU median 14.55-15.50 ms; the demo a go). M2 is accepted as built and ADR-0005 is accepted (Decision as built, Verdict). Their watch points for M3: rerun `PERF=1 GPU=1` after #1201, which adds code to the file holding the tight U14 median, and the Cassegrain tile (#1202) adds three.js load to the gallery (#1263). Pass 2 was given the plan text with the "Moved to row K" tables and some M1 Change log lines condensed.
+- 2026-11-20 orchestrator: CR [#1286] accepted: #1201 adds `tests/unit/layout2d.test.js` to its Files, whose export-list test pins `layout2d.js`'s exports and #1201 exports `mirrorBodies` (as CR [#1216] did for `raySet`). The package entry is unchanged.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
@@ -318,6 +319,7 @@ One bullet per entry (bare lines render as one paragraph).
 [#1269]: https://github.com/ELEOptics/eleo-ui/issues/1269
 [#1270]: https://github.com/ELEOptics/eleo-ui/issues/1270
 [#1271]: https://github.com/ELEOptics/eleo-ui/issues/1271
+[#1286]: https://github.com/ELEOptics/eleo-ui/issues/1286
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
 [#133]: https://github.com/ELEOptics/eleo-ui/issues/133
