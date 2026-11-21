@@ -276,3 +276,80 @@ test('unknown view names throw', async () => {
   const { layout3dScene } = await three();
   for (const view of ['toString', 'constructor', 'side']) assert.throws(() => layout3dScene(sample.layout, { view }, () => 0x808080), { name: 'TypeError', message: 'layout3dScene: view is iso, front or top' }, view);
 });
+
+// Plan #1193 M3, issue #1200: outcome O3's acceptance tests, written skipped; #1201 builds the mirror bodies in layout3dScene and exports `mirrorBodies` from layout2d.js, #1202 unskips them.
+// Assumed shape for #1201 to meet (the tests pin it): every mesh of a mirror's body has userData.mirror = the surface index, the obscuration disc userData.obscuration = the surface index.
+// oracle: reference layout2D's mirrorBodies(L, i) (U17's tested polygons, [z, y]): one polygon per side of the hole, the k = -1 side with y < 0, or one polygon spanning -sd..sd when there is no hole; a body point (z, y) revolves to radius |y|; closed-form as O1 (ortho above); property no face inside the hole
+const CASSEGRAIN = JSON.parse(readFileSync(new URL('../fixtures/phos-core/cassegrain-layout.json', import.meta.url)));
+const O3 = { skip: 'O3: #1201 builds the mirror bodies, #1202 unskips' };
+const meshesOf = (scene, key) => { const out = []; scene.traverse((o) => { if (o.isMesh && !o.isLineSegments2 && o.userData[key] !== undefined) out.push(o); }); return out; };
+const vertsOf = (o) => { const a = o.geometry.attributes.position; return Array.from({ length: a.count }, (_, i) => [a.getX(i), a.getY(i), a.getZ(i)]); };
+// the nearest point to (z, r) on a polygon's boundary, as [z, r]
+function nearestOnPolygon(poly, z, r) {
+  let best = null, bd = Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const [z0, y0] = poly[i], [z1, y1] = poly[(i + 1) % poly.length], dz = z1 - z0, dy = y1 - y0, len2 = dz * dz + dy * dy;
+    const t = len2 ? Math.max(0, Math.min(1, ((z - z0) * dz + (r - y0) * dy) / len2)) : 0, p = [z0 + t * dz, y0 + t * dy], d = Math.hypot(p[0] - z, p[1] - r);
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best;
+}
+
+test('mirror bodies revolve', O3, async () => {
+  const { layout3dScene } = await three(), { mirrorBodies } = await import('../../packages/plots/src/layout2d.js');
+  const L = CASSEGRAIN, zc = L.surfaces[L.surfaces.length - 1].z / 2;
+  for (const v of [{ view: 'iso' }, { yaw: 20, pitch: -10 }]) {
+    const { scene, camera } = layout3dScene(L, { ...v, width: 560, height: 320, scale: SCALE }, () => 0x808080);
+    const yp = v.view === 'iso' ? { yaw: -45, pitch: 35.264 } : v;
+    const c0 = viaCamera(camera, [0, 0, zc], 560, 320), dx = c0[0] - ORIGIN[0], dy = c0[1] - ORIGIN[1];
+    L.surfaces.forEach((s, i) => {
+      if (!s.mirror) return;
+      const polys = mirrorBodies(L, i), meshes = meshesOf(scene, 'mirror').filter((m) => m.userData.mirror === i);
+      assert.ok(polys.length > 0 && meshes.length > 0, `surface ${i}: a body polygon and a mesh`);
+      const all = meshes.flatMap(vertsOf);
+      for (const p of all) {
+        const r = Math.hypot(p[0], p[1]), phi = Math.atan2(p[1], p[0]);
+        // every vertex lies on one of the polygons, at the same angle: its px is within 0.5 of the independent projection of that polygon point
+        // (a polygon point at y < 0 is at radius |y|, so the vertex's radius is tried on both signs of y)
+        const best = Math.min(...polys.flatMap((poly) => [r, -r].map((q) => {
+          const [z, y] = nearestOnPolygon(poly, p[2], q), want = ortho([Math.abs(y) * Math.cos(phi), Math.abs(y) * Math.sin(phi), z], yp, zc), got = viaCamera(camera, p, 560, 320);
+          return Math.hypot(got[0] - dx - want[0], got[1] - dy - want[1]);
+        })));
+        assert.ok(best <= 0.5, `surface ${i}: vertex ${p} is ${best.toFixed(2)} px from the revolved body`);
+      }
+      // and every polygon corner is revolved: some vertex sits on it (the flat back and the hole's edge included)
+      for (const [z, y] of polys.flat()) assert.ok(all.some((p) => Math.abs(p[2] - z) < 1e-3 && Math.abs(Math.hypot(p[0], p[1]) - Math.abs(y)) < 1e-3), `surface ${i}: polygon corner (${z}, ${y}) is revolved`);
+    });
+    // the obscuration: one opaque disc of its sd at its z
+    L.surfaces.forEach((s, i) => {
+      if (!s.obscuration) return;
+      const discs = meshesOf(scene, 'obscuration').filter((m) => m.userData.obscuration === i);
+      assert.equal(discs.length, 1, `surface ${i}: one obscuration disc`);
+      const pts = vertsOf(discs[0]);
+      assert.ok(pts.every((p) => Math.abs(p[2] - s.z) < 1e-3 && Math.hypot(p[0], p[1]) <= s.sd + 1e-3), `surface ${i}: the disc lies at z ${s.z} within sd ${s.sd}`);
+      assert.ok(Math.abs(Math.max(...pts.map((p) => Math.hypot(p[0], p[1]))) - s.sd) < 1e-3, `surface ${i}: the disc reaches sd ${s.sd}`);
+      assert.ok(!discs[0].material.transparent && discs[0].material.opacity === 1, `surface ${i}: the disc is opaque`);
+    });
+  }
+});
+
+test('holes stay open', O3, async () => {
+  const { layout3dScene } = await three(), { scene } = layout3dScene(CASSEGRAIN, { width: 560, height: 320 }, () => 0x808080);
+  let checked = 0;
+  CASSEGRAIN.surfaces.forEach((s, i) => {
+    if (!s.mirror || !(s.hole > 0)) return;
+    const meshes = meshesOf(scene, 'mirror').filter((m) => m.userData.mirror === i);
+    assert.ok(meshes.length > 0, `surface ${i}: a mirror mesh`);
+    for (const m of meshes) {
+      const a = m.geometry.attributes.position, idx = m.geometry.index, n = idx ? idx.count : a.count, at = (k) => (idx ? idx.getX(k) : k);
+      assert.ok(n >= 3, `surface ${i}: faces`);
+      for (let f = 0; f < n; f += 3) {
+        const rs = [0, 1, 2].map((c) => Math.hypot(a.getX(at(f + c)), a.getY(at(f + c))));
+        // every vertex of every face lies at radius >= hole, so no face reaches into the hole
+        assert.ok(Math.min(...rs) >= s.hole - 1e-4, `surface ${i}: face ${f / 3} has a vertex at radius ${Math.min(...rs)} under hole ${s.hole}`);
+      }
+      checked += n / 3;
+    }
+  });
+  assert.ok(checked > 0, 'a mirror with a hole was checked');
+});
