@@ -10,7 +10,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import { STANDARD } from './common.js';
 import { css } from './color.js';
 import { glassFill, drawnGlasses } from './glass.js';
-import { raySet, statusOf, segmentStatus, mirrorBodies } from './layout2d.js';
+import { raySet, statusOf, segmentStatus, mirrorBodies, obscurationHidden } from './layout2d.js';
 
 const SEGMENTS = 128, STOP_TICK = 2.5, PAD = 16;
 // View convention (pinned by the "view convention" test): yaw about y, then pitch about x; at yaw 0, pitch 0 the viewer looks along +x, with +z to the right and +y up.
@@ -57,7 +57,7 @@ function build(layout) {
         if (outer.length === 2) mirrorGaps.push({ mirror: i, a: outer[0][1], b: outer[1][1] });
       }
     }
-    if (s.obscuration) { const g = new CircleGeometry(Math.abs(s.sd), SEGMENTS); g.translate(0, 0, s.z); parts.push({ geometry: g, obscuration: i }); }
+    if (s.obscuration && !obscurationHidden(layout, i)) { const g = new CircleGeometry(Math.abs(s.sd), SEGMENTS); g.translate(0, 0, s.z); parts.push({ geometry: g, obscuration: i }); }
     const e = own(i), h = halfProfile(s);
     if (e) {
       const rz = h[h.length - 1][0], rr = h[h.length - 1][1];

@@ -277,7 +277,7 @@ test('unknown view names throw', async () => {
   for (const view of ['toString', 'constructor', 'side']) assert.throws(() => layout3dScene(sample.layout, { view }, () => 0x808080), { name: 'TypeError', message: 'layout3dScene: view is iso, front or top' }, view);
 });
 
-// Plan #1193 M3, issue #1200: outcome O3's acceptance tests, written skipped; #1201 builds the mirror bodies in layout3dScene and exports `mirrorBodies` from layout2d.js, #1202 unskips them.
+// Plan #1193 M3, issue #1200: outcome O3's acceptance tests, written skipped (an obscuration inside a mirror body has no disc, as in layout2D; a standalone one is one opaque disc of its sd); #1201 builds the mirror bodies in layout3dScene and exports `mirrorBodies` from layout2d.js, #1202 unskips them.
 // Assumed shape for #1201 to meet (the tests pin it): every mesh of a mirror's body has userData.mirror = the surface index, the obscuration disc userData.obscuration = the surface index.
 // oracle: reference layout2D's mirrorBodies(L, i) (U17's tested polygons, [z, y]): one polygon per side of the hole, the k = -1 side with y < 0, or one polygon spanning -sd..sd when there is no hole; a body point (z, y) revolves to radius |y|; closed-form as O1 (ortho above); property no face inside the hole
 const CASSEGRAIN = JSON.parse(readFileSync(new URL('../fixtures/phos-core/cassegrain-layout.json', import.meta.url)));
@@ -320,17 +320,29 @@ test('mirror bodies revolve', O3, async () => {
       // and every polygon corner is revolved: some vertex sits on it (the flat back and the hole's edge included)
       for (const [z, y] of polys.flat()) assert.ok(all.some((p) => Math.abs(p[2] - z) < 1e-3 && Math.abs(Math.hypot(p[0], p[1]) - Math.abs(y)) < 1e-3), `surface ${i}: polygon corner (${z}, ${y}) is revolved`);
     });
-    // the obscuration: one opaque disc of its sd at its z
-    L.surfaces.forEach((s, i) => {
-      if (!s.obscuration) return;
-      const discs = meshesOf(scene, 'obscuration').filter((m) => m.userData.obscuration === i);
-      assert.equal(discs.length, 1, `surface ${i}: one obscuration disc`);
-      const pts = vertsOf(discs[0]);
-      assert.ok(pts.every((p) => Math.abs(p[2] - s.z) < 1e-3 && Math.hypot(p[0], p[1]) <= s.sd + 1e-3), `surface ${i}: the disc lies at z ${s.z} within sd ${s.sd}`);
-      assert.ok(Math.abs(Math.max(...pts.map((p) => Math.hypot(p[0], p[1]))) - s.sd) < 1e-3, `surface ${i}: the disc reaches sd ${s.sd}`);
-      assert.ok(!discs[0].material.transparent && discs[0].material.opacity === 1, `surface ${i}: the disc is opaque`);
-    });
+    // the obscuration of the Cassegrain lies inside the secondary's body: no disc (as layout2D leaves its line out)
+    L.surfaces.forEach((s, i) => { if (s.obscuration) assert.equal(meshesOf(scene, 'obscuration').filter((m) => m.userData.obscuration === i).length, 0, `surface ${i}: no disc inside a mirror body`); });
   }
+});
+
+test('a standalone obscuration is one opaque disc', O3, async () => {
+  const { layout3dScene } = await three();
+  // the Cassegrain with its mirror flags removed: the obscuration lies in no mirror body
+  const L = JSON.parse(JSON.stringify(CASSEGRAIN));
+  L.surfaces.forEach((s) => { delete s.mirror; });
+  const { scene } = layout3dScene(L, { view: 'iso', width: 560, height: 320, scale: SCALE }, () => 0x808080);
+  let n = 0;
+  L.surfaces.forEach((s, i) => {
+    if (!s.obscuration) return;
+    n++;
+    const discs = meshesOf(scene, 'obscuration').filter((m) => m.userData.obscuration === i);
+    assert.equal(discs.length, 1, `surface ${i}: one obscuration disc`);
+    const pts = vertsOf(discs[0]);
+    assert.ok(pts.every((p) => Math.abs(p[2] - s.z) < 1e-3 && Math.hypot(p[0], p[1]) <= s.sd + 1e-3), `surface ${i}: the disc lies at z ${s.z} within sd ${s.sd}`);
+    assert.ok(Math.abs(Math.max(...pts.map((p) => Math.hypot(p[0], p[1]))) - s.sd) < 1e-3, `surface ${i}: the disc reaches sd ${s.sd}`);
+    assert.ok(!discs[0].material.transparent && discs[0].material.opacity === 1, `surface ${i}: the disc is opaque`);
+  });
+  assert.ok(n > 0, 'the layout has an obscuration');
 });
 
 // Plan #1193 M3, issue #1291 (CR #1288): a mirror body has the edge outlines a lens element has.
