@@ -419,6 +419,11 @@ test('mirror rims do not grow per redraw', async () => {
   assert.ok(a.length > 0);
   assert.equal(b.length, a.length);
   a.forEach((l, k) => assert.equal(b[k].geometry, l.geometry, 'rim line ' + k));
+  // the cache key names each rim: the rims of one mirror are as many distinct geometries as it has rim lines
+  for (const m of new Set(a.map((l) => l.userData.mirror))) {
+    const mine = a.filter((l) => l.userData.mirror === m);
+    assert.equal(new Set(mine.map((l) => l.geometry)).size, mine.length, 'surface ' + m + ': one geometry per rim');
+  }
 });
 
 test('holes stay open', O3, async () => {
