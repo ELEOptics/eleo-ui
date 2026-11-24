@@ -7,9 +7,9 @@ export interface Layout3DProps {
   data: RecordedLayout;
   /** Which rays to draw: the marginal and chief rays of each field (default), every ray, the chief only, or none. */
   rays?: "marginal-chief" | "fan" | "chief" | false;
-  /** The camera: isometric (default, yaw -45, pitch 35.264), a side view with the optical axis to the right (`front`, as layout2D draws it), or from above (`top`). `yaw` and `pitch` override it. */
+  /** The camera. With none given, the default looks mainly along the optical axis from the object side, with the incoming light, turned 20° in yaw and 15° in pitch off it (yaw 70, pitch -15). Or isometric (`iso`, yaw -45, pitch 35.264), a side view with the optical axis to the right (`front`, as layout2D draws it), or from above (`top`). `yaw` and `pitch` override it. */
   view?: "iso" | "front" | "top";
-  /** View angles in degrees, overriding `view`. A missing one takes the iso value: yaw -45, pitch 35.264. */
+  /** View angles in degrees, overriding `view`. A missing one takes the default view's value: yaw 70, pitch -15. */
   yaw?: number;
   pitch?: number;
   /** Scale in px/mm. Default: the scale that frames the faces and rays. */

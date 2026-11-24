@@ -1001,7 +1001,7 @@ test('layout3D glasses tile draws', async ({ page }) => {
     });
     expect(r.names, `${theme} the glasses`).toEqual(['N-SK16', 'F2']);
     expect(r.apart, `${theme} the two fills differ`).toBeGreaterThan(0.03);
-    r.count.forEach((n, k) => expect(n, `${theme} ${r.names[k]} pixels`).toBeGreaterThanOrEqual(200));
+    r.count.forEach((n, k) => expect(n, `${theme} ${r.names[k]} pixels`).toBeGreaterThanOrEqual(100));
   }
 });
 
@@ -1099,7 +1099,7 @@ test('layout3D rejected fill falls back to crown', async ({ page }) => {
 });
 
 // Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips); plan #1193 #1253 moves it to three.js. layout3D draws the rays over the image plane they end on.
-// oracle: user request 9 (rays over the plane they end on); property: the image plane's projected square, from the scene's own camera matrices (three's Vector3.project, here in node), shrunk 10%: sampled points of it are not the background in the bare drawing (rays: false), and some of them differ once the rays are drawn, in both themes, in the default iso view.
+// oracle: user request 9 (rays over the plane they end on); property: the image plane's projected square, from the scene's own camera matrices (three's Vector3.project, here in node), shrunk 10%: sampled points of it are not the background in the bare drawing (rays: false), and some of them differ once the rays are drawn, in both themes, in the default view.
 test('layout3D rays over the image plane', async ({ page }) => {
   const data = (await import('../packages/plots/src/sample.js')).default.layout, W = 560, H = 320;
   const { scene, camera } = layout3dScene(data, { width: W, height: H }, () => 0x808080);

@@ -15,6 +15,8 @@ import { raySet, statusOf, segmentStatus, mirrorBodies, obscurationHidden } from
 const SEGMENTS = 128, STOP_TICK = 2.5, PAD = 16;
 // View convention (pinned by the "view convention" test): yaw about y, then pitch about x; at yaw 0, pitch 0 the viewer looks along +x, with +z to the right and +y up.
 const PRESETS = { iso: { yaw: -45, pitch: 35.264 }, front: { yaw: 0, pitch: 0 }, top: { yaw: 0, pitch: -90 } };
+// The default view (CR #1290): from the object side, looking along +z with the incoming light, 20 deg off the optical axis in yaw and 15 deg in pitch: yaw 70 (the viewer's +x look turned 70 deg toward +z), pitch -15 (the camera above the axis).
+const DEFAULT_VIEW = { yaw: 70, pitch: -15 };
 
 const isRecorded = (L) => L != null && typeof L === 'object' && Array.isArray(L.surfaces) && L.surfaces.length > 0 && Array.isArray(L.rays)
   && L.surfaces.every((s) => s && Array.isArray(s.profile) && s.profile.length > 1
@@ -101,7 +103,7 @@ const colour = (c) => (Array.isArray(c) ? new Color().setRGB(c[0] / 255, c[1] / 
  * Rays and edges are fat lines (`LineSegments2` / `LineMaterial`, depth-tested, `linewidth` in CSS px for a renderer at `setPixelRatio(dpr)`): one object per drawn ray (`userData.ray`, `k`, `i`, `chief`; the set's
  * chief dashed unless the set is `chief`), one closed object per glazed surface's rim (`userData.edge = 'rim'`, `surface`) and two per glass gap for its silhouette (`edge = 'silhouette'`, `element`): the rim points of
  * greatest and least projected y, first rim to last. A mirror body has the same, tagged `mirror` (its surface) instead of `surface` / `element`: a closed rim at each real corner off the axis (the face's and the flat back's outer edge, the hole's edge on both faces) and two silhouette lines between its outer rims. Rays are cut at the first Dead point with no Virtual or in-glass segment; the camera fits every such segment of every ray, whichever set is drawn.
- * @param {{ width?: number, height?: number, view?: 'iso' | 'front' | 'top', yaw?: number, pitch?: number, scale?: number, rays?: 'marginal-chief' | 'chief' | 'fan' | false, rayWidth?: number, edgeWidth?: number }} [o] `yaw` and `pitch` (degrees) win over `view`; `scale` (px/mm) overrides the fit; `rayWidth` and `edgeWidth` are CSS px (1.1 and 1.25)
+ * @param {{ width?: number, height?: number, view?: 'iso' | 'front' | 'top', yaw?: number, pitch?: number, scale?: number, rays?: 'marginal-chief' | 'chief' | 'fan' | false, rayWidth?: number, edgeWidth?: number }} [o] with no `view`, `yaw` or `pitch` the camera is the default: from the object side, 20 deg off the optical axis in yaw and 15 deg in pitch (yaw 70, pitch -15); `yaw` and `pitch` (degrees) win over `view`, a missing one taking the default's; `scale` (px/mm) overrides the fit; `rayWidth` and `edgeWidth` are CSS px (1.1 and 1.25)
  * @param {(fill: string) => *} resolve
  * @returns {{ scene: Scene, camera: OrthographicCamera }}
  */
@@ -136,7 +138,7 @@ export function layout3dScene(layout, o, resolve) {
   scene.add(sun, new AmbientLight(0xffffff, 0.9));
 
   // the camera: basis from yaw and pitch (right, up, forward = away from the viewer), the bounds of every face and drawn ray point in that basis
-  const v = o.yaw != null || o.pitch != null ? { yaw: o.yaw ?? PRESETS.iso.yaw, pitch: o.pitch ?? PRESETS.iso.pitch } : (Object.hasOwn(PRESETS, o.view || 'iso') ? PRESETS[o.view || 'iso'] : null);
+  const v = o.yaw != null || o.pitch != null ? { yaw: o.yaw ?? DEFAULT_VIEW.yaw, pitch: o.pitch ?? DEFAULT_VIEW.pitch } : !o.view ? DEFAULT_VIEW : (Object.hasOwn(PRESETS, o.view) ? PRESETS[o.view] : null);
   if (!v) throw new TypeError('layout3dScene: view is iso, front or top');
   const th = v.yaw * Math.PI / 180, ph = v.pitch * Math.PI / 180;
   const right = new Vector3(-Math.sin(th), 0, Math.cos(th)), up = new Vector3(-Math.cos(th) * Math.sin(ph), Math.cos(ph), -Math.sin(th) * Math.sin(ph));

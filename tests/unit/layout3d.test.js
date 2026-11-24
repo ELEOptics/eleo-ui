@@ -399,3 +399,27 @@ test('holes stay open', O3, async () => {
   });
   assert.ok(checked > 0, 'a mirror with a hole was checked');
 });
+
+// Plan #1193, issue #1293 (CR #1290, user: "small pitch and yaw, looking primarily down the Z axis"; object side, 20 deg yaw, 15 deg pitch). oracle: closed-form direction cosines from the camera's own matrices, not the module's yaw/pitch numbers.
+test('default view', async () => {
+  const { layout3dScene } = await three();
+  const L = sample.layout, deg = Math.PI / 180;
+  const dir = (o) => {
+    const { camera } = layout3dScene(L, { width: 560, height: 320, ...o }, () => 0x808080);
+    camera.updateMatrixWorld(true); camera.updateProjectionMatrix();
+    const e = camera.matrixWorld.elements; // the camera looks along its local -z
+    return { d: [-e[8], -e[9], -e[10]], camera };
+  };
+  const { d, camera } = dir({});
+  assert.ok(Math.abs(Math.hypot(...d) - 1) < 1e-6, 'view direction is not unit length');
+  assert.ok(Math.abs(d[2] - Math.cos(20 * deg) * Math.cos(15 * deg)) < 1e-6, `view z ${d[2]}`);
+  assert.ok(Math.abs(d[1] + Math.sin(15 * deg)) < 1e-6, `camera is not above the axis: view y ${d[1]}`);
+  const sx = (z) => viaCamera(camera, [0, 0, z], 560, 320)[0];
+  assert.ok(sx(10) > sx(0), '+Z does not project to the right');
+  const iso = dir({ view: 'iso' }).d; // unchanged: yaw -45, pitch 35.264 looks back toward -Z
+  assert.ok(Math.abs(iso[2] + Math.SQRT1_2 * Math.cos(35.264 * deg)) < 1e-6 && Math.abs(iso[1] - Math.sin(35.264 * deg)) < 1e-6, 'iso changed');
+  const yawOnly = dir({ yaw: d0yaw(d) }).d; // a missing pitch takes the default's pitch
+  assert.ok(yawOnly.every((c, i) => Math.abs(c - d[i]) < 1e-6), 'yaw alone does not take the default pitch');
+});
+// the default yaw, read back from the view direction in the module's convention (yaw about y, then pitch about x; at 0, 0 the viewer looks along +x)
+const d0yaw = (d) => Math.atan2(d[2], d[0]) * 180 / Math.PI;
