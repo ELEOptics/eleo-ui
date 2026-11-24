@@ -117,8 +117,7 @@ the real world yet (user, round 3).
 
 - ADR-0005 (`proposed` in #1249, accepted at the M2 demo, 2026-11-20; its default view changes from isometric to near-axis with #1293, CR [#1290], user): `three` is an optional peer dependency of `@eleoptics/plots`
   (`>=0.170 <1`, matching phos's 0.176) and a devDependency; layout3D moves to the `./layout3d` export and its own
-  IIFE `eleo-layout3d.js`, the only bundle that carries three; an orthographic camera, isometric by default, rendered
-  once (no controls). Considered: a regular dependency (every 2D user downloads three), a lazy `import('three')`
+  IIFE `eleo-layout3d.js`, the only bundle that carries three; an orthographic camera, by default near the optical axis from the object side (yaw 70, pitch -15), `iso` a preset, rendered once (no controls). Considered: a regular dependency (every 2D user downloads three), a lazy `import('three')`
   (async, no classic IIFE), a 2D overlay for lines (no depth test).
 - ADR-0001: layout3D's tone composition and label font were style-lint exemptions; #1253 removed both (colours from `resolve`, the font from `--font-mono`), and #1281 drops them from the ADR (CR [#1270], user).
 - Moving layout3D out of the main entry is breaking: it rides the plots minor M1's changeset already makes (#1255).
@@ -211,6 +210,8 @@ Demo: the Cassegrain 3D tile in both themes, `layout3D(canvas, { data: cassegrai
 | #1291 | Mirror bodies draw edge outlines as lens elements do: a rim at each end of the body's side and at the hole's edge, and silhouette lines, in `--glass-edge` at `--stroke-edge` (CR [#1288]) | reuse the rim and limb code lens elements use because one edge rule keeps lenses and mirrors alike; considered three's `EdgesGeometry`, which finds rims but not a revolved side's silhouette | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "mirror edge outlines" | #1263 |
 | #1292 | No disc for an obscuration inside a mirror's body, one disc of its `sd` otherwise, by layout2D's condition exported as one function both renderers call (CR [#1289], user) | export layout2D's condition because a second rule would let 2D and 3D disagree again; considered shrinking the disc inside the body, which draws what 2D does not | `packages/plots/src/layout3dThree.js`, `packages/plots/src/layout2d.js`, `tests/unit/layout3d.test.js`, `tests/unit/layout2d.test.js` (its export list) | layout3d.test.js "mirror bodies revolve" (the obscuration part rewritten) | #1291 |
 | #1293 | layout3D's default view is near-axis from the object side (along +Z, 20° yaw and 15° pitch off the axis) for every system; `iso`, `front` and `top` stay presets; types, READMEs, changeset and the gallery's tile labels follow (CR [#1290], user) | one default constant beside PRESETS because the user changed the default, not the presets; considered a named preset (`"axis"`) as the default, which widens the public `view` union for a name nobody asked for | `packages/plots/src/layout3dThree.js`, `packages/plots/src/layout3d.d.ts`, `packages/plots/README.md`, `packages/plots-svelte/README.md`, `.changeset/layout3d-typed.md`, `gallery/index.html`, `tests/unit/layout3d.test.js`, `tests/unit/plots-svelte.test.js`, `tests/gallery.spec.js` | layout3d.test.js "default view"; plots-svelte.test.js docs test names the new angles | #1292 |
+| #1296 | A mirror keeps its two silhouette lines when its `sd` is not its profile's extent or its edge z differs in the last bit: rims keyed by rounded z and |y|, the outer pair at the largest |y|; `build`'s and `layout3dScene`'s comments name the mirror and obscuration parts (review M3 round 1, findings 3 and 6) | round the key and take the largest radius because the fixtures' `sd` already differs from the profile's extent on 18 of 45 surfaces; considered a tolerance on `sd`, which still fails a profile that overshoots it | `packages/plots/src/layout3dThree.js`, `tests/unit/layout3d.test.js` | layout3d.test.js "mirror silhouettes survive inexact numbers" | #1293 |
+| #1297 | Gallery tests after #1263: the timeout comments give today's reason, "a failing 3D tile skips only itself" checks `layout3D-cassegrain`, the load-time assertion runs outside CI only, and `draw3D` lives in `tests/page-helpers.js` for both specs (review M3 round 1, findings 4, 5 and 8) | forced (the reviewer's named fixes); the timeouts stay because lowering them is a separate measurement | `playwright.config.js`, `tests/page-helpers.js`, `tests/gallery.spec.js`, `tests/pixel-ratio.spec.js` | gallery.spec "a failing 3D tile skips only itself" with the fourth kind; gallery.spec and pixel-ratio green | #1293 |
 
 Items #1249, #1253, #1254, #1263 and #1293 list more than two files: each moves one behaviour with the tests and wiring it
 breaks (A3).
@@ -323,6 +324,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-24 orchestrator: #1263, #1291, #1292 and #1293 run one after another in the shared tree (all but #1263 edit `layout3dThree.js`) under one full gate at the end, following the user's batching choice for #1202; each is verified by the fast gate and its own tests before the next starts.
 - 2026-11-24 #1263 (d79ce60): a Chromium gallery load to `data-ready` went from about 3.9 s to about 0.3 s; export "standalone matches (every tile)" from 4-5 min to 33 s alone.
 - 2026-11-24 #1293 (00b767d): the default is yaw 70, pitch -15 in layout3D's convention. ADR-0005's Decision is amended to it. The glasses tile's per-glass pixel floor went from 200 to 100 (from the object side the front element hides most of the F2 one). U14 on the GPU after #1201, #1291 and #1293: 14.40-15.80, 14.30-14.75 and 14.25-14.50 ms, under 16 ms.
+- 2026-11-24 orchestrator: the full gate is green on 0c40cfe (574 passed, 8.7 min; 17-20 min before #1263), pushed; #1201, #1202, #1263, #1291, #1292 and #1293 are done.
+- 2026-11-24 orchestrator: review M3 round 1: 2 blocking, 6 backlog (breaker count 7). CRs [#1294] (the roadmap's U10 row and this plan's Decisions said "isometric by default") and [#1295] (ADR-0005's gallery-cost Consequence, stale since #1263) accepted and fixed here by the orchestrator: both follow decisions already made (CR [#1290], user; #1263), and the user is told at the M3 demo. Backlog 3 and 6 pulled in as #1296, 4, 5 and 8 as #1297; 7 is backlog #1298 (not strictly smaller).
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
@@ -338,6 +341,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#1288]: https://github.com/ELEOptics/eleo-ui/issues/1288
 [#1289]: https://github.com/ELEOptics/eleo-ui/issues/1289
 [#1290]: https://github.com/ELEOptics/eleo-ui/issues/1290
+[#1294]: https://github.com/ELEOptics/eleo-ui/issues/1294
+[#1295]: https://github.com/ELEOptics/eleo-ui/issues/1295
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
 [#133]: https://github.com/ELEOptics/eleo-ui/issues/133

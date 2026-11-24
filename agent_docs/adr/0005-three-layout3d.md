@@ -34,8 +34,9 @@ there under `xvfb-run`, because its headless WebGL needs an X display on the run
 - The 16 ms budget is met on a GPU, but tightly: the full layout3D (scene, materials, fill probes, fat lines and the
   2D overlay per redraw) is 14.55-15.50 ms, about ten times the spike's bare mesh. On software WebGL (CI, remote
   desktops with no GPU) full density is about eight times over it; the budget is not enforced there.
-- Every gallery load pays for the three.js tiles: the full gate went from about 7 to about 16 minutes, and test
-  timeouts were raised (backlog [#1263]).
+- A three.js tile costs about 0.35 s to draw on software WebGL. When the gallery drew every 3D tile on every load, the
+  full gate went from about 7 to about 16 minutes and test timeouts were raised; since [#1263] the gallery draws a 3D
+  tile only when it scrolls near the viewport, and the gate is back to about 9 minutes.
 - A regular dependency was rejected (every 2D user downloads three), as was a lazy `import('three')` (async, no
   classic IIFE) and a 2D overlay for lines (no depth test).
 - Revisit if a consumer must run on software WebGL at full density (cap the segments per surface, as M1 did), or if
