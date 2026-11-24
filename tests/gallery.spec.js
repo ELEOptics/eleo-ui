@@ -2,22 +2,13 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { Vector3 } from 'three';
-import { moveTo, pageHelpers, drawn3D } from './page-helpers.js';
+import { moveTo, pageHelpers, drawn3D, draw3D } from './page-helpers.js';
 import { layout3dScene } from '../packages/plots/src/layout3dThree.js';
 
 test.beforeEach(({ page }) => pageHelpers(page));
 
 // The gallery's tile count.
 const TILES = 28;
-
-// Scroll every 3D canvas into view in turn and wait for its data-drawn (#1263: the gallery draws a 3D tile only near the viewport); `skip` names the kinds that are expected never to draw.
-const draw3D = async (page, skip = []) => {
-  const ids = await page.locator('[data-canvas^="layout3D"]').evaluateAll((els) => els.map((c, i) => [c.dataset.canvas, c.closest('.theme').dataset.theme]));
-  for (const [k, theme] of ids) {
-    const c = page.locator(`.theme[data-theme="${theme}"] [data-canvas="${k}"]`);
-    if (skip.includes(k)) await c.scrollIntoViewIfNeeded(); else await drawn3D(c);
-  }
-};
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -705,7 +696,7 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
 // mtf-limits' vertical limit reads "50 cycles/mm".
 const CURVE_KEYS = { mtf: 6, 'mtf-limits': 6, fieldCurvature: 2, distortion: 1 };
 test('curve keys', async ({ page }) => {
-  // Each resize redraws the gallery's six three.js tiles (two themes) at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
+  // Each width this test visits draws the gallery's eight 3D canvases (four kinds, two themes) as they scroll near the viewport, at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
   test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -776,7 +767,7 @@ const FAN_FOOT_KEYS = {
   'rayFan-opd': ['486.1 nm', '587.6 nm', '656.3 nm'],
 };
 test('fan and footprint keys', async ({ page }) => {
-  // Each resize redraws the gallery's six three.js tiles (two themes) at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
+  // Each width this test visits draws the gallery's eight 3D canvases (four kinds, two themes) as they scroll near the viewport, at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
   test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
@@ -929,7 +920,7 @@ HTMLCanvasElement.prototype.getContext = function (type, ...rest) { const c = ge
 // O9 on the gallery's own 3D tiles (plan #1193, #1253 swapped them to three.js; #1256 unskipped this).
 // oracle: property, as above (WebGL through three.js draws a full-density lens): each theme's layout3D, layout3D-front and layout3D-glasses canvases hold at least 200 pixels that differ from the tile's background (its corner pixel) by more than 30 in the channel sum; the glasses tile's two fills are checked by 'layout3D glasses tile draws'. No console error and no page error.
 test('layout3D tiles draw on the gallery', async ({ page }) => {
-  // every CI browser has software WebGL (about 125 ms a frame): six tiles drawn, and the full gate runs specs in parallel: 120 s.
+  // every CI browser has software WebGL (about 125 ms a frame): the test draws the 3D tiles it scrolls to, and the full gate runs specs in parallel: 120 s.
   test.setTimeout(120_000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -950,7 +941,7 @@ test('layout3D tiles draw on the gallery', async ({ page }) => {
 });
 
 // Plan #1193, #1277 (review M2 round 1, finding 7): a canvas tile that throws skips only itself, as a map tile does.
-// oracle: property, with getContext('webgl2'|'webgl') stubbed to null before load, layout3D throws on every 3D tile: the console names each of the six skipped tiles (three kinds, two themes), no page error, and the airy canvases still hold ink.
+// oracle: property, with getContext('webgl2'|'webgl') stubbed to null before load, layout3D throws on every 3D tile: the console names each of the eight skipped tiles (four kinds, two themes), no page error, and the airy canvases still hold ink.
 test('a failing 3D tile skips only itself', async ({ page }) => {
   // the stub makes renderer() throw `layout3D: WebGL is not available` on every 3D tile, so no renderer is built and the test needs only the default timeout.
   const skipped = [];
@@ -967,7 +958,9 @@ test('a failing 3D tile skips only itself', async ({ page }) => {
   // a failing tile never gains data-drawn: scroll each into view and wait for the console to name it.
   await draw3D(page, ['layout3D', 'layout3D-front', 'layout3D-glasses', 'layout3D-cassegrain']);
   await expect.poll(() => skipped.filter((t) => t.includes('tile skipped:')).length, { timeout: 30_000 }).toBeGreaterThanOrEqual(8);
-  for (const k of ['layout3D', 'layout3D-front', 'layout3D-glasses']) {
+  const kinds = ['layout3D', 'layout3D-front', 'layout3D-glasses', 'layout3D-cassegrain'];
+  expect(kinds, 'every 3D kind on the page').toEqual(await page.locator('[data-canvas^="layout3D"]').evaluateAll((els) => [...new Set(els.map((c) => c.dataset.canvas))]));
+  for (const k of kinds) {
     expect(skipped.filter((t) => t.includes(`gallery: ${k} tile skipped:`)).length, `${k} skipped once per theme`).toBeGreaterThanOrEqual(2);
   }
   for (const theme of ['light', 'dark']) {
@@ -1006,14 +999,14 @@ test('layout3D glasses tile draws', async ({ page }) => {
 });
 
 // Plan #1193 M3, issue #1263, outcome O9 (the gate that proves it). The gallery draws a layout3D canvas only when it is near the viewport, so a load that never scrolls to the 3D tiles pays nothing for them (about 3.9 s a load before, 0.37 s without them, software WebGL).
-// oracle: property, at the top of the page no 3D canvas has data-drawn or ink, each already has its final box, and scrolling one into view draws it without moving any tile's document position; measurement, a Chromium load to data-ready under 1.5 s (3.9 s measured on 17be2f8).
+// oracle: property, at the top of the page no 3D canvas has data-drawn or ink, each already has its final box, and scrolling one into view draws it without moving any tile's document position; measurement, outside CI, a Chromium load to data-ready under 1.5 s (3.9 s measured on 17be2f8; ADR-0005: CI times nothing).
 test('3D tiles draw when scrolled into view', async ({ page, browserName }) => {
   test.setTimeout(120_000);
   const tops = () => page.locator('[data-tile]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top + window.scrollY));
   const t0 = Date.now();
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  if (browserName === 'chromium') expect(Date.now() - t0, 'load to data-ready').toBeLessThan(1500);
+  if (browserName === 'chromium' && !process.env.CI) expect(Date.now() - t0, 'load to data-ready').toBeLessThan(1500);
   const canvases = page.locator('[data-canvas^="layout3D"]');
   expect(await canvases.count(), 'four 3D tiles in two themes').toBe(8);
   const before = await canvases.evaluateAll((els) => els.map((c) => {
@@ -1157,7 +1150,7 @@ test('map tiles', async ({ page }) => {
 // The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
 const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
 test('layout keys',async ({ page }) => {
-  // The gallery's six three.js tiles (two themes) redraw at about 0.3 s each on software WebGL (SwiftShader) at every width this test visits; under the full gate's parallel load that passes 30 s: 90 s.
+  // The gallery's eight 3D canvases (four kinds, two themes) draw as they scroll near the viewport, at about 0.3 s each on software WebGL (SwiftShader), at every width this test visits; under the full gate's parallel load that passes 30 s: 90 s.
   test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');

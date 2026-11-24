@@ -18,9 +18,9 @@ const FIREFOX_PREFS = { 'webgl.disabled': false, 'webgl.force-enabled': true, 'w
 export default defineConfig({
   testDir: 'tests',
   testMatch: '*.spec.js',
-  // 60 s, not Playwright's 30 s: since #1253 every gallery load and resize redraws six three.js tiles on software WebGL, so Chromium
-  // tests ran 21-30 s of 30 s under the full gate's parallel load and "select events" timed out (alone 15 s). Drawing the 3D tiles
-  // less often is the real fix: backlog #1263. Nothing asserts timing here (U14 does, CR #1257).
+  // 60 s, not Playwright's 30 s: the gallery's eight 3D canvases (four kinds, two themes) draw on software WebGL when they scroll near the viewport (#1263),
+  // and a test that draws them ran 21-30 s of 30 s under the full gate's parallel load ("select events" timed out, alone 15 s). A load that
+  // does not scroll to them pays nothing. CI times nothing (ADR-0005, CR #1257).
   timeout: 60_000,
   // The same load stretches the 5 s default of expect.poll: "canvas tiles redraw at their width" (#632) missed it on the gate that had 60 s.
   expect: { timeout: 15_000 },

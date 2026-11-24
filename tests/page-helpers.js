@@ -21,3 +21,12 @@ export const drawn3D = async (locator, timeout = 60_000) => {
   await locator.scrollIntoViewIfNeeded();
   await expect(locator).toHaveAttribute('data-drawn', 'true', { timeout });
 };
+
+// Scroll every 3D canvas into view in turn and wait for its data-drawn; `skip` names the kinds that are expected never to draw.
+export const draw3D = async (page, skip = []) => {
+  const ids = await page.locator('[data-canvas^="layout3D"]').evaluateAll((els) => els.map((c) => [c.dataset.canvas, c.closest('.theme').dataset.theme]));
+  for (const [k, theme] of ids) {
+    const c = page.locator(`.theme[data-theme="${theme}"] [data-canvas="${k}"]`);
+    if (skip.includes(k)) await c.scrollIntoViewIfNeeded(); else await drawn3D(c);
+  }
+};
