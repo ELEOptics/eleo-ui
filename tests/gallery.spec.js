@@ -696,8 +696,6 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
 // mtf-limits' vertical limit reads "50 cycles/mm".
 const CURVE_KEYS = { mtf: 6, 'mtf-limits': 6, fieldCurvature: 2, distortion: 1 };
 test('curve keys', async ({ page }) => {
-  // Each width this test visits draws the gallery's eight 3D canvases (four kinds, two themes) as they scroll near the viewport, at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
-  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
@@ -767,8 +765,6 @@ const FAN_FOOT_KEYS = {
   'rayFan-opd': ['486.1 nm', '587.6 nm', '656.3 nm'],
 };
 test('fan and footprint keys', async ({ page }) => {
-  // Each width this test visits draws the gallery's eight 3D canvases (four kinds, two themes) as they scroll near the viewport, at about 0.3 s each on software WebGL (SwiftShader), so this test takes about 16 s alone and passes 30 s when the full gate runs specs in parallel: 90 s.
-  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {
@@ -1150,8 +1146,6 @@ test('map tiles', async ({ page }) => {
 // The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
 const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
 test('layout keys',async ({ page }) => {
-  // The gallery's eight 3D canvases (four kinds, two themes) draw as they scroll near the viewport, at about 0.3 s each on software WebGL (SwiftShader), at every width this test visits; under the full gate's parallel load that passes 30 s: 90 s.
-  test.setTimeout(90_000);
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const expected = await page.evaluate(async (kinds) => {
