@@ -411,8 +411,8 @@ test('mirror rims merge corners by tolerance', async () => {
   assert.equal(counts(L, i)[0], 2);
 });
 
-// Plan #1193 M3, issue #1303 (CR #1302): a mirror rim's cache name is the rim's index; a redraw finds the geometry again. A characterization: it passes before and after the key became an index.
-// oracle: property (the geometry objects of the mirror rim lines are the same objects on every call for one layout).
+// Plan #1193 M3, issues #1303 (CR #1302) and #1305: a mirror rim's cache name is the rim's index; a redraw finds the geometry again, and the rims of one mirror do not share one. A characterization: it passes before and after the key became an index.
+// oracle: two properties. The geometry objects of the mirror rim lines are the same objects on every call for one layout, and the rim lines of one mirror hold distinct geometry objects, one per rim line.
 test('mirror rims do not grow per redraw', async () => {
   const { layout3dScene } = await three(), rims = () => lines(layout3dScene(CASSEGRAIN, { width: 560, height: 320 }, () => 0x808080).scene, (u) => u.edge === 'rim' && u.mirror !== undefined);
   const a = rims(), b = rims();
