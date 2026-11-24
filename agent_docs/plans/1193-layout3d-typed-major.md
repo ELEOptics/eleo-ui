@@ -199,6 +199,8 @@ packaged (#1254, #1255), so every commit keeps the gate green (re-plan critique)
 
 ### M3: mirrors in 3D, on three.js GitHub: `P1193 M3: mirrors, holes and obscurations in 3D`
 
+Done 2026-11-24: review round 6 (Review M3: 0 blocking, nothing pulled in; blocking + pulled in by round: 4, 2, 1, 1, 1, 0; the breaker tripped at round 5 and the user chose to continue); full gate green on 0315a04 (574 passed, 7.0 min); CI green on 0c40cfe, pending on 0315a04 at the tick (the runs between were cancelled by the next push). O2 on the GPU after #1293: 14.25-14.50 ms. CRs: [#1286], [#1287], [#1288], [#1294], [#1295], [#1299], [#1302] accepted by the orchestrator; [#1289], [#1290] by the user. Backlog #1263 pulled in and done (the gate fell from 17-20 to about 7 min); backlog #1298 (one rim loop) stays. Demo and course check pending.
+
 Demo: the Cassegrain 3D tile in both themes, `layout3D(canvas, { data: cassegrain })`. Proves: O3, O4 (mirrors)
 
 | Issue | Work item | Approach | Files | Test | After |
@@ -339,6 +341,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-24 orchestrator: review M3 round 4: 0 blocking, 1 backlog (breaker count 1, the same as round 3: one round without a fall); all 9 carried CRs resolved. The finding (no test that a mirror's rims get distinct geometries) is small and named, so it is pulled in as #1305; round 5 follows.
 - 2026-11-24 orchestrator: the full gate is green on 3656f74 (574 passed, 6.6 min), pushed; #1305 is done.
 - 2026-11-24 orchestrator: review M3 round 5: 0 blocking, 1 backlog; all 9 carried CRs resolved. Pulling the finding in (an incomplete oracle comment line, #1306) trips the breaker (blocking + pulled in by round: 4, 2, 1, 1, 1): "Review M3 stuck: 0 blocking, no fall for 2 rounds". stuck (user, 2026-11-24): Continue reviewing. #1306 pulled in; round 6 follows.
+- 2026-11-24 orchestrator: the full gate is green on 0315a04 (574 passed, 7.0 min), pushed; #1306 is done.
+- 2026-11-24 review M3 round 6 (code-reviewer, claude-opus-5-5): 0 blocking, 0 backlog, nothing pulled in; all 9 CRs resolved. M3 ticked.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
