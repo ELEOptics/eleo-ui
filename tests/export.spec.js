@@ -307,8 +307,8 @@ const setState = async (page, c, svg, k = 1) => {
   if (c.state === 'zoomed') await page.mouse.move(2, 2);
 };
 
-// Run `check(svg)` on every case; the failures are collected so one run names every tile that breaks.
-const eachTile = async (page, check) => {
+// Run `check(svg)` on every case, or on the cases `part(case, index)` keeps; the failures are collected so one run names every tile that breaks.
+const eachTile = async (page, check, part = () => true) => {
   // Tall enough for the tallest tile: a clip past the viewport's bottom is cut short.
   await page.setViewportSize({ width: 1440, height: 1800 });
   await page.goto('/gallery/');
@@ -316,7 +316,7 @@ const eachTile = async (page, check) => {
   const cases = await everyTile(page);
   expect(cases.length).toBeGreaterThan(20);
   const failed = [];
-  for (const c of cases) {
+  for (const c of cases.filter(part)) {
     try {
       // A fresh load per case: a tile moved onto the pixel grid, zoomed or hovered would otherwise leak into the next.
       await page.goto('/gallery/');
@@ -392,9 +392,17 @@ test('standalone matches (every tile)', async ({ page, context }) => {
 });
 
 // #1084 (plan #1076 O2). oracle: U15's size rule and the scale 1 and scale k pixel rules of `png size and pixels`, on every SVG tile in both themes, one zoomed and one hovered.
-test('png size and pixels (every tile)', async ({ page }) => {
-  test.setTimeout(900000); // each case also opens a context at the scale factor
-  await eachTile(page, (svg, open) => checkPng(page, svg, open));
+// Split into PNG_PARTS tests that run in parallel, each taking every PNG_PARTS-th case: one test with every case ran past 900 s on CI's Chromium (run 45466591704),
+// as each case reloads the gallery and opens a context at the scale factor.
+const PNG_PARTS = 4;
+test.describe('png size and pixels (every tile)', () => {
+  test.describe.configure({ mode: 'parallel' });
+  for (let i = 0; i < PNG_PARTS; i++) {
+    test(`part ${i + 1} of ${PNG_PARTS}`, async ({ page }) => {
+      test.setTimeout(600000);
+      await eachTile(page, (svg, open) => checkPng(page, svg, open), (_, j) => j % PNG_PARTS === i);
+    });
+  }
 });
 
 // #1084 (plan #1076 O3). oracle: property the SVG and PNG x2 buttons in the MTF tile's .eleo-plot__actions download files equal to standalone()'s string and a PNG twice the plot's size.
