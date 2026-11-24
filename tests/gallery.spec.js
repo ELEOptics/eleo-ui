@@ -2,13 +2,22 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { Vector3 } from 'three';
-import { moveTo, pageHelpers } from './page-helpers.js';
+import { moveTo, pageHelpers, drawn3D } from './page-helpers.js';
 import { layout3dScene } from '../packages/plots/src/layout3dThree.js';
 
 test.beforeEach(({ page }) => pageHelpers(page));
 
 // The gallery's tile count.
 const TILES = 28;
+
+// Scroll every 3D canvas into view in turn and wait for its data-drawn (#1263: the gallery draws a 3D tile only near the viewport); `skip` names the kinds that are expected never to draw.
+const draw3D = async (page, skip = []) => {
+  const ids = await page.locator('[data-canvas^="layout3D"]').evaluateAll((els) => els.map((c, i) => [c.dataset.canvas, c.closest('.theme').dataset.theme]));
+  for (const [k, theme] of ids) {
+    const c = page.locator(`.theme[data-theme="${theme}"] [data-canvas="${k}"]`);
+    if (skip.includes(k)) await c.scrollIntoViewIfNeeded(); else await drawn3D(c);
+  }
+};
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -28,6 +37,7 @@ test('gallery renders every tile in both themes', async ({ page }) => {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await draw3D(page);
   expect(errors).toEqual([]);
 
   for (const theme of ['light', 'dark']) {
@@ -46,6 +56,7 @@ for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits'
     await page.route(`**/${lens}-${fixture}.json`, (route) => route.fulfill({ status: 404, body: '' }));
     await page.goto('/gallery/');
     await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+    await draw3D(page, blanked);
     expect(thrown).toEqual([]);
     for (const theme of ['light', 'dark']) {
       const tiles = await inkByTile(page, theme);
@@ -131,6 +142,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   await page.route('**/eleo-plots-sample.js', (route) => route.fulfill({ status: 404, body: '' }));
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await draw3D(page, ['layout3D', 'layout3D-front']);
   expect(thrown).toEqual([]);
   // oracle: property: ELEO.minWidth(name, props) is never below ELEO.PLOT_SIZES[name].minWidth, so every sized tile's --tile-min is at least that plus 26 px of chrome, sample or not
   const mins = await page.$$eval('[data-tile][data-size]', (ts) => ts.map((t) => ({ tile: t.dataset.tile, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 })));
@@ -644,11 +656,12 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   })));
   const at = async (w, before) => {
     await page.setViewportSize({ width: w, height: 900 });
-    await expect.poll(async () => (await widths()).every((c, i) => Math.abs(c.backing - c.rendered * c.dpr) <= 1 && (!before || c.backing !== before[i].backing)), { message: `backing follows width at ${w}` }).toBe(true);
+    await expect.poll(async () => { await draw3D(page); return (await widths()).every((c, i) => Math.abs(c.backing - c.rendered * c.dpr) <= 1 && (!before || c.backing !== before[i].backing)); }, { message: `backing follows width at ${w}` }).toBe(true);
     return widths();
   };
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await draw3D(page);
   const wide = await at(1440), narrow = await at(700, wide);
   expect(wide.length, 'airy, layout3D, layout3D-front, layout3D-glasses and layout3D-cassegrain, in two themes').toBe(10);
   wide.forEach((c, i) => {
@@ -924,6 +937,7 @@ test('layout3D tiles draw on the gallery', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
   for (const theme of ['light', 'dark']) for (const tile of ['layout3D', 'layout3D-front', 'layout3D-glasses']) {
+    await drawn3D(page.locator(`.theme[data-theme="${theme}"] [data-canvas="${tile}"]`));
     const lit = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="${tile}"]`).evaluate((canvas) => {
       const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
       let n = 0;
@@ -950,6 +964,9 @@ test('a failing 3D tile skips only itself', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
   expect(thrown).toEqual([]);
+  // a failing tile never gains data-drawn: scroll each into view and wait for the console to name it.
+  await draw3D(page, ['layout3D', 'layout3D-front', 'layout3D-glasses', 'layout3D-cassegrain']);
+  await expect.poll(() => skipped.filter((t) => t.includes('tile skipped:')).length, { timeout: 30_000 }).toBeGreaterThanOrEqual(8);
   for (const k of ['layout3D', 'layout3D-front', 'layout3D-glasses']) {
     expect(skipped.filter((t) => t.includes(`gallery: ${k} tile skipped:`)).length, `${k} skipped once per theme`).toBeGreaterThanOrEqual(2);
   }
@@ -965,6 +982,7 @@ test('layout3D glasses tile draws', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
+    await drawn3D(page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`));
     const r = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-glasses"]`).evaluate(async (canvas) => {
       const layout = await (await fetch('/tests/fixtures/layouts/analysis-glasses.json')).json();
       const px = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
@@ -987,6 +1005,42 @@ test('layout3D glasses tile draws', async ({ page }) => {
   }
 });
 
+// Plan #1193 M3, issue #1263, outcome O9 (the gate that proves it). The gallery draws a layout3D canvas only when it is near the viewport, so a load that never scrolls to the 3D tiles pays nothing for them (about 3.9 s a load before, 0.37 s without them, software WebGL).
+// oracle: property, at the top of the page no 3D canvas has data-drawn or ink, each already has its final box, and scrolling one into view draws it without moving any tile's document position; measurement, a Chromium load to data-ready under 1.5 s (3.9 s measured on 17be2f8).
+test('3D tiles draw when scrolled into view', async ({ page, browserName }) => {
+  test.setTimeout(120_000);
+  const tops = () => page.locator('[data-tile]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top + window.scrollY));
+  const t0 = Date.now();
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  if (browserName === 'chromium') expect(Date.now() - t0, 'load to data-ready').toBeLessThan(1500);
+  const canvases = page.locator('[data-canvas^="layout3D"]');
+  expect(await canvases.count(), 'four 3D tiles in two themes').toBe(8);
+  const before = await canvases.evaluateAll((els) => els.map((c) => {
+    const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+    let ink = 0; for (let i = 3; i < data.length; i += 4) if (data[i]) ink++;
+    const h = parseFloat(c.style.height);
+    return { id: c.dataset.canvas, drawn: c.hasAttribute('data-drawn'), ink, h, box: c.getBoundingClientRect().height, tile: c.closest('[data-tile]').getBoundingClientRect().height };
+  }));
+  for (const c of before) {
+    expect(c.drawn, `${c.id} drawn at the top of the page`).toBe(false);
+    expect(c.ink, `${c.id} ink before it is near`).toBe(0);
+    expect(Math.abs(c.box - c.h), `${c.id} reserved box`).toBeLessThan(0.01);
+    expect(c.tile % 1, `${c.id} tile is whole pixels tall`).toBeLessThan(0.01);
+  }
+  const layoutTops = await tops();
+  const target = page.locator('.theme[data-theme="dark"] [data-canvas="layout3D-cassegrain"]');
+  await drawn3D(target);
+  const lit = await target.evaluate((c) => {
+    const { data } = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+    let n = 0; for (let i = 3; i < data.length; i += 4) if (data[i]) n++;
+    return n;
+  });
+  expect(lit, 'inked pixels after it is drawn').toBeGreaterThan(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  expect(await tops(), 'no tile moved').toEqual(layoutTops);
+});
+
 // Plan #1193 M3, issue #1202, outcome O4. The layout3D tile on the recorded Cassegrain (the same recording as the 2D Cassegrain tiles) draws its mirrors, rays and obscuration.
 // oracle: property, in each theme the tile's canvas holds at least 200 pixels that differ from its background (its corner pixel) by more than 30 in the channel sum; no console error and no page error. The shape of the bodies is O3's (tests/unit/layout3d.test.js).
 test('layout3D cassegrain tile draws', async ({ page }) => {
@@ -997,6 +1051,7 @@ test('layout3D cassegrain tile draws', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
   for (const theme of ['light', 'dark']) {
+    await drawn3D(page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-cassegrain"]`));
     const lit = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-cassegrain"]`).evaluate((canvas) => {
       const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
       let n = 0;

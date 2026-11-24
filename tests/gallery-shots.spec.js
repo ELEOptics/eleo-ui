@@ -6,6 +6,7 @@
 // lists the differing tiles and fails if any differ (a missing base PNG or a different size counts as differing).
 import { mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
+import { drawn3D } from './page-helpers.js';
 
 const THEMES = ['light', 'dark'];
 const PALETTES = ['standard', 'red-green'];
@@ -39,6 +40,9 @@ if (process.env.SHOTS === '1') test('gallery tile screenshots', async ({ page })
     for (const theme of THEMES) for (const tile of tiles) {
       const el = page.locator(`.theme[data-theme="${theme}"] [data-tile="${tile}"]`);
       await el.scrollIntoViewIfNeeded();
+      // A layout3D tile draws when it is near the viewport and after a palette change (#1263): wait for it.
+      const c3 = el.locator('[data-canvas^="layout3D"]');
+      if (await c3.count()) await drawn3D(c3);
       const name = `${tile}--${theme}--${palette}`;
       const shot = await el.screenshot({ path: `test-results/shots/${name}.png`, animations: 'disabled' });
       if (!BASE) continue;

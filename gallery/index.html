@@ -173,19 +173,34 @@
     }
     // A canvas tile draws at its body's content width (set by fit as el._w): CSS size w, backing size w x devicePixelRatio, so a resize redraws it and never stretches it.
     // layout3D is given the logical width w and applies its own clamped ratio (2 to 3), so it stays at least 2x; a palette change redraws at the last width.
+    // A layout3D tile reserves its final box at once (drawCanvas) but paints only when it is in or near the viewport (paintCanvas, from the observer below), so a load that never scrolls to it pays nothing for WebGL; one out of view when its width, theme, palette or ratio changes is marked stale (no data-drawn) and paints when it scrolls in. A drawn canvas carries data-drawn.
     function drawCanvas(el) {
       var w = el._w, k = el.dataset.canvas;
       if (!w || (k === 'layout3D-glasses' ? !GLASSES : k === 'layout3D-cassegrain' ? !CASSEGRAIN : k !== 'airy' && !SAMPLE_BOX)) return;
-      var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k.indexOf('layout3D') === 0 ? w * 320 / 560 : w;
+      var is3D = k.indexOf('layout3D') === 0, h = is3D ? w * 320 / 560 : w;
       el.style.width = w + 'px'; el.style.height = h + 'px';
-      // The layout3D tiles (iso, front, glasses, Cassegrain) sit above tiles the specs mount hosts after, and a fractional page offset moves a 1 px ray off the pixel they aim at (interact.spec 'layout zoom pan and reset', map2d.spec U8 clip): trim its canvas so the tile is a whole number of px tall and the tiles below stay where they were.
-      if (k.indexOf('layout3D') === 0) { var frac = el.closest('[data-tile]').getBoundingClientRect().height % 1; if (frac && frac < h) el.style.height = (h -= frac) + 'px'; }
+      // The layout3D tiles (iso, front, glasses, Cassegrain) sit above tiles the specs mount hosts after, and a fractional page offset moves a 1 px ray off the pixel they aim at (interact.spec 'layout zoom pan and reset', map2d.spec U8 clip): trim its canvas so the tile is a whole number of px tall and the tiles below stay where they were. The box is reserved before the tile draws, so nothing below moves when it does.
+      if (is3D) { var frac = el.closest('[data-tile]').getBoundingClientRect().height % 1; if (frac && frac < h) el.style.height = (h -= frac) + 'px'; }
+      el._h = h;
+      if (is3D && !el._near) { el.removeAttribute('data-drawn'); return; }
+      paintCanvas(el);
+    }
+    function paintCanvas(el) {
+      var w = el._w, h = el._h, k = el.dataset.canvas, n = Math.round(w * (window.devicePixelRatio || 1));
       // A tile that throws (no WebGL, or the layout3D script failed to load) skips only itself, as drawMap's does.
       try {
         if (k === 'airy') airyTile(el, n);
         else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : k === 'layout3D-cassegrain' ? CASSEGRAIN : ELEO.sample.layout, view: k === 'layout3D-front' ? 'front' : undefined, width: w, height: h });
+        el.dataset.drawn = 'true';
       } catch (e) { console.error('gallery: ' + k + ' tile skipped:', e); }
     }
+    var NEAR = typeof IntersectionObserver === 'function' ? new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        var el = e.target;
+        el._near = e.isIntersecting;
+        if (el._near && el._h && !el.hasAttribute('data-drawn')) paintCanvas(el);
+      });
+    }, { rootMargin: '600px 0px' }) : null;
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
     }
@@ -197,6 +212,7 @@
     watchRatio();
     function fitCanvases(theme) {
       theme.querySelectorAll('[data-canvas]').forEach(function (el) {
+        if (el.dataset.canvas.indexOf('layout3D') === 0) { if (NEAR) NEAR.observe(el); else el._near = true; }
         ELEO.fit(el.parentNode, function (w) { el._w = w; drawCanvas(el); });
       });
     }
