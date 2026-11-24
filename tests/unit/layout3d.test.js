@@ -333,6 +333,40 @@ test('mirror bodies revolve', O3, async () => {
   }
 });
 
+// Plan #1193 M3, issue #1291 (CR #1288): a mirror body has the edge outlines a lens element has.
+// oracle: reference layout2D's mirrorBodies(L, i) (U17's tested polygons): the rims are the polygon's points at its greatest |y| (the face's and the flat back's outer edge) and, with a hole, at |y| = hole (both faces); a point on the axis is no rim; property of the limb rule as in "edge outlines"
+test('mirror edge outlines', async () => {
+  const { layout3dScene } = await three(), { mirrorBodies } = await import('../../packages/plots/src/layout2d.js'), N = 128;
+  const near = (a, b) => a.every((c, n) => Math.abs(c - b[n]) < 1e-4);
+  let checked = 0;
+  for (const v of [{ view: 'iso' }, { yaw: 20, pitch: -10 }]) {
+    const { scene, camera } = layout3dScene(CASSEGRAIN, { ...v, width: 560, height: 320 }, () => 0x808080);
+    CASSEGRAIN.surfaces.forEach((s, i) => {
+      if (!s.mirror) return;
+      const pts = mirrorBodies(CASSEGRAIN, i)[0].map(([z, y]) => [z, Math.abs(y)]), top = Math.max(...pts.map((p) => p[1])), hole = s.hole > 0 ? s.hole : -1;
+      const want = [];
+      for (const p of pts) if ((Math.abs(p[1] - top) < 1e-6 || Math.abs(p[1] - hole) < 1e-6) && !want.some((w) => near(w, p))) want.push(p);
+      const rims = lines(scene, (u) => u.edge === 'rim' && u.mirror === i);
+      assert.equal(rims.length, want.length, `surface ${i}: one rim per real corner (${want.length}), none on the axis`);
+      for (const [z, r] of want) {
+        const rim = rims.find((l) => segsOf(l).every(([a]) => Math.abs(a[2] - z) < 1e-4 && Math.abs(Math.hypot(a[0], a[1]) - r) < 1e-4));
+        assert.ok(rim, `surface ${i}: a rim at z ${z}, radius ${r}`);
+        const sg = segsOf(rim); assert.equal(sg.length, N, 'a closed ring of 128 segments');
+        sg.forEach(([, b], j) => assert.ok(near(b, sg[(j + 1) % N][0]), `surface ${i}: ring closes at segment ${j}`));
+      }
+      if (hole > 0) assert.ok(want.filter((w) => Math.abs(w[1] - hole) < 1e-6).length === 2, `surface ${i}: the hole's edge on both faces`);
+      // the side's silhouette: the outer rims' points of greatest and least projected y, face to back
+      const outer = want.filter((w) => Math.abs(w[1] - top) < 1e-6), sil = lines(scene, (u) => u.edge === 'silhouette' && u.mirror === i);
+      assert.equal(sil.length, 2, `surface ${i}: two silhouette lines`);
+      const ring = ([z, r], j) => [r * Math.cos(2 * Math.PI * j / N), r * Math.sin(2 * Math.PI * j / N), z];
+      const py = Array.from({ length: N }, (_, j) => viaCamera(camera, ring(outer[0], j), 560, 320)[1]);
+      for (const j of [py.indexOf(Math.min(...py)), py.indexOf(Math.max(...py))]) assert.ok(sil.some((l) => { const [a, b] = segsOf(l)[0]; return [outer[0], outer[1]].some((p, n) => near(a, ring(p, j)) && near(b, ring(outer[1 - n], j))); }), `surface ${i}: silhouette at ring point ${j}`);
+      checked++;
+    });
+  }
+  assert.ok(checked > 0);
+});
+
 test('holes stay open', O3, async () => {
   const { layout3dScene } = await three(), { scene } = layout3dScene(CASSEGRAIN, { width: 560, height: 320 }, () => 0x808080);
   let checked = 0;

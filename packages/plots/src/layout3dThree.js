@@ -38,7 +38,8 @@ const lathe = (pts) => { const g = new LatheGeometry(pts.map(([z, r]) => new Vec
 // rims: [{ surface, ring: [x, y, z][] }] per glazed surface, gaps: [{ element, a, b }] the rims either side of each glass gap, rayGeo: line geometries made lazily per ray, rim and silhouette segment }.
 const CACHE = new WeakMap();
 function build(layout) {
-  const S = layout.surfaces, parts = [], rims = new Map();
+  const S = layout.surfaces, parts = [], rims = new Map(), mirrorRims = [], mirrorGaps = [];
+  const circle = (r, z) => Array.from({ length: SEGMENTS }, (_, j) => { const t = 2 * Math.PI * j / SEGMENTS; return [r * Math.cos(t), r * Math.sin(t), z]; });
   // the element a surface belongs to: its own glass, else the glass gap it closes; keyed by the gap's first surface
   const own = (i) => (S[i].image ? null : S[i].glass ? [i, S[i].glass] : S[i - 1] && S[i - 1].glass ? [i - 1, S[i - 1].glass] : null);
   S.forEach((s, i) => {
@@ -48,13 +49,19 @@ function build(layout) {
       if (polys.length) {
         const ring = s.hole > 0 ? polys[0].map(([z, y]) => [z, Math.abs(y)]) : upperHalf(polys[0]);
         if (ring.length > 2) parts.push({ geometry: lathe(ring.concat([ring[0]])), mirror: i });
+        // the real corners of the body: the face's first and last points and the flat back's two (the polygon's last two); one off the axis is a rim, the outer pair's rims are the side's silhouette
+        const P = polys[0], rs = new Map();
+        [P[0], P[P.length - 3], P[P.length - 2], P[P.length - 1]].forEach(([z, y]) => { if (Math.abs(y) > 1e-9) rs.set(z + '/' + Math.abs(y), circle(Math.abs(y), z)); });
+        rs.forEach((ring3, key) => mirrorRims.push({ mirror: i, key, ring: ring3 }));
+        const outer = [...rs].filter(([k]) => Math.abs(k.split('/')[1] - s.sd) < 1e-6);
+        if (outer.length === 2) mirrorGaps.push({ mirror: i, a: outer[0][1], b: outer[1][1] });
       }
     }
     if (s.obscuration) { const g = new CircleGeometry(Math.abs(s.sd), SEGMENTS); g.translate(0, 0, s.z); parts.push({ geometry: g, obscuration: i }); }
     const e = own(i), h = halfProfile(s);
     if (e) {
       const rz = h[h.length - 1][0], rr = h[h.length - 1][1];
-      rims.set(i, Array.from({ length: SEGMENTS }, (_, j) => { const t = 2 * Math.PI * j / SEGMENTS; return [rr * Math.cos(t), rr * Math.sin(t), rz]; }));
+      rims.set(i, circle(rr, rz));
       parts.push({ geometry: lathe(h), element: e[0], glass: e[1] });
       const n = S[i + 1];
       if (s.glass && n) { // the rim: a two-point lathe between the gap's two edges
@@ -79,7 +86,7 @@ function build(layout) {
   }));
   const gaps = [];
   S.forEach((x, i) => { if (x.glass && rims.has(i) && rims.has(i + 1)) gaps.push({ element: i, a: rims.get(i), b: rims.get(i + 1) }); });
-  return { parts, segs, rims, gaps, rayGeo: new Map() };
+  return { parts, segs, rims, gaps, mirrorRims, mirrorGaps, rayGeo: new Map() };
 }
 
 const lineGeometry = (pairs) => { const g = new LineSegmentsGeometry(); g.setPositions(pairs.flat(2)); return g; };
@@ -93,7 +100,7 @@ const colour = (c) => (Array.isArray(c) ? new Color().setRGB(c[0] / 255, c[1] / 
  * @param {*} layout a RecordedLayout
  * Rays and edges are fat lines (`LineSegments2` / `LineMaterial`, depth-tested, `linewidth` in CSS px for a renderer at `setPixelRatio(dpr)`): one object per drawn ray (`userData.ray`, `k`, `i`, `chief`; the set's
  * chief dashed unless the set is `chief`), one closed object per glazed surface's rim (`userData.edge = 'rim'`, `surface`) and two per glass gap for its silhouette (`edge = 'silhouette'`, `element`): the rim points of
- * greatest and least projected y, first rim to last. Rays are cut at the first Dead point with no Virtual or in-glass segment; the camera fits every such segment of every ray, whichever set is drawn.
+ * greatest and least projected y, first rim to last. A mirror body has the same, tagged `mirror` (its surface) instead of `surface` / `element`: a closed rim at each real corner off the axis (the face's and the flat back's outer edge, the hole's edge on both faces) and two silhouette lines between its outer rims. Rays are cut at the first Dead point with no Virtual or in-glass segment; the camera fits every such segment of every ray, whichever set is drawn.
  * @param {{ width?: number, height?: number, view?: 'iso' | 'front' | 'top', yaw?: number, pitch?: number, scale?: number, rays?: 'marginal-chief' | 'chief' | 'fan' | false, rayWidth?: number, edgeWidth?: number }} [o] `yaw` and `pitch` (degrees) win over `view`; `scale` (px/mm) overrides the fit; `rayWidth` and `edgeWidth` are CSS px (1.1 and 1.25)
  * @param {(fill: string) => *} resolve
  * @returns {{ scene: Scene, camera: OrthographicCamera }}
@@ -173,14 +180,20 @@ export function layout3dScene(layout, o, resolve) {
     if (!geo.rayGeo.has('rim' + surface)) geo.rayGeo.set('rim' + surface, lineGeometry(pairs(ring)));
     line(geo.rayGeo.get('rim' + surface), edge, { edge: 'rim', surface });
   }
-  for (const gap of geo.gaps) {
+  const silhouette = (gap, key, userData) => {
     const h = gap.a.map((p) => q.set(...p).dot(up)), top = h.indexOf(Math.max(...h)), bot = h.indexOf(Math.min(...h));
     for (const j of [top, bot]) {
-      const key = 'sil' + gap.element + '/' + j; // the segment is rim point j to rim point j, whatever the view: cached so a redraw makes no geometry for the renderer to keep
-      if (!geo.rayGeo.has(key)) geo.rayGeo.set(key, lineGeometry([[gap.a[j], gap.b[j]]]));
-      line(geo.rayGeo.get(key), edge, { edge: 'silhouette', element: gap.element });
+      const k = key + '/' + j; // the segment is rim point j to rim point j, whatever the view: cached so a redraw makes no geometry for the renderer to keep
+      if (!geo.rayGeo.has(k)) geo.rayGeo.set(k, lineGeometry([[gap.a[j], gap.b[j]]]));
+      line(geo.rayGeo.get(k), edge, { edge: 'silhouette', ...userData });
     }
+  };
+  for (const r of geo.mirrorRims) {
+    if (!geo.rayGeo.has('mrim' + r.mirror + '/' + r.key)) geo.rayGeo.set('mrim' + r.mirror + '/' + r.key, lineGeometry(pairs(r.ring)));
+    line(geo.rayGeo.get('mrim' + r.mirror + '/' + r.key), edge, { edge: 'rim', mirror: r.mirror });
   }
+  for (const gap of geo.gaps) silhouette(gap, 'sil' + gap.element, { element: gap.element });
+  for (const gap of geo.mirrorGaps) silhouette(gap, 'msil' + gap.mirror, { mirror: gap.mirror });
   return { scene, camera };
 }
 
