@@ -53,14 +53,14 @@ function build(layout) {
         const ring = s.hole > 0 ? polys[0].map(([z, y]) => [z, Math.abs(y)]) : upperHalf(polys[0]);
         if (ring.length > 2) parts.push({ geometry: lathe(ring.concat([ring[0]])), mirror: i });
         // the real corners of the body: the face's first and last points and the flat back's two (the polygon's last two); one off the axis is a rim, the outer pair's rims are the side's silhouette
-        const P = polys[0], rs = new Map();
-        // merged by tolerance: a corner within 1e-6 in z and in |y| of a rim already kept is that rim (a recorded number off in its last bits is still one rim); the key is the first corner's, so it is stable per layout; the outer pair is the rims at the largest |y| of the corners, not at `sd`
+        const P = polys[0], rs = [];
+        // merged by tolerance: a corner within 1e-6 in z and in |y| of a rim already kept is that rim (a recorded number off in its last bits is still one rim); the key is the rim's index, stable per layout; the outer pair is the rims at the largest |y| of the corners, not at `sd`
         [P[0], P[P.length - 3], P[P.length - 2], P[P.length - 1]].forEach(([z, y]) => {
           const ay = Math.abs(y);
-          if (ay > 1e-9 && ![...rs.values()].some((r) => Math.abs(r.z - z) < 1e-6 && Math.abs(r.y - ay) < 1e-6)) rs.set(Math.round(z * 1e6) + '/' + Math.round(ay * 1e6), { z, y: ay, ring: circle(ay, z) });
+          if (ay > 1e-9 && !rs.some((r) => Math.abs(r.z - z) < 1e-6 && Math.abs(r.y - ay) < 1e-6)) rs.push({ z, y: ay, ring: circle(ay, z) });
         });
         rs.forEach((r, key) => mirrorRims.push({ mirror: i, key, ring: r.ring }));
-        const top = Math.max(...[...rs.values()].map((r) => r.y)), outer = [...rs.values()].filter((r) => top - r.y < 1e-6);
+        const top = Math.max(...rs.map((r) => r.y)), outer = rs.filter((r) => top - r.y < 1e-6);
         if (outer.length === 2) mirrorGaps.push({ mirror: i, a: outer[0].ring, b: outer[1].ring });
       }
     }
