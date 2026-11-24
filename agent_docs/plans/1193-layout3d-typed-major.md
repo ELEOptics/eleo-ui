@@ -1,6 +1,6 @@
 # Plan #1193: Typed layout3D on three.js
 
-Status: approved 2026-11-20
+Status: done 2026-11-24
 Branch: `plan/1193-layout3d-typed-major` PR: #1214 Depends on: none Roadmap: `agent_docs/roadmap.md`, row J
 Course check: M2 — it tests the re-plan's riskiest assumptions, WebGL through three.js in all three Playwright browsers in CI and a full-density mesh in 16 ms, and the user's look. Switch signal: #1249's spike finds a browser with no WebGL in CI that a launch flag cannot fix, or its full-density median is over 16 ms, or the user rejects the M2 tiles at the demo (a third rejection overall).
 
@@ -199,7 +199,7 @@ packaged (#1254, #1255), so every commit keeps the gate green (re-plan critique)
 
 ### M3: mirrors in 3D, on three.js GitHub: `P1193 M3: mirrors, holes and obscurations in 3D`
 
-Done 2026-11-24: review round 6 (Review M3: 0 blocking, nothing pulled in; blocking + pulled in by round: 4, 2, 1, 1, 1, 0; the breaker tripped at round 5 and the user chose to continue); full gate green on 0315a04 (574 passed, 7.0 min); CI green on 0c40cfe, pending on 0315a04 at the tick (the runs between were cancelled by the next push). O2 on the GPU after #1293: 14.25-14.50 ms. CRs: [#1286], [#1287], [#1288], [#1294], [#1295], [#1299], [#1302] accepted by the orchestrator; [#1289], [#1290] by the user. Backlog #1263 pulled in and done (the gate fell from 17-20 to about 7 min); backlog #1298 (one rim loop) stays. Demo and course check pending.
+Done 2026-11-24: review round 6 (Review M3: 0 blocking, nothing pulled in; blocking + pulled in by round: 4, 2, 1, 1, 1, 0; the breaker tripped at round 5 and the user chose to continue); full gate green on 0315a04 (574 passed, 7.0 min); CI green on 0c40cfe, pending on 0315a04 at the tick (the runs between were cancelled by the next push). O2 on the GPU after #1293: 14.25-14.50 ms. CRs: [#1286], [#1287], [#1288], [#1294], [#1295], [#1299], [#1302] accepted by the orchestrator; [#1289], [#1290] by the user. Backlog #1263 pulled in and done (the gate fell from 17-20 to about 7 min); backlog #1298 (one rim loop) stays. Demo and course check (2026-11-24): go.
 
 Demo: the Cassegrain 3D tile in both themes, `layout3D(canvas, { data: cassegrain })`. Proves: O3, O4 (mirrors)
 
@@ -332,7 +332,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-24 #1263 (d79ce60): a Chromium gallery load to `data-ready` went from about 3.9 s to about 0.3 s; export "standalone matches (every tile)" from 4-5 min to 33 s alone.
 - 2026-11-24 #1293 (00b767d): the default is yaw 70, pitch -15 in layout3D's convention. ADR-0005's Decision is amended to it. The glasses tile's per-glass pixel floor went from 200 to 100 (from the object side the front element hides most of the F2 one). U14 on the GPU after #1201, #1291 and #1293: 14.40-15.80, 14.30-14.75 and 14.25-14.50 ms, under 16 ms.
 - 2026-11-24 orchestrator: the full gate is green on 0c40cfe (574 passed, 8.7 min; 17-20 min before #1263), pushed; #1201, #1202, #1263, #1291, #1292 and #1293 are done.
-- 2026-11-24 orchestrator: review M3 round 1: 2 blocking, 6 backlog (breaker count 7). CRs [#1294] (the roadmap's U10 row and this plan's Decisions said "isometric by default") and [#1295] (ADR-0005's gallery-cost Consequence, stale since #1263) accepted and fixed here by the orchestrator: both follow decisions already made (CR [#1290], user; #1263), and the user is told at the M3 demo. Backlog 3 and 6 pulled in as #1296, 4, 5 and 8 as #1297; 7 is backlog #1298 (not strictly smaller).
+- 2026-11-24 orchestrator: review M3 round 1: 2 blocking, 6 backlog (breaker count 4: 2 blocking and 2 items pulled in). CRs [#1294] (the roadmap's U10 row and this plan's Decisions said "isometric by default") and [#1295] (ADR-0005's gallery-cost Consequence, stale since #1263) accepted and fixed here by the orchestrator: both follow decisions already made (CR [#1290], user; #1263), and the user is told at the M3 demo. Backlog 3 and 6 pulled in as #1296, 4, 5 and 8 as #1297; 7 is backlog #1298 (not strictly smaller).
 - 2026-11-24 orchestrator: the full gate is green on 29839e6 (574 passed, 9.6 min, at a load average of 46), pushed; #1296 and #1297 are done.
 - 2026-11-24 orchestrator: review M3 round 2: 1 blocking, 1 backlog (breaker count 2, down from 4); all 7 carried CRs resolved. CR [#1299] accepted: #1297's new comments on three key tests claim 3D drawing those tests never do (2 s alone, not 16 s), so their 90 s timeouts go (item #1300). Finding 2 pulled in as #1301. Round 3 follows.
 - 2026-11-24 orchestrator: the full gate is green on 6aae825 (574 passed, 6.6 min), pushed; #1300 and #1301 are done.
@@ -343,6 +343,10 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-24 orchestrator: review M3 round 5: 0 blocking, 1 backlog; all 9 carried CRs resolved. Pulling the finding in (an incomplete oracle comment line, #1306) trips the breaker (blocking + pulled in by round: 4, 2, 1, 1, 1): "Review M3 stuck: 0 blocking, no fall for 2 rounds". stuck (user, 2026-11-24): Continue reviewing. #1306 pulled in; round 6 follows.
 - 2026-11-24 orchestrator: the full gate is green on 0315a04 (574 passed, 7.0 min), pushed; #1306 is done.
 - 2026-11-24 review M3 round 6 (code-reviewer, claude-opus-5-5): 0 blocking, 0 backlog, nothing pulled in; all 9 CRs resolved. M3 ticked.
+- 2026-11-24 orchestrator: the full gate is green on faa0255 (574 passed, 6.8 min), pushed.
+- 2026-11-24 course check M3 triggered (user): continue. "Continue: go". Course reviewers (two passes) recommended continue: no switch-signal clause fired (U14 on the GPU 14.25-14.50 ms, a thin margin CI does not guard; three browsers green in CI), nothing left to amend. Their points: confirm CI green on the head before the plan closes, and a no-go at this demo would have been the third rejection. M3 is accepted as built, with the default view shown on the achromat and Cooke tiles. Pass 2 was given the evidence and the plan condensed (M1's and M2's tables, row K and the Change log before 2026-11-20 summarised), not verbatim.
+- 2026-11-24 orchestrator: `CLAUDE.md` commands re-verified on faa0255: `npm ci && npm run build`; `npm run test:unit` (344 pass, 0 fail, 15 skipped); `npx playwright test` through the full `scripts/check.sh` (574 passed); `npm run gallery` (serves `/gallery/` with 200); `npx changeset status` (plots and plots-svelte minor, tokens patch); `scripts/check.sh --fast`; `git config core.hooksPath` is `.githooks`. `origin/main` is an ancestor of the head, so no catch-up merge.
+- 2026-11-24 plan done: M2 and M3 accepted at their demos (M1's canvas painter was replaced by M2 after two rejections). Row J marked done in the roadmap. The PR goes ready for review; the user merges.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
