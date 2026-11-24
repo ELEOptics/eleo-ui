@@ -395,6 +395,22 @@ test('mirror silhouettes survive inexact numbers', async () => {
   for (const i of ms) { assert.equal(base[i][0], 2, `surface ${i}: two silhouette lines in the fixture`); assert.deepEqual(got[i], base[i], `surface ${i}: same silhouette and rim counts`); }
 });
 
+// Plan #1193 M3, issue #1301 (review M3 round 2, finding 2): corners that are one rim but fall either side of a rounding boundary are still one rim.
+// oracle: the unmodified fixture's counts; a holeless mirror's flat back has two corners at one z, one at -y and one at y, so their |y| can straddle a half micron
+test('mirror rims merge corners by tolerance', async () => {
+  const { layout3dScene } = await three(), counts = (L, i) => {
+    const { scene } = layout3dScene(L, { width: 560, height: 320 }, () => 0x808080);
+    return [lines(scene, (u) => u.edge === 'silhouette' && u.mirror === i).length, lines(scene, (u) => u.edge === 'rim' && u.mirror === i).length];
+  };
+  const i = CASSEGRAIN.surfaces.findIndex((s) => s.mirror && !(s.hole > 0)), L = JSON.parse(JSON.stringify(CASSEGRAIN));
+  assert.ok(i >= 0, 'a mirror without a hole');
+  const pr = L.surfaces[i].profile, v = (Math.floor(Math.abs(pr[pr.length - 1][1]) * 1e6) + 0.5) / 1e6, key = (y) => Math.round(y * 1e6);
+  assert.notEqual(key(v), key(v - 1e-13), 'the two radii straddle a rounding boundary');
+  pr[0][1] = -v; pr[pr.length - 1][1] = v - 1e-13;
+  assert.deepEqual(counts(L, i), counts(CASSEGRAIN, i), 'same silhouette and rim counts as the fixture');
+  assert.equal(counts(L, i)[0], 2);
+});
+
 test('holes stay open', O3, async () => {
   const { layout3dScene } = await three(), { scene } = layout3dScene(CASSEGRAIN, { width: 560, height: 320 }, () => 0x808080);
   let checked = 0;
