@@ -19,12 +19,13 @@ what changed.
 `three` is an optional peer dependency of `@eleoptics/plots` (`>=0.170 <1`, matching phos's 0.176) and a
 devDependency. layout3D moves to the `./layout3d` export and its own IIFE `eleo-layout3d.js`, the only bundle that
 carries three. In plots-svelte, `Layout3D` likewise lives only at `@eleoptics/plots-svelte/layout3d`, so a 2D Svelte
-app bundles without three (CR [#1267]). The camera is orthographic, isometric by default (yaw -45, pitch 35.264), and
-the scene is rendered once (no controls). U14 for layout3D is a local GPU measurement:
-`PERF=1 GPU=1 npx playwright test perf -g layout3D --project=chromium` launches Chromium with
-`--use-angle=metal --ignore-gpu-blocklist` and asserts the median under 16 ms. CI asserts that the 3D tiles draw in
-all three browsers and times nothing (CR [#1257], option 2); Firefox runs there under `xvfb-run`, because its
-headless WebGL needs an X display on the runner ([#1260]).
+app bundles without three (CR [#1267]). The camera is orthographic and the scene is rendered once (no controls). By
+default it looks mainly along the optical axis from the object side, 20° in yaw and 15° in pitch off it (yaw 70, pitch
+-15 in layout3D's convention; CR [#1290]); `iso` (true isometric, yaw -45, pitch 35.264), `front` and `top` are
+presets. U14 for layout3D is a local GPU measurement: `PERF=1 GPU=1 npx playwright test perf -g layout3D
+--project=chromium` launches Chromium with `--use-angle=metal --ignore-gpu-blocklist` and asserts the median under 16
+ms. CI asserts that the 3D tiles draw in all three browsers and times nothing (CR [#1257], option 2); Firefox runs
+there under `xvfb-run`, because its headless WebGL needs an X display on the runner ([#1260]).
 
 ## Consequences
 
@@ -49,9 +50,14 @@ within 0.5 px of layout2D's element polygons (O8), the tiles draw in Chromium, F
 (CR [#1257]), Firefox in CI needs `xvfb-run` ([#1260]), and plots-svelte gained its own `./layout3d` subpath
 (CR [#1267]).
 
+Amended 2026-11-24 (the user, plan [#1193] M3, CR [#1290]): the default view was isometric when this ADR was
+accepted. On seeing the Cassegrain in it (the camera sat on the image side and showed the primary's back), the user
+chose a near-axis view from the object side as the default for every system.
+
 [#1193]: https://github.com/ELEOptics/eleo-ui/issues/1193
 [#1249]: https://github.com/ELEOptics/eleo-ui/issues/1249
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1260]: https://github.com/ELEOptics/eleo-ui/issues/1260
 [#1263]: https://github.com/ELEOptics/eleo-ui/issues/1263
 [#1267]: https://github.com/ELEOptics/eleo-ui/issues/1267
+[#1290]: https://github.com/ELEOptics/eleo-ui/issues/1290

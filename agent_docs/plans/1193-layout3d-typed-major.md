@@ -321,6 +321,8 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-24 CR #1289 (user): Skip it, as 2D does. layout3D draws no disc for an obscuration inside a mirror's body (the Cassegrain's showed as a broken dark arc on the secondary); O3's acceptance test changes. Item #1292.
 - 2026-11-24 CR #1290 (user): "The default view should not be the iso view. We should have a small pitch and yaw value, looking primarily down the Z axis." Scope: "New default for all"; angles: "Object side, 20° / 15°". O1 and ADR-0005's default view change; the achromat and Cooke tiles accepted at M2 are shown again at the M3 demo. Item #1293.
 - 2026-11-24 orchestrator: #1263, #1291, #1292 and #1293 run one after another in the shared tree (all but #1263 edit `layout3dThree.js`) under one full gate at the end, following the user's batching choice for #1202; each is verified by the fast gate and its own tests before the next starts.
+- 2026-11-24 #1263 (d79ce60): a Chromium gallery load to `data-ready` went from about 3.9 s to about 0.3 s; export "standalone matches (every tile)" from 4-5 min to 33 s alone.
+- 2026-11-24 #1293 (00b767d): the default is yaw 70, pitch -15 in layout3D's convention. ADR-0005's Decision is amended to it. The glasses tile's per-glass pixel floor went from 200 to 100 (from the object side the front element hides most of the F2 one). U14 on the GPU after #1201, #1291 and #1293: 14.40-15.80, 14.30-14.75 and 14.25-14.50 ms, under 16 ms.
 
 [#1257]: https://github.com/ELEOptics/eleo-ui/issues/1257
 [#1261]: https://github.com/ELEOptics/eleo-ui/issues/1261
