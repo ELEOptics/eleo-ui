@@ -379,6 +379,22 @@ test('mirror edge outlines', async () => {
   assert.ok(checked > 0);
 });
 
+// Plan #1193 M3, issue #1296 (review M3 round 1, finding 3): a mirror keeps its two silhouette lines when its recorded numbers are inexact.
+// oracle: the unmodified fixture's counts (U17's polygons, "mirror edge outlines"): two silhouette lines and the same rims per mirror
+test('mirror silhouettes survive inexact numbers', async () => {
+  const { layout3dScene } = await three(), counts = (L) => {
+    const { scene } = layout3dScene(L, { width: 560, height: 320 }, () => 0x808080), out = {};
+    L.surfaces.forEach((s, i) => { if (s.mirror) out[i] = [lines(scene, (u) => u.edge === 'silhouette' && u.mirror === i).length, lines(scene, (u) => u.edge === 'rim' && u.mirror === i).length]; });
+    return out;
+  };
+  const base = counts(CASSEGRAIN), L = JSON.parse(JSON.stringify(CASSEGRAIN)), ms = Object.keys(base).map(Number);
+  assert.ok(ms.length >= 2);
+  L.surfaces[ms[0]].sd = 54.9;
+  L.surfaces[ms[1]].profile[0][0] += 1e-12;
+  const got = counts(L);
+  for (const i of ms) { assert.equal(base[i][0], 2, `surface ${i}: two silhouette lines in the fixture`); assert.deepEqual(got[i], base[i], `surface ${i}: same silhouette and rim counts`); }
+});
+
 test('holes stay open', O3, async () => {
   const { layout3dScene } = await three(), { scene } = layout3dScene(CASSEGRAIN, { width: 560, height: 320 }, () => 0x808080);
   let checked = 0;

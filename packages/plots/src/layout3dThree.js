@@ -37,7 +37,8 @@ const upperHalf = (poly) => {
 const lathe = (pts) => { const g = new LatheGeometry(pts.map(([z, r]) => new Vector2(r, z)), SEGMENTS); g.rotateX(Math.PI / 2); return g; };
 
 // The geometry of a layout, built once per `data` object: { parts: [{ geometry, element, glass?, stop?, image? }], segs: every drawable ray segment { k, i, j, a, b },
-// rims: [{ surface, ring: [x, y, z][] }] per glazed surface, gaps: [{ element, a, b }] the rims either side of each glass gap, rayGeo: line geometries made lazily per ray, rim and silhouette segment }.
+// rims: [{ surface, ring: [x, y, z][] }] per glazed surface, gaps: [{ element, a, b }] the rims either side of each glass gap, mirrorRims: [{ mirror, key, ring }] one per real corner of a mirror body off the axis,
+// mirrorGaps: [{ mirror, a, b }] the two outer rims of a mirror body (its silhouette), rayGeo: line geometries made lazily per ray, rim and silhouette segment }. parts also hold { geometry, mirror: i } (a mirror body) and { geometry, obscuration: i } (a disc).
 const CACHE = new WeakMap();
 function build(layout) {
   const S = layout.surfaces, parts = [], rims = new Map(), mirrorRims = [], mirrorGaps = [];
@@ -53,10 +54,11 @@ function build(layout) {
         if (ring.length > 2) parts.push({ geometry: lathe(ring.concat([ring[0]])), mirror: i });
         // the real corners of the body: the face's first and last points and the flat back's two (the polygon's last two); one off the axis is a rim, the outer pair's rims are the side's silhouette
         const P = polys[0], rs = new Map();
-        [P[0], P[P.length - 3], P[P.length - 2], P[P.length - 1]].forEach(([z, y]) => { if (Math.abs(y) > 1e-9) rs.set(z + '/' + Math.abs(y), circle(Math.abs(y), z)); });
-        rs.forEach((ring3, key) => mirrorRims.push({ mirror: i, key, ring: ring3 }));
-        const outer = [...rs].filter(([k]) => Math.abs(k.split('/')[1] - s.sd) < 1e-6);
-        if (outer.length === 2) mirrorGaps.push({ mirror: i, a: outer[0][1], b: outer[1][1] });
+        // keyed by z and |y| rounded to 1e-6, so a recorded number off in its last bits is still one rim; the outer pair is the rims at the largest |y| of the corners, not at `sd`
+        [P[0], P[P.length - 3], P[P.length - 2], P[P.length - 1]].forEach(([z, y]) => { if (Math.abs(y) > 1e-9) rs.set(Math.round(z * 1e6) + '/' + Math.round(Math.abs(y) * 1e6), { y: Math.abs(y), ring: circle(Math.abs(y), z) }); });
+        rs.forEach((r, key) => mirrorRims.push({ mirror: i, key, ring: r.ring }));
+        const top = Math.max(...[...rs.values()].map((r) => r.y)), outer = [...rs.values()].filter((r) => top - r.y < 1e-6);
+        if (outer.length === 2) mirrorGaps.push({ mirror: i, a: outer[0].ring, b: outer[1].ring });
       }
     }
     if (s.obscuration && !obscurationHidden(layout, i)) { const g = new CircleGeometry(Math.abs(s.sd), SEGMENTS); g.translate(0, 0, s.z); parts.push({ geometry: g, obscuration: i }); }
@@ -99,6 +101,7 @@ const colour = (c) => (Array.isArray(c) ? new Color().setRGB(c[0] / 255, c[1] / 
  * an air-air stop a `RingGeometry` (sd to sd + 2.5 mm, `userData.stop`), the image plane a square at the image surface's sd (`userData.image`). One `MeshLambertMaterial` per element,
  * its `userData.fill` the element's CSS fill (glassFill's, or the crown / flint token) and its colour `resolve(fill)`: anything `Color.set` takes, or [r, g, b] in 0..255.
  * Every mesh of an element has `userData.glass` (its name) and `userData.fill`. Geometry is cached per `data` object; materials are made per call.
+ * A mirror body is a lathe of layout2D's polygon (`userData.mirror` = its surface, fill `--mech`); an obscuration with nothing hiding it is an opaque `CircleGeometry` disc at its z (`userData.obscuration` = its surface, fill `--ink`).
  * @param {*} layout a RecordedLayout
  * Rays and edges are fat lines (`LineSegments2` / `LineMaterial`, depth-tested, `linewidth` in CSS px for a renderer at `setPixelRatio(dpr)`): one object per drawn ray (`userData.ray`, `k`, `i`, `chief`; the set's
  * chief dashed unless the set is `chief`), one closed object per glazed surface's rim (`userData.edge = 'rim'`, `surface`) and two per glass gap for its silhouette (`edge = 'silhouette'`, `element`): the rim points of
