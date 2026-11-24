@@ -10,7 +10,7 @@ test('canvas tiles redraw at the device pixel ratio (#638)', async ({ page }) =>
   await page.setViewportSize({ width: 700, height: 900 });
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  expect(await widths(), 'airy, layout3D, layout3D-front and layout3D-glasses, in two themes').toHaveLength(8);
+  expect(await widths(), 'airy, layout3D, layout3D-front, layout3D-glasses and layout3D-cassegrain, in two themes').toHaveLength(10);
   const cdp = await page.context().newCDPSession(page);
   // The height differs by 1 px: Chromium reports a pixel-ratio change to media queries only with a viewport change, and the width, which redraws the tiles by itself, stays.
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 700, height: 901, deviceScaleFactor: 2, mobile: false });

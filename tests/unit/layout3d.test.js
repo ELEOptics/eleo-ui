@@ -281,7 +281,7 @@ test('unknown view names throw', async () => {
 // Assumed shape for #1201 to meet (the tests pin it): every mesh of a mirror's body has userData.mirror = the surface index, the obscuration disc userData.obscuration = the surface index.
 // oracle: reference layout2D's mirrorBodies(L, i) (U17's tested polygons, [z, y]): one polygon per side of the hole, the k = -1 side with y < 0, or one polygon spanning -sd..sd when there is no hole; a body point (z, y) revolves to radius |y|; closed-form as O1 (ortho above); property no face inside the hole
 const CASSEGRAIN = JSON.parse(readFileSync(new URL('../fixtures/phos-core/cassegrain-layout.json', import.meta.url)));
-const O3 = { skip: 'O3: #1201 builds the mirror bodies, #1202 unskips' };
+const O3 = {};
 const meshesOf = (scene, key) => { const out = []; scene.traverse((o) => { if (o.isMesh && !o.isLineSegments2 && o.userData[key] !== undefined) out.push(o); }); return out; };
 const vertsOf = (o) => { const a = o.geometry.attributes.position; return Array.from({ length: a.count }, (_, i) => [a.getX(i), a.getY(i), a.getZ(i)]); };
 // the nearest point to (z, r) on a polygon's boundary, as [z, r]

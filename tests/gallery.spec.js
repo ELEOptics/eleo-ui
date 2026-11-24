@@ -8,7 +8,7 @@ import { layout3dScene } from '../packages/plots/src/layout3dThree.js';
 test.beforeEach(({ page }) => pageHelpers(page));
 
 // The gallery's tile count.
-const TILES = 27;
+const TILES = 28;
 
 // Per tile in one theme column: its SVG mark count and inked canvas pixels.
 const inkByTile = (page, theme) => page.locator(`.theme[data-theme="${theme}"] [data-tile]`).evaluateAll((els) => els.map((el) => {
@@ -39,7 +39,7 @@ test('gallery renders every tile in both themes', async ({ page }) => {
 
 // Plan #162, #174, #222: a missing phos-core recording fails its one tile, not the page. oracle: property, one broken
 // tile doesn't blank the others. The 404 and the gallery's own report of it are the expected console errors.
-for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden']], ['psf', 'cooke', ['psf-recorded', 'psf-log']], ['wavefront', 'cooke', ['wavefront-recorded']], ['footprint', 'cooke', ['footprint']], ['fans', 'achromat', ['rayFan']]]) {
+for (const [fixture, lens, blanked] of [['mtf', 'achromat', ['mtf', 'mtf-limits']], ['field-curvature', 'achromat', ['fieldCurvature']], ['distortion', 'achromat', ['distortion']], ['spot', 'achromat', ['spot']], ['seidel', 'achromat', ['seidel', 'seidel-terms']], ['layout', 'wandersleb', ['layout2D-wandersleb']], ['layout', 'cassegrain', ['layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'layout3D-cassegrain']], ['psf', 'cooke', ['psf-recorded', 'psf-log']], ['wavefront', 'cooke', ['wavefront-recorded']], ['footprint', 'cooke', ['footprint']], ['fans', 'achromat', ['rayFan']]]) {
   test(`a missing phos-core fixture blanks only its tiles: ${lens === 'achromat' ? '' : lens + ' '}${fixture}`, async ({ page }) => {
     const thrown = [];
     page.on('pageerror', (e) => thrown.push(e.message));
@@ -136,7 +136,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   const mins = await page.$$eval('[data-tile][data-size]', (ts) => ts.map((t) => ({ tile: t.dataset.tile, min: parseFloat(t.style.getPropertyValue('--tile-min')), floor: window.ELEO.PLOT_SIZES[t.dataset.size].minWidth + 26 })));
   expect(mins.length).toBeGreaterThan(0);
   for (const m of mins) expect(m.min, `${m.tile} --tile-min`).toBeGreaterThanOrEqual(m.floor - 0.5);
-  const ownData = ['layout2D-glasses', 'layout3D-glasses', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
+  const ownData = ['layout2D-glasses', 'layout3D-glasses', 'layout3D-cassegrain', 'mtf', 'mtf-limits', 'fieldCurvature', 'distortion', 'rayFan', 'spot', 'seidel', 'seidel-terms', 'layout2D-wandersleb', 'layout2D-cassegrain', 'layout2D-cassegrain-dead-hidden', 'psf-recorded', 'psf-log', 'wavefront-recorded', 'footprint', 'irradiance-gaussian', 'airy', 'icons'];
   for (const theme of ['light', 'dark']) {
     const tiles = await inkByTile(page, theme);
     expect(tiles.length).toBe(TILES);
@@ -650,7 +650,7 @@ test('canvas tiles redraw at their width (#632)', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   const wide = await at(1440), narrow = await at(700, wide);
-  expect(wide.length, 'airy, layout3D, layout3D-front and layout3D-glasses, in two themes').toBe(8);
+  expect(wide.length, 'airy, layout3D, layout3D-front, layout3D-glasses and layout3D-cassegrain, in two themes').toBe(10);
   wide.forEach((c, i) => {
     expect(c.backing, `${c.id} redrawn`).not.toBe(narrow[i].backing);
     if (!c.id.startsWith('layout3D')) expect(Math.abs(c.renderedH - c.rendered), `${c.id} square`).toBeLessThanOrEqual(1);
@@ -985,6 +985,27 @@ test('layout3D glasses tile draws', async ({ page }) => {
     expect(r.apart, `${theme} the two fills differ`).toBeGreaterThan(0.03);
     r.count.forEach((n, k) => expect(n, `${theme} ${r.names[k]} pixels`).toBeGreaterThanOrEqual(200));
   }
+});
+
+// Plan #1193 M3, issue #1202, outcome O4. The layout3D tile on the recorded Cassegrain (the same recording as the 2D Cassegrain tiles) draws its mirrors, rays and obscuration.
+// oracle: property, in each theme the tile's canvas holds at least 200 pixels that differ from its background (its corner pixel) by more than 30 in the channel sum; no console error and no page error. The shape of the bodies is O3's (tests/unit/layout3d.test.js).
+test('layout3D cassegrain tile draws', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await page.goto('/gallery/');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 60_000 });
+  for (const theme of ['light', 'dark']) {
+    const lit = await page.locator(`.theme[data-theme="${theme}"] [data-canvas="layout3D-cassegrain"]`).evaluate((canvas) => {
+      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+      let n = 0;
+      for (let i = 4; i < data.length; i += 4) if (Math.abs(data[i] - data[0]) + Math.abs(data[i + 1] - data[1]) + Math.abs(data[i + 2] - data[2]) > 30) n++;
+      return n;
+    });
+    expect(lit, `${theme} layout3D-cassegrain pixels drawn over the background`).toBeGreaterThanOrEqual(200);
+  }
+  expect(errors).toEqual([]);
 });
 
 // Plan #1193 M1, issue #1233 (review M1 round 2, finding 1; was #1229). A fill valid at parse time but invalid at computed-value time (a browser without oklch(from ...); simulated by an unknown function that still holds var()) paints crown: the probe inherits it from a crown-coloured wrapper.
