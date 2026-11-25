@@ -6,7 +6,7 @@ draws today (the lens layout first), then every renderer as a generic plot type 
 series, covering every phos-core result shape; callers build their analyses from those types on the design system.
 ADRs: `agent_docs/adr/` (0001 plot boundary, accepted at D; 0002 LayerChart weighed, not adopted; 0003 plot scale, accepted at O).
 Constraints: group "Plots the website can share" releases when the website pulls (one minor carried rows A and B; L ships the next);
-the sample and every gallery tile keep working through every row. Group "Plot types for phos": each row adds its typed API alongside the old one; a release ships when a
+every gallery tile keeps working through every row; after K the gallery draws the sample through its own adapters. Group "Plot types for phos": each row adds its typed API alongside the old one; a release ships when a
 consumer pulls (after C for phos, then whenever phos adopts the next converted renderer), and K removes
 `kind` and the sample-shaped `data` in one breaking minor; 1.0 waits until a consumer has used the API (user, plan #1193). Recorded phos-core fixtures cover public lenses
 only (the sample achromat, the Cooke triplet, the Wandersleb triplet). From row D on, each row keeps U14's redraw budget for the

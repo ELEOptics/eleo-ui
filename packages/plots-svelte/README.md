@@ -101,7 +101,7 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 />
 ```
 
-`Legend` takes `kind` (`field`, `wavelength`, `ts`, `rays`) and `n` (`field` and `wavelength` need `n` or `values`; `values` is an optional array of recorded field angles or wavelengths that labels each key, as `legend` in `@eleoptics/plots` takes), or `kind="glass"` with `data`, a recorded layout or a system carrying one: one swatch key per drawn glass, by name, in order of first use, in the fill `Layout2D` gives its lenses (`glassLegend` in `@eleoptics/plots`):
+`Legend` takes `kind` (`field`, `wavelength`, `ts`, `rays`) and `n` (`field` and `wavelength` need `n` or `values`; `values` is an optional array of recorded field angles or wavelengths that labels each key, as `legend` in `@eleoptics/plots` takes), or `kind="glass"` with `data`, a recorded layout: one swatch key per drawn glass, by name, in order of first use, in the fill `Layout2D` gives its lenses (`glassLegend` in `@eleoptics/plots`):
 
 ```svelte
 <PlotCard title="Layout">
