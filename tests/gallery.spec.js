@@ -1151,8 +1151,10 @@ test('layout keys',async ({ page }) => {
   const expected = await page.evaluate(async (kinds) => {
     const text = (html) => [...new DOMParser().parseFromString(html, 'text/html').body.children].map((e) => e.textContent);
     const glasses = await fetch('/tests/fixtures/layouts/analysis-glasses.json').then((r) => r.json());
+    const S = await fetch('/packages/plots/src/sample.json').then((r) => r.json());
+    const vals = { field: S.fields, wavelength: S.wl };
     const out = {};
-    for (const [tile, kind] of Object.entries(kinds)) out[tile] = kind === 'field+glass' ? { field: glasses.rays.map((_, i) => `F${i + 1}`), glass: text(window.ELEO.glassLegend(glasses)) } : { all: text(window.ELEO.legend(kind)) };
+    for (const [tile, kind] of Object.entries(kinds)) out[tile] = kind === 'field+glass' ? { field: glasses.rays.map((_, i) => `F${i + 1}`), glass: text(window.ELEO.glassLegend(glasses)) } : { all: text(window.ELEO.legend(kind, vals[kind].length, vals[kind])) };
     return out;
   }, LAYOUT_KEYS);
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {

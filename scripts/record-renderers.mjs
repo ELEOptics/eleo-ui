@@ -13,7 +13,6 @@
 //   node scripts/record-renderers.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import ELEO from '../packages/plots/dist/index.js';
-import '../packages/plots/dist/sample.js'; // the legend-field and legend-wavelength entries still read the sample's values, until #1211 makes them values only
 import '../tests/fixtures/phos-core/adapters.js'; // a classic script: assigns globalThis.ELEOAdapters
 import '../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters (plan #1258 #1204)
 
@@ -56,8 +55,8 @@ export function draws() {
     // The recorded achromat Seidel sums through the adapter, as the gallery's seidel tiles draw them (plan #677 #679: before the key extraction).
     'seidel': () => ELEO.bars({ ...globalThis.ELEOAdapters.seidel(seidelRecording()), limits: [{ y: 0.05, label: '0.05 mm' }], width: 1000 }),
     'seidel-terms': () => ELEO.bars({ ...globalThis.ELEOAdapters.seidel(seidelRecording(), { by: 'term' }), width: 1000 }),
-    'legend-field': () => ELEO.legend('field'),
-    'legend-wavelength': () => ELEO.legend('wavelength'),
+    'legend-field': () => ELEO.legend('field', SAMPLE.fields.length, SAMPLE.fields),
+    'legend-wavelength': () => ELEO.legend('wavelength', SAMPLE.wl.length, SAMPLE.wl),
     'legend-ts': () => ELEO.legend('ts'),
     'glassLegend': () => ELEO.glassLegend(glasses),
   };
