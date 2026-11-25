@@ -1,7 +1,7 @@
 // @eleoptics/plots: ELEO's optical plot renderers. SVG renderers return markup whose colors are
 // tokens.css variables, so one drawing follows the theme, except the typed map2D(props), which bakes its cells
-// at draw time: draw it again after a theme or palette change. The canvas renderers (the sample map2D(canvas, ...),
-// layout3D) read the variables when they draw, so call them again after a theme or palette change. Needs @eleoptics/tokens' tokens.css.
+// at draw time: draw it again after a theme or palette change. The canvas renderer (the sample map2D(canvas, ...))
+// reads the variables when they draw, so call them again after a theme or palette change. Needs @eleoptics/tokens' tokens.css.
 import ELEO from './renderers.js';
 import * as physics from './physics.js';
 import * as layout from './layout2d.js';
@@ -15,7 +15,7 @@ Object.assign(ELEO, physics, scale, { minWidth, interact, readout, standalone, p
 
 export default ELEO;
 export const {
-  layout2D, layout3D, spot, throughFocus, rayFan, map2D, curve, bars, legend, icon, icons, gradient, fmt, css, maps, useSample, layoutBounds, glassLegend, fit,
+  layout2D, spot, throughFocus, rayFan, map2D, curve, bars, legend, icon, icons, gradient, fmt, css, maps, useSample, layoutBounds, glassLegend, fit,
 } = ELEO;
 export * from './physics.js';
 export * from './scale.js';

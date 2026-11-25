@@ -203,3 +203,59 @@ test('wrappers and the hover action type onselect without null (#908)', () => {
     assert.doesNotMatch(src, /SelectEvent \| null/, `${f} types onselect with | null`);
   }
 });
+
+// Plan #1193 M2 (issue #1255). oracle: closed-form (the wrapper hands every prop, `view` included, to layout3D from the ./layout3d entry; the docs name the entry, `view` and the three peer).
+test('Layout3D passes view through and the docs describe the layout3d entry', () => {
+  const root = new URL('../../', import.meta.url);
+  const src = readFileSync(new URL('packages/plots-svelte/src/lib/Layout3D.svelte', root), 'utf8');
+  assert.match(src, /from '@eleoptics\/plots\/layout3d'/, 'Layout3D does not import the layout3d entry');
+  assert.match(src, /layout3D\(canvas, \{ \.\.\.props \}\)/, 'Layout3D does not pass its props (view included) to layout3D');
+  assert.doesNotMatch(src, /flat-shaded/, 'Layout3D still says flat-shaded');
+  const plots = readFileSync(new URL('packages/plots/README.md', root), 'utf8');
+  assert.doesNotMatch(plots, /import \{[^}]*layout3D[^}]*\} from '@eleoptics\/plots';/, 'plots README imports layout3D from the main entry');
+  assert.match(plots, /@eleoptics\/plots\/layout3d/, 'plots README does not name the layout3d entry');
+  assert.match(plots, /`view`/, 'plots README does not describe view');
+  assert.match(plots, /three/, 'plots README does not name the three peer');
+  const d3 = readFileSync(new URL('packages/plots/src/layout3d.d.ts', root), 'utf8');
+  for (const [name, text] of [['plots README', plots], ['layout3d.d.ts', d3]]) {
+    assert.match(text, /yaw 70/, name + ' does not name the default yaw 70');
+    assert.match(text, /pitch -15/, name + ' does not name the default pitch -15');
+    assert.doesNotMatch(text, /-38|pitch 16/, name + ' still names the old -38 or 16 angles');
+  }
+  const svelte = readFileSync(new URL('packages/plots-svelte/README.md', root), 'utf8');
+  assert.match(svelte, /`view`/, 'plots-svelte README does not describe view');
+  assert.match(svelte, /three/, 'plots-svelte README does not name the three peer');
+  const cs = readFileSync(new URL('.changeset/layout3d-typed.md', root), 'utf8');
+  assert.match(cs, /@eleoptics\/plots\/layout3d/, 'changeset does not name the layout3d entry');
+  assert.match(cs, /eleo-layout3d\.js/, 'changeset does not name the IIFE');
+  assert.match(cs, /optional peer/, 'changeset does not name three as an optional peer');
+  assert.match(cs, /yaw 70, pitch -15/, 'changeset does not name the default angles');
+});
+
+// Plan #1193, item #1280 (CR #1267 "Subpath"). oracle: spec (Layout3D leaves the index for ./layout3d, so an app of 2D wrappers needs no three).
+// The scratch bundle follows every import in the package's .svelte and .js files (a .svelte file is read for its import lines only) and fails on `three`.
+test('Layout3D lives at plots-svelte/layout3d, not in the index', async () => {
+  const root = new URL('../../', import.meta.url);
+  const pkg = JSON.parse(readFileSync(new URL('packages/plots-svelte/package.json', root), 'utf8'));
+  assert.ok(pkg.exports['./layout3d'], 'exports has no ./layout3d');
+  assert.match(pkg.exports['./layout3d'].default, /layout3d\.js$/, './layout3d does not point at layout3d.js');
+  const lib = new URL('packages/plots-svelte/src/lib/', root);
+  const index = readFileSync(new URL('index.js', lib), 'utf8');
+  assert.doesNotMatch(index, /Layout3D/, 'the index still exports Layout3D');
+  assert.match(readFileSync(new URL('layout3d.js', lib), 'utf8'), /export \{ default as Layout3D \} from '\.\/Layout3D\.svelte'/, './layout3d does not export Layout3D');
+  const { build } = await import('esbuild');
+  const plugin = {
+    name: 'scratch',
+    setup(b) {
+      b.onResolve({ filter: /^three$/ }, () => ({ errors: [{ text: 'three is not installed' }] }));
+      b.onResolve({ filter: /^@eleoptics\/plots\/layout3d$/ }, () => ({ path: new URL('packages/plots/src/layout3d.js', root).pathname }));
+      b.onResolve({ filter: /^@eleoptics\/plots-svelte$/ }, () => ({ path: new URL('index.js', lib).pathname }));
+      b.onResolve({ filter: /^@eleoptics\/plots-svelte\/layout3d$/ }, () => ({ path: new URL('layout3d.js', lib).pathname }));
+      b.onResolve({ filter: /^@eleoptics\// }, (a) => ({ path: a.path, external: true }));
+      b.onLoad({ filter: /\.svelte$/ }, (a) => ({ loader: 'js', contents: (readFileSync(a.path, 'utf8').match(/^\s*import .*;$/gm) || []).concat('export default 0;').join('\n') }));
+    },
+  };
+  const run = (entry) => build({ stdin: { contents: entry, resolveDir: new URL('.', import.meta.url).pathname }, bundle: true, write: false, format: 'esm', logLevel: 'silent', plugins: [plugin] });
+  await run("import { Map2D } from '@eleoptics/plots-svelte'; console.log(Map2D);");
+  await assert.rejects(run("import { Layout3D } from '@eleoptics/plots-svelte/layout3d'; console.log(Layout3D);"), /three is not installed/, './layout3d does not reach three');
+});
