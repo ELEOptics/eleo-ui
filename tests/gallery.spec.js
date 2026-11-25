@@ -124,13 +124,13 @@ for (const [tile, fixture] of [['footprint', 'cooke-footprint.json'], ['rayFan',
   });
 }
 
-// Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
+// Plan #90, #131, #1258 #1204: a missing sample.json (which the gallery fetches and draws its sample tiles from) fails the tiles that draw the sample, not the page. oracle: property,
 // the tiles that bring their own data (glasses, the recorded curves and spot) or need none (airy, icons) still draw. The 404 is the expected
 // console error.
-test('a missing sample script blanks only the sample tiles', async ({ page }) => {
+test('a missing sample.json blanks only the sample tiles', async ({ page }) => {
   const thrown = [];
   page.on('pageerror', (e) => thrown.push(e.message));
-  await page.route('**/eleo-plots-sample.js', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.route('**/sample.json', (route) => route.fulfill({ status: 404, body: '' }));
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await draw3D(page, ['layout3D', 'layout3D-front']);
@@ -151,7 +151,7 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
 });
 
 // Plan #90, O3, #47: the classic build exposes the sample. Loading eleo-plots.js, then eleo-plots-sample.js, leaves
-// window.ELEO.sample set, so the gallery can read zimg from it. oracle: fixture packages/plots/src/sample.json's zimg
+// window.ELEO.sample set (the gallery keeps the tag until #1212, for the Svelte harness; it draws from sample.json itself). oracle: fixture packages/plots/src/sample.json's zimg
 test('classic build exposes the sample', async ({ page }) => {
   const { zimg } = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url)));
   await page.goto('/gallery/');
