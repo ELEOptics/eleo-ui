@@ -12,7 +12,7 @@ import '@eleoptics/plots/plots.css';
 import { layout2D, spot, map2D, gradient } from '@eleoptics/plots';
 
 layoutEl.innerHTML = layout2D({ data: system, colorBy: 'field', rays: 'fan' });
-spotEl.innerHTML = spot({ data: system });
+spotEl.innerHTML = spot({ panels: [{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }] }], unit: 'µm' });
 map2D(psfCanvas, { data: system, kind: 'psf', scale: 'log' });
 mapEl.innerHTML = map2D({ values, extent: [-0.02, 0.02, -0.02, 0.02], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', el: mapEl });
 colorbarEl.style.background = gradient('ember');
@@ -158,7 +158,7 @@ A subset is the same call with fewer categories or series (`categories: terms.sl
 
 ## Spot diagrams
 
-`spot({ data })` draws the sample's spots. `spot({ panels })` draws points you give it, one square panel each. RMS and GEO are computed from each panel's drawn points about the reference:
+`spot({ panels })` draws points you give it, one square panel each; `spot({})` without `panels` throws. RMS and GEO are computed from each panel's drawn points about the reference:
 
 ```js
 el.innerHTML = spot({

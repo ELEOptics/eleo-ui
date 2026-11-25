@@ -8,6 +8,8 @@ import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as scale from '../../packages/plots/src/scale.js';
 import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
+// plan #1258 #1208: spot takes typed panels; the sample's spots as the call the old sample spot drew (a series per wavelength or per field, centroid-referenced, µm).
+const sampleSpot = (S, { colorBy, ...o } = {}) => ({ panels: S.spots.map((per, fi) => ({ title: `${S.fields[fi].toFixed(1)}°`, series: per.map((pts, wi) => ({ points: pts, index: colorBy === 'field' ? fi : wi })), airy: S.airy })), reference: 'centroid', unit: 'µm', ...o });
 const fanOf = (S, o) => globalThis.ELEOSampleAdapters.rayFan(S, o); // #1207: the fans are curve panels, sized as rayFan's old call did
 const tfOf = (S) => globalThis.ELEOSampleAdapters.throughFocus(S); // plan #1258 #1205: throughFocus takes typed props
 import { frameText as fText, frameWeight as fWeight, frameOf, layoutText as lText, layoutWeight as lWeight } from '../../packages/plots/src/scale.js';
@@ -144,7 +146,7 @@ test('text and weight per renderer (U18): bars, spot, throughFocus', () => {
   // spot: three panels at the sample's default; F is one panel's side.
   const spot = new Set();
   for (const width of [400, 600, 1500]) {
-    const svg = ELEO.spot({ ...sample, width }), F = panelFrames(svg);
+    const svg = ELEO.spot(sampleSpot(sample, { width })), F = panelFrames(svg);
     assert.ok(F.length > 0, `spot ${width}: panels are drawn`);
     F.forEach((f) => near(f, F[0], `spot ${width}: one panel side`));
     checkText(`spot ${width}`, svg, F[0], spot);
@@ -179,7 +181,7 @@ test("table matches each renderer's floor width", () => {
   };
   for (const k of Object.keys(svgs)) { near(only(frames(svgs[k]), k), 162, `${k} frame at its minWidth`); floorText(svgs[k], k); }
   assert.equal(frames(svgs.rayFan).length, 6, 'the fans draw three columns of two rows');
-  const spot = ELEO.spot({ ...sample, width: at('spot', 3) }), tf = ELEO.throughFocus({ ...tfOf(sample), width: at('throughFocus', 5) });
+  const spot = ELEO.spot(sampleSpot(sample, { width: at('spot', 3) })), tf = ELEO.throughFocus({ ...tfOf(sample), width: at('throughFocus', 5) });
   near(only(panelFrames(spot), 'spot'), 162, 'spot panel at its minWidth'); floorText(spot, 'spot');
   assert.equal(panelFrames(spot).length, 3);
   near(only(panelFrames(tf), 'throughFocus'), 162, 'throughFocus panel at its minWidth'); floorText(tf, 'throughFocus');

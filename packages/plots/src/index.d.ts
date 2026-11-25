@@ -124,39 +124,6 @@ export interface SpotPanelsProps {
   width?: number;
   /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
   height?: number;
-  data?: never;
-  colorBy?: never;
-}
-/** Sample call: the spots of the sample (or `data`), one color per wavelength or field. */
-export interface SpotSampleProps {
-  data?: object;
-  /** Default "wavelength". */
-  colorBy?: IndexKey;
-  /** Box size rule. Default "common". */
-  scale?: "common" | "auto";
-  /** Box half-width in µm; overrides the automatic common size. */
-  half?: number;
-  /** `false` draws no grid lines; the frame and centre cross stay. Default true: lines at the nice ticks strictly inside (-half, half) (the frame draws the edges), in --plot-grid, under the dots. */
-  grid?: boolean;
-  /** Airy circle. Default true. */
-  airy?: boolean;
-  /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
-  origin?: string;
-  /** "chief" keeps the dots as given, labelled with origin. Default "centroid": every panel is recentred on the centroid of its dots. */
-  reference?: "chief" | "centroid";
-  /** RMS and GEO radius lines under each panel. Default true. */
-  showStats?: boolean;
-  /** Draw each panel's Airy circle. Default true. */
-  showAiry?: boolean;
-  /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
-  textScale?: number;
-  /** Drawing width in px; a panel's side F solves `F + 2.4 * text(F) = (width - 22 * (panels - 1)) / panels` (more than 2.4 text units when the y labels are longer than three characters; less when `height` caps it), ADR-0003's frame (`textScale` multiplying the text). Without it, 150 px panels. */
-  width?: number;
-  /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
-  height?: number;
-  /** Zoom window: one square window for every panel, as `SpotPanelsProps.view`. */
-  view?: SpotView;
-  panels?: never;
 }
 export interface ThroughFocusRow {
   /** The row's label, left of its first cell (a field, say "0.0°"). */
@@ -180,7 +147,7 @@ export interface ThroughFocusProps {
   /** `false` draws no grid lines in the cells. Default: `spot`'s grid, at the nice ticks strictly inside (-half, half), under the dots. */
   grid?: boolean;
 }
-export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
+export type SpotDiagramProps = SpotPanelsProps;
 export interface Map2DProps {
   data?: object;
   /** Default "psf". */
@@ -353,7 +320,7 @@ export interface ELEO {
   layoutBounds(layouts: RecordedLayout[]): LayoutBox;
   /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout (a system reads `layout`, else `layoutWl`). */
   glassLegend(data: RecordedLayout | LayoutSystem): string;
-  spot(props?: SpotDiagramProps): string;
+  spot(props: SpotDiagramProps): string;
   throughFocus(props: ThroughFocusProps): string;
   /** A typed grid as SVG markup. */
   map2D(props: Map2DGridProps): string;
@@ -421,7 +388,7 @@ export interface PlotSize {
 export declare const PLOT_SIZES: {
   curve: PlotSize; rayFan: PlotSize; bars: PlotSize; map2D: PlotSize; spot: PlotSize; throughFocus: PlotSize; layout2D: PlotSize;
 };
-/** The narrowest drawing width of a call, in px: its plot frame `F_LO` wide and its text `TEXT_MIN` px, with the margins the renderer draws for these props (a curve's x tick labels, map2D's colorbar and x ticks) and the panel count of `columns`, `panels`, the sample's fields or defocus steps. `props` are the ones you pass the renderer; without them it is `PLOT_SIZES[name]`'s one-panel figure. Throws a `TypeError` for an unknown renderer name. */
+/** The narrowest drawing width of a call, in px: its plot frame `F_LO` wide and its text `TEXT_MIN` px, with the margins the renderer draws for these props (a curve's x tick labels, map2D's colorbar and x ticks) and the panel count of `columns`, `panels` or defocus steps. `props` are the ones you pass the renderer; without them it is `PLOT_SIZES[name]`'s one-panel figure. Throws a `TypeError` for an unknown renderer name. */
 export declare function minWidth(name: keyof typeof PLOT_SIZES, props?: object): number;
 
 /* Pointer interaction (packages/plots/src/interact.js). */

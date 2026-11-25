@@ -1,6 +1,4 @@
 import { idx, svg, esc, NS, drawn as live, niceHalf } from "./common.js";
-import { data } from "./data.js";
-import { fmt } from "./color.js";
 import { keyLayout, keyMarkup, cornerBox, KEY_AT } from "./key.js";
 import { niceTicks } from "./axis.js";
 import { frameText, frameWeight, frameOf, SPOT_LABEL_M } from "./scale.js";
@@ -151,24 +149,9 @@ function typedSpot(o) {
   }
   return svg(+W.toFixed(2), +H.toFixed(2), g, esc(o.label || "Spot diagrams"));
 }
-/* The sample's spots as typed panels: a series per wavelength (per field with colorBy "field"), the Airy radius as `airy`; RMS and GEO are the renderer's. */
-export function spotPanels(D, o) {
-  o = o || {}; var byField = o.colorBy === "field";
-  var panels = D.spots.map(function (per, fi) {
-    var p = {
-      title: fmt(D.fields[fi], 1) + "°",
-      series: per.map(function (pts, wi) { return { points: pts, index: byField ? fi : wi }; })
-    };
-    if (o.airy !== false) p.airy = D.airy;
-    return p;
-  });
-  var r = { panels: panels, reference: "centroid", unit: "µm", label: "Spot diagrams, colored by " + (o.colorBy || "wavelength") };
-  ["scale", "half", "width", "height", "textScale", "origin", "reference", "showStats", "showAiry", "grid", "view"].forEach(function (k) { if (o[k] != null) r[k] = o[k]; });
-  return r;
-}
 export function spot(o) {
-  o = o || {};
-  return typedSpot(o.panels ? o : spotPanels(data(o), o));
+  if (!o || !Array.isArray(o.panels)) throw new TypeError("spot: the sample call was removed; see the README migration table");
+  return typedSpot(o);
 }
 /* throughFocus (ADR-0003): a panel's side B is the frame; text is frameText(B), the row label's room 4.2 text units plus labelM(half) for the y tick labels, and the rows' gaps are in text units. With `width`, B solves lw + cols * (B + gap) = width; without, B is 92. Only the outer edges are labelled (every cell shares one scale): x under the bottom row, y left of the left column, and a caption line "x, y in µm" under the figure. Each RMS line sits 1.3 text units under its panel, the bottom row's 2.5 (under its x labels). */
 export function throughFocus(o) {

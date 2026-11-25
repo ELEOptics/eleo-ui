@@ -28,8 +28,11 @@ test('rayFan', () => {
   assert.equal('rayFan' in ELEO, false, 'ELEO.rayFan is gone');
 });
 
-test('spot sample', { skip: SKIP }, () => {
+test('spot sample', () => {
   assert.throws(() => ELEO.spot({}), removed('spot: the sample call'));
+  assert.throws(() => ELEO.spot(), removed('spot: the sample call'));
+  assert.throws(() => ELEO.spot({ colorBy: 'field' }), removed('spot: the sample call'));
+  assert.doesNotThrow(() => ELEO.spot({ panels: [{ title: 'a', series: [{ points: [[1, 2]], index: 0 }] }] }));
 });
 
 test('map2D canvas', { skip: SKIP }, () => {

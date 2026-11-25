@@ -23,7 +23,7 @@ const dataGroups = (svg) => [...svg.matchAll(/<g\b[^>]*?transform="(matrix\([^"]
 for (const [name, draw] of [
   ['curve', () => ELEO.curve({ series: [{ points: [[0, 0], [1, 1]] }] })],
   ['layout2D', () => ELEO.layout2D({})],
-  ['spot', () => ELEO.spot()],
+  ['spot', () => ELEO.spot({ panels: [{ series: [{ points: [[0.1, 0.2], [0.3, -0.1]] }] }] })],
 ]) {
   test(`${name} data-group transform matches matrixOf's format`, () => {
     const ts = dataGroups(draw());

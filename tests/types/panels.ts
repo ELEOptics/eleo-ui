@@ -36,8 +36,6 @@ curve({ panels: [{ series: [{ points: [[0, 1]], color: 'red' }] }] });
 curve({ panels: [fan], color: 'red' });
 // @ts-expect-error nor a spot series color
 spot({ panels: [{ series: [{ points: [[0, 0]], color: 'red' }] }] });
-const sampled: string = spot({ colorBy: 'field', showStats: false, reference: 'chief' });
-// @ts-expect-error the sample call ignores a label (spotPanels hard-codes it)
-spot({ colorBy: 'field', label: 'x' });
-export { html, svg, sampled };
-const scaled: string = spot({ colorBy: 'field', textScale: 0.5 });
+const quiet: string = spot({ panels: [panel], showStats: false, reference: 'chief' });
+export { html, svg, quiet };
+const scaled: string = spot({ panels: [panel], textScale: 0.5 });

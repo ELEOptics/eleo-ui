@@ -41,7 +41,7 @@ const drawn = async (page, boxes) => {
       CurvePlot: { series: [{ points: [[0, 1], [100, 0.62]], index: 0, role: 'tangential' }], x: { label: 'Spatial frequency', range: [0, 400] }, y: { label: 'Modulus', range: [0, 1] } },
       BarPlot: { categories: ['1', '2'], series: [{ values: [0.012, -0.004], index: 0, label: 'SI' }] },
       Map2D: { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1] },
-      SpotDiagram: {},
+      SpotDiagram: { panels: [{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }], airy: 2.4 }], unit: 'µm' },
       Layout2D: {},
     };
     const settle = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done))));

@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { frameText } from '../../packages/plots/src/scale.js';
 import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
 const tfOf = (S) => globalThis.ELEOSampleAdapters.throughFocus(S); // plan #1258 #1205: throughFocus takes typed props
+// plan #1258 #1208: spot takes typed panels; the sample's spots as the call the old sample spot drew (a series per wavelength or per field, centroid-referenced, µm).
+const sampleSpot = (S, { colorBy, ...o } = {}) => ({ panels: S.spots.map((per, fi) => ({ title: `${S.fields[fi].toFixed(1)}°`, series: per.map((pts, wi) => ({ points: pts, index: colorBy === 'field' ? fi : wi })), airy: S.airy })), reference: 'centroid', unit: 'µm', ...o });
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -127,28 +129,6 @@ test('typed points round trip, common and auto scale', () => {
   assert.ok(ELEO.spot({ panels: [panels[2]], scale: 'common', half: 7 }).includes('>−5<'), 'half overrides the common size: the ticks run to ±5');
 });
 
-// #240: spot() on the sample is the adapter spotPanels(sample, o) and then the typed path.
-// oracle: reference packages/plots/src/sample.json: points, Airy radius and stats are the sample's.
-test('spotPanels carries the sample\'s spots', async () => {
-  const { spotPanels } = await import('../../packages/plots/src/spot.js');
-  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
-  const o = spotPanels(sample, { scale: 'auto', half: 7 });
-  assert.equal(o.unit, 'µm');
-  assert.equal(o.scale, 'auto');
-  assert.equal(o.half, 7);
-  assert.equal(o.panels.length, sample.spots.length, 'a panel per field');
-  o.panels.forEach((p, fi) => {
-    assert.equal(p.title, `${sample.fields[fi].toFixed(1)}°`);
-    assert.equal(p.airy, sample.airy, 'the Airy radius is the circle');
-    assert.deepEqual(p.series.map((s) => s.points), sample.spots[fi], 'a series per wavelength, the sample\'s points');
-    assert.deepEqual(p.series.map((s) => s.index), sample.spots[fi].map((_, w) => w));
-    assert.equal(p.notes, undefined, 'no RMS/GEO notes: the renderer computes them');
-  });
-  assert.ok(spotPanels(sample, { colorBy: 'field' }).panels.every((p, fi) => p.series.every((s) => s.index === fi)), 'colorBy field: index = field');
-  assert.equal(spotPanels(sample, { showStats: false }).showStats, false, 'showStats passes through');
-  assert.equal(spotPanels(sample, { airy: false }).panels[0].airy, undefined, 'airy: false draws no circle');
-});
-
 // #260: a panel's reference circle counts toward its half, so a circle beyond the spot is not clipped.
 // oracle: property: for every panel, circle radius <= half, where half = (box side / 2) / |scale|
 test('the half holds the reference circle', () => {
@@ -165,16 +145,13 @@ test('the half holds the reference circle', () => {
   }
 });
 
-// #261:  empty panels non-negative viewBox, no no-op fill-opacity, sample aria-label names colorBy.
-// oracle: property, and the base's output ("Spot diagrams, colored by <colorBy>")
-test('typed spot hardening', async () => {
-  await import('../../packages/plots/src/sample.js');
+// #261:  empty panels non-negative viewBox, no no-op fill-opacity, a typed label.
+// oracle: property
+test('typed spot hardening', () => {
   const s = ELEO.spot({ panels: [{ series: [{ points: [[0.1, 0.1]] }] }] });
   const vb = /viewBox="([^"]+)"/.exec(ELEO.spot({ panels: [] }))[1].split(/\s+/).map(Number);
   assert.ok(vb.every((v) => v >= 0), 'empty panels give a non-negative viewBox: ' + vb);
   assert.ok(!/fill-opacity/.test(s), 'no fill-opacity on stroked dots');
-  assert.ok(ELEO.spot({}).includes('aria-label="Spot diagrams, colored by wavelength"'), 'sample label names colorBy');
-  assert.ok(ELEO.spot({ colorBy: 'field' }).includes('colored by field'));
   assert.ok(ELEO.spot({ panels: [{ series: [] }], label: 'Mine' }).includes('aria-label="Mine"'), 'typed call takes a label');
   const ev = ELEO.spot({ panels: [{ series: [] }], label: 'x" onfocus="a<b' });
   assert.ok(ev.includes('aria-label="x&quot; onfocus=&quot;a&lt;b"'), 'label is escaped inside aria-label');
@@ -279,9 +256,9 @@ test('labelled circle', () => {
   assert.ok(noLine(blank), 'a blank label adds no caption line: ' + JSON.stringify(texts(blank)));
 });
 
-// #275 (CR #270): the caption is one line per active setting, inside the figure; stats at 3 significant digits; centroid default for the sample.
+// #275 (CR #270): the caption is one line per active setting, inside the figure; stats at 3 significant digits.
 // oracle: property: each caption line's estimated width (6 px a character, as layout2D estimates) <= the viewBox width; radii equal at 3 digits print once.
-test('caption lines and stats labels', async () => {
+test('caption lines and stats labels', () => {
   const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
   const vbw = (svg) => +/viewBox="0 0 ([\d.]+)/.exec(svg)[1];
   const series = [{ points: [[0.4, -1.2], [1.1, 0.3]] }];
@@ -295,10 +272,6 @@ test('caption lines and stats labels', async () => {
   assert.ok(ys[2] < H, 'last line inside the height');
   const mm = texts(ELEO.spot({ panels: [{ series: [{ points: [[0.001234, 0], [-0.001234, 0]] }] }], unit: 'mm' }));
   assert.ok(mm.includes('RMS 0.00123 mm') && mm.includes('GEO 0.00123 mm'), 'three significant digits: ' + mm);
-  const { spotPanels } = await import('../../packages/plots/src/spot.js');
-  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
-  assert.equal(spotPanels(sample).reference, 'centroid', 'the sample is centroid-referenced');
-  assert.equal(spotPanels(sample, { reference: 'chief' }).reference, 'chief', 'a given reference wins');
   const pts = [{ points: [[3, 1], [5, 3]] }];
   assert.equal(ELEO.spot({ panels: [{ series: pts }], reference: ' Centroid ' }), ELEO.spot({ panels: [{ series: pts }], reference: 'centroid' }), 'a mis-cased reference re-centres');
   assert.ok(!texts(ELEO.spot({ panels: [{ series: [{ points: [[NaN, 1]] }] }] })).includes('RMS, GEO'), 'no stats line for empty points');
@@ -431,7 +404,7 @@ test('text follows ADR-0003 per panel', async () => {
   }
   assert.deepEqual([...seen].sort(), ['above', 'below', 'inside']);
   // Three panels: F is one panel's side, (width - 2 gaps) / 3, not the figure's width.
-  const m3 = ELEO.spot({ data: sample, width: 1500 }), F3 = frameOf((1500 - 44) / 3, 2.4);
+  const m3 = ELEO.spot(sampleSpot(sample, { width: 1500 })), F3 = frameOf((1500 - 44) / 3, 2.4);
   texts(m3).forEach((x, i) => near(+x.size[1], frameText(F3), `three panels text ${i}`));
   // A height that bites shrinks the panel; the text follows the smaller side.
   const mh = ELEO.spot({ ...base, width: 600, height: 300 }), side = +/<svg x="[\d.]+" y="4" width="([\d.]+)"/.exec(mh)[1];
@@ -752,8 +725,8 @@ test('auto-scale margin ignores panel order', () => {
 
 // oracle: closed form: the sample call with view { center: [0, 0], half: 2 } differs from the call without, and its data group maps x -2 and 2 to the frame's left and right edges.
 test('the sample spot takes view', () => {
-  const view = { center: [0, 0], half: 2 };
-  const base = ELEO.spot({ width: 500 }), zoomed = ELEO.spot({ width: 500, view });
+  const view = { center: [0, 0], half: 2 }, S = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const base = ELEO.spot(sampleSpot(S, { width: 500 })), zoomed = ELEO.spot(sampleSpot(S, { width: 500, view }));
   assert.notEqual(zoomed, base, 'view changes the sample spot');
   panelGroups(zoomed).forEach((g, i) => {
     const e = (p) => toPx(g.M, p);
