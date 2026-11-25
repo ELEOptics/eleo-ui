@@ -1,7 +1,7 @@
 // A typed curve call compiles under --strict; a color option and an unknown role do not (#178, plan 162).
 // oracle: spec ADR-0001 (roles, no color option) and plan #162 Decisions (CurveSeries, CurveAxis, CurvePlotProps)
 import type { CurvePlotProps, CurveSeries } from '../../packages/plots/src/index';
-import { bars, map2D, spot, throughFocus, curve, frameText, frameWeight, frameOf, layoutText, layoutWeight, TEXT_MIN, fit, rayFan } from '../../packages/plots/src/index';
+import { bars, map2D, spot, throughFocus, curve, frameText, frameWeight, frameOf, layoutText, layoutWeight, TEXT_MIN, fit } from '../../packages/plots/src/index';
 
 const mtf: CurveSeries = { points: [[0, 1], [100, 0.62]], index: 0, role: 'tangential' };
 const typed: CurvePlotProps = {
@@ -26,9 +26,6 @@ const shown: number = layoutText(500);
 export { html, badRole, t, w, f, lt, lw, floor, shown };
 const stopFit: () => void = fit(document.body, (width: number) => { document.body.innerHTML = curve({ series: [mtf], width }); });
 export { stopFit };
-// rayFan takes the figure's width and height in px (ADR-0003, #537).
-const fan: string = rayFan({ width: 900, height: 300 });
-export { fan };
 // The default ELEO carries the scale rule flat (classic build: window.ELEO.F_LO, #546).
 import ELEO from '../../packages/plots/src/index';
 const fLo: 162 = ELEO.F_LO, viaDefault: number = ELEO.frameOf(1000, 4.6);

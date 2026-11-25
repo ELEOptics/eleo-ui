@@ -8,6 +8,7 @@ import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as scale from '../../packages/plots/src/scale.js';
 import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
+const fanOf = (S, o) => globalThis.ELEOSampleAdapters.rayFan(S, o); // #1207: the fans are curve panels, sized as rayFan's old call did
 const tfOf = (S) => globalThis.ELEOSampleAdapters.throughFocus(S); // plan #1258 #1205: throughFocus takes typed props
 import { frameText as fText, frameWeight as fWeight, frameOf, layoutText as lText, layoutWeight as lWeight } from '../../packages/plots/src/scale.js';
 
@@ -56,10 +57,10 @@ test('text and weight per renderer (U18)', () => {
   for (const width of [200, 300, 1200]) checkFramed(`curve ${width}`, ELEO.curve({ ...curveInput, width }), curveBranches);
   assert.deepEqual([...curveBranches].sort(), ['above', 'below', 'inside'], 'curve widths cover the floor, the band and the knee');
 
-  // rayFan: three columns; F is one panel's frame.
+  // the fans as curve panels: three columns; F is one panel's frame.
   const fanBranches = new Set();
-  for (const width of [450, 900, 3600]) checkFramed(`rayFan ${width}`, ELEO.rayFan({ ...sample, width }), fanBranches);
-  assert.deepEqual([...fanBranches].sort(), ['above', 'below', 'inside'], 'rayFan widths cover the floor, the band and the knee');
+  for (const width of [450, 900, 3600]) checkFramed(`fan panels ${width}`, ELEO.curve(fanOf(sample, { width })), fanBranches);
+  assert.deepEqual([...fanBranches].sort(), ['above', 'below', 'inside'], 'fan widths cover the floor, the band and the knee');
 
   // layout2D: W is its width; labels and the scale bar are hidden where W / 70 is under 9.
   const L = fixture('analysis'), layoutBranches = new Set();
@@ -174,10 +175,10 @@ test("table matches each renderer's floor width", () => {
   const svgs = {
     curve: ELEO.curve({ ...curveInput, width: at('curve') }),
     bars: ELEO.bars({ categories: ['a', 'b'], series: [{ values: [2, 5] }], width: at('bars') }),
-    rayFan: ELEO.rayFan({ ...sample, width: at('rayFan', 3) }),
+    rayFan: ELEO.curve(fanOf(sample, { width: at('rayFan', 3) })),
   };
   for (const k of Object.keys(svgs)) { near(only(frames(svgs[k]), k), 162, `${k} frame at its minWidth`); floorText(svgs[k], k); }
-  assert.equal(frames(svgs.rayFan).length, 6, 'rayFan draws three columns of two rows');
+  assert.equal(frames(svgs.rayFan).length, 6, 'the fans draw three columns of two rows');
   const spot = ELEO.spot({ ...sample, width: at('spot', 3) }), tf = ELEO.throughFocus({ ...tfOf(sample), width: at('throughFocus', 5) });
   near(only(panelFrames(spot), 'spot'), 162, 'spot panel at its minWidth'); floorText(spot, 'spot');
   assert.equal(panelFrames(spot).length, 3);
@@ -232,12 +233,10 @@ test('minWidth gives the floor frame (#587)', async () => {
   }
   // A wider colorbar label costs TEXT_MIN px per text unit (0.6 a character): five characters against one.
   near(minWidth('map2D', log) - minWidth('map2D', colorbar), scale.TEXT_MIN * 0.6 * 4, 'five characters against one');
-  // Without a sample a rayFan counts one panel; the table's width otherwise.
-  // (Importing sample.js loaded the sample as the default data, and rayFan({}) would draw its three fields; unload it for the no-sample case.)
-  const T = scale.PLOT_SIZES.rayFan;
-  near(minWidth('rayFan', {}), T.minWidth + 2 * T.panelStep, 'rayFan with the sample loaded counts its three fields');
-  ELEO.useSample(null);
-  try { near(minWidth('rayFan', {}), T.minWidth, 'rayFan with no sample is one panel'); } finally { ELEO.useSample(sample); }
+  // #1207: minWidth('rayFan') falls through the curve branch: without panels it is the table's width, with the fans' panels it counts their three columns.
+  const T = scale.PLOT_SIZES.rayFan, f = globalThis.ELEOSampleAdapters.fanPanels(sample, {});
+  near(minWidth('rayFan', {}), T.minWidth, 'rayFan without panels is one panel');
+  near(minWidth('rayFan', { panels: f.panels, columns: f.columns, x: f.x, y: f.y }), T.minWidth + 2 * T.panelStep, 'rayFan with the fans panels counts its three columns');
 });
 
 // Plan #677 M3 (#790, finding 3): spot and throughFocus margins follow labelM(half), so a small half's longer y labels still leave an F_LO frame.

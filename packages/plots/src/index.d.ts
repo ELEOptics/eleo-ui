@@ -181,28 +181,6 @@ export interface ThroughFocusProps {
   grid?: boolean;
 }
 export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
-export interface RayFanProps {
-  data?: object;
-  /** Zoom window in data units, replacing the drawn ranges of every panel; an absent key keeps that axis's range. */
-  view?: PlotView;
-  /** Transverse ray aberration (µm) or optical path difference (waves). Default "tra". */
-  kind?: "tra" | "opd";
-  /** Field indexes to show. Default all. */
-  fields?: number[];
-  /** Full scale, same unit as kind. Default: next round value above the largest value. */
-  fullScale?: number;
-  /** The figure's width in px, split per column (ADR-0003: each column's frame, text size and strokes follow curve's rule). Default: columns times (`panelWidth` + 58). */
-  width?: number;
-  /** The figure's height in px. Default 314 for the default shape, scaled with the width. */
-  height?: number;
-  panelWidth?: number;
-  /** `true` keys each sample wavelength ("486.1 nm") below the fans, through `curve`'s key. Default no key. */
-  key?: boolean;
-  /** Where the `key` goes, as `curve`'s `keyAt`: "below" the fans (default) or a corner box in each panel. An unknown value throws curve's TypeError. */
-  keyAt?: PlotKeyAt;
-  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
-  grid?: boolean;
-}
 export interface Map2DProps {
   data?: object;
   /** Default "psf". */
@@ -377,7 +355,6 @@ export interface ELEO {
   glassLegend(data: RecordedLayout | LayoutSystem): string;
   spot(props?: SpotDiagramProps): string;
   throughFocus(props: ThroughFocusProps): string;
-  rayFan(props?: RayFanProps): string;
   /** A typed grid as SVG markup. */
   map2D(props: Map2DGridProps): string;
   /** The sample's PSF or wavefront drawn on a canvas. */
@@ -409,7 +386,7 @@ interface ScaleRule {
 declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
 export declare const layout2D: ELEO['layout2D'], spot: ELEO['spot'],
-  throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
+  throughFocus: ELEO['throughFocus'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
   css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
   glassLegend: ELEO['glassLegend'], fit: ELEO['fit'];
@@ -427,7 +404,7 @@ export declare function layoutText(W: number): number | null;
 export declare function layoutWeight(W: number): number;
 /** The rule's breakpoints and text limits, in px. */
 export declare const TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910;
-/** ADR-0003's margins of the curve family (curve, rayFan, bars, map2D), in text units: `L` left, `T` top, `B` bottom (the right one follows the ticks). Multiply by `frameText(F)` for px. */
+/** ADR-0003's margins of the curve family (curve, bars, map2D), in text units: `L` left, `T` top, `B` bottom (the right one follows the ticks). Multiply by `frameText(F)` for px. */
 export declare const CURVE_MARGINS: Readonly<{ L: 4.6; T: 2.6; B: 3.6 }>;
 /** One renderer's row of PLOT_SIZES, in px. */
 export interface PlotSize {

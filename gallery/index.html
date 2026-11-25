@@ -224,6 +224,7 @@
         if (k === 'spot') return ELEO.minWidth('spot', REC[tile === 'footprint' ? 'footprint' : 'spot']);
         if (k === 'map2D') return ELEO.minWidth('map2D', m && MAPS[m.dataset.map]);
         if (k === 'throughFocus' && SAMPLE) return ELEO.minWidth(k, SA.throughFocus(SAMPLE));
+        if (k === 'rayFan' && SAMPLE) return ELEO.minWidth(k, SA.rayFan(SAMPLE, { kind: 'opd', key: true }));
         return ELEO.minWidth(k);
       } catch (e) { console.error('gallery: ' + tile + ' minimum skipped:', e); return 0; }
     }

@@ -5,7 +5,7 @@ The design tokens and optical plots behind ELEO's tools, including Phos and eleo
 | Package | What it is |
 | -- | -- |
 | [`@eleoptics/tokens`](packages/tokens) | Colors for light and dark themes, colormaps, type, spacing and line weights, as `tokens.css` and as data |
-| [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, RayFan, Map2D (PSF, wavefront), CurvePlot (MTF and more), BarPlot (Seidel sums), icons and legends; plus small, exact physics helpers (`airy`, `airyRadius`, `j1`, `slabMode`, `colormap`, `mtfDiffraction`) |
+| [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, Map2D (PSF, wavefront), CurvePlot (MTF and more), BarPlot (Seidel sums), icons and legends; plus small, exact physics helpers (`airy`, `airyRadius`, `j1`, `slabMode`, `colormap`, `mtfDiffraction`) |
 | [`@eleoptics/plots-svelte`](packages/plots-svelte) | Svelte 5 components around `@eleoptics/plots`: PlotCard, Layout2D, Map2D and the rest, redrawn on a theme or palette change |
 
 ## Use it
@@ -64,7 +64,7 @@ To try an unpublished change in another project, link it: `npm link` in `package
 ### Changing things
 
 - **A token:** edit `packages/tokens/src/tokens.json`, keeping every color in both themes and each text color at 4.5:1 on its ground. The renderers read tokens as CSS variables, so most token changes need no renderer change, except the field order: it is pinned per palette in `packages/plots/src/plots.css` and checked against the tokens, so a field token change reruns that check.
-- **A renderer:** edit its module in `packages/plots/src/`: `curve.js`, `bars.js`, `legend.js`, `spot.js`, `fan.js` (`rayFan`), `map2d.js`, `layout3dThree.js` (`layout3D`; `layout3d.js` is its entry), `layout2d.js` (`layout2D`) or `icons.js`. The shared helpers live in `common.js` (`STANDARD`, `NS`, `idx`, `svg`), `data.js`, `color.js`, `axis.js`, `limits.js` (limit lines and bands, shared by `curve` and `bars`), `scale.js` (the scale rule and `PLOT_SIZES`), `sizes.js` (`minWidth(name, props)`, the narrowest figure of a call; separate because `scale.js` is imported by `map2d.js` and `curve.js`) and `fit.js` (`fit`, the redraw on a width change); `renderers.js` only assembles the API. Then check the gallery in both themes. A new renderer also gets a gallery tile, a type in `index.d.ts` and a Svelte wrapper.
+- **A renderer:** edit its module in `packages/plots/src/`: `curve.js`, `bars.js`, `legend.js`, `spot.js`, `map2d.js`, `layout3dThree.js` (`layout3D`; `layout3d.js` is its entry), `layout2d.js` (`layout2D`) or `icons.js`. The shared helpers live in `common.js` (`STANDARD`, `NS`, `idx`, `svg`), `data.js`, `color.js`, `axis.js`, `limits.js` (limit lines and bands, shared by `curve` and `bars`), `scale.js` (the scale rule and `PLOT_SIZES`), `sizes.js` (`minWidth(name, props)`, the narrowest figure of a call; separate because `scale.js` is imported by `map2d.js` and `curve.js`) and `fit.js` (`fit`, the redraw on a width change); `renderers.js` only assembles the API. Then check the gallery in both themes. A new renderer also gets a gallery tile, a type in `index.d.ts` and a Svelte wrapper.
 - **Every PR that changes a package** adds a changeset (`npx changeset`): patch for fixes, minor for new renderers, props or tokens, major for anything that breaks a consumer. While a package's major is 0, a breaking change is a minor instead, and its changeset starts with **Breaking:** and says how to migrate.
 
 ## Release

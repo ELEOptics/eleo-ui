@@ -15,7 +15,7 @@ Object.assign(ELEO, physics, scale, { minWidth, interact, readout, standalone, p
 
 export default ELEO;
 export const {
-  layout2D, spot, throughFocus, rayFan, map2D, curve, bars, legend, icon, icons, gradient, fmt, css, maps, useSample, layoutBounds, glassLegend, fit,
+  layout2D, spot, throughFocus, map2D, curve, bars, legend, icon, icons, gradient, fmt, css, maps, useSample, layoutBounds, glassLegend, fit,
 } = ELEO;
 export * from './physics.js';
 export * from './scale.js';

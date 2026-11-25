@@ -24,7 +24,7 @@ test('curve kind', () => {
   assert.throws(() => ELEO.curve({ kind: 'chromaticFocus' }), removed('curve: kind'));
 });
 
-test('rayFan', { skip: SKIP }, () => {
+test('rayFan', () => {
   assert.equal('rayFan' in ELEO, false, 'ELEO.rayFan is gone');
 });
 

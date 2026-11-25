@@ -1,6 +1,6 @@
 // Plan #804 M1 (#809): interact, InteractOptions, HoverEvent and readout compile; a bad option or axis spec does not.
 // oracle: spec packages/plots/src/interact.js (interact, readout)
-import type { CurvePlotProps, HoverEvent, Layout2DProps, InteractOptions, InteractStop, Map2DGridProps, PlotView, RayFanProps, ReadoutAxis, SelectEvent, SpotPanelsProps, SpotView, ThroughFocusProps, View } from '../../packages/plots/src/index';
+import type { CurvePlotProps, HoverEvent, Layout2DProps, InteractOptions, InteractStop, Map2DGridProps, PlotView, ReadoutAxis, SelectEvent, SpotPanelsProps, SpotView, ThroughFocusProps, View } from '../../packages/plots/src/index';
 import ELEO, { interact, readout } from '../../packages/plots/src/index';
 
 declare const host: HTMLElement;
@@ -87,11 +87,9 @@ const lacksReset: () => void = interact(host); lacksReset.reset();
 // @ts-expect-error onview takes a view or null, not a string
 interact(host, { onview: (v: string) => {} });
 const curveView: PlotView = { x: [0, 5], y: [-1, 1] };
-const xOnly: PlotView = { x: [0, 5] };
 const spotView: SpotView = { center: [0, 0], half: 4 };
 const anyView: View = spotView;
 const curveProps: CurvePlotProps = { series: [], x: { range: [0, 1] }, y: { range: [0, 1] }, view: curveView };
-const fanProps: RayFanProps = { view: xOnly };
 const spotProps: SpotPanelsProps = { panels: [], view: spotView };
 const tfProps: ThroughFocusProps = { defocus: [0], rows: [], view: spotView };
 const mapProps: Map2DGridProps = { values: [[1]], extent: [0, 1, 0, 1], view: curveView };

@@ -11,4 +11,10 @@ throughFocus({ defocus: [0], rows: [], data: {} });
 // #1206 curve kind: a `kind` call is not a call any more.
 // @ts-expect-error curve takes series or panels, not an analysis kind
 curve({ kind: 'mtf' });
+// #1207 rayFan: not exported, and RayFanProps with it.
+// @ts-expect-error rayFan was removed
+import { rayFan } from '../../packages/plots/src/index';
+// @ts-expect-error RayFanProps was removed
+import type { RayFanProps } from '../../packages/plots/src/index';
+export type Gone = [typeof rayFan, RayFanProps];
 export {};
