@@ -41,9 +41,6 @@ const gridCurve: string = curve({ series: [s], grid: false });
 const gridPanels: string = curve({ panels: [{ series: [s] }], grid: false });
 const gridFan: string = rayFan({ grid: false });
 const gridBars: string = bars({ categories: ['a'], series: [{ values: [1] }], grid: false });
-const gridKind: string = curve({ kind: 'mtf', grid: false });
 // @ts-expect-error grid is a boolean
 curve({ series: [s], grid: 'off' });
-// @ts-expect-error grid is a boolean on the kind call too
-curve({ kind: 'mtf', grid: 'off' });
-export { gridCurve, gridPanels, gridFan, gridBars, gridKind };
+export { gridCurve, gridPanels, gridFan, gridBars };

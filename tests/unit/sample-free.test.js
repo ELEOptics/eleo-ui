@@ -20,7 +20,7 @@ test('throughFocus', () => {
   assert.doesNotThrow(() => ELEO.throughFocus({ defocus: [0], rows: [{ title: 'a', series: [[{ points: [[1, 2]] }]] }], unit: 'µm' }));
 });
 
-test('curve kind', { skip: SKIP }, () => {
+test('curve kind', () => {
   assert.throws(() => ELEO.curve({ kind: 'chromaticFocus' }), removed('curve: kind'));
 });
 

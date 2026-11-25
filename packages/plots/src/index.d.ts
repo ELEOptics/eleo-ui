@@ -308,7 +308,6 @@ export interface CurveSeriesProps {
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
-  kind?: never;
   panels?: never;
 }
 /** Panels call: a grid of plots on one shared scale, the axis labels drawn once. */
@@ -329,24 +328,10 @@ export interface CurvePanelsProps {
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
-  kind?: never;
   series?: never;
-}
-/** Kind call: the analysis kind of the sample (or `data`), drawn through the typed path. */
-export interface CurveKindProps {
-  data?: object;
-  kind: "mtf" | "fieldCurvature" | "distortion" | "chromaticFocus";
-  /** Drawing width in px, as for a typed call (ADR-0003). Default 460. */
-  width?: number;
-  height?: number;
-  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
-  grid?: boolean;
-  series?: never;
-  panels?: never;
-  limits?: never;
 }
 /** `view` overrides the drawn x and y ranges of every panel (an absent key keeps that axis's range); `interact`'s `onview` sends it. */
-export type CurvePlotProps = (CurveSeriesProps | CurvePanelsProps | CurveKindProps) & { view?: PlotView };
+export type CurvePlotProps = (CurveSeriesProps | CurvePanelsProps) & { view?: PlotView };
 /** One bar series: a value per category, one palette slot. There is no color option (ADR-0001). */
 export interface BarSeries {
   /** One value per category, in `y` units; the bar rises from 0, so a negative value hangs below it. A null (or any value that is not a finite number) is a gap: no bar, no share of the total or the range. A series may be shorter than `categories`. */

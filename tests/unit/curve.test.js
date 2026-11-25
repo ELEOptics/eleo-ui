@@ -197,36 +197,6 @@ test('series round trip', () => {
   assert.ok(!/NaN|Infinity/.test(ELEO.curve({ series: [], x: { label: 'a' }, y: { label: 'b' } })), 'no series draws finite numbers');
 });
 
-// Plan #162, issue #173: each kind is an adapter over the typed path.
-// oracle: metamorphic (curve({kind}) equals curve of its adapter's output) plus the sample data (adapter points are the sample's)
-test("kind draws its adapter's series", async () => {
-  await import('../../packages/plots/src/sample.js');
-  const { curveAdapters } = await import('../../packages/plots/src/curve.js');
-  const { data } = await import('../../packages/plots/src/data.js');
-  const D = data({});
-  const pick = {
-    mtf: () => [D.mtf.diff.map((v, i) => [i * D.mtf.df, v]), ...D.mtf.fields.flatMap((f) => [f.T, f.S].map((a) => a.map((v, i) => [i * D.mtf.df, v])))],
-    fieldCurvature: () => [D.fieldCurv.map((r) => [r[1], r[0]]), D.fieldCurv.map((r) => [r[2], r[0]])],
-    distortion: () => [D.distortion.map((r) => [r[1], r[0]])],
-    chromaticFocus: () => [D.chromFocus.map((r) => [r[1], r[0]])],
-  };
-  for (const kind of Object.keys(pick)) {
-    const a = curveAdapters[kind](D);
-    assert.deepEqual(a.series.map((s) => s.points), pick[kind](), `${kind}: the adapter's points are the sample's`);
-    for (const [width, height] of SIZES) {
-      assert.equal(ELEO.curve({ kind, width, height }), ELEO.curve({ ...a, width, height }), `${kind} ${width}px`);
-    }
-  }
-  assert.deepEqual(curveAdapters.mtf(D).series.map((s) => s.role), ['reference', ...D.mtf.fields.flatMap(() => ['tangential', 'sagittal'])]);
-});
-
-// oracle: metamorphic (an unknown kind equals chromaticFocus)
-test('unknown kind draws chromatic focus', async () => {
-  await import('../../packages/plots/src/sample.js');
-  const want = ELEO.curve({ kind: 'chromaticFocus' });
-  for (const kind of ['toString', 'nope']) assert.equal(ELEO.curve({ kind }), want, kind);
-});
-
 test('aria-label escapes labels once', () => {
   const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], role: 'reference' }], x: { label: 'S&P', range: [0, 1] }, y: { label: 'Modulus', range: [0, 1] } });
   const label = /aria-label="([^"]*)"/.exec(svg)[1];
@@ -590,7 +560,7 @@ test('limits draw single and paneled', () => {
     svg = ELEO.curve({ series, x, y, limits: [{ y: [2, 9], label: 'gone' }, { x: [500, 600], label: 'gone' }], width, height });
     assert.ok(!svg.includes('gone'), 'no label for a band outside the range');
   }
-  assert.throws(() => ELEO.curve({ kind: 'mtf', limits }), { name: 'TypeError', message: 'curve: limits need series or panels' });
+  assert.throws(() => ELEO.curve({ limits }), { name: 'TypeError', message: 'curve: limits need series or panels' });
   assert.ok(!ELEO.curve({ series, x, y }).includes('eleo-limit'), 'no limits, no marks');
   assert.throws(() => ELEO.curve({ series, x, y, limits: [{ y: [0.5, 0.5] }] }), { name: 'TypeError', message: 'curve: a band needs two distinct ends' });
   assert.throws(() => ELEO.curve({ series, x, y, limits: [{ x: [3, 3] }] }), { name: 'TypeError', message: 'curve: a band needs two distinct ends' });
@@ -940,12 +910,12 @@ test('grid false', async () => {
     assert.ok(off.includes('<rect') && off.length < on.length, name + ': frame stays');
   }
   await import('../../packages/plots/src/sample.js');
-  for (const kind of ['mtf', 'fieldCurvature', 'distortion', 'chromaticFocus']) {
-    const on = curve({ kind }), off = curve({ kind, grid: false });
-    assert.equal(curve({ kind, grid: true }), on, kind + ': grid: true is the default');
-    assert.ok(count(on) > 0 && count(off) === 0, kind + ': no grid lines with grid: false');
-    assert.deepEqual(texts(off), texts(on), kind + ': tick text unchanged');
-  }
+  await import('../../gallery/sample-adapters.js'); // a classic script: assigns globalThis.ELEOSampleAdapters
+  const focus = globalThis.ELEOSampleAdapters.chromaticFocus(ELEO.sample);
+  const on = curve(focus), off = curve({ ...focus, grid: false });
+  assert.equal(curve({ ...focus, grid: true }), on, 'chromaticFocus: grid: true is the default');
+  assert.ok(count(on) > 0 && count(off) === 0, 'chromaticFocus: no grid lines with grid: false');
+  assert.deepEqual(texts(off), texts(on), 'chromaticFocus: tick text unchanged');
   const fan = rayFan({ grid: false }), fanOn = rayFan({});
   assert.ok(count(fanOn) > 0 && count(fan) === 0, 'rayFan: no grid lines with grid: false');
   assert.deepEqual(texts(fan), texts(fanOn), 'rayFan: tick text unchanged');

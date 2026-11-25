@@ -21,7 +21,7 @@ const spaced = (t) => /^matrix\((?:-?[\d.]+(?:e-?\d+)? ){5}-?[\d.]+(?:e-?\d+)?\)
 const dataGroups = (svg) => [...svg.matchAll(/<g\b[^>]*?transform="(matrix\([^"]*\))"/g)].map((m) => m[1]);
 
 for (const [name, draw] of [
-  ['curve', () => ELEO.curve({})],
+  ['curve', () => ELEO.curve({ series: [{ points: [[0, 0], [1, 1]] }] })],
   ['layout2D', () => ELEO.layout2D({})],
   ['spot', () => ELEO.spot()],
 ]) {

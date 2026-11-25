@@ -126,10 +126,7 @@ test('standard order is rule R under normal vision', (t) => {
     'spot field': ELEO.spot({ colorBy: 'field' }),
     throughFocus: ELEO.throughFocus(globalThis.ELEOSampleAdapters.throughFocus(ELEO.sample)), // plan #1258 #1205: typed
     rayFan: ELEO.rayFan(),
-    'curve mtf': ELEO.curve({ kind: 'mtf' }),
-    'curve fieldCurvature': ELEO.curve({ kind: 'fieldCurvature' }),
-    'curve distortion': ELEO.curve({ kind: 'distortion' }),
-    'curve chromaticFocus': ELEO.curve({ kind: 'chromaticFocus' }),
+    'curve chromaticFocus': ELEO.curve(globalThis.ELEOSampleAdapters.chromaticFocus(ELEO.sample)), // plan #1258 #1206: typed
     'legend field': ELEO.legend('field', 8),
     'legend wavelength': ELEO.legend('wavelength', 8),
   };

@@ -11,7 +11,7 @@ const typed: CurvePlotProps = {
   width: 460,
 };
 const html: string = curve(typed);
-curve({ kind: 'mtf', width: 300 });
+curve({ series: [mtf], width: 300 });
 curve({ series: [{ points: [[0, 0]] }] });
 
 // @ts-expect-error roles are tangential, sagittal or reference
@@ -24,7 +24,7 @@ const t: number = frameText(300), w: number = frameWeight(300), f: number = fram
 // @ts-expect-error layoutText can be null (hidden labels)
 const shown: number = layoutText(500);
 export { html, badRole, t, w, f, lt, lw, floor, shown };
-const stopFit: () => void = fit(document.body, (width: number) => { document.body.innerHTML = curve({ kind: 'mtf', width }); });
+const stopFit: () => void = fit(document.body, (width: number) => { document.body.innerHTML = curve({ series: [mtf], width }); });
 export { stopFit };
 // rayFan takes the figure's width and height in px (ADR-0003, #537).
 const fan: string = rayFan({ width: 900, height: 300 });
