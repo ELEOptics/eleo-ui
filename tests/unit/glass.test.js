@@ -164,3 +164,19 @@ test('fills fall back to the crown and flint tokens', () => {
     }
   }
 });
+
+// Issue #139: names are keyed raw, so "N-BK7" and "N-BK7 " were two glasses with two fills and two legend keys that read
+// the same. A padded name is rejected with the unknown-glass error (layout2D's "unknown glass string throws" holds the
+// other shapes). oracle: spec the issue's rule, a name is accepted only when it equals its trim
+test('unknown glass string throws', () => {
+  const L = JSON.parse(readFileSync(new URL('../fixtures/layouts/tolerance.json', import.meta.url)));
+  const lens = L.surfaces.findIndex((s) => s.glass);
+  const withGlass = (glass) => ({ ...L, surfaces: L.surfaces.map((s, k) => (k === lens ? { ...s, glass } : s)) });
+  const BK7 = { name: 'N-BK7', nd: 1.5168, vd: 64.17 };
+  for (const name of [' N-BK7', 'N-BK7 ', ' N-BK7 ', 'N-BK7\n', '\tN-BK7']) {
+    const glass = { ...BK7, name };
+    assert.throws(() => glassLegend(withGlass(glass)),
+      { message: `glassLegend: surface ${lens} glass ${JSON.stringify(glass)} is not crown, flint, null or {name, nd, vd}` }, JSON.stringify(name));
+  }
+  assert.doesNotThrow(() => glassLegend(withGlass(BK7)), 'a trimmed name draws');
+});

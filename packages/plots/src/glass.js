@@ -50,7 +50,7 @@ export function drawnGlasses(surfaces, fn = 'layout2D') {
   surfaces.forEach((s, i) => {
     const g = s.glass;
     if (g == null || g === 'crown' || g === 'flint') return;
-    if (typeof g === 'object' && typeof g.name === 'string' && g.name.trim() && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
+    if (typeof g === 'object' && typeof g.name === 'string' && g.name.trim() && g.name === g.name.trim() && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
     throw new Error(`${fn}: surface ${i} glass ${show(g)} is not crown, flint, null or {name, nd, vd}`);
   });
   return surfaces.filter((s, i) => s.glass && typeof s.glass === 'object' && surfaces[i + 1]).map((s) => s.glass);
