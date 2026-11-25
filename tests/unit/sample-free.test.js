@@ -75,7 +75,7 @@ test('no tree reference', () => {
   });
   // Files that name the removal on purpose: the type test of the removed call, the release test of the README migration table, the generated CHANGELOGs (history).
   const named = new Set(['tests/types/removed.ts', 'tests/unit/release.test.js', 'packages/plots/CHANGELOG.md', 'packages/plots-svelte/CHANGELOG.md']);
-  const name = /(?<![\w.-])(?:sample|data)\.js\b|useSample|ELEO\.sample|eleo-plots-sample/;
+  const name = /(?<![\w.-])(?:sample|data)\.js\b|useSample|ELEO\.sample|eleo-plots-sample|\bfan\.js\b|\bfan\.test\.js\b|CurveKindProps|RayFanProps|SpotSampleProps|curveAdapters/;
   const hits = ['packages', 'gallery', 'scripts', 'tests'].flatMap((d) => walk(join(root, d)))
     .filter((f) => f !== self && !named.has(relative(root, f)) && /\.(js|mjs|ts|svelte|html|json|md|css)$/.test(f) && name.test(readFileSync(f, 'utf8')))
     .map((f) => relative(root, f));

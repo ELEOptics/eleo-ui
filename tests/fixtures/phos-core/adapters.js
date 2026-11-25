@@ -135,7 +135,7 @@
         aperture: { x: 0, y: 0, r: rec.pupilRadius }, value: { label: 'OPD', unit: 'waves' }
       };
     },
-    /* fans(recording) -> { panels, columns, x, y, key } (key: `<nm> nm` per wavelength of the first source, index = wavelength) in the shape of fanPanels (packages/plots/src/fan.js): row T (the y fan, Py) then row S
+    /* fans(recording) -> { panels, columns, x, y, key } (key: `<nm> nm` per wavelength of the first source, index = wavelength) in the shape of fanPanels (fanPanels, now in gallery/sample-adapters.js): row T (the y fan, Py) then row S
        (the x fan, Px), a column per field titled `<angle>° · Py`, a series per wavelength (index = wavelength) of [pupil, error in µm]
        (the recording is in mm) minus the fan's chief-ray error (the sample at rec.referenceWavelengthNm with the smallest |pupil|, under 1e-9, so that wavelength's fan crosses 0 at pupil 0 and
        the others keep their lateral-colour offset); a chief ray that is not Alive, or a reference not recorded, throws a TypeError naming the field.

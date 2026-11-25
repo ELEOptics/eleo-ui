@@ -21,9 +21,9 @@ test('SVG renderers draw the base markup', () => {
   for (const [name, draw] of Object.entries(now)) assert.equal(bare(draw()), bare(baseline[name]), name);
 });
 // Plan 162 M1: curve and legend moved verbatim to curve.js and legend.js; this guard covers the moved modules.
-// Plan 162 M1: spot, throughFocus and rayFan moved verbatim to spot.js and fan.js; the guard covered them too.
+// Plan 162 M1: spot, throughFocus and rayFan moved verbatim to spot.js and a fan file (since deleted, plan #1258); the guard covered them too.
 // Plan 232 M2 (#240): spot now draws through its typed panels and left the baseline; spot.test.js checks it against sample.json.
-// Plan 232 M1 (#235): rayFan now draws through curve's panels and left the baseline; fan.test.js checks it against sample.json.
+// Plan 232 M1 (#235): rayFan now drew through curve's panels and left the baseline (its fan file and test were deleted in plan #1258).
 // Plan 162 M1: map2D, layout3D and the icon set moved verbatim to map2d.js, layout3d.js and icons.js; the guard covers them too.
 
 // Plan #642 O3 (CR #653): the four recorded-layout entries are the recordings with `status` deleted, so the base stays the legacy drawing.

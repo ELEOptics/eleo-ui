@@ -1139,8 +1139,8 @@ test('map tiles', async ({ page }) => {
 // Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O5 (issue #697; #701 unskips). layout2D keys its fans or glasses in the SVG, with no HTML footer.
 // Contract: every key entry's label is a <text data-key> in the figure's SVG (as in 'curve keys'), in the order of the `key` list; CR #728: the glass key joins the field key in one row.
 // oracle: closed-form ADR-0003 (layoutText above) for the key text size, within 1%, at 1440, 1100, 700 px; at a width where layoutText is null (the labels are hidden below 630 px) the tile has no key text;
-// reference: the key texts equal the text of legend('field' | 'wavelength') and glassLegend(fixture), in order (the glasses tile: exactly the field entries, then the glass entries, all in one row at 1440).
-// The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
+// reference: the key texts equal the text of legend(kind, values) for 'field' | 'wavelength' and glassLegend(fixture), in order (the glasses tile: exactly the field entries, then the glass entries, all in one row at 1440).
+// The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (legend(kind) without values is gone; the keys come from this recording's values); the same source #699 passes as `key`.
 const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
 test('layout keys',async ({ page }) => {
   await page.goto('/gallery/');

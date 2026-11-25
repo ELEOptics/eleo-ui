@@ -339,7 +339,7 @@ test('x tick labels stay inside the viewBox', () => {
 // whose `M`/`L` data starts a new subpath after each null.
 test('sample fans round trip through panels (U6)', async () => {
   const { default: sample } = await import('../../packages/plots/src/sample.json', { with: { type: 'json' } });
-  // The sample holds no null, so a second pass runs on a clone with one interior value of each fan nulled (as the removed fan.test.js did).
+  // The sample holds no null, so a second pass runs on a clone with one interior value of each fan nulled (as the removed fan test did).
   const nulled = structuredClone(sample);
   nulled.fans[1].T[0][3] = null;
   nulled.opdFans[1].T[0][3] = null;

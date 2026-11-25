@@ -17,7 +17,7 @@
     },
     /* fanPanels(S, { kind, fields, fullScale }) -> { panels, columns, x, y }: the sample's ray fans ('tra', the default) or OPD fans ('opd') as curve panels: row T (Py)
        then row S (Px), a column per picked field (default all), one series per wavelength on pupil -1..1. The y range is symmetric at the next nice step
-       over the largest |value|, or `fullScale`. Copied from fanPanels of packages/plots/src/fan.js, which dies in #1207. */
+       over the largest |value|, or `fullScale`. Moved here from the fan renderer deleted in plan #1258. */
     fanPanels: function (S, o) {
       o = o || {};
       var kind = o.kind === 'opd' ? 'opd' : 'tra', src = kind === 'opd' ? S.opdFans : S.fans, pick = o.fields || src.map(function (_, i) { return i; });
@@ -39,7 +39,7 @@
         y: kind === 'opd' ? { label: 'Optical path difference', unit: 'waves', range: [-nice, nice] } : { label: 'Transverse ray aberration', unit: 'µm', range: [-nice, nice] }
       };
     },
-    /* rayFan(S, { kind, fields, fullScale, key, width, height, panelWidth, keyAt, grid, view }) -> the ELEO.curve props of rayFan's old call (packages/plots/src/fan.js): fanPanels
+    /* rayFan(S, { kind, fields, fullScale, key, width, height, panelWidth, keyAt, grid, view }) -> the ELEO.curve props of rayFan's old call (the rayFan renderer deleted in plan #1258): fanPanels
        with rayFan's size and key line. `width` is the figure's width in px; without it the figure is columns × (panelWidth + 58) wide (panelWidth default 170) and its height is
        that figure's 314 for the same shape, scaled with the width and rounded to whole px; `height` overrides. `key: true` keys each sample wavelength ("486.1 nm") below the fans. */
     rayFan: function (S, o) {

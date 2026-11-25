@@ -44,8 +44,8 @@ export function layoutWeight(W) {
 /* The size table of ADR-0003, from the functions above and the renderers' margins, so it cannot drift.
    Per renderer: `width` and `aspect` (height / width, null where the height follows the content) of its default drawing of one panel,
    `minWidth` the narrowest figure of one panel (its plot frame at F_LO, text at 9 px), and `panelStep` the width each further panel adds at that floor
-   (rayFan's columns, spot's panels with their 22 px gap, throughFocus's columns with their 10 px gap, and its row label of 4.2 text units plus 2.4 for the y labels before the first; 0 for a single plot). A figure of n panels needs
-   minWidth + (n - 1) * panelStep. The curve family (curve, rayFan, bars, map2D) has 4.6 text units of margin on the left and, at least, 1.2 on the right;
+   (the fan columns of curve (PLOT_SIZES.rayFan), spot's panels with their 22 px gap, throughFocus's columns with their 10 px gap, and its row label of 4.2 text units plus 2.4 for the y labels before the first; 0 for a single plot). A figure of n panels needs
+   minWidth + (n - 1) * panelStep. The curve family (curve, bars, map2D) has 4.6 text units of margin on the left and, at least, 1.2 on the right;
    wider tick labels, or map2D's colorbar, widen the right margin and need TEXT_MIN px more per text unit. */
 /* ADR-0003's margins of the curve family, in text units: the one place they are written. The right margin comes from the ticks (at least 1.2). */
 export var CURVE_MARGINS = Object.freeze({ L: 4.6, T: 2.6, B: 3.6 });

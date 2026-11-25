@@ -160,7 +160,7 @@ test('spot and fan callbacks', async () => {
 });
 
 // Plan #804 M2 (issue #821). oracle: closed-form (as 'spot and fan callbacks': a callback goes to the hover action, never to the renderer; the action runs in the browser, tests/svelte.spec.js).
-// BarPlot's axes are its y spec; Map2D's typed div gets the hover action with its `values` and x/y specs, and its sample canvas none; Layout2D's are mm on both axes.
+// BarPlot's axes are its y spec; Map2D's typed div gets the hover action with its `values` and x/y specs, and no canvas (the sample canvas is gone); Layout2D's are mm on both axes.
 test('bar, map and layout callbacks', async () => {
   const { compile } = await import('svelte/compiler');
   const { render } = await import('svelte/server');
@@ -187,7 +187,7 @@ test('bar, map and layout callbacks', async () => {
     assert.match(read('Map2D'), /use:hover=\{\{[^}]*values/, 'Map2D does not pass its values to the hover action');
     assert.match(read('Map2D'), /axes: \{.*\bvalue: .*\(props\)\.value/, 'Map2D axes do not carry its value axis');
     assert.match(read('Layout2D'), /axes: \{ x: \{ unit: 'mm' \}, y: \{ unit: 'mm' \} \}/, 'Layout2D axes are not mm');
-    // the sample canvas is not hovered: the action sits on the typed div only
+    // no canvas takes the hover action: it sits on the typed div only
     assert.doesNotMatch(read('Map2D'), /<canvas[^>]*use:hover/, 'the sample canvas takes the hover action');
   } finally {
     rmSync(dir, { recursive: true, force: true });
