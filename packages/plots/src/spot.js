@@ -164,12 +164,13 @@ export function throughFocus(o) {
   DZ.forEach(function (dz, j) { g += '<text class="eleo-tick"' + sty + ' x="' + r2(lw + j * (B + gap) + B / 2) + '" y="' + r2(1.2 * t) + '" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + un + "</text>"; });
   ROWS.forEach(function (row, i) {
     if (!row || typeof row !== "object") throw new TypeError("throughFocus: rows[" + i + "] is not an object");
+    if (row.series != null && !Array.isArray(row.series)) throw new TypeError("throughFocus: rows[" + i + "].series is not an array");
     var oy = r2(th + i * pitch);
     g += '<text class="eleo-val"' + sty + ' x="0" y="' + r2(oy + B / 2 + 0.4 * t) + '">' + esc(row.title == null ? "" : row.title) + "</text>";
     DZ.forEach(function (dz, j) {
       var ser = row.series && row.series[j] != null ? row.series[j] : [], n = 0, q2 = 0;
       if (!Array.isArray(ser)) throw new TypeError("throughFocus: rows[" + i + "].series[" + j + "] is not an array of series");
-      ser.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { n++; q2 += q[0] * q[0] + q[1] * q[1]; } }); });
+      ser.forEach(function (se, k) { if (!se || typeof se !== "object") throw new TypeError("throughFocus: rows[" + i + "].series[" + j + "][" + k + "] is not a series"); (se.points || []).forEach(function (q) { if (live(q)) { n++; q2 += q[0] * q[0] + q[1] * q[1]; } }); });
       var ox = r2(lw + j * (B + gap));
       g += spotPanel(ox, oy, B, half, { series: ser, grid: o.grid !== false, wt: wt, panel: i * cols + j, cell: i + "," + j, frame: dz === 0 ? "var(--ink-subtle)" : "var(--plot-grid)", labels: { x: i === rows - 1, y: j === 0 }, t: t, view: vw });
       g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + (i === rows - 1 ? 2.5 : 1.3) * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + (n ? Math.sqrt(q2 / n) : 0).toFixed(1) + "</tspan></text>";
