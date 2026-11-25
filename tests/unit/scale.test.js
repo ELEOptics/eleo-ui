@@ -5,7 +5,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ELEO from '../../packages/plots/src/renderers.js';
-import sample from '../../packages/plots/src/sample.js';
 import * as scale from '../../packages/plots/src/scale.js';
 import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
 // plan #1258 #1208: spot takes typed panels; the sample's spots as the call the old sample spot drew (a series per wavelength or per field, centroid-referenced, µm).
@@ -13,6 +12,8 @@ const sampleSpot = (S, { colorBy, ...o } = {}) => ({ panels: S.spots.map((per, f
 const fanOf = (S, o) => globalThis.ELEOSampleAdapters.rayFan(S, o); // #1207: the fans are curve panels, sized as rayFan's old call did
 const tfOf = (S) => globalThis.ELEOSampleAdapters.throughFocus(S); // plan #1258 #1205: throughFocus takes typed props
 import { frameText as fText, frameWeight as fWeight, frameOf, layoutText as lText, layoutWeight as lWeight } from '../../packages/plots/src/scale.js';
+const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+
 
 const TOL = 0.01; // px
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));

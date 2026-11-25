@@ -19,7 +19,6 @@
     "aurora"
   ],
   "sideEffects": [
-    "./dist/sample.js",
     "./dist/eleo-*.js",
     "*.css"
   ],
@@ -29,10 +28,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./sample": {
-      "types": "./dist/sample.d.ts",
-      "default": "./dist/sample.js"
     },
     "./physics": {
       "types": "./dist/physics.d.ts",
@@ -44,7 +39,6 @@
     },
     "./plots.css": "./dist/plots.css",
     "./eleo-plots.js": "./dist/eleo-plots.js",
-    "./eleo-plots-sample.js": "./dist/eleo-plots-sample.js",
     "./eleo-physics.js": "./dist/eleo-physics.js",
     "./eleo-layout.js": "./dist/eleo-layout.js",
     "./eleo-layout3d.js": "./dist/eleo-layout3d.js"

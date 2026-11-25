@@ -903,9 +903,7 @@ test('grid false', async () => {
     assert.deepEqual(texts(off), texts(on), name + ': tick text unchanged');
     assert.ok(off.includes('<rect') && off.length < on.length, name + ': frame stays');
   }
-  await import('../../packages/plots/src/sample.js');
-  await import('../../gallery/sample-adapters.js'); // a classic script: assigns globalThis.ELEOSampleAdapters
-  const focus = globalThis.ELEOSampleAdapters.chromaticFocus(ELEO.sample);
+  const focus = globalThis.ELEOSampleAdapters.chromaticFocus(SAMPLE);
   const on = curve(focus), off = curve({ ...focus, grid: false });
   assert.equal(curve({ ...focus, grid: true }), on, 'chromaticFocus: grid: true is the default');
   assert.ok(count(on) > 0 && count(off) === 0, 'chromaticFocus: no grid lines with grid: false');

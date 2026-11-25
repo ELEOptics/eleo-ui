@@ -42,7 +42,7 @@ const drawn = async (page, boxes) => {
       BarPlot: { categories: ['1', '2'], series: [{ values: [0.012, -0.004], index: 0, label: 'SI' }] },
       Map2D: { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1] },
       SpotDiagram: { panels: [{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }], airy: 2.4 }], unit: 'µm' },
-      Layout2D: { data: window.ELEOSampleAdapters.layouts(window.ELEO.sample).field }, // plan #1258 #1210: a recorded layout, no sample default
+      Layout2D: { data: window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field }, // plan #1258 #1210: a recorded layout, no sample default
     };
     const settle = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done))));
     const out = {};
@@ -90,7 +90,7 @@ test('Layout2D in a narrow box draws its default', async ({ page }) => {
       const host = document.createElement('div');
       host.style.width = `${box}px`;
       document.body.append(host);
-      mount(Layout2D, { target: host, props: { data: window.ELEOSampleAdapters.layouts(window.ELEO.sample).field } });
+      mount(Layout2D, { target: host, props: { data: window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field } });
       await settle();
       const svg = host.querySelector('svg');
       out[box] = svg ? +svg.getAttribute('viewBox').split(/\s+/)[2] : null;
@@ -150,8 +150,8 @@ const mountHarness = async (page, id, name, props, controlled = false) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.addScriptTag({ content: await bundle(`import ViewHarness from ${JSON.stringify(viewHarness)};\nwindow.WRAPPERS.ViewHarness = ViewHarness;`) });
-  await page.evaluate(([id, name, props, controlled]) => {
-    if (props.data === 'sample layout') props = { ...props, data: window.ELEOSampleAdapters.layouts(window.ELEO.sample).field };
+  await page.evaluate(async ([id, name, props, controlled]) => {
+    if (props.data === 'sample layout') props = { ...props, data: window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field };
     const host = document.createElement('div');
     host.id = id;
     host.style.width = '600px';
@@ -185,7 +185,7 @@ for (const [name, { props, patch }] of Object.entries(ZOOMABLE)) {
     await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
     const zoomed = await ticks();
     // new data with the same extent: the default view would redraw as `first`
-    await page.evaluate((patch) => window.setProps(patch.data === 'sample layout copy' ? { data: { ...window.ELEOSampleAdapters.layouts(window.ELEO.sample).field } } : patch), patch);
+    await page.evaluate(async (patch) => window.setProps(patch.data === 'sample layout copy' ? { data: { ...window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field } } : patch), patch);
     await page.waitForTimeout(100);
     expect(axisText(await ticks())).toBe(axisText(zoomed));
     expect(axisText(await ticks())).not.toBe(axisText(first));

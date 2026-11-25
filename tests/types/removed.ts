@@ -39,5 +39,8 @@ layout2D({ data: { layout: { surfaces: [], rays: [] } } });
 glassLegend({ layout: { surfaces: [], rays: [] } });
 // @ts-expect-error LayoutSystem was removed
 import type { LayoutSystem } from '../../packages/plots/src/index';
-export type Gone = [typeof rayFan, RayFanProps, SpotSampleProps, Map2DProps, LayoutSystem];
+// #1212 useSample: not exported.
+// @ts-expect-error useSample was removed
+import { useSample } from '../../packages/plots/src/index';
+export type Gone = [typeof rayFan, RayFanProps, SpotSampleProps, Map2DProps, LayoutSystem, typeof useSample];
 export {};

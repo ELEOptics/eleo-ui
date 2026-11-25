@@ -288,10 +288,6 @@ export interface BarPlotProps {
   height?: number;
 }
 export interface ELEO {
-  /** The sample system, once "@eleoptics/plots/sample" is imported; null before. */
-  sample: object | null;
-  /** Make `sample` the default data for every renderer. "@eleoptics/plots/sample" calls this. */
-  useSample(sample: object): void;
   /** Read a token from CSS: css(el, "accent"). */
   css(el: Element | null, name: string): string;
   maps: { viridis: string[]; gray: string[] };
@@ -337,7 +333,7 @@ export default ELEO;
 export declare const layout2D: ELEO['layout2D'], spot: ELEO['spot'],
   throughFocus: ELEO['throughFocus'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
-  css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
+  css: ELEO['css'], maps: ELEO['maps'], layoutBounds: ELEO['layoutBounds'],
   glassLegend: ELEO['glassLegend'], fit: ELEO['fit'];
 
 /* The plot scale rule of ADR-0003 (packages/plots/src/scale.js). Sizes are px. */

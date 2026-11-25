@@ -13,12 +13,12 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
   import '@eleoptics/tokens/tokens.css';
   import '@eleoptics/plots/plots.css';
   import { PlotCard, Layout2D, Map2D, Colorbar, Legend } from '@eleoptics/plots-svelte';
-  let { system } = $props();
+  let { layout } = $props();
   let grid = [[0, 1], [1, 0]];
 </script>
 
 <PlotCard title="Layout" meta="YZ" colorKey="Color: field">
-  <Layout2D data={system} rays="fan" label="Lens layout with traced rays" />
+  <Layout2D data={layout} rays="fan" label="Lens layout with traced rays" />
   {#snippet footer()}<Legend kind="field" n={3} />{/snippet}
 </PlotCard>
 
@@ -36,7 +36,7 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 
 `Layout3D` takes `layout3D`'s options, `data` (a recorded layout), `rays`, `view` (omitted, the default: from the object side, 20° in yaw and 15° in pitch off the optical axis; or `"iso"`, `"front"` or `"top"`), `yaw`, `pitch` (these override `view`), `scale`, `width` and `height`: `<Layout3D data={layout} rays="fan" view="front" label="Lens in 3D" />`. Import it from its own entry, `import { Layout3D } from '@eleoptics/plots-svelte/layout3d';`, not from `@eleoptics/plots-svelte`. It draws through `@eleoptics/plots/layout3d`, which needs `three` (`npm i three`, an optional peer dependency of `@eleoptics/plots`): `three` is needed only for `@eleoptics/plots-svelte/layout3d`, so an app that imports only the 2D wrappers bundles without it.
 
-`Layout2D` takes `layout2D`'s options: `data` is a recorded layout or a system carrying one (see the [plots README](https://www.npmjs.com/package/@eleoptics/plots) for the format and the migration from the old `data.layout`). To compare two designs at one scale, give both the same `box` and `width`, and the same labels (drawings with one box, width and labels share a scale):
+`Layout2D` takes `layout2D`'s options: `data` is a recorded layout (see the [plots README](https://www.npmjs.com/package/@eleoptics/plots) for the format and the migration from the old `data.layout`). To compare two designs at one scale, give both the same `box` and `width`, and the same labels (drawings with one box, width and labels share a scale):
 
 ```svelte
 <script>
@@ -62,7 +62,7 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 />
 ```
 
-`CurvePlot` also takes `panels` (each with a `title` and `series`) and `columns`: a grid of plots on one shared scale with the axis labels drawn once. Both take `limits`, `[{ x | y: number | [lo, hi], label? }]`: a number draws a limit line across the plot and a pair a band, in every panel, e.g. `limits={[{ y: 0.5, label: 'spec' }]}`; a range left out grows to contain them. `grid={false}` drops the grid lines of `CurvePlot` and `SpotDiagram`. `SpotDiagram` takes typed `panels` (`title`, `series` of `points` and `index`, `airy` radius), with `origin`, `reference` (`chief` or `centroid`), `showStats`, `showAiry`, `scale`, `half`, `grid`, `unit` and `width`; the wrapper's `label` names the figure; without `panels` it draws the sample by `colorBy`. Neither has a color option:
+`CurvePlot` also takes `panels` (each with a `title` and `series`) and `columns`: a grid of plots on one shared scale with the axis labels drawn once. Both take `limits`, `[{ x | y: number | [lo, hi], label? }]`: a number draws a limit line across the plot and a pair a band, in every panel, e.g. `limits={[{ y: 0.5, label: 'spec' }]}`; a range left out grows to contain them. `grid={false}` drops the grid lines of `CurvePlot` and `SpotDiagram`. `SpotDiagram` takes typed `panels` (`title`, `series` of `points` and `index`, `airy` radius), with `origin`, `reference` (`chief` or `centroid`), `showStats`, `showAiry`, `scale`, `half`, `grid`, `unit` and `width`; the wrapper's `label` names the figure. Neither has a color option:
 
 ```svelte
 <CurvePlot

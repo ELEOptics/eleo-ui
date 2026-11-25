@@ -1,8 +1,7 @@
 /* ELEO plot renderers. Plain functions, no framework. SVG renderers return markup that reads colors from
    tokens.css variables, so one drawing works in both themes, except the typed map2D(props), which bakes its cells
-   at draw time: draw it again after a theme or palette change. Sample data: a traced AC254-100-A style achromat (see ELEO.sample.note). */
+   at draw time: draw it again after a theme or palette change. */
 import { layout2D } from "./layout2d.js";
-import { state, useSample } from "./data.js";
 import { curve } from "./curve.js";
 import { bars } from "./bars.js";
 import { legend } from "./legend.js";
@@ -16,7 +15,7 @@ const ELEO = (function () {
   "use strict";
 
 
-  var api = { fit: fit, useSample: useSample, icon: icon, icons: ICONS, get sample() { return state.sample; }, fmt: fmt, css: css, gradient: gradient, layout2D: layout2D, spot: spot, throughFocus: throughFocus, map2D: map2D, curve: curve, bars: bars, legend: legend, maps: { viridis: VIRIDIS, gray: GRAY } };
+  var api = { fit: fit, icon: icon, icons: ICONS, fmt: fmt, css: css, gradient: gradient, layout2D: layout2D, spot: spot, throughFocus: throughFocus, map2D: map2D, curve: curve, bars: bars, legend: legend, maps: { viridis: VIRIDIS, gray: GRAY } };
   return api;
 })();
 

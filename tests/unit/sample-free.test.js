@@ -51,7 +51,7 @@ test('no data', () => {
   assert.throws(() => ELEO.glassLegend({}), /glassLegend: pass \{ data: RecordedLayout \}/);
 });
 
-test('exports', { skip: SKIP }, () => {
+test('exports', () => {
   const pkg = JSON.parse(readFileSync(join(root, 'packages/plots/package.json'), 'utf8'));
   for (const key of ['./sample', './eleo-plots-sample.js']) assert.equal(key in pkg.exports, false, `${key} is not exported`);
   assert.ok(!JSON.stringify(pkg.sideEffects).includes('sample'), 'sideEffects names no sample');
@@ -59,7 +59,7 @@ test('exports', { skip: SKIP }, () => {
 });
 
 // zimg is a key of sample.json that no other dist file carries.
-test('dist has no sample', { skip: SKIP }, () => {
+test('dist has no sample', () => {
   const walk = (dir) => readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : [join(dir, f)]));
   for (const file of walk(join(root, 'packages/plots/dist'))) {
     assert.doesNotMatch(relative(root, file), /sample/, `${file} is a sample file`);
@@ -67,15 +67,17 @@ test('dist has no sample', { skip: SKIP }, () => {
   }
 });
 
-test('no tree reference', { skip: SKIP }, () => {
+test('no tree reference', () => {
   const skipDir = new Set(['node_modules', 'dist', 'test-results', '.svelte-kit', 'playwright-report']);
   const walk = (dir) => readdirSync(dir).flatMap((f) => {
     const p = join(dir, f);
     return statSync(p).isDirectory() ? (skipDir.has(f) ? [] : walk(p)) : [p];
   });
+  // Files that name the removal on purpose: the type test of the removed call, the release test of the README migration table, the generated CHANGELOGs (history).
+  const named = new Set(['tests/types/removed.ts', 'tests/unit/release.test.js', 'packages/plots/CHANGELOG.md', 'packages/plots-svelte/CHANGELOG.md']);
   const name = /(?<![\w.-])(?:sample|data)\.js\b|useSample|ELEO\.sample|eleo-plots-sample/;
   const hits = ['packages', 'gallery', 'scripts', 'tests'].flatMap((d) => walk(join(root, d)))
-    .filter((f) => f !== self && /\.(js|mjs|ts|svelte|html|json|md|css)$/.test(f) && name.test(readFileSync(f, 'utf8')))
+    .filter((f) => f !== self && !named.has(relative(root, f)) && /\.(js|mjs|ts|svelte|html|json|md|css)$/.test(f) && name.test(readFileSync(f, 'utf8')))
     .map((f) => relative(root, f));
   assert.deepEqual(hits, [], 'files still naming the sample');
 });

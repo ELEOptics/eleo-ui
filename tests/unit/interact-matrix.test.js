@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELEO from '../../packages/plots/src/index.js';
 
-import '../../packages/plots/src/sample.js';
+import { readFileSync } from 'node:fs';
 
 globalThis.ELEO = ELEO;
 
@@ -22,7 +22,7 @@ const dataGroups = (svg) => [...svg.matchAll(/<g\b[^>]*?transform="(matrix\([^"]
 
 for (const [name, draw] of [
   ['curve', () => ELEO.curve({ series: [{ points: [[0, 0], [1, 1]] }] })],
-  ['layout2D', () => ELEO.layout2D({ data: ELEO.sample.layout })],
+  ['layout2D', () => ELEO.layout2D({ data: JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8')).layout })],
   ['spot', () => ELEO.spot({ panels: [{ series: [{ points: [[0.1, 0.2], [0.3, -0.1]] }] }] })],
 ]) {
   test(`${name} data-group transform matches matrixOf's format`, () => {

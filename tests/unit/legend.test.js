@@ -42,10 +42,9 @@ test('legend() without the sample: n keys without values, none without n; ts/ray
   assert.deepEqual(keys(legend('rays')), ['Marginal ray', 'Chief ray']);
 });
 
-// Plan #464, CR #483, issue #484. Appended last: it loads a sample into the shared state.
+// Plan #464, CR #483, issue #484.
 test('field and wavelength keys take explicit values (#484)', async () => {
   const { legend } = await import('../../packages/plots/src/legend.js');
-  const { useSample } = await import('../../packages/plots/src/data.js');
   const keys = (s) => [...s.matchAll(/class="eleo-key[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1]);
   const cs = (s) => [...s.matchAll(/--c:([^"]*)"/g)].map((m) => m[1]);
   const { idx } = await import('../../packages/plots/src/common.js');
@@ -59,25 +58,22 @@ test('field and wavelength keys take explicit values (#484)', async () => {
   assert.deepEqual(keys(legend('field', undefined, [3])), ['F1 3.0°']);
 });
 
-// Plan #1258 #1211: legend keys values only from `values`; a loaded sample is never read.
-test('values only: a loaded sample does not label or count the keys (#1211)', async () => {
+// Plan #1258 #1211: legend keys values only from `values`; no state can label or count them.
+test('values only: n and values alone label and count the keys (#1211)', async () => {
   const { legend } = await import('../../packages/plots/src/legend.js');
-  const { useSample } = await import('../../packages/plots/src/data.js');
   const { idx } = await import('../../packages/plots/src/common.js');
   const keys = (s) => [...s.matchAll(/class="eleo-key[^"]*"[^>]*>([^<]*)</g)].map((m) => m[1]);
-  useSample({ fields: [0, 10], wl: [550, 600] });
-  try {
+  {
     assert.equal(legend('field'), '');
     assert.equal(legend('wavelength'), '');
     assert.deepEqual(keys(legend('field', 3)), ['F1', 'F2', 'F3']);
     assert.deepEqual(keys(legend('wavelength', 2)), ['λ1', 'λ2']);
     assert.deepEqual(keys(legend('field', undefined, [3])), ['F1 3.0°']);
     assert.equal(legend('field', 1), '<span class="eleo-key" style="--c:' + idx(0) + '">F1</span>');
-  } finally { useSample(null); }
+  }
 });
 
 // Plan #512 (agent_docs/plans/512-plot-scale.md), outcome O3, issue #486. oracle: reference legend() in @eleoptics/plots.
-// Appended last: it loads no sample, but the test above leaves the shared state clean (useSample(null)).
 test('Legend passes values (#486)', async () => {
   const { compile } = await import('svelte/compiler');
   const { render } = await import('svelte/server');

@@ -6,11 +6,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import ELEO from '../../packages/plots/src/renderers.js';
-import sample from '../../packages/plots/src/sample.js';
 import * as layout2dModule from '../../packages/plots/src/layout2d.js';
 import * as plots from '../../packages/plots/src/index.js';
 import { vertexRadius, thickLensF } from '../../packages/plots/src/lens.js';
 import { clipPolygon } from '../../packages/plots/src/clip.js';
+
+const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
 const { layoutBounds } = layout2dModule;
 
 const TOL = 0.01; // mm
