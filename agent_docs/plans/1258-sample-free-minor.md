@@ -106,6 +106,8 @@ The list O5 and O7 test against (critique finding 7). "See the table" in an erro
 
 ### M1: the sample-free minor GitHub: `P1258 M1: the sample-free minor`
 
+Done 2026-11-25: review round 4 (Review M1: 0 blocking, nothing pulled in; blocking + pulled in by round: 5, 1, 1, 0); full gate green on c8aa628 (576 passed, 7.2 min); CI pending on c8aa628 at the tick. Demo: `SHOTS_BASE` (#1203's 112 base shots at 637091e) 0 differing. CRs: [#1307], [#1311], [#1312], [#1313] accepted by the orchestrator; [#1310] by the user (the peer raise waits for publish, #1279). Backlog #1315, #1317, #1318 pulled in and done; #1316 back to the backlog. Demo pending.
+
 Demo: `SHOTS=1 SHOTS_BASE=<#1203's base shots> npx playwright test gallery-shots` (zero differing tiles);
 `node --test tests/unit/types.test.js` (each removed call in `removed.ts` fails without its `@ts-expect-error`);
 `node --test tests/unit/sample-free.test.js` (each table row); `npx changeset status`. Proves: O5, O6, O7
@@ -178,6 +180,7 @@ One bullet per entry (bare lines render as one paragraph).
 - 2026-11-25 #1316 back to the backlog (orchestrator): a pure refactor has no failing test and `check-tests-touched.sh` refuses the commit; the next plan changing `glass.js` takes it.
 - 2026-11-25 review M1 round 2 (code-reviewer): 0 blocking; CRs #1311-#1313 resolved; 3 backlog in `spot.js` and its README entry pulled into M1 as #1317 (small, named, in files M1 changed).
 - 2026-11-25 review M1 round 3 (code-reviewer): 0 blocking; every carried CR resolved; 2 backlog in the same guard pulled in as #1318, one shape check at every level, so the next round has no level left to find (counts: blocking plus pulled in, 5, 1, 1).
+- 2026-11-25 review M1 round 4 (code-reviewer, claude-opus-5-5): 0 blocking, 0 backlog, nothing pulled in; all carried CRs resolved. M1 ticked; demo pending.
 
 [#125]: https://github.com/ELEOptics/eleo-ui/issues/125
 [#132]: https://github.com/ELEOptics/eleo-ui/issues/132
@@ -186,3 +189,8 @@ One bullet per entry (bare lines render as one paragraph).
 [#86]: https://github.com/ELEOptics/eleo-ui/issues/86
 [#424]: https://github.com/ELEOptics/eleo-ui/issues/424
 [#639]: https://github.com/ELEOptics/eleo-ui/issues/639
+[#1307]: https://github.com/ELEOptics/eleo-ui/issues/1307
+[#1310]: https://github.com/ELEOptics/eleo-ui/issues/1310
+[#1311]: https://github.com/ELEOptics/eleo-ui/issues/1311
+[#1312]: https://github.com/ELEOptics/eleo-ui/issues/1312
+[#1313]: https://github.com/ELEOptics/eleo-ui/issues/1313
