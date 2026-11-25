@@ -7,6 +7,8 @@ import { idx } from '../../packages/plots/src/common.js';
 import * as common from '../../packages/plots/src/common.js';
 import { readFileSync } from 'node:fs';
 import { frameText } from '../../packages/plots/src/scale.js';
+import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
+const tfOf = (S) => globalThis.ELEOSampleAdapters.throughFocus(S); // plan #1258 #1205: throughFocus takes typed props
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -448,7 +450,7 @@ test('text follows ADR-0003 per panel', async () => {
   const tfSeen = new Set(), tfRects = (m) => [...m.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1);
   const cols = 5; // the sample's defocus steps
   for (const width of [500, 1100, 3000]) {
-    const m = ELEO.throughFocus({ data: sample, width }), F = tfRects(m)[0], t = frameText(F);
+    const m = ELEO.throughFocus({ ...tfOf(sample), width }), F = tfRects(m)[0], t = frameText(F);
     tfSeen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
     assert.ok(F > 1, `${width}: panels drawn`);
     texts(m).forEach((x, i) => { assert.ok(x.size, `${width}: text ${i} inline`); near(+x.size[1], t, `${width} text ${i}`); });
@@ -579,7 +581,7 @@ test('grid', () => {
 test('throughFocus panels', async () => {
   const { frameWeight } = await import('../../packages/plots/src/scale.js');
   const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
-  const tf = ELEO.throughFocus({ data: sample, width: 1100 });
+  const tf = ELEO.throughFocus({ ...tfOf(sample), width: 1100 });
   const rects = [...tf.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)];
   assert.ok(rects.length > 0, 'cells drawn');
   const F = +/\bwidth="([\d.]+)"/.exec(rects[0][0])[1] + 1;
@@ -601,7 +603,7 @@ test('throughFocus panels', async () => {
     assert.ok(+m[1] > ox && +m[1] < ox + F, 'a grid line is strictly inside its frame');
   });
   // grid: false draws none and nothing else changes.
-  const off = ELEO.throughFocus({ data: sample, width: 1100, grid: false });
+  const off = ELEO.throughFocus({ ...tfOf(sample), width: 1100, grid: false });
   assert.ok(!/data-grid/.test(off), 'grid: false draws none');
   assert.equal(off.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), tf.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), 'grid: false removes the grid lines only');
 });
@@ -645,7 +647,7 @@ test('throughFocus tick labels', async () => {
   const rows = sample.throughFocus.spots.length, cols = sample.throughFocus.defocus.length;
   const tx = (svg) => [...svg.matchAll(/<text\b([^>]*)>(.*?)<\/text>/g)].map((m) => ({ a: m[1], t: m[2].replace(/<[^>]*>/g, ''), x: +/\bx="(-?[\d.]+)"/.exec(m[1])[1], y: +/\by="(-?[\d.]+)"/.exec(m[1])[1] }));
   for (const grid of [true, false]) {
-    const width = 1100, svg = ELEO.throughFocus({ data: sample, width, grid }), all = tx(svg);
+    const width = 1100, svg = ELEO.throughFocus({ ...tfOf(sample), width, grid }), all = tx(svg);
     const rects = [...svg.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => ({ x: +/\bx="([\d.]+)"/.exec(r[0])[1] - .5, y: +/\by="([\d.]+)"/.exec(r[0])[1] - .5, w: +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1 }));
     const F = rects[0].w, t = frameText(F), left = rects[0].x, bottom = Math.max(...rects.map((r) => r.y));
     near2(F, frameOf((width - cols * 10) / cols, (4.2 + 2.4) / cols), 'F solves the row label and the y labels');
@@ -707,7 +709,7 @@ test('series data attributes', () => {
     { 'data-series': '0', 'data-panel': '1' }], 'position, label and panel; the colour index is not the identity');
   const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
   const T = sample.throughFocus, cols = T.defocus.length, rows = T.spots.length;
-  const tf = paths(ELEO.throughFocus({ data: sample }));
+  const tf = paths(ELEO.throughFocus({ ...tfOf(sample) }));
   const per = T.spots[0][0].pts.length;
   assert.equal(tf.length, rows * cols * per, 'a path per series per cell');
   tf.forEach((a, k) => {
@@ -734,12 +736,12 @@ test('view windows every panel', () => {
   const base = ELEO.spot({ width: 400, panels });
   edges(ELEO.spot({ width: 400, panels, view }), 2);
   edges(ELEO.spot({ width: 400, panels, view, scale: 'auto' }), 2);
-  edges(ELEO.throughFocus({ data: sample, view }), sample.throughFocus.spots.length * sample.throughFocus.defocus.length);
+  edges(ELEO.throughFocus({ ...tfOf(sample), view }), sample.throughFocus.spots.length * sample.throughFocus.defocus.length);
   const labels = (svg) => [...svg.matchAll(/<text class="eleo-tick"[^>]*>(\S+)<\/text>/g)].map((m) => +m[1].replace('−', '-')).filter(Number.isFinite);
   assert.ok(labels(ELEO.spot({ width: 400, panels, view })).every((v) => (v > 3 && v < 7) || (v > -5 && v < -1)), 'tick labels lie inside the window');
   assert.equal(ELEO.spot({ width: 400, panels, view: undefined }), base, 'no view: markup unchanged');
   [{ center: [0, 0], half: 0 }, { center: [0, 0], half: -1 }, { center: [NaN, 0], half: 1 }, { center: [0], half: 1 }, null, 3].forEach((v) => assert.equal(ELEO.spot({ width: 400, panels, view: v }), base, `invalid view ${JSON.stringify(v)} is ignored`));
-  assert.equal(ELEO.throughFocus({ data: sample, view: { center: [0, 0], half: 0 } }), ELEO.throughFocus({ data: sample }), 'throughFocus ignores an invalid view');
+  assert.equal(ELEO.throughFocus({ ...tfOf(sample), view: { center: [0, 0], half: 0 } }), ELEO.throughFocus({ ...tfOf(sample) }), 'throughFocus ignores an invalid view');
 });
 
 test('auto-scale margin ignores panel order', () => {

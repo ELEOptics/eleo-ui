@@ -114,7 +114,7 @@
       // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
       'seidel': recTile('seidel', function (d, w) { return ELEO.bars(atWidth(d, w, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', function (d, w) { return ELEO.bars(atWidth(d, w)); }),
-      'throughFocus': { need: sampleBox, draw: function (_, w, v) { return ELEO.throughFocus(atWidth({}, w, null, v)); } },
+      'throughFocus': { need: sampleBox, draw: function (_, w, v) { return ELEO.throughFocus(atWidth(SA.throughFocus(SAMPLE), w, null, v)); } },
       // The recorded achromat's fans through curve, as tall as rayFan's panels are (PLOT_SIZES.rayFan.aspect) over its columns.
       'rayFan': recTile('rayFan', function (d, w, v) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns }, v)); }),
       'rayFan-opd': { need: sampleBox, draw: function (_, w, v) { return ELEO.curve(SA.rayFan(SAMPLE, { kind: 'opd', key: true, width: w, view: v || undefined })); } },
@@ -223,6 +223,7 @@
         if (k === 'curve') return ELEO.minWidth('curve', REC[tile]);
         if (k === 'spot') return ELEO.minWidth('spot', REC[tile === 'footprint' ? 'footprint' : 'spot']);
         if (k === 'map2D') return ELEO.minWidth('map2D', m && MAPS[m.dataset.map]);
+        if (k === 'throughFocus' && SAMPLE) return ELEO.minWidth(k, SA.throughFocus(SAMPLE));
         return ELEO.minWidth(k);
       } catch (e) { console.error('gallery: ' + tile + ' minimum skipped:', e); return 0; }
     }

@@ -13,7 +13,7 @@
 //   node scripts/record-renderers.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import ELEO from '../packages/plots/dist/index.js';
-import '../packages/plots/dist/sample.js'; // still the default data of the throughFocus entry's sample call, until #1205 types it
+import '../packages/plots/dist/sample.js'; // the legend-field and legend-wavelength entries still read the sample's values, until #1211 makes them values only
 import '../tests/fixtures/phos-core/adapters.js'; // a classic script: assigns globalThis.ELEOAdapters
 import '../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters (plan #1258 #1204)
 
@@ -30,7 +30,7 @@ const phosLayout = (name) => {
 
 const seidelRecording = () => JSON.parse(readFileSync(new URL('../tests/fixtures/phos-core/achromat-seidel.json', import.meta.url), 'utf8'));
 
-// The calls the gallery makes (gallery/index.html, SVG and legend tiles), keyed by tile. The sample tiles draw from sample.json by typed calls, except throughFocus (#1205).
+// The calls the gallery makes (gallery/index.html, SVG and legend tiles), keyed by tile. The sample tiles draw from sample.json by typed calls.
 export function draws() {
   const sampleLayouts = globalThis.ELEOSampleAdapters.layouts(SAMPLE);
   const box = { zmin: -8, zmax: SAMPLE.zimg + 4, ylo: -13.5, yhi: 13.5 };
@@ -49,7 +49,7 @@ export function draws() {
       `layout2D-${name}-${width}`,
       () => ELEO.layout2D({ ...globalThis.ELEOAdapters.layout(phosLayout(name)), width }),
     ]))),
-    'throughFocus': () => ELEO.throughFocus(),
+    'throughFocus': () => ELEO.throughFocus(globalThis.ELEOSampleAdapters.throughFocus(SAMPLE)),
     // The gallery's sample tiles that no entry covered, recorded at plan #1258 #1203 from the merged base's build (before row K removes the sample calls).
     'rayFan-opd': () => ELEO.curve(globalThis.ELEOSampleAdapters.rayFan(SAMPLE, { kind: 'opd', key: true })),
     'chromaticFocus': () => ELEO.curve(globalThis.ELEOSampleAdapters.chromaticFocus(SAMPLE)),

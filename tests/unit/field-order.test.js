@@ -10,6 +10,7 @@ import { STANDARD } from '../../packages/plots/src/common.js';
 import ELEO from '../../packages/plots/src/renderers.js';
 import { layout3dScene } from '../../packages/plots/src/layout3dThree.js';
 import '../../packages/plots/src/sample.js';
+import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
 
 const json = JSON.parse(readFileSync(new URL('../../packages/tokens/src/tokens.json', import.meta.url)));
 const token = (name, theme) => json.color.tokens.find((t) => t.name === name).value[theme];
@@ -123,7 +124,7 @@ test('standard order is rule R under normal vision', (t) => {
     'layout2D wavelength': ELEO.layout2D({ colorBy: 'wavelength' }),
     'spot wavelength': ELEO.spot(),
     'spot field': ELEO.spot({ colorBy: 'field' }),
-    throughFocus: ELEO.throughFocus(),
+    throughFocus: ELEO.throughFocus(globalThis.ELEOSampleAdapters.throughFocus(ELEO.sample)), // plan #1258 #1205: typed
     rayFan: ELEO.rayFan(),
     'curve mtf': ELEO.curve({ kind: 'mtf' }),
     'curve fieldCurvature': ELEO.curve({ kind: 'fieldCurvature' }),

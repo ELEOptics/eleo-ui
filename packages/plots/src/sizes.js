@@ -33,7 +33,7 @@ export function minWidth(name, props) {
     panels = sp ? sp.panels.length : 1;
     if (sp) { var extra = TEXT_MIN * (spotLM(sp, sp.panels).LM - SPOT_LABEL_M); base += extra; step += extra; }
   } else if (name === "throughFocus") {
-    panels = o.data || state.sample ? data(o).throughFocus.defocus.length : 1;
+    panels = Array.isArray(o.defocus) ? o.defocus.length : 1;
     if (o.half > 0 && isFinite(o.half)) base += TEXT_MIN * (labelM(+o.half) - SPOT_LABEL_M);
   }
   return base + (Math.max(1, panels) - 1) * step;

@@ -7,6 +7,8 @@ import vm from 'node:vm';
 import ELEO from '../../packages/plots/src/renderers.js';
 import sample from '../../packages/plots/src/sample.js';
 import * as scale from '../../packages/plots/src/scale.js';
+import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
+const tfOf = (S) => globalThis.ELEOSampleAdapters.throughFocus(S); // plan #1258 #1205: throughFocus takes typed props
 import { frameText as fText, frameWeight as fWeight, frameOf, layoutText as lText, layoutWeight as lWeight } from '../../packages/plots/src/scale.js';
 
 const TOL = 0.01; // px
@@ -151,7 +153,7 @@ test('text and weight per renderer (U18): bars, spot, throughFocus', () => {
   // throughFocus: fields by rows, focus shifts by columns; F is one panel's side.
   const tf = new Set();
   for (const width of [500, 1100, 3000]) {
-    const svg = ELEO.throughFocus({ ...sample, width }), F = panelFrames(svg);
+    const svg = ELEO.throughFocus({ ...tfOf(sample), width }), F = panelFrames(svg);
     assert.ok(F.length > 0, `throughFocus ${width}: panels are drawn`);
     F.forEach((f) => near(f, F[0], `throughFocus ${width}: one panel side`));
     checkText(`throughFocus ${width}`, svg, F[0], tf);
@@ -176,7 +178,7 @@ test("table matches each renderer's floor width", () => {
   };
   for (const k of Object.keys(svgs)) { near(only(frames(svgs[k]), k), 162, `${k} frame at its minWidth`); floorText(svgs[k], k); }
   assert.equal(frames(svgs.rayFan).length, 6, 'rayFan draws three columns of two rows');
-  const spot = ELEO.spot({ ...sample, width: at('spot', 3) }), tf = ELEO.throughFocus({ ...sample, width: at('throughFocus', 5) });
+  const spot = ELEO.spot({ ...sample, width: at('spot', 3) }), tf = ELEO.throughFocus({ ...tfOf(sample), width: at('throughFocus', 5) });
   near(only(panelFrames(spot), 'spot'), 162, 'spot panel at its minWidth'); floorText(spot, 'spot');
   assert.equal(panelFrames(spot).length, 3);
   near(only(panelFrames(tf), 'throughFocus'), 162, 'throughFocus panel at its minWidth'); floorText(tf, 'throughFocus');
@@ -307,4 +309,14 @@ test('map2D and spot read the margin export', () => {
   assert.doesNotMatch(code('map2d.js'), /\b(4\.6|2\.6|3\.6)\b/, 'map2d.js has no hand copy of a margin');
   assert.doesNotMatch(code('spot.js'), /\b(4\.6|3\.6)\b/, 'spot.js has no hand copy of a margin');
   assert.doesNotMatch(code('map2d.js'), /\bR: R, Rt: Rt\b/, 'map2d.js sc has no unread R');
+});
+
+// Plan #1258 M1, O6 (issue #1205): minWidth('throughFocus', props) reads the columns from props.defocus, not from the sample.
+// oracle: closed form ADR-0003: a figure of n panels needs minWidth + (n - 1) * panelStep.
+test('minWidth for throughFocus counts the typed defocus columns (#1205)', async () => {
+  const { minWidth } = await import('../../packages/plots/src/sizes.js');
+  const T = scale.PLOT_SIZES.throughFocus;
+  assert.equal(minWidth('throughFocus', { defocus: [-30, 0, 30] }), T.minWidth + 2 * T.panelStep);
+  assert.equal(minWidth('throughFocus', { defocus: [0] }), T.minWidth);
+  assert.equal(minWidth('throughFocus', {}), T.minWidth, 'no defocus: one column');
 });

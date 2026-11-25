@@ -93,7 +93,7 @@ const anyView: View = spotView;
 const curveProps: CurvePlotProps = { series: [], x: { range: [0, 1] }, y: { range: [0, 1] }, view: curveView };
 const fanProps: RayFanProps = { view: xOnly };
 const spotProps: SpotPanelsProps = { panels: [], view: spotView };
-const tfProps: ThroughFocusProps = { view: spotView };
+const tfProps: ThroughFocusProps = { defocus: [0], rows: [], view: spotView };
 const mapProps: Map2DGridProps = { values: [[1]], extent: [0, 1, 0, 1], view: curveView };
 // #957, #974: layout2D takes the { x, y } view, in mm, not a spot's centre and half-width.
 const layoutProps: Layout2DProps = { view: curveView };

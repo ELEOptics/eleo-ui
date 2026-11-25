@@ -158,11 +158,22 @@ export interface SpotSampleProps {
   view?: SpotView;
   panels?: never;
 }
+export interface ThroughFocusRow {
+  /** The row's label, left of its first cell (a field, say "0.0°"). */
+  title: string;
+  /** `series[j]` is the row's spots at `defocus[j]`: the series of that cell. */
+  series: SpotSeries[][];
+}
 export interface ThroughFocusProps {
-  data?: object;
+  /** The focus shift of each column, in `unit`. The column at 0 gets the `--ink-subtle` frame. */
+  defocus: number[];
+  /** One row per field. */
+  rows: ThroughFocusRow[];
+  /** The unit of the column headers, the points and the caption "x, y in <unit>". */
+  unit?: string;
   /** Zoom window: one square window for every cell, as `SpotPanelsProps.view`. */
   view?: SpotView;
-  /** Box half-width in the data's unit. */
+  /** Box half-width in `unit`. Default 40. */
   half?: number;
   /** The figure's width in px. A panel's side is ADR-0003's frame, solved from it; 92 px without it. */
   width?: number;
@@ -380,7 +391,7 @@ export interface ELEO {
   /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout (a system reads `layout`, else `layoutWl`). */
   glassLegend(data: RecordedLayout | LayoutSystem): string;
   spot(props?: SpotDiagramProps): string;
-  throughFocus(props?: ThroughFocusProps): string;
+  throughFocus(props: ThroughFocusProps): string;
   rayFan(props?: RayFanProps): string;
   /** A typed grid as SVG markup. */
   map2D(props: Map2DGridProps): string;

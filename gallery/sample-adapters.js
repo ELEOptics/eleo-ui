@@ -51,6 +51,16 @@
     },
     /* layouts(S) -> { field, wavelength }: the sample's two recorded layouts, the rays by field and by wavelength, each a `{ surfaces, rays }` for ELEO.layout2D's and ELEO.layout3D's `data`. */
     layouts: function (S) { return { field: S.layout, wavelength: S.layoutWl }; },
+    /* throughFocus(S) -> { defocus, rows, unit } for ELEO.throughFocus: the sample's through-focus spots, a row per field titled "0.0°", a series per wavelength in each cell, in µm. */
+    throughFocus: function (S) {
+      var T = S.throughFocus;
+      return {
+        defocus: T.defocus, unit: 'µm',
+        rows: T.spots.map(function (row, i) {
+          return { title: fmt(S.fields[i], 1) + '°', series: row.map(function (cell) { return cell.pts.map(function (pts, wi) { return { points: pts, index: wi }; }); }) };
+        })
+      };
+    },
     /* keyLabels(S, 'field' | 'wavelength') -> key entries as the footer legends were labelled: "F1 0.0°" per field, "λ1 486.1 nm" per wavelength; index = position. */
     keyLabels: function (S, kind) {
       return (kind === 'field' ? S.fields : S.wl).map(function (v, i) {

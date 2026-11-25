@@ -14,8 +14,10 @@ const self = fileURLToPath(import.meta.url);
 const SKIP = 'row K: skipped until its item removes the call';
 const removed = (what) => new RegExp(`${what} was removed; see the README migration table`);
 
-test('throughFocus', { skip: SKIP }, () => {
+test('throughFocus', () => {
   assert.throws(() => ELEO.throughFocus({}), removed('throughFocus: the sample call'));
+  assert.throws(() => ELEO.throughFocus(), removed('throughFocus: the sample call'));
+  assert.doesNotThrow(() => ELEO.throughFocus({ defocus: [0], rows: [{ title: 'a', series: [[{ points: [[1, 2]] }]] }], unit: 'µm' }));
 });
 
 test('curve kind', { skip: SKIP }, () => {

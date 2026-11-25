@@ -34,9 +34,9 @@ import ELEO from '../../packages/plots/src/index';
 const fLo: 162 = ELEO.F_LO, viaDefault: number = ELEO.frameOf(1000, 4.6);
 export { fLo, viaDefault };
 // throughFocus takes a drawing width in px (ADR-0003, #572, CR #571).
-const tf: string = throughFocus({ width: 600 });
+const tf: string = throughFocus({ defocus: [0], rows: [], width: 600 });
 // @ts-expect-error width is a number
-throughFocus({ width: '600' });
+throughFocus({ defocus: [0], rows: [], width: '600' });
 export { tf };
 // PLOT_SIZES is the typed size table (ADR-0003, #526, CR #573); also on the default ELEO.
 import type { PlotSize } from '../../packages/plots/src/index';

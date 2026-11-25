@@ -26,9 +26,9 @@ const spotSvg: string = spot(spotProps);
 const fanProps: RayFanProps = { key: true, keyAt: at };
 const fanSvg: string = rayFan(fanProps);
 spot({ panels: [{ series: [ss] }], grid: false });
-throughFocus({ grid: false });
+throughFocus({ defocus: [0], rows: [], grid: false });
 // @ts-expect-error throughFocus's grid is a boolean
-throughFocus({ grid: 'off' });
+throughFocus({ defocus: [0], rows: [], grid: 'off' });
 // @ts-expect-error spot's keyAt is one of five places
 spot({ panels: [{ series: [ss] }], keyAt: 'middle' });
 // @ts-expect-error rayFan's keyAt is one of five places

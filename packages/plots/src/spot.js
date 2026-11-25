@@ -172,21 +172,24 @@ export function spot(o) {
 }
 /* throughFocus (ADR-0003): a panel's side B is the frame; text is frameText(B), the row label's room 4.2 text units plus labelM(half) for the y tick labels, and the rows' gaps are in text units. With `width`, B solves lw + cols * (B + gap) = width; without, B is 92. Only the outer edges are labelled (every cell shares one scale): x under the bottom row, y left of the left column, and a caption line "x, y in µm" under the figure. Each RMS line sits 1.3 text units under its panel, the bottom row's 2.5 (under its x labels). */
 export function throughFocus(o) {
-  o = o || {}; var D = data(o), T = D.throughFocus, gap = 10, LW = 4.2;
-  var cols = T.defocus.length, rows = T.spots.length, g = "", vw = viewOf(o.view), half = vw ? vw.half : o.half || 40, YM = labelM(half, vw ? vw.center[1] : 0);
+  if (!o || !Array.isArray(o.defocus) || !Array.isArray(o.rows)) throw new TypeError("throughFocus: the sample call was removed; see the README migration table");
+  var DZ = o.defocus, ROWS = o.rows, gap = 10, LW = 4.2, un = o.unit ? " " + esc(o.unit) : "";
+  var cols = DZ.length, rows = ROWS.length, g = "", vw = viewOf(o.view), half = vw ? vw.half : o.half > 0 && isFinite(o.half) ? +o.half : 40, YM = labelM(half, vw ? vw.center[1] : 0);
   var B = isFinite(o.width) && o.width > 0 && cols ? r2(Math.floor(frameOf((+o.width - cols * gap) / cols, (LW + YM) / cols) * 100) / 100) : 92;
   var t = frameText(B), sty = ' style="font-size:' + +t.toFixed(2) + 'px"', wt = frameWeight(B);
   var lw = r2((LW + YM) * t), th = r2(2.2 * t), pitch = r2(B + 2.6 * t), W = r2(Math.max(lw + cols * (B + gap), isFinite(o.width) ? +o.width : 0)), H = r2(th + rows * pitch + 2.7 * t);
-  T.defocus.forEach(function (dz, j) { g += '<text class="eleo-tick"' + sty + ' x="' + r2(lw + j * (B + gap) + B / 2) + '" y="' + r2(1.2 * t) + '" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + " µm</text>"; });
-  T.spots.forEach(function (row, i) {
+  DZ.forEach(function (dz, j) { g += '<text class="eleo-tick"' + sty + ' x="' + r2(lw + j * (B + gap) + B / 2) + '" y="' + r2(1.2 * t) + '" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + un + "</text>"; });
+  ROWS.forEach(function (row, i) {
     var oy = r2(th + i * pitch);
-    g += '<text class="eleo-val"' + sty + ' x="0" y="' + r2(oy + B / 2 + 0.4 * t) + '">' + fmt(D.fields[i], 1) + "°</text>";
-    row.forEach(function (cell, j) {
+    g += '<text class="eleo-val"' + sty + ' x="0" y="' + r2(oy + B / 2 + 0.4 * t) + '">' + esc(row.title == null ? "" : row.title) + "</text>";
+    DZ.forEach(function (dz, j) {
+      var ser = (row.series && row.series[j]) || [], n = 0, q2 = 0;
+      ser.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { n++; q2 += q[0] * q[0] + q[1] * q[1]; } }); });
       var ox = r2(lw + j * (B + gap));
-      g += spotPanel(ox, oy, B, half, { series: cell.pts.map(function (pts, wi) { return { points: pts, index: wi }; }), grid: o.grid !== false, wt: wt, panel: i * cols + j, cell: i + "," + j, frame: j === 2 ? "var(--ink-subtle)" : "var(--plot-grid)", labels: { x: i === rows - 1, y: j === 0 }, t: t, view: vw });
-      g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + (i === rows - 1 ? 2.5 : 1.3) * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + cell.rms.toFixed(1) + "</tspan></text>";
+      g += spotPanel(ox, oy, B, half, { series: ser, grid: o.grid !== false, wt: wt, panel: i * cols + j, cell: i + "," + j, frame: dz === 0 ? "var(--ink-subtle)" : "var(--plot-grid)", labels: { x: i === rows - 1, y: j === 0 }, t: t, view: vw });
+      g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + (i === rows - 1 ? 2.5 : 1.3) * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + (n ? Math.sqrt(q2 / n) : 0).toFixed(1) + "</tspan></text>";
     });
   });
-  g += '<text class="eleo-tick"' + sty + ' x="' + lw + '" y="' + r2(th + rows * pitch + 1.5 * t) + '">x, y in µm</text>';
+  if (o.unit) g += '<text class="eleo-tick"' + sty + ' x="' + lw + '" y="' + r2(th + rows * pitch + 1.5 * t) + '">x, y in' + un + "</text>";
   return svg(W, H, g, "Through-focus spot diagrams, fields by rows, focus shift by columns");
 }
