@@ -61,7 +61,10 @@
       <section class="eleo-plot" data-tile="fieldCurvature" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">field curvature</span></div><div class="eleo-plot__body" data-svg="fieldCurvature"></div></section>
       <section class="eleo-plot" data-tile="distortion" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">distortion</span></div><div class="eleo-plot__body" data-svg="distortion"></div></section>
       <section class="eleo-plot" data-tile="chromaticFocus" data-size="curve"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">CurvePlot</h3><span class="eleo-plot__meta">chromatic focus</span></div><div class="eleo-plot__body" data-svg="chromaticFocus"></div></section>
-      <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">iso</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D"></canvas></div></section>
+      <section class="eleo-plot" data-tile="layout3D"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">object side, near axis</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D"></canvas></div></section>
+      <section class="eleo-plot" data-tile="layout3D-front"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">front</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D-front"></canvas></div></section>
+      <section class="eleo-plot" data-tile="layout3D-glasses"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">Cooke triplet, glasses N-SK16 / F2 / N-SK16, object side, near axis</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D-glasses"></canvas></div></section>
+      <section class="eleo-plot" data-tile="layout3D-cassegrain"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Layout3D</h3><span class="eleo-plot__meta">Cassegrain, recorded, mirrors and obscuration, object side, near axis</span></div><div class="eleo-plot__body"><canvas data-canvas="layout3D-cassegrain"></canvas></div></section>
       <section class="eleo-plot" data-tile="airy"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">physics: airy + colormap</h3><span class="eleo-plot__meta">f/4, 587.6 nm, √ intensity</span></div><div class="eleo-plot__body"><canvas data-canvas="airy"></canvas></div></section>
     <!-- Segmented control specimen, not a tile. Each column's <form> scopes its own radio group. -->
     <form><div class="eleo-seg" role="radiogroup" aria-label="Units"><label><input type="radio" name="units" value="um" checked><span>µm</span></label><label><input type="radio" name="units" value="waves"><span>waves</span></label><label><input type="radio" name="units" value="mm"><span>mm</span></label></div></form>
@@ -69,6 +72,7 @@
   </template>
   <script src="/packages/plots/dist/eleo-plots.js"></script>
   <script src="/packages/plots/dist/eleo-plots-sample.js"></script>
+  <script src="/packages/plots/dist/eleo-layout3d.js"></script>
   <script>
     // The sample tiles keep their framing: a pinned box, not the rays' bounds. If eleo-plots-sample.js failed to load,
     // ELEO.sample is null, SAMPLE_BOX stays null and the sample tiles draw nothing while the rest of the page draws.
@@ -76,6 +80,8 @@
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
+    // The recorded Cassegrain as phos wrote it (a RecordedLayout, which layout3D takes; the 2D tiles read its adapter's result, REC.cassegrainLayout); unset until its fixture loads.
+    var CASSEGRAIN;
     // The MTF, field curvature, distortion, spot and Seidel tiles (the recorded achromat) and the Wandersleb and Cassegrain layout tiles (tests/fixtures/phos-core/README.md)
     // through ELEOAdapters, one fixture each (the Seidel fixture feeds two tiles). Filled by fetch() below; if the script or a recording fails, that
     // key stays unset and only its tile draws nothing.
@@ -167,14 +173,34 @@
     }
     // A canvas tile draws at its body's content width (set by fit as el._w): CSS size w, backing size w x devicePixelRatio, so a resize redraws it and never stretches it.
     // layout3D is given the logical width w and applies its own clamped ratio (2 to 3), so it stays at least 2x; a palette change redraws at the last width.
+    // A layout3D tile reserves its final box at once (drawCanvas) but paints only when it is in or near the viewport (paintCanvas, from the observer below), so a load that never scrolls to it pays nothing for WebGL; one out of view when its width, theme, palette or ratio changes is marked stale (no data-drawn) and paints when it scrolls in. A drawn canvas carries data-drawn.
     function drawCanvas(el) {
       var w = el._w, k = el.dataset.canvas;
-      if (!w || (k !== 'airy' && !SAMPLE_BOX)) return;
-      var dpr = window.devicePixelRatio || 1, n = Math.round(w * dpr), h = k === 'layout3D' ? w * 320 / 560 : w;
+      if (!w || (k === 'layout3D-glasses' ? !GLASSES : k === 'layout3D-cassegrain' ? !CASSEGRAIN : k !== 'airy' && !SAMPLE_BOX)) return;
+      var is3D = k.indexOf('layout3D') === 0, h = is3D ? w * 320 / 560 : w;
       el.style.width = w + 'px'; el.style.height = h + 'px';
-      if (k === 'airy') airyTile(el, n);
-      else ELEO.layout3D(el, { width: w, height: h });
+      // The layout3D tiles (default, front, glasses, Cassegrain) sit above tiles the specs mount hosts after, and a fractional page offset moves a 1 px ray off the pixel they aim at (interact.spec 'layout zoom pan and reset', map2d.spec U8 clip): trim its canvas so the tile is a whole number of px tall and the tiles below stay where they were. The box is reserved before the tile draws, so nothing below moves when it does.
+      if (is3D) { var frac = el.closest('[data-tile]').getBoundingClientRect().height % 1; if (frac && frac < h) el.style.height = (h -= frac) + 'px'; }
+      el._h = h;
+      if (is3D && !el._near) { el.removeAttribute('data-drawn'); return; }
+      paintCanvas(el);
     }
+    function paintCanvas(el) {
+      var w = el._w, h = el._h, k = el.dataset.canvas, n = Math.round(w * (window.devicePixelRatio || 1));
+      // A tile that throws (no WebGL, or the layout3D script failed to load) skips only itself, as drawMap's does.
+      try {
+        if (k === 'airy') airyTile(el, n);
+        else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : k === 'layout3D-cassegrain' ? CASSEGRAIN : ELEO.sample.layout, view: k === 'layout3D-front' ? 'front' : undefined, width: w, height: h });
+        el.dataset.drawn = 'true';
+      } catch (e) { console.error('gallery: ' + k + ' tile skipped:', e); }
+    }
+    var NEAR = typeof IntersectionObserver === 'function' ? new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        var el = e.target;
+        el._near = e.isIntersecting;
+        if (el._near && el._h && !el.hasAttribute('data-drawn')) paintCanvas(el);
+      });
+    }, { rootMargin: '600px 0px' }) : null;
     function drawCanvases() {
       document.querySelectorAll('.theme [data-canvas]').forEach(drawCanvas);
     }
@@ -186,6 +212,7 @@
     watchRatio();
     function fitCanvases(theme) {
       theme.querySelectorAll('[data-canvas]').forEach(function (el) {
+        if (el.dataset.canvas.indexOf('layout3D') === 0) { if (NEAR) NEAR.observe(el); else el._near = true; }
         ELEO.fit(el.parentNode, function (w) { el._w = w; drawCanvas(el); });
       });
     }
@@ -331,7 +358,7 @@
         ['footprint', 'footprint', function (d) { REC.footprint = globalThis.ELEOAdapters.footprint(d); }]
       ]],
       ['cassegrain', [
-        ['cassegrainLayout', 'layout', function (d) { REC.cassegrainLayout = globalThis.ELEOAdapters.layout(d); }]
+        ['cassegrainLayout', 'layout', function (d) { CASSEGRAIN = d; REC.cassegrainLayout = globalThis.ELEOAdapters.layout(d); }]
       ]]
     ].reduce(function (all, lt) {
       return all.concat(lt[1].map(function (t) { return recorded(t[0], lt[0], t[1], t[2]); }));

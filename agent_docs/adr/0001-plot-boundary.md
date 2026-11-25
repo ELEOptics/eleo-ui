@@ -30,8 +30,7 @@ style. Every role draws a 1 px stroke at any plot size (the user at plan #162's 
 
 An axis range that straddles 0 draws a zero line in `--plot-axis`. The option-name rule (no color, font or stroke
 option) is checked at each row's review. A unit test scans `packages/plots/src` for color and font literals; the
-exemptions are the named colormaps (viridis and gray in `color.js`, viridis in `physics.js`) and `layout3D`'s tone
-composition and label font.
+exemptions are the named colormaps (viridis and gray in `color.js`, viridis in `physics.js`).
 
 **One override.** CSS custom properties on an ancestor (`--series-1..8`, `--ink`, `--plot-axis` and the other tokens)
 are the only way a consumer restyles a plot. There is no per-call style option.

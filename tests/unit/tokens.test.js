@@ -80,3 +80,9 @@ test('map grid contrast', () => {
     assert.ok(a >= b, `map-grid-${map} ${th}: major ${a.toFixed(2)}:1 vs ${g ? 'the ground' : 'the middle'} stop ${ref} is weaker than its minor ${b.toFixed(2)}:1`);
   }
 });
+
+// oracle: spec issue #158: layout2D draws rays at a fixed 1px, so only layout3D uses --stroke-ray
+test('--stroke-ray usage', () => {
+  const t = Object.values(json).flatMap((g) => g.tokens ?? []).find((x) => x.name === 'stroke-ray');
+  assert.equal(t.usage, 'Rays in 3D drawings.');
+});

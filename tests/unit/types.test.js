@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc');
 const files = ['layout2d-labels.ts', 'glass.ts'].map((f) => fileURLToPath(new URL(`../types/${f}`, import.meta.url)));
@@ -113,4 +114,39 @@ test('standalone and png type-check', () => {
   const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck', '--lib', 'es2022,dom',
     '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/export.ts', import.meta.url))], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+// Plan #1193, item #1197. tests/types/layout3d.ts: Layout3DProps takes a RecordedLayout and a ray set; @ts-expect-error on missing data, rays: true and a non-layout data.
+test('layout3d.ts', () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/layout3d.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+// Plan #1193, item #1254. layout3D is its own entry: the main entry has no layout3D, ./layout3d has it, and no ESM file but the layout3d entry's own chunks holds three's source.
+// oracle: spec plan #1193 item #1254 (Behaviour: three is an optional peer, external in the ESM build)
+test('layout3D is only in the ./layout3d entry, and three is not bundled into the ESM build', async () => {
+  const pkg = JSON.parse(readFileSync(new URL('../../packages/plots/package.json', import.meta.url), 'utf8'));
+  assert.ok(pkg.exports['./layout3d'], './layout3d is exported');
+  assert.deepEqual(pkg.peerDependenciesMeta, { three: { optional: true } });
+  assert.equal(pkg.peerDependencies.three, '>=0.170 <1');
+  const dist = new URL('../../packages/plots/dist/', import.meta.url);
+  const main = await import(new URL('index.js', dist));
+  assert.equal('layout3D' in main, false, 'the main entry has no layout3D');
+  assert.equal('layout3D' in main.default, false, 'the default object has no layout3D');
+  assert.equal(typeof (await import(new URL('layout3d.js', dist))).layout3D, 'function');
+  const esm = [...readdirSync(dist).filter((f) => f.endsWith('.js') && !f.startsWith('eleo-')), ...readdirSync(new URL('chunks/', dist)).map((f) => `chunks/${f}`)];
+  for (const f of esm) assert.doesNotMatch(readFileSync(new URL(f, dist), 'utf8'), /class WebGLRenderer|class LatheGeometry/, `${f} holds no three source`);
+  assert.match(readFileSync(new URL('layout3d.js', dist), 'utf8'), /from ?"three"/, 'dist/layout3d.js imports three');
+  assert.doesNotMatch(readFileSync(new URL('eleo-plots.js', dist), 'utf8'), /layout3D|WebGLRenderer/, 'eleo-plots.js has no layout3D');
+  assert.match(readFileSync(new URL('eleo-layout3d.js', dist), 'utf8'), /LatheGeometry/, 'eleo-layout3d.js bundles three');
+});
+
+// Plan #1193, item #1275 (CR #1271). layout3d.js re-exports render3d as layout3D: the entry exports exactly layout3D, and it is render3d.
+// oracle: spec plan #1193 item #1275 (Behaviour: export { render3d as layout3D })
+test('./layout3d exports exactly layout3D, which is render3d', async () => {
+  const entry = await import('../../packages/plots/src/layout3d.js');
+  const three = await import('../../packages/plots/src/layout3dThree.js');
+  assert.deepEqual(Object.keys(entry), ['layout3D']);
+  assert.equal(entry.layout3D, three.render3d);
 });

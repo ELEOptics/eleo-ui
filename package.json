@@ -27,6 +27,7 @@
     "esbuild": "^0.25",
     "svelte": "^5",
     "svelte-check": "^4",
+    "three": "^0.176.0",
     "typescript": "^5"
   },
   "engines": {
