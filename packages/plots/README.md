@@ -65,9 +65,25 @@ beforeEl.innerHTML = layout2D({ data: before, box, labels, marks: false });
 afterEl.innerHTML = layout2D({ data: after, box, labels, marks: false });
 ```
 
-### Migration: `data.layout` is a recorded layout
+### Migration: removed in the sample-free minor (the CHANGELOG names its version)
 
-This is a breaking change. `data.layout` used to be a bare rays array (`layout[field][ray]` of `[z, y]` points), drawn against `data.profiles` and `data.zimg`. It is now a recorded layout, `{surfaces, rays, chief?}`, and so is `data.layoutWl` (previously `{field, rays}`). Record your system in the format above: each lens surface becomes a `surfaces` entry with its `profile` and the `glass` after it, the stop and the image become surfaces with `stop` or `image` set, and the old rays array moves to `rays`. `layout2D` throws on the old shape. `layout3D` reads the same recorded layout, `layout3D(canvas, { data: layout })`, and is imported from `@eleoptics/plots/layout3d`, no longer from the main entry; it no longer reads `profiles` or `rays3d`.
+The sample-free minor is breaking: the built-in sample and every call that drew it are gone, so each renderer draws only the data you pass. Each removed call throws an error that says `see the README migration table`, or is no longer exported. The `layout`, `rayFan` and `useSample` rows below are the ones that need real work.
+
+| Removed | Use instead | Now |
+| -- | -- | -- |
+| `throughFocus({})`, the sample call | `throughFocus({ defocus, rows })` | throws |
+| `curve({ kind })`, `CurveKindProps`, CurvePlot's `kind` | `curve({ series })` or `curve({ panels })` | throws |
+| `rayFan`, `RayFanProps`, `RayFan.svelte` (plots-svelte) | `curve({ panels })` | not exported |
+| `spot({})` without `panels`, `SpotSampleProps`, SpotDiagram's sample unit | `spot({ panels })` | throws |
+| `map2D(canvas, { kind })`, Map2D's canvas branch | `map2D({ values, extent })` | throws |
+| `layout2D` or `glassLegend` with a `LayoutSystem` (`layout`, `layoutWl`) | `{ data: RecordedLayout }` | throws |
+| `layout2D({})` or `glassLegend({})` drawing the sample | `{ data: RecordedLayout }` | throws |
+| `legend(kind)` reading the sample's values | `legend(kind, n, values)` | returns `""` without `n` or `values` |
+| padded glass names (`" N-BK7"`) | trimmed names | throws the unknown-glass error |
+| `useSample`, `sample`, `ELEO.sample`, `./sample`, `eleo-plots-sample.js`, `minWidth`'s sample reads | pass your data | not exported; no `dist` file carries the sample |
+| `data.layout` as a bare rays array (`layout[field][ray]` of `[z, y]` points) | `data.layout` as a recorded layout, `{surfaces, rays, chief?}` | `layout2D` throws on the old shape |
+
+`data.layout`: it was drawn against `data.profiles` and `data.zimg`, and `data.layoutWl` was `{field, rays}`. Record your system in the format above: each lens surface becomes a `surfaces` entry with its `profile` and the `glass` after it, the stop and the image become surfaces with `stop` or `image` set, and the old rays array moves to `rays`. `layout3D` reads the same recorded layout, `layout3D(canvas, { data: layout })`, and is imported from `@eleoptics/plots/layout3d`, no longer from the main entry; it no longer reads `profiles` or `rays3d`. The repository's `gallery/sample-adapters.js` shows how to turn a sample-shaped system into these typed calls.
 
 ### 3D view
 

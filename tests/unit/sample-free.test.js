@@ -1,5 +1,5 @@
 // Plan #1258 M1, O5 (issue #1203): the sample-shaped calls are gone and each throws its named error.
-// Every case starts skipped; the item that removes its row unskips it (#1213 unskips what is left and checks nothing is skipped).
+// One case per removal-table row; nothing in this file is skipped (#1213).
 // The legend and padded-glass rows are tested where they live: legend.test.js "values only" (#1211), glass.test.js "unknown glass string throws" (#139).
 // oracle: spec plan #1258's removal table (Milestones): "After removal" column, error texts `<fn>: <what> was removed; see the README migration table`
 import { test } from 'node:test';
@@ -11,7 +11,6 @@ import ELEO from '../../packages/plots/dist/index.js';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const self = fileURLToPath(import.meta.url);
-const SKIP = 'row K: skipped until its item removes the call';
 const removed = (what) => new RegExp(`${what} was removed; see the README migration table`);
 
 test('throughFocus', () => {
@@ -73,8 +72,8 @@ test('no tree reference', () => {
     const p = join(dir, f);
     return statSync(p).isDirectory() ? (skipDir.has(f) ? [] : walk(p)) : [p];
   });
-  // Files that name the removal on purpose: the type test of the removed call, the release test of the README migration table, the generated CHANGELOGs (history).
-  const named = new Set(['tests/types/removed.ts', 'tests/unit/release.test.js', 'packages/plots/CHANGELOG.md', 'packages/plots-svelte/CHANGELOG.md']);
+  // Files that name the removal on purpose: the type test of the removed call, the release test and the README migration table, the generated CHANGELOGs (history).
+  const named = new Set(['tests/types/removed.ts', 'tests/unit/release.test.js', 'packages/plots/README.md', 'packages/plots/CHANGELOG.md', 'packages/plots-svelte/CHANGELOG.md']);
   const name = /(?<![\w.-])(?:sample|data)\.js\b|useSample|ELEO\.sample|eleo-plots-sample|\bfan\.js\b|\bfan\.test\.js\b|CurveKindProps|RayFanProps|SpotSampleProps|curveAdapters/;
   const hits = ['packages', 'gallery', 'scripts', 'tests'].flatMap((d) => walk(join(root, d)))
     .filter((f) => f !== self && !named.has(relative(root, f)) && /\.(js|mjs|ts|svelte|html|json|md|css)$/.test(f) && name.test(readFileSync(f, 'utf8')))
