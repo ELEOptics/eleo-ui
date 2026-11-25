@@ -42,12 +42,10 @@ export interface RecordedLayout {
   /** status[field][ray][point] is the status of each kept point of rays[field][ray]; one entry per point. */
   status?: RayStatus[][][];
 }
-/** A traced system carrying recorded layouts: `layout` by field, `layoutWl` by wavelength. */
-export interface LayoutSystem { layout?: RecordedLayout; layoutWl?: RecordedLayout; [key: string]: unknown }
 
 export interface Layout2DProps {
-  /** A recorded layout, or a system carrying one; defaults to ELEO.sample. */
-  data?: RecordedLayout | LayoutSystem;
+  /** The recorded layout to draw. Required: without it layout2D throws `layout2D: pass { data: RecordedLayout }`. */
+  data: RecordedLayout;
   /** What the drawing shows, in mm; drawings with one box, width and labels share a scale. Default layoutBounds([layout]). */
   box?: LayoutBox;
   /** What the index colors mean. Default "field". */
@@ -301,11 +299,11 @@ export interface ELEO {
   fmt(v: number, decimals?: number): string;
   /** CSS gradient for a colorbar: token maps follow the theme. */
   gradient(map: "ember" | "wave" | "viridis" | "gray", direction?: string): string;
-  layout2D(props?: Layout2DProps): string;
+  layout2D(props: Layout2DProps): string;
   /** The box that frames every layout given (eleoptics.com's bounds()): pass it as `box` to draw them at one scale. */
   layoutBounds(layouts: RecordedLayout[]): LayoutBox;
-  /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout (a system reads `layout`, else `layoutWl`). */
-  glassLegend(data: RecordedLayout | LayoutSystem): string;
+  /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout. */
+  glassLegend(data: RecordedLayout): string;
   spot(props: SpotDiagramProps): string;
   throughFocus(props: ThroughFocusProps): string;
   /** A typed grid as SVG markup. Throws a named error when given a canvas (the canvas call was removed). */

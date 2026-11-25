@@ -94,9 +94,9 @@ const spotProps: SpotPanelsProps = { panels: [], view: spotView };
 const tfProps: ThroughFocusProps = { defocus: [0], rows: [], view: spotView };
 const mapProps: Map2DGridProps = { values: [[1]], extent: [0, 1, 0, 1], view: curveView };
 // #957, #974: layout2D takes the { x, y } view, in mm, not a spot's centre and half-width.
-const layoutProps: Layout2DProps = { view: curveView };
+const layoutProps: Layout2DProps = { data: { surfaces: [], rays: [] }, view: curveView };
 // @ts-expect-error a layout view is ranges, not a centre and a half-width
-const badLayout: Layout2DProps = { view: spotView };
+const badLayout: Layout2DProps = { data: { surfaces: [], rays: [] }, view: spotView };
 // A lens hover event (#963) carries its element and glass.
 const lensEv: HoverEvent = { x: 0, y: 0, element: 1, glass: 'N-BK7', r1: 50, r2: Infinity, ct: 5, diameter: 25 };
 // @ts-expect-error a spot view is a centre and a half-width, not ranges

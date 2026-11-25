@@ -41,12 +41,12 @@ test('map2D canvas', () => {
   assert.throws(() => ELEO.map2D(), removed('map2D: the canvas call'));
 });
 
-test('LayoutSystem', { skip: SKIP }, () => {
+test('LayoutSystem', () => {
   assert.throws(() => ELEO.layout2D({ layout: {} }), removed('layout2D: LayoutSystem'));
   assert.throws(() => ELEO.glassLegend({ layout: {} }), removed('glassLegend: LayoutSystem'));
 });
 
-test('no data', { skip: SKIP }, () => {
+test('no data', () => {
   assert.throws(() => ELEO.layout2D({}), /layout2D: pass \{ data: RecordedLayout \}/);
   assert.throws(() => ELEO.glassLegend({}), /glassLegend: pass \{ data: RecordedLayout \}/);
 });

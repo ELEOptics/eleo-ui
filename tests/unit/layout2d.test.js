@@ -103,7 +103,7 @@ function roundTrip(L, svg) {
 test('recorded layouts round-trip', async (t) => {
   const cases = [
     ...FIXTURES.map((name) => { const L = fixture(name); return { name, data: L, layout: L }; }),
-    { name: 'sample', data: sample, layout: sample.layout },
+    { name: 'sample', data: sample.layout, layout: sample.layout },
   ];
   for (const { name, data, layout } of cases) {
     await t.test(name, () => {
@@ -284,7 +284,9 @@ test('layoutBounds ports the site', async (t) => {
 // oracle: spec the recorded format allows a fan with every ray dropped (eleo-website scripts/layout.py drops dead rays)
 test('old shape is named', () => {
   const old = { layout: [[[0, 1], [10, 0]]], profiles: [], zimg: 10 };
-  assert.throws(() => ELEO.layout2D({ data: old }),
+  // #1210: the old shape carries a `layout`, which is a system key and now named as removed.
+  assert.throws(() => ELEO.layout2D({ data: old }), { message: 'layout2D: LayoutSystem was removed; see the README migration table' });
+  assert.throws(() => ELEO.layout2D({ data: { profiles: [], zimg: 10 } }),
     { message: 'layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note' });
 });
 

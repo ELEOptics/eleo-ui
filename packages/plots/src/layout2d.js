@@ -171,10 +171,12 @@ export function layoutBounds(layouts) {
 }
 
 export function layout2D(o) {
-  var D = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief";
-  // `data` is a recorded layout, or a system carrying one in `layout` (by field) and `layoutWl` (by wavelength).
-  var L = D.surfaces ? D : colorBy === "wavelength" ? D.layoutWl : D.layout;
-  if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
+  o = o || {};
+  var L = o.data, colorBy = o.colorBy || "field", set = o.rays || "marginal-chief";
+  // A system (`layout`, `layoutWl`) is not a recorded layout; the sample default is gone with it.
+  if (o.layout || o.layoutWl || (L && !L.surfaces && (L.layout || L.layoutWl))) throw new Error("layout2D: LayoutSystem was removed; see the README migration table");
+  if (!L) throw new Error("layout2D: pass { data: RecordedLayout }");
+  if (!Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error("layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note");
   L.rays.forEach(function (fan, k) {
     if (!Array.isArray(fan)) throw new Error("layout2D: fan " + k + " is not an array of rays");
     fan.forEach(function (r, i) {

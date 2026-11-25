@@ -87,7 +87,6 @@ test('legend lists each glass once in first-use order', () => {
   const key = (n) => `<span class="eleo-key eleo-key--swatch" style="--c:${fills.get(n)}">${n}</span>`;
   const want = key('N-SK16') + key('F2');
   assert.equal(glassLegend(fixture), want, 'N-SK16 then F2, once each, fills from glassFill');
-  assert.equal(glassLegend({ layout: fixture }), want, 'a system carrying the layout gives the same legend');
 
   // Only drawn glasses count (a glass on the last surface draws nothing), names are escaped as text,
   // and shorthand glasses ("crown", "flint") have no entry.
@@ -120,12 +119,12 @@ test('legend and drawing use one glass rule', async () => {
 
 // Issue #122: a bad input names itself, as layout2D's does (#65/#67), instead of a bare TypeError.
 test('glassLegend names a bad input', () => {
-  const msg = 'glassLegend: data is not a recorded layout ({surfaces, rays}) or a system carrying one in layout or layoutWl';
-  for (const bad of [{}, { layout: {} }, { layoutWl: {} }, null]) assert.throws(() => glassLegend(bad), { message: msg }, JSON.stringify(bad));
-  // Issue #124: layoutWl carries the same glasses as layout, so a layoutWl-only system gets its legend.
+  // Plan #1258 #1210: a system or no data is not a call; a layout without surfaces or rays is named as before.
+  for (const bad of [{ layout: {} }, { layoutWl: {} }]) assert.throws(() => glassLegend(bad), { message: 'glassLegend: LayoutSystem was removed; see the README migration table' }, JSON.stringify(bad));
+  for (const bad of [{}, null, undefined]) assert.throws(() => glassLegend(bad), { message: 'glassLegend: pass { data: RecordedLayout }' }, JSON.stringify(bad));
+  for (const bad of [{ surfaces: [] }, { surfaces: {}, rays: [] }]) assert.throws(() => glassLegend(bad), { message: 'glassLegend: data is not a recorded layout ({surfaces, rays})' }, JSON.stringify(bad));
   const L = JSON.parse(readFileSync(new URL('../fixtures/layouts/analysis-glasses.json', import.meta.url)));
   assert.ok(glassLegend(L), 'fixture draws named glasses');
-  assert.equal(glassLegend({ layoutWl: L }), glassLegend(L));
 });
 
 // Issue #101: <Legend kind="glass" data={layout} /> renders glassLegend(data), one .eleo-key per glass.
@@ -144,7 +143,7 @@ test('Legend kind="glass" renders one key per glass', async () => {
     writeFileSync(file, compile(src, { generate: 'server', filename: 'Legend.svelte' }).js.code);
     const { default: Legend } = await import(pathToFileURL(file).href);
     const fixture = JSON.parse(readFileSync(new URL('../fixtures/layouts/analysis-glasses.json', import.meta.url)));
-    for (const data of [fixture, { layout: fixture }]) {
+    for (const data of [fixture]) {
       const { body } = render(Legend, { props: { kind: 'glass', data } });
       assert.ok(body.includes(glassLegend(fixture)), `body carries glassLegend(data): ${body}`);
       assert.equal(body.match(/class="eleo-key /g)?.length, 2, 'one .eleo-key per glass');

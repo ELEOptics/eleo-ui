@@ -122,8 +122,8 @@ test('standard order is rule R under normal vision', (t) => {
 
   // Every SVG renderer resolves index k to --series-k, with the standard field as its fallback (no plots.css).
   const drawn = {
-    layout2D: ELEO.layout2D({ colorBy: 'field' }),
-    'layout2D wavelength': ELEO.layout2D({ colorBy: 'wavelength' }),
+    layout2D: ELEO.layout2D({ data: globalThis.ELEOSampleAdapters.layouts(ELEO.sample).field, colorBy: 'field' }), // plan #1258 #1210: a recorded layout
+    'layout2D wavelength': ELEO.layout2D({ data: globalThis.ELEOSampleAdapters.layouts(ELEO.sample).wavelength, colorBy: 'wavelength' }),
     'spot wavelength': ELEO.spot(sampleSpot(ELEO.sample)),
     'spot field': ELEO.spot(sampleSpot(ELEO.sample, { colorBy: 'field' })),
     throughFocus: ELEO.throughFocus(globalThis.ELEOSampleAdapters.throughFocus(ELEO.sample)), // plan #1258 #1205: typed

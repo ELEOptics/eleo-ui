@@ -2,7 +2,7 @@
 // (#1205 throughFocus, #1206 curve kind, #1207 rayFan, #1208 spot sample, #1209 map2D canvas, #1210 LayoutSystem, #1212 useSample).
 // Each block is red as an "unused @ts-expect-error directive" until its .d.ts change lands.
 // oracle: spec plan #1258's removal table (Milestones)
-import { curve, map2D, spot, throughFocus } from '../../packages/plots/src/index';
+import { curve, glassLegend, layout2D, map2D, spot, throughFocus } from '../../packages/plots/src/index';
 // #1205 throughFocus: the sample call (no defocus, no rows) is not a call any more.
 // @ts-expect-error throughFocus needs defocus and rows
 throughFocus({});
@@ -30,5 +30,14 @@ map2D(document.createElement('canvas'), { kind: 'psf' });
 map2D(document.createElement('canvas'));
 // @ts-expect-error Map2DProps was removed
 import type { Map2DProps } from '../../packages/plots/src/index';
-export type Gone = [typeof rayFan, RayFanProps, SpotSampleProps, Map2DProps];
+// #1210 LayoutSystem: layout2D and glassLegend take a RecordedLayout only; LayoutSystem is not exported.
+// @ts-expect-error layout2D needs data
+layout2D({});
+// @ts-expect-error layout2D takes a RecordedLayout, not a system
+layout2D({ data: { layout: { surfaces: [], rays: [] } } });
+// @ts-expect-error glassLegend takes a RecordedLayout, not a system
+glassLegend({ layout: { surfaces: [], rays: [] } });
+// @ts-expect-error LayoutSystem was removed
+import type { LayoutSystem } from '../../packages/plots/src/index';
+export type Gone = [typeof rayFan, RayFanProps, SpotSampleProps, Map2DProps, LayoutSystem];
 export {};
