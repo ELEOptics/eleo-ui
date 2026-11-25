@@ -617,3 +617,29 @@ test('row H changesets became minors',
     assert.equal(entry('plots', ROW_H_PLOTS_ENTRY).kind, 'Minor');
     assert.equal(entry('plots-svelte', ROW_H_SVELTE_ENTRY).kind, 'Minor');
   });
+
+// Plan #1258 M1, O7 (issue #1203): the sample-free minor's changesets and README migration table. Skipped until #1213.
+// oracle: spec semver for 0.x (a minor may break) and plan #1258's removal table
+// "K changesets": `.changeset/sample-free.md` bumps plots minor and `sample-free-svelte.md` plots-svelte minor (read in a temp workspace),
+// and plots-svelte's peer floor equals the plots version `changeset version` gives.
+const K_SKIP = 'row K: skipped until #1213';
+const kConsumed = ['sample-free.md', 'sample-free-svelte.md'].every((f) => !existsSync(join(repo, '.changeset', f)));
+
+test('K changesets', { skip: K_SKIP }, () => {
+  const plots = parse('sample-free.md');
+  const svelte = parse('sample-free-svelte.md');
+  assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
+  assert.deepEqual(svelte.bumps, { '@eleoptics/plots-svelte': 'minor' });
+  assert.fail('read `changeset version` in a temp workspace and compare the peer floor (#1213)');
+});
+
+test('K changesets, consumed', { skip: K_SKIP }, () => {
+  assert.ok(kConsumed, 'the changesets are consumed');
+  assert.fail('the plots-svelte peer floor is at most the plots manifest version (#1213)');
+});
+
+test('migration table', { skip: K_SKIP }, () => {
+  const readme = readFileSync(join(repo, 'packages/plots/README.md'), 'utf8');
+  assert.match(readme, /removed in the sample-free minor/);
+  for (const row of ['throughFocus', 'curve', 'rayFan', 'spot', 'map2D', 'LayoutSystem', 'legend', 'padded glass', 'useSample']) assert.ok(readme.includes(row), `the migration table names ${row}`);
+});

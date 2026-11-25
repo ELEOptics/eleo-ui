@@ -150,3 +150,11 @@ test('./layout3d exports exactly layout3D, which is render3d', async () => {
   assert.deepEqual(Object.keys(entry), ['layout3D']);
   assert.equal(entry.layout3D, three.render3d);
 });
+
+// Plan #1258, O5 (issue #1203; each removal item appends its block). tests/types/removed.ts: every removed call fails the type check under @ts-expect-error.
+// oracle: spec plan #1258's removal table (Milestones)
+test('removed calls fail the type check', () => {
+  const r = spawnSync(process.execPath, [tsc, '--noEmit', '--strict', '--skipLibCheck', '--lib', 'es2022,dom',
+    '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', fileURLToPath(new URL('../types/removed.ts', import.meta.url))], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});

@@ -8,6 +8,7 @@
 // and the throughFocus entry at plan #512 #570 (after #525, same choice); #528 re-runs it if a later M2 change moves it,
 // and the throughFocus entry again at plan #677 #783 and #785 by the user's choice (CR #780: one panel function; CR #781: tick labels on the outer edges),
 // and the layout2D, layout2D-fan and layout2D-glasses entries again at plan #677 #733 by the user's choice (CR #729: a stop bar wherever STO is labelled),
+// and the rayFan-opd and chromaticFocus entries added at plan #1258 #1203 from the merged base's build (nothing else re-recorded),
 // and the throughFocus entry again at plan #1076 #1121 by the user's choice (CR #1122: dots draw as a 0.01 px segment, which WebKit paints once).
 //   node scripts/record-renderers.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -44,6 +45,9 @@ export function draws() {
       () => ELEO.layout2D({ ...globalThis.ELEOAdapters.layout(phosLayout(name)), width }),
     ]))),
     'throughFocus': () => ELEO.throughFocus(),
+    // The gallery's sample tiles that no entry covered, recorded at plan #1258 #1203 from the merged base's build (before row K removes the sample calls).
+    'rayFan-opd': () => ELEO.rayFan({ kind: 'opd', key: true }),
+    'chromaticFocus': () => ELEO.curve({ kind: 'chromaticFocus' }),
     // The recorded achromat Seidel sums through the adapter, as the gallery's seidel tiles draw them (plan #677 #679: before the key extraction).
     'seidel': () => ELEO.bars({ ...globalThis.ELEOAdapters.seidel(seidelRecording()), limits: [{ y: 0.05, label: '0.05 mm' }], width: 1000 }),
     'seidel-terms': () => ELEO.bars({ ...globalThis.ELEOAdapters.seidel(seidelRecording(), { by: 'term' }), width: 1000 }),
