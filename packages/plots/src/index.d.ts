@@ -1,7 +1,6 @@
 /* @eleoptics/plots. SVG output reads colors from tokens.css
    variables, except the typed `map2D(props)`, which returns SVG with its grid baked into one image at draw time: draw it
-   again after a theme or palette change. The sample `map2D(canvas, ...)` is a canvas renderer that reads
-   the variables at draw time, so call them again after a theme or palette change. */
+   again after a theme or palette change. */
 
 export type IndexKey = "field" | "wavelength";
 
@@ -148,19 +147,6 @@ export interface ThroughFocusProps {
   grid?: boolean;
 }
 export type SpotDiagramProps = SpotPanelsProps;
-export interface Map2DProps {
-  data?: object;
-  /** Default "psf". */
-  kind?: "psf" | "wavefront";
-  /** Default "ember" for psf, "wave" for wavefront. */
-  map?: "ember" | "wave" | "viridis" | "gray";
-  /** PSF only. Default "linear" (log shows 4 decades). */
-  scale?: "linear" | "log";
-  /** PSF index in data.psf. Default 0. */
-  index?: number;
-  /** Canvas size in px. Default 320. */
-  size?: number;
-}
 /** A grid drawn as a map: SVG in curve's frame with the grid as one nearest-neighbour `<image>`. Colors come from `map` read at `el`; there is no color option (ADR-0001). */
 export interface Map2DGridProps {
   /** Zoom window in extent units, per axis; the image keeps its extent and the frame clips it. An invalid range (not finite, or lo >= hi) is ignored and keeps that axis's extent, as for a curve or spot. */
@@ -322,10 +308,8 @@ export interface ELEO {
   glassLegend(data: RecordedLayout | LayoutSystem): string;
   spot(props: SpotDiagramProps): string;
   throughFocus(props: ThroughFocusProps): string;
-  /** A typed grid as SVG markup. */
+  /** A typed grid as SVG markup. Throws a named error when given a canvas (the canvas call was removed). */
   map2D(props: Map2DGridProps): string;
-  /** The sample's PSF or wavefront drawn on a canvas. */
-  map2D(canvas: HTMLCanvasElement, props?: Map2DProps): { lo: number; hi: number };
   curve(props: CurvePlotProps): string;
   bars(props: BarPlotProps): string;
   /** One icon as inline SVG. Default style "line", size 16. */

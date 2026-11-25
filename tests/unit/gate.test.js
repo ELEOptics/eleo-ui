@@ -46,7 +46,7 @@ test('three browsers', () => {
 
 // oracle: spec Playwright: CDPSession and browser.startTracing are Chromium only (playwright.dev/docs/api/class-cdpsession); measurement roadmap U14: headless Chromium; user round 2 (2026-11-12): the PNG recording stays Chromium's (O2)
 test('chromium-only specs', () => {
-  const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'map2d-sample'].map((n) => `${n}.spec.js`);
+  const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio'].map((n) => `${n}.spec.js`);
   const byProject = listing();
   const lists = (p, f) => (byProject.get(p) ?? []).some((t) => t.file === f);
   for (const f of only) assert.ok(lists('chromium', f), `chromium lists ${f}`);
@@ -106,7 +106,7 @@ test('nothing pending', async () => {
   assert.ok(!('PENDING' in mod), 'the config exports no pending list');
   for (const p of mod.default.projects) assert.equal(p.grepInvert, undefined, `${p.name} inverts no grep`);
   const byProject = listing();
-  const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio', 'map2d-sample'].map((n) => `${n}.spec.js`);
+  const only = ['zoom-budget', 'perf', 'gallery-shots', 'pixel-ratio'].map((n) => `${n}.spec.js`);
   const full = byProject.get('chromium').filter((t) => !only.includes(t.file)).map((t) => `${t.file} ${t.name}`).sort();
   for (const p of ['firefox', 'webkit']) {
     assert.deepEqual(byProject.get(p).map((t) => `${t.file} ${t.name}`).sort(), full, `${p} lists every test chromium does, bar the Chromium-only files`);

@@ -35,8 +35,10 @@ test('spot sample', () => {
   assert.doesNotThrow(() => ELEO.spot({ panels: [{ title: 'a', series: [{ points: [[1, 2]], index: 0 }] }] }));
 });
 
-test('map2D canvas', { skip: SKIP }, () => {
+test('map2D canvas', () => {
   assert.throws(() => ELEO.map2D({}, { kind: 'psf' }), removed('map2D: the canvas call'));
+  assert.throws(() => ELEO.map2D({ nodeType: 1 }), removed('map2D: the canvas call'));
+  assert.throws(() => ELEO.map2D(), removed('map2D: the canvas call'));
 });
 
 test('LayoutSystem', { skip: SKIP }, () => {

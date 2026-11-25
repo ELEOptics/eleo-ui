@@ -1,4 +1,4 @@
-// A typed map2D call compiles under --strict and returns a string; the sample call still takes a canvas (#393, plan 389).
+// A typed map2D call compiles under --strict and returns a string; the canvas call was removed (#393, plan 389; #1209).
 // oracle: spec roadmap Constraints (typed API alongside the old one)
 import type { Map2DGridProps } from '../../packages/plots/src/index';
 import ELEO, { map2D } from '../../packages/plots/src/index';
@@ -40,9 +40,6 @@ const d: string = map2D({
   aperture: { x: 0, y: 0, r: 1 },
 });
 
-// The sample call keeps its canvas signature and result.
-const r: { lo: number; hi: number } = map2D(document.createElement('canvas'), { kind: 'psf', scale: 'log' });
-
 // @ts-expect-error a grid needs its extent
 map2D({ values: [[1]] });
 // @ts-expect-error values are rows of numbers
@@ -55,4 +52,4 @@ map2D({ values: [[1]], extent: [-1, 1, -1, 1], polar: { radii: [1] } });
 // Grid lines: an option or an axis left out may be null, as documented (#746 runtime, #752; review M3 round 2).
 const e: string = map2D({ values: [[1]], extent: [0, 1, 0, 1], grid: null });
 const f: string = map2D({ values: [[1]], extent: [0, 1, 0, 1], grid: { x: null, y: { major: 4, minor: 1 } } });
-export { a, b, c, d, e, f, r };
+export { a, b, c, d, e, f };

@@ -20,7 +20,7 @@ import '@eleoptics/plots/plots.css';
 import { layout2D, map2D } from '@eleoptics/plots';
 
 el.innerHTML = layout2D({ data: mySystem });   // SVG; follows the theme by itself
-map2D(canvas, { data: mySystem, kind: 'psf' });  // canvas; call again after a theme or palette change
+el.innerHTML = map2D({ values, extent: [-2, 2, -2, 2] });  // SVG, its cells baked at draw time: call again after a theme or palette change
 ```
 
 - Pass your traced system as `data`, or `import '@eleoptics/plots/sample'` to draw the sample achromat (190 KB, so it is opt-in).
@@ -38,12 +38,12 @@ In Svelte:
   let { system } = $props();
 </script>
 
-<PlotCard title="PSF" meta="0.0°, linear">
-  <Map2D data={system} kind="psf" label="Point spread function" />
+<PlotCard title="Wavefront" meta="0.0°">
+  <Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />
 </PlotCard>
 ```
 
-A typed grid draws as SVG with axes and a colorbar: `<Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />`.
+`Map2D` draws a typed grid as SVG with axes and a colorbar.
 
 ## Work on it
 

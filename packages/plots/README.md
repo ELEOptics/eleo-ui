@@ -13,14 +13,13 @@ import { layout2D, spot, map2D, gradient } from '@eleoptics/plots';
 
 layoutEl.innerHTML = layout2D({ data: system, colorBy: 'field', rays: 'fan' });
 spotEl.innerHTML = spot({ panels: [{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }] }], unit: 'µm' });
-map2D(psfCanvas, { data: system, kind: 'psf', scale: 'log' });
 mapEl.innerHTML = map2D({ values, extent: [-0.02, 0.02, -0.02, 0.02], x: { label: 'x', unit: 'mm' }, y: { label: 'y', unit: 'mm' }, map: 'ember', el: mapEl });
 colorbarEl.style.background = gradient('ember');
 ```
 
 - **SVG renderers** (`layout2D`, `spot`, `throughFocus`, `curve`, `bars`, `legend`, and `icon`) return markup whose colors are CSS variables: one drawing works in both themes. `legend` needs no sample: without one, `field`/`wavelength` draw `n` index keys without values (`F1`.., `λ1`..), and none when `n` is omitted; `ts` and `rays` are unchanged. `legend(kind, n?, values?)`: for `field` and `wavelength`, `values` (degrees or nm) replaces the sample's, one key per value with `n` defaulting to its length, so a recording draws its own keys; a non-finite entry draws the index key alone.
 - **`map2D` on a typed grid** takes `values` (rows, row 0 at the top; with `polar: { radii, angles }`, `values[ring][spoke]` are polar samples about the extent's origin, radii in extent units, angles in radians from +x counter-clockwise, sorted ascending with equal neighbours allowed, within one turn (last − first ≤ 2π, up to float rounding); angles unsorted or spanning more than a turn throw a `map2D: polar` TypeError), `extent: [x0, x1, y0, y1]`, `x`/`y` axes, `map`, `scale` ("log" spans `decades` below the max, default 4, or exactly `range` when 0 < lo < hi, and `decades` is then ignored), `decades`, `range`, `aperture: { x, y, r }`, `grid: true | { x: { major, minor }, y: { ... } }` (no grid by default, as a continuous color wants none; `true` draws the default majors and no minors over the image, and so does an axis left out of an object; lines in the map's `--map-grid-<map>` token, minors in `-minor`: about `major` labelled nice ticks (the 1-2-5 rule picks the step), `minor` evenly spaced lines in each interval (a count of at most 20, else a `map2D: grid` TypeError; `minor: false` draws no minors), `false` for an axis draws no lines on that axis, `grid: false`, `null` or no `grid` draws none at all, and the tick labels stay; `null` for an axis is as left out), `value` (the colorbar's axis), `el`, `width`, `height` and `label`, and returns SVG: curve's frame and ticks (text size and margins by [ADR-0003](../../agent_docs/adr/0003-plot-scale.md) from `width`, default height `round(width * 360 / 460)`, the aperture ring's stroke by `frameWeight`) with the grid baked into one pixelated `<image>`, colored from `el`'s tokens at draw time (call it again after a theme or palette change). Masked cells (not finite numbers) show the page's `--surface`.
-- **Canvas renderers** (`map2D(canvas, { kind })` on the sample, `layout3D` from `@eleoptics/plots/layout3d`) read the variables when they draw: call them again after a theme or palette change.
+- **Canvas renderers** (`layout3D` from `@eleoptics/plots/layout3d`) read the variables when they draw: call them again after a theme or palette change.
 - **Data:** pass your traced system as `data`. To try things out, `import '@eleoptics/plots/sample'` makes a traced achromat the default (190 KB, so it is opt-in).
 - **Fonts:** Fira Sans and Fira Code. Load them yourself.
 
@@ -285,7 +284,7 @@ Plots color index 1 to 8 in the standard order. For readers with color vision de
 <html data-palette="red-green">
 ```
 
-The values are `standard` (the default), `red-green` (protanopia and deuteranopia) and `blue-yellow` (tritanopia). Use one palette per page, on `<html>`. SVG plots recolor at once; canvas plots (`map2D(canvas, ...)`, `layout3D`) redraw as on a theme change.
+The values are `standard` (the default), `red-green` (protanopia and deuteranopia) and `blue-yellow` (tritanopia). Use one palette per page, on `<html>`. SVG plots recolor at once; canvas plots (`layout3D`) redraw as on a theme change.
 
 `--series-1` to `--series-8` are the index colors for any chart on the page. They follow the palette and theme. The token number is not the index.
 

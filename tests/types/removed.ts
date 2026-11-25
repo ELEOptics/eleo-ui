@@ -2,7 +2,7 @@
 // (#1205 throughFocus, #1206 curve kind, #1207 rayFan, #1208 spot sample, #1209 map2D canvas, #1210 LayoutSystem, #1212 useSample).
 // Each block is red as an "unused @ts-expect-error directive" until its .d.ts change lands.
 // oracle: spec plan #1258's removal table (Milestones)
-import { curve, spot, throughFocus } from '../../packages/plots/src/index';
+import { curve, map2D, spot, throughFocus } from '../../packages/plots/src/index';
 // #1205 throughFocus: the sample call (no defocus, no rows) is not a call any more.
 // @ts-expect-error throughFocus needs defocus and rows
 throughFocus({});
@@ -23,5 +23,12 @@ spot({});
 spot({ panels: [], colorBy: 'field' });
 // @ts-expect-error SpotSampleProps was removed
 import type { SpotSampleProps } from '../../packages/plots/src/index';
-export type Gone = [typeof rayFan, RayFanProps, SpotSampleProps];
+// #1209 map2D canvas: a canvas is not a call any more, and Map2DProps is not exported.
+// @ts-expect-error map2D takes a typed grid, not a canvas
+map2D(document.createElement('canvas'), { kind: 'psf' });
+// @ts-expect-error map2D takes a typed grid, not a canvas
+map2D(document.createElement('canvas'));
+// @ts-expect-error Map2DProps was removed
+import type { Map2DProps } from '../../packages/plots/src/index';
+export type Gone = [typeof rayFan, RayFanProps, SpotSampleProps, Map2DProps];
 export {};

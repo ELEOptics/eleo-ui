@@ -14,7 +14,7 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
   import '@eleoptics/plots/plots.css';
   import { PlotCard, Layout2D, Map2D, Colorbar, Legend } from '@eleoptics/plots-svelte';
   let { system } = $props();
-  let range = $state();
+  let grid = [[0, 1], [1, 0]];
 </script>
 
 <PlotCard title="Layout" meta="YZ" colorKey="Color: field">
@@ -23,12 +23,12 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 </PlotCard>
 
 <PlotCard title="PSF" meta="0.0°, linear">
-  <Map2D data={system} kind="psf" bind:range label="Point spread function" />
+  <Map2D values={grid} extent={[-2, 2, -2, 2]} label="Point spread function" />
   <Colorbar map="ember" labels={['1', '0']} />
 </PlotCard>
 ```
 
-`Map2D` draws a typed grid as one SVG with axes and a colorbar (`values` and `extent`, see `Map2DGridProps` in the plots README), colored by its own element's tokens and redrawn on a theme or palette change. Without `values` it draws the canvas sample above:
+`Map2D` draws a typed grid as one SVG with axes and a colorbar (`values` and `extent`, see `Map2DGridProps` in the plots README), colored by its own element's tokens and redrawn on a theme or palette change.
 
 ```svelte
 <Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />
@@ -77,7 +77,7 @@ It peers `@eleoptics/plots` `>=0.8.0 <1`: the wrappers draw at their width, whic
 />
 ```
 
-`CurvePlot` takes `onhover` and `onselect`: `onhover({ x, y, series: { index, label?, role? }, panel?, interpolated?, segment? })` fires for the curve point within 6 px of the pointer and, when none is, for the spot on a drawn segment within 24 px of it: the pointer projected onto the line between two points and clamped to it (`interpolated: true`, `segment: [i, i + 1]`, the indices of the two points; at a segment's end `x` and `y` can equal a data point). It fires `onhover(null)` when the pointer leaves (`series.index` is the series' position in `series`, or in its panel, not its `index` palette slot); `onselect(SelectEvent)` fires on a click on a mark (a series, bar, surface or field: `series`, `panel`, `category`, `surface` or `field`) and sends nothing for a click on no mark. `CurvePlot`, `SpotDiagram`, `BarPlot`, `Map2D` (typed `values` only; the canvas sample has no pointer) and `Layout2D` all take `onhover` and `onselect`. With no callback they still draw a hover dot (only on a data point, none on an interpolated reading), dashed drop lines to the axes (on framed plots; not on `Layout2D`) and a tooltip near the pointer, `Tangential · 120 cycles/mm, 0.62`. The tooltip's axes: `CurvePlot` takes the units of its `x` and `y` specs, typed `Map2D` those of its `x`, `y` and `value` specs (the value after `=`; a masked sample shows none), `SpotDiagram` x and y in `µm`, `BarPlot` y from its `y` spec, `Layout2D` x and y in `mm`. `PlotCard` has no readout line. Each wrapper's box, `BarPlot`'s included, is a tab stop (`tabindex="0"`) and takes the keys of `interact`: see the Keyboard section of the plots README.
+`CurvePlot` takes `onhover` and `onselect`: `onhover({ x, y, series: { index, label?, role? }, panel?, interpolated?, segment? })` fires for the curve point within 6 px of the pointer and, when none is, for the spot on a drawn segment within 24 px of it: the pointer projected onto the line between two points and clamped to it (`interpolated: true`, `segment: [i, i + 1]`, the indices of the two points; at a segment's end `x` and `y` can equal a data point). It fires `onhover(null)` when the pointer leaves (`series.index` is the series' position in `series`, or in its panel, not its `index` palette slot); `onselect(SelectEvent)` fires on a click on a mark (a series, bar, surface or field: `series`, `panel`, `category`, `surface` or `field`) and sends nothing for a click on no mark. `CurvePlot`, `SpotDiagram`, `BarPlot`, `Map2D` and `Layout2D` all take `onhover` and `onselect`. With no callback they still draw a hover dot (only on a data point, none on an interpolated reading), dashed drop lines to the axes (on framed plots; not on `Layout2D`) and a tooltip near the pointer, `Tangential · 120 cycles/mm, 0.62`. The tooltip's axes: `CurvePlot` takes the units of its `x` and `y` specs, typed `Map2D` those of its `x`, `y` and `value` specs (the value after `=`; a masked sample shows none), `SpotDiagram` x and y in `µm`, `BarPlot` y from its `y` spec, `Layout2D` x and y in `mm`. `PlotCard` has no readout line. Each wrapper's box, `BarPlot`'s included, is a tab stop (`tabindex="0"`) and takes the keys of `interact`: see the Keyboard section of the plots README.
 
 `CurvePlot`, `SpotDiagram`, `Layout2D` and typed `Map2D` zoom on the wheel about the pointer, pan on a drag and reset on a double-click. The wrapper keeps the zoom in its own state and redraws at it, so new data props keep the view until it is reset. Pass `view` to control it (`{ x, y }`, or `{ center, half }` for `SpotDiagram`; `null` is the default view): a given `view` wins over the wrapper's own, including `view={null}`, which resets to the default view (only an omitted or `undefined` `view` leaves it to the wrapper), and you set it from `onview`. `onview(view | null)` is called on every zoom, pan and reset (`null`) whether or not you pass `view`:
 
