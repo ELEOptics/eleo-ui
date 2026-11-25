@@ -757,5 +757,7 @@ test('throughFocus names a malformed row', () => {
   assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ series: [[], 5, []] }] }), /rows\[0\]\.series\[1\] is not an array of series/);
   assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ title: 'd', series: 5 }] }), /throughFocus: rows\[0\]\.series is not an array/);
   assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ title: 'e', series: [[null]] }] }), /throughFocus: rows\[0\]\.series\[0\]\[0\] is not a series/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ series: [[[1, 1]]] }] }), /throughFocus: rows\[0\]\.series\[0\]\[0\] is not a series/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ series: [[{ points: 5 }]] }] }), /throughFocus: rows\[0\]\.series\[0\]\[0\]\.points is not an array/);
   assert.doesNotThrow(() => ELEO.throughFocus({ ...ok, rows: [{ title: 'c' }, { series: [[]] }] }), 'a missing cell stays an empty cell');
 });

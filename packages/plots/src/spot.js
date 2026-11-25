@@ -153,9 +153,29 @@ export function spot(o) {
   if (!o || !Array.isArray(o.panels)) throw new TypeError("spot: the sample call was removed; see the README migration table");
   return typedSpot(o);
 }
+/* throughFocus's whole input shape, checked once before any drawing, one named TypeError per level: row, series, cell, entry, points. A missing (undefined or null) series, cell or points list is empty, not an error. */
+function checkThroughFocus(rows, cols) {
+  var bad = function (m) { throw new TypeError("throughFocus: " + m); };
+  rows.forEach(function (row, i) {
+    var at = "rows[" + i + "]";
+    if (!row || typeof row !== "object" || Array.isArray(row)) bad(at + " is not an object");
+    if (row.series == null) return;
+    if (!Array.isArray(row.series)) bad(at + ".series is not an array");
+    for (var j = 0; j < cols; j++) {
+      var cell = row.series[j], ca = at + ".series[" + j + "]";
+      if (cell == null) continue;
+      if (!Array.isArray(cell)) bad(ca + " is not an array of series");
+      cell.forEach(function (se, k) {
+        if (!se || typeof se !== "object" || Array.isArray(se)) bad(ca + "[" + k + "] is not a series");
+        if (se.points != null && !Array.isArray(se.points)) bad(ca + "[" + k + "].points is not an array");
+      });
+    }
+  });
+}
 /* throughFocus (ADR-0003): a panel's side B is the frame; text is frameText(B), the row label's room 4.2 text units plus labelM(half) for the y tick labels, and the rows' gaps are in text units. With `width`, B solves lw + cols * (B + gap) = width; without, B is 92. Only the outer edges are labelled (every cell shares one scale): x under the bottom row, y left of the left column, and, with a `unit`, a caption "x, y in <unit>" under the figure. Each RMS line sits 1.3 text units under its panel, the bottom row's 2.5 (under its x labels). */
 export function throughFocus(o) {
   if (!o || !Array.isArray(o.defocus) || !Array.isArray(o.rows)) throw new TypeError("throughFocus: the sample call was removed; see the README migration table");
+  checkThroughFocus(o.rows, o.defocus.length);
   var DZ = o.defocus, ROWS = o.rows, gap = 10, LW = 4.2, un = o.unit ? " " + esc(o.unit) : "";
   var cols = DZ.length, rows = ROWS.length, g = "", vw = viewOf(o.view), half = vw ? vw.half : o.half > 0 && isFinite(o.half) ? +o.half : 40, YM = labelM(half, vw ? vw.center[1] : 0);
   var B = isFinite(o.width) && o.width > 0 && cols ? r2(Math.floor(frameOf((+o.width - cols * gap) / cols, (LW + YM) / cols) * 100) / 100) : 92;
@@ -163,14 +183,11 @@ export function throughFocus(o) {
   var lw = r2((LW + YM) * t), th = r2(2.2 * t), pitch = r2(B + 2.6 * t), W = r2(Math.max(lw + cols * (B + gap), isFinite(o.width) ? +o.width : 0)), H = r2(th + rows * pitch + 2.7 * t);
   DZ.forEach(function (dz, j) { g += '<text class="eleo-tick"' + sty + ' x="' + r2(lw + j * (B + gap) + B / 2) + '" y="' + r2(1.2 * t) + '" text-anchor="middle">' + (dz > 0 ? "+" : dz < 0 ? "−" : "") + Math.abs(dz) + un + "</text>"; });
   ROWS.forEach(function (row, i) {
-    if (!row || typeof row !== "object") throw new TypeError("throughFocus: rows[" + i + "] is not an object");
-    if (row.series != null && !Array.isArray(row.series)) throw new TypeError("throughFocus: rows[" + i + "].series is not an array");
     var oy = r2(th + i * pitch);
     g += '<text class="eleo-val"' + sty + ' x="0" y="' + r2(oy + B / 2 + 0.4 * t) + '">' + esc(row.title == null ? "" : row.title) + "</text>";
     DZ.forEach(function (dz, j) {
       var ser = row.series && row.series[j] != null ? row.series[j] : [], n = 0, q2 = 0;
-      if (!Array.isArray(ser)) throw new TypeError("throughFocus: rows[" + i + "].series[" + j + "] is not an array of series");
-      ser.forEach(function (se, k) { if (!se || typeof se !== "object") throw new TypeError("throughFocus: rows[" + i + "].series[" + j + "][" + k + "] is not a series"); (se.points || []).forEach(function (q) { if (live(q)) { n++; q2 += q[0] * q[0] + q[1] * q[1]; } }); });
+      ser.forEach(function (se) { (se.points || []).forEach(function (q) { if (live(q)) { n++; q2 += q[0] * q[0] + q[1] * q[1]; } }); });
       var ox = r2(lw + j * (B + gap));
       g += spotPanel(ox, oy, B, half, { series: ser, grid: o.grid !== false, wt: wt, panel: i * cols + j, cell: i + "," + j, frame: dz === 0 ? "var(--ink-subtle)" : "var(--plot-grid)", labels: { x: i === rows - 1, y: j === 0 }, t: t, view: vw });
       g += '<text class="eleo-tick"' + sty + ' x="' + ox + '" y="' + r2(oy + B + (i === rows - 1 ? 2.5 : 1.3) * t) + '">RMS <tspan class="eleo-val"' + sty + '>' + (n ? Math.sqrt(q2 / n) : 0).toFixed(1) + "</tspan></text>";
