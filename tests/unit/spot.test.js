@@ -748,3 +748,12 @@ test('data-skip when a point drops', () => {
   const clean = ELEO.spot({ panels: [{ series: [{ points: [[0, 0], [1, 1]], index: 0 }] }] });
   assert.ok(!/data-skip/.test(clean), 'no dropped point, no data-skip');
 });
+
+// Plan #1258 #1315 (review M1 finding 4): throughFocus names a malformed row instead of throwing a bare TypeError.
+test('throughFocus names a malformed row', () => {
+  const ok = { defocus: [-1, 0, 1], rows: [{ title: 'a', series: [[{ points: [[1, 1]] }], [], []] }] };
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [null] }), /throughFocus: rows\[0\] is not an object/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [ok.rows[0], { title: 'b', series: [{ points: [[1, 1]] }, [], []] }] }), /throughFocus: rows\[1\]\.series\[0\] is not an array of series/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ series: [[], 5, []] }] }), /rows\[0\]\.series\[1\] is not an array of series/);
+  assert.doesNotThrow(() => ELEO.throughFocus({ ...ok, rows: [{ title: 'c' }, { series: [[]] }] }), 'a missing cell stays an empty cell');
+});
