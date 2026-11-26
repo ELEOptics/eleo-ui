@@ -2,12 +2,10 @@
    F_LO + TEXT_MIN * (L + R) + (panels - 1) * panelStep, with the margins the renderer draws with (L and R in text units).
    Its own file because scale.js is imported by map2d.js and curve.js; importing them back from scale.js would be a cycle. */
 import { F_LO, TEXT_MIN, PLOT_SIZES, SPOT_LABEL_M, CURVE_MARGINS } from "./scale.js";
-import { data, state } from "./data.js";
 import { mapMargins } from "./map2d.js";
 import { scales } from "./curve.js";
 import { checkLimits } from "./limits.js";
-import { fanPanels } from "./fan.js";
-import { labelM, spotLM, spotPanels } from "./spot.js";
+import { labelM, spotLM } from "./spot.js";
 
 /* The right margin (text units) and the column count of a curve call; null where the call has no series to measure. */
 function curveShape(o) {
@@ -24,16 +22,12 @@ export function minWidth(name, props) {
   if (name === "map2D" && o.values) {
     base = F_LO + TEXT_MIN * (function (m) { return m.L + m.R; })(mapMargins(o));
   } else if (name === "curve" || name === "rayFan") {
-    var c = null;
-    if (name === "rayFan") { if (o.data || state.sample) { var f = fanPanels(data(o), o); c = curveShape({ panels: f.panels, columns: f.columns, x: f.x, y: f.y }); } }
-    else c = curveShape(o);
-    if (c) { base = F_LO + TEXT_MIN * (CURVE_MARGINS.L + c.Rt); step = name === "rayFan" || o.panels ? base : 0; panels = c.cols; }
+    var c = curveShape(o);
+    if (c) { base = F_LO + TEXT_MIN * (CURVE_MARGINS.L + c.Rt); step = o.panels ? base : 0; panels = c.cols; }
   } else if (name === "spot") {
-    var sp = o.panels ? o : o.data || state.sample ? spotPanels(data(o), o) : null;
-    panels = sp ? sp.panels.length : 1;
-    if (sp) { var extra = TEXT_MIN * (spotLM(sp, sp.panels).LM - SPOT_LABEL_M); base += extra; step += extra; }
+    if (o.panels) { panels = o.panels.length; var extra = TEXT_MIN * (spotLM(o, o.panels).LM - SPOT_LABEL_M); base += extra; step += extra; }
   } else if (name === "throughFocus") {
-    panels = o.data || state.sample ? data(o).throughFocus.defocus.length : 1;
+    panels = Array.isArray(o.defocus) ? o.defocus.length : 1;
     if (o.half > 0 && isFinite(o.half)) base += TEXT_MIN * (labelM(+o.half) - SPOT_LABEL_M);
   }
   return base + (Math.max(1, panels) - 1) * step;

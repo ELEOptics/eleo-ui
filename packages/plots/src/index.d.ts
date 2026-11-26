@@ -1,7 +1,6 @@
 /* @eleoptics/plots. SVG output reads colors from tokens.css
    variables, except the typed `map2D(props)`, which returns SVG with its grid baked into one image at draw time: draw it
-   again after a theme or palette change. The sample `map2D(canvas, ...)` is a canvas renderer that reads
-   the variables at draw time, so call them again after a theme or palette change. */
+   again after a theme or palette change. */
 
 export type IndexKey = "field" | "wavelength";
 
@@ -43,12 +42,10 @@ export interface RecordedLayout {
   /** status[field][ray][point] is the status of each kept point of rays[field][ray]; one entry per point. */
   status?: RayStatus[][][];
 }
-/** A traced system carrying recorded layouts: `layout` by field, `layoutWl` by wavelength. */
-export interface LayoutSystem { layout?: RecordedLayout; layoutWl?: RecordedLayout; [key: string]: unknown }
 
 export interface Layout2DProps {
-  /** A recorded layout, or a system carrying one; defaults to ELEO.sample. */
-  data?: RecordedLayout | LayoutSystem;
+  /** The recorded layout to draw. Required: without it layout2D throws `layout2D: pass { data: RecordedLayout }`. */
+  data: RecordedLayout;
   /** What the drawing shows, in mm; drawings with one box, width and labels share a scale. Default layoutBounds([layout]). */
   box?: LayoutBox;
   /** What the index colors mean. Default "field". */
@@ -124,87 +121,30 @@ export interface SpotPanelsProps {
   width?: number;
   /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
   height?: number;
-  data?: never;
-  colorBy?: never;
 }
-/** Sample call: the spots of the sample (or `data`), one color per wavelength or field. */
-export interface SpotSampleProps {
-  data?: object;
-  /** Default "wavelength". */
-  colorBy?: IndexKey;
-  /** Box size rule. Default "common". */
-  scale?: "common" | "auto";
-  /** Box half-width in µm; overrides the automatic common size. */
-  half?: number;
-  /** `false` draws no grid lines; the frame and centre cross stay. Default true: lines at the nice ticks strictly inside (-half, half) (the frame draws the edges), in --plot-grid, under the dots. */
-  grid?: boolean;
-  /** Airy circle. Default true. */
-  airy?: boolean;
-  /** Names the zero point in the caption. Default "chief ray". Used with reference "chief". */
-  origin?: string;
-  /** "chief" keeps the dots as given, labelled with origin. Default "centroid": every panel is recentred on the centroid of its dots. */
-  reference?: "chief" | "centroid";
-  /** RMS and GEO radius lines under each panel. Default true. */
-  showStats?: boolean;
-  /** Draw each panel's Airy circle. Default true. */
-  showAiry?: boolean;
-  /** Multiplies ADR-0003's text size for the panel side (and the gaps, line pitch, foot and caption width estimate around it). Default 1; a value that is not a finite number above 0 means 1. */
-  textScale?: number;
-  /** Drawing width in px; a panel's side F solves `F + 2.4 * text(F) = (width - 22 * (panels - 1)) / panels` (more than 2.4 text units when the y labels are longer than three characters; less when `height` caps it), ADR-0003's frame (`textScale` multiplying the text). Without it, 150 px panels. */
-  width?: number;
-  /** Caps the figure's height in px: a side that would not leave room for the notes and caption shrinks, and a height still too small grows to fit. */
-  height?: number;
-  /** Zoom window: one square window for every panel, as `SpotPanelsProps.view`. */
-  view?: SpotView;
-  panels?: never;
+export interface ThroughFocusRow {
+  /** The row's label, left of its first cell (a field, say "0.0°"). */
+  title: string;
+  /** `series[j]` is the row's spots at `defocus[j]`: the series of that cell. */
+  series: SpotSeries[][];
 }
 export interface ThroughFocusProps {
-  data?: object;
+  /** The focus shift of each column, in `unit`. The column at 0 gets the `--ink-subtle` frame. */
+  defocus: number[];
+  /** One row per field. */
+  rows: ThroughFocusRow[];
+  /** The unit of the column headers, the points and the caption "x, y in <unit>". */
+  unit?: string;
   /** Zoom window: one square window for every cell, as `SpotPanelsProps.view`. */
   view?: SpotView;
-  /** Box half-width in the data's unit. */
+  /** Box half-width in `unit`. Default 40. */
   half?: number;
   /** The figure's width in px. A panel's side is ADR-0003's frame, solved from it; 92 px without it. */
   width?: number;
   /** `false` draws no grid lines in the cells. Default: `spot`'s grid, at the nice ticks strictly inside (-half, half), under the dots. */
   grid?: boolean;
 }
-export type SpotDiagramProps = SpotPanelsProps | SpotSampleProps;
-export interface RayFanProps {
-  data?: object;
-  /** Zoom window in data units, replacing the drawn ranges of every panel; an absent key keeps that axis's range. */
-  view?: PlotView;
-  /** Transverse ray aberration (µm) or optical path difference (waves). Default "tra". */
-  kind?: "tra" | "opd";
-  /** Field indexes to show. Default all. */
-  fields?: number[];
-  /** Full scale, same unit as kind. Default: next round value above the largest value. */
-  fullScale?: number;
-  /** The figure's width in px, split per column (ADR-0003: each column's frame, text size and strokes follow curve's rule). Default: columns times (`panelWidth` + 58). */
-  width?: number;
-  /** The figure's height in px. Default 314 for the default shape, scaled with the width. */
-  height?: number;
-  panelWidth?: number;
-  /** `true` keys each sample wavelength ("486.1 nm") below the fans, through `curve`'s key. Default no key. */
-  key?: boolean;
-  /** Where the `key` goes, as `curve`'s `keyAt`: "below" the fans (default) or a corner box in each panel. An unknown value throws curve's TypeError. */
-  keyAt?: PlotKeyAt;
-  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
-  grid?: boolean;
-}
-export interface Map2DProps {
-  data?: object;
-  /** Default "psf". */
-  kind?: "psf" | "wavefront";
-  /** Default "ember" for psf, "wave" for wavefront. */
-  map?: "ember" | "wave" | "viridis" | "gray";
-  /** PSF only. Default "linear" (log shows 4 decades). */
-  scale?: "linear" | "log";
-  /** PSF index in data.psf. Default 0. */
-  index?: number;
-  /** Canvas size in px. Default 320. */
-  size?: number;
-}
+export type SpotDiagramProps = SpotPanelsProps;
 /** A grid drawn as a map: SVG in curve's frame with the grid as one nearest-neighbour `<image>`. Colors come from `map` read at `el`; there is no color option (ADR-0001). */
 export interface Map2DGridProps {
   /** Zoom window in extent units, per axis; the image keeps its extent and the frame clips it. An invalid range (not finite, or lo >= hi) is ignored and keeps that axis's extent, as for a curve or spot. */
@@ -297,7 +237,6 @@ export interface CurveSeriesProps {
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
-  kind?: never;
   panels?: never;
 }
 /** Panels call: a grid of plots on one shared scale, the axis labels drawn once. */
@@ -318,24 +257,10 @@ export interface CurvePanelsProps {
   /** Drawing width in px. The plot frame's width F solves `F + m * t(F) = width`, with t the text size (9 px below F = 162, `F / 18` to 234, then `13 * (F / 234)^(1/3)`) and m the margins in text units (ADR-0003). Default 460. */
   width?: number;
   height?: number;
-  kind?: never;
   series?: never;
-}
-/** Kind call: the analysis kind of the sample (or `data`), drawn through the typed path. */
-export interface CurveKindProps {
-  data?: object;
-  kind: "mtf" | "fieldCurvature" | "distortion" | "chromaticFocus";
-  /** Drawing width in px, as for a typed call (ADR-0003). Default 460. */
-  width?: number;
-  height?: number;
-  /** `false` draws no grid lines; the tick labels, frame and zero axes stay. Default true. */
-  grid?: boolean;
-  series?: never;
-  panels?: never;
-  limits?: never;
 }
 /** `view` overrides the drawn x and y ranges of every panel (an absent key keeps that axis's range); `interact`'s `onview` sends it. */
-export type CurvePlotProps = (CurveSeriesProps | CurvePanelsProps | CurveKindProps) & { view?: PlotView };
+export type CurvePlotProps = (CurveSeriesProps | CurvePanelsProps) & { view?: PlotView };
 /** One bar series: a value per category, one palette slot. There is no color option (ADR-0001). */
 export interface BarSeries {
   /** One value per category, in `y` units; the bar rises from 0, so a negative value hangs below it. A null (or any value that is not a finite number) is a gap: no bar, no share of the total or the range. A series may be shorter than `categories`. */
@@ -363,10 +288,6 @@ export interface BarPlotProps {
   height?: number;
 }
 export interface ELEO {
-  /** The sample system, once "@eleoptics/plots/sample" is imported; null before. */
-  sample: object | null;
-  /** Make `sample` the default data for every renderer. "@eleoptics/plots/sample" calls this. */
-  useSample(sample: object): void;
   /** Read a token from CSS: css(el, "accent"). */
   css(el: Element | null, name: string): string;
   maps: { viridis: string[]; gray: string[] };
@@ -374,25 +295,22 @@ export interface ELEO {
   fmt(v: number, decimals?: number): string;
   /** CSS gradient for a colorbar: token maps follow the theme. */
   gradient(map: "ember" | "wave" | "viridis" | "gray", direction?: string): string;
-  layout2D(props?: Layout2DProps): string;
+  layout2D(props: Layout2DProps): string;
   /** The box that frames every layout given (eleoptics.com's bounds()): pass it as `box` to draw them at one scale. */
   layoutBounds(layouts: RecordedLayout[]): LayoutBox;
-  /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout (a system reads `layout`, else `layoutWl`). */
-  glassLegend(data: RecordedLayout | LayoutSystem): string;
-  spot(props?: SpotDiagramProps): string;
-  throughFocus(props?: ThroughFocusProps): string;
-  rayFan(props?: RayFanProps): string;
-  /** A typed grid as SVG markup. */
+  /** Legend keys for a layout's named glasses: one swatch per distinct drawn glass, in first-use order, filled as layout2D fills it. "" when none. Takes what Layout2DProps.data takes; throws a named error without a recorded layout. */
+  glassLegend(data: RecordedLayout): string;
+  spot(props: SpotDiagramProps): string;
+  throughFocus(props: ThroughFocusProps): string;
+  /** A typed grid as SVG markup. Throws a named error when given a canvas (the canvas call was removed). */
   map2D(props: Map2DGridProps): string;
-  /** The sample's PSF or wavefront drawn on a canvas. */
-  map2D(canvas: HTMLCanvasElement, props?: Map2DProps): { lo: number; hi: number };
   curve(props: CurvePlotProps): string;
   bars(props: BarPlotProps): string;
   /** One icon as inline SVG. Default style "line", size 16. */
   icon(name: string, props?: { style?: "line" | "glass" | "blueprint"; size?: number; label?: string }): string;
   /** Every icon name and title, by set. */
   icons: { optical: { name: string; title: string }[]; interface: { name: string; title: string }[] };
-  /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. With a sample loaded, field/wavelength keys carry its values (n defaults to its count); without one they draw n index keys (F1.., λ1..) without values, and none without n. `values` (deg or nm) replaces the sample's, one key per value, n defaulting to its length; a non-finite entry draws the index key alone. ts and rays are fixed either way. */
+  /** Legend items for a PlotLegend. n above 8 adds hollow-marker keys. field/wavelength keys draw n index keys (F1.., λ1..), and none without n or `values`; `values` (deg or nm) labels them, one key per value, n defaulting to its length; a non-finite entry draws the index key alone. ts and rays are fixed either way. */
   legend(kind: "field" | "wavelength" | "ts" | "rays", n?: number, values?: readonly number[]): string;
   /** Draw at the container's content width, a fractional px value (a CSS transform on an ancestor scales the measured box, since getBoundingClientRect includes transforms): `el.getBoundingClientRect().width` minus its computed left and right padding and border widths (content box), rounded to 2 decimals. Calls `draw(width)` now (not while the width is 0: it draws once the element gets a width), then again when the width changes (at most once per animation frame, only when that width changed, never for a height-only change or a width of 0 or less), through one shared ResizeObserver. `draw` writes the markup, e.g. `fit(body, (w) => { body.innerHTML = curve({ ...d, width: w }); })`. Returns `stop()`. */
   fit(el: Element, draw: (width: number) => void): () => void;
@@ -413,9 +331,9 @@ interface ScaleRule {
 declare const ELEO: ELEO & typeof Physics & ScaleRule;
 export default ELEO;
 export declare const layout2D: ELEO['layout2D'], spot: ELEO['spot'],
-  throughFocus: ELEO['throughFocus'], rayFan: ELEO['rayFan'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
+  throughFocus: ELEO['throughFocus'], map2D: ELEO['map2D'], curve: ELEO['curve'], bars: ELEO['bars'],
   legend: ELEO['legend'], icon: ELEO['icon'], icons: ELEO['icons'], gradient: ELEO['gradient'], fmt: ELEO['fmt'],
-  css: ELEO['css'], maps: ELEO['maps'], useSample: ELEO['useSample'], layoutBounds: ELEO['layoutBounds'],
+  css: ELEO['css'], maps: ELEO['maps'], layoutBounds: ELEO['layoutBounds'],
   glassLegend: ELEO['glassLegend'], fit: ELEO['fit'];
 
 /* The plot scale rule of ADR-0003 (packages/plots/src/scale.js). Sizes are px. */
@@ -431,7 +349,7 @@ export declare function layoutText(W: number): number | null;
 export declare function layoutWeight(W: number): number;
 /** The rule's breakpoints and text limits, in px. */
 export declare const TEXT_MIN: 9, TEXT_MAX: 13, F_LO: 162, F_HI: 234, W_LO: 630, W_HI: 910;
-/** ADR-0003's margins of the curve family (curve, rayFan, bars, map2D), in text units: `L` left, `T` top, `B` bottom (the right one follows the ticks). Multiply by `frameText(F)` for px. */
+/** ADR-0003's margins of the curve family (curve, bars, map2D), in text units: `L` left, `T` top, `B` bottom (the right one follows the ticks). Multiply by `frameText(F)` for px. */
 export declare const CURVE_MARGINS: Readonly<{ L: 4.6; T: 2.6; B: 3.6 }>;
 /** One renderer's row of PLOT_SIZES, in px. */
 export interface PlotSize {
@@ -448,7 +366,7 @@ export interface PlotSize {
 export declare const PLOT_SIZES: {
   curve: PlotSize; rayFan: PlotSize; bars: PlotSize; map2D: PlotSize; spot: PlotSize; throughFocus: PlotSize; layout2D: PlotSize;
 };
-/** The narrowest drawing width of a call, in px: its plot frame `F_LO` wide and its text `TEXT_MIN` px, with the margins the renderer draws for these props (a curve's x tick labels, map2D's colorbar and x ticks) and the panel count of `columns`, `panels`, the sample's fields or defocus steps. `props` are the ones you pass the renderer; without them it is `PLOT_SIZES[name]`'s one-panel figure. Throws a `TypeError` for an unknown renderer name. */
+/** The narrowest drawing width of a call, in px: its plot frame `F_LO` wide and its text `TEXT_MIN` px, with the margins the renderer draws for these props (a curve's x tick labels, map2D's colorbar and x ticks) and the panel count of `columns`, `panels` or defocus steps. `props` are the ones you pass the renderer; without them it is `PLOT_SIZES[name]`'s one-panel figure. Throws a `TypeError` for an unknown renderer name. */
 export declare function minWidth(name: keyof typeof PLOT_SIZES, props?: object): number;
 
 /* Pointer interaction (packages/plots/src/interact.js). */

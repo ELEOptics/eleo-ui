@@ -87,7 +87,6 @@ test('legend lists each glass once in first-use order', () => {
   const key = (n) => `<span class="eleo-key eleo-key--swatch" style="--c:${fills.get(n)}">${n}</span>`;
   const want = key('N-SK16') + key('F2');
   assert.equal(glassLegend(fixture), want, 'N-SK16 then F2, once each, fills from glassFill');
-  assert.equal(glassLegend({ layout: fixture }), want, 'a system carrying the layout gives the same legend');
 
   // Only drawn glasses count (a glass on the last surface draws nothing), names are escaped as text,
   // and shorthand glasses ("crown", "flint") have no entry.
@@ -120,12 +119,12 @@ test('legend and drawing use one glass rule', async () => {
 
 // Issue #122: a bad input names itself, as layout2D's does (#65/#67), instead of a bare TypeError.
 test('glassLegend names a bad input', () => {
-  const msg = 'glassLegend: data is not a recorded layout ({surfaces, rays}) or a system carrying one in layout or layoutWl';
-  for (const bad of [{}, { layout: {} }, { layoutWl: {} }, null]) assert.throws(() => glassLegend(bad), { message: msg }, JSON.stringify(bad));
-  // Issue #124: layoutWl carries the same glasses as layout, so a layoutWl-only system gets its legend.
+  // Plan #1258 #1210: a system or no data is not a call; a layout without surfaces or rays is named as before.
+  for (const bad of [{ layout: {} }, { layoutWl: {} }]) assert.throws(() => glassLegend(bad), { message: 'glassLegend: LayoutSystem was removed; see the README migration table' }, JSON.stringify(bad));
+  for (const bad of [{}, null, undefined]) assert.throws(() => glassLegend(bad), { message: 'glassLegend: pass { data: RecordedLayout }' }, JSON.stringify(bad));
+  for (const bad of [{ surfaces: [] }, { surfaces: {}, rays: [] }]) assert.throws(() => glassLegend(bad), { message: 'glassLegend: data is not a recorded layout ({surfaces, rays})' }, JSON.stringify(bad));
   const L = JSON.parse(readFileSync(new URL('../fixtures/layouts/analysis-glasses.json', import.meta.url)));
   assert.ok(glassLegend(L), 'fixture draws named glasses');
-  assert.equal(glassLegend({ layoutWl: L }), glassLegend(L));
 });
 
 // Issue #101: <Legend kind="glass" data={layout} /> renders glassLegend(data), one .eleo-key per glass.
@@ -144,7 +143,7 @@ test('Legend kind="glass" renders one key per glass', async () => {
     writeFileSync(file, compile(src, { generate: 'server', filename: 'Legend.svelte' }).js.code);
     const { default: Legend } = await import(pathToFileURL(file).href);
     const fixture = JSON.parse(readFileSync(new URL('../fixtures/layouts/analysis-glasses.json', import.meta.url)));
-    for (const data of [fixture, { layout: fixture }]) {
+    for (const data of [fixture]) {
       const { body } = render(Legend, { props: { kind: 'glass', data } });
       assert.ok(body.includes(glassLegend(fixture)), `body carries glassLegend(data): ${body}`);
       assert.equal(body.match(/class="eleo-key /g)?.length, 2, 'one .eleo-key per glass');
@@ -164,4 +163,20 @@ test('fills fall back to the crown and flint tokens', () => {
       assert.ok(f.includes('var(--glass-band-lo, var(--glass-flint))'), `${k} glasses, ${n}: ${f} falls back to flint`);
     }
   }
+});
+
+// Issue #139: names are keyed raw, so "N-BK7" and "N-BK7 " were two glasses with two fills and two legend keys that read
+// the same. A padded name is rejected with the unknown-glass error (layout2D's "unknown glass string throws" holds the
+// other shapes). oracle: spec the issue's rule, a name is accepted only when it equals its trim
+test('unknown glass string throws', () => {
+  const L = JSON.parse(readFileSync(new URL('../fixtures/layouts/tolerance.json', import.meta.url)));
+  const lens = L.surfaces.findIndex((s) => s.glass);
+  const withGlass = (glass) => ({ ...L, surfaces: L.surfaces.map((s, k) => (k === lens ? { ...s, glass } : s)) });
+  const BK7 = { name: 'N-BK7', nd: 1.5168, vd: 64.17 };
+  for (const name of [' N-BK7', 'N-BK7 ', ' N-BK7 ', 'N-BK7\n', '\tN-BK7']) {
+    const glass = { ...BK7, name };
+    assert.throws(() => glassLegend(withGlass(glass)),
+      { message: `glassLegend: surface ${lens} glass ${JSON.stringify(glass)} is not crown, flint, null or {name, nd, vd}` }, JSON.stringify(name));
+  }
+  assert.doesNotThrow(() => glassLegend(withGlass(BK7)), 'a trimmed name draws');
 });

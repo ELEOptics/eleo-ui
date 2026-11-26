@@ -1,5 +1,4 @@
 import { idx, svg, esc, NS, drawn } from "./common.js";
-import { data } from "./data.js";
 import { fmt } from "./color.js";
 import { niceTicks, niceRange } from "./axis.js";
 import { frameText, frameWeight, frameOf, CURVE_MARGINS } from "./scale.js";
@@ -227,31 +226,10 @@ function typedCurve(o) {
   return svg(W, Hs, g, lab(y) + " against " + lab(x) + " plot");
 }
 
-/* Each analysis kind is an adapter: the sample in, { series, x, y } out, drawn by the typed path. */
-export var curveAdapters = {
-  mtf: function (D) {
-    var df = D.mtf.df, fx = function (arr) { return arr.map(function (v, i) { return [i * df, v]; }); }, series = [{ points: fx(D.mtf.diff), role: "reference" }];
-    D.mtf.fields.forEach(function (f, i) { series.push({ points: fx(f.T), index: i, role: "tangential" }); series.push({ points: fx(f.S), index: i, role: "sagittal" }); });
-    return { series: series, x: { label: "Spatial frequency", unit: "cycles/mm", range: [0, 400], ticks: [0, 100, 200, 300, 400] }, y: { label: "Modulus", range: [0, 1], ticks: [0, .2, .4, .6, .8, 1] } };
-  },
-  fieldCurvature: function (D) {
-    return { series: [{ points: D.fieldCurv.map(function (r) { return [r[1], r[0]]; }), index: 0, role: "tangential" }, { points: D.fieldCurv.map(function (r) { return [r[2], r[0]]; }), index: 0, role: "sagittal" }],
-      x: { label: "Focus shift", unit: "mm", range: [-0.2, 0.2], ticks: [-0.2, -0.1, 0, 0.1, 0.2] }, y: { label: "Field", unit: "°", range: [0, 2], ticks: [0, 0.5, 1, 1.5, 2] } };
-  },
-  distortion: function (D) {
-    return { series: [{ points: D.distortion.map(function (r) { return [r[1], r[0]]; }), index: 0 }],
-      x: { label: "Distortion", unit: "%", range: [-0.2, 0.2], ticks: [-0.2, -0.1, 0, 0.1, 0.2] }, y: { label: "Field", unit: "°", range: [0, 2], ticks: [0, 0.5, 1, 1.5, 2] } };
-  },
-  chromaticFocus: function (D) {
-    return { series: [{ points: D.chromFocus.map(function (r) { return [r[1], r[0]]; }), index: 0 }],
-      x: { label: "Focus shift", unit: "µm", range: [-50, 200], ticks: [-50, 0, 50, 100, 150, 200] }, y: { label: "Wavelength", unit: "nm", range: [450, 700], ticks: [450, 500, 550, 600, 650, 700] } };
-  }
-};
-
 export function curve(o) {
   o = o || {};
+  if (o.kind !== undefined) throw new TypeError("curve: kind was removed; see the README migration table");
   if (o.series || o.panels) return typedCurve(o);
   if (o.limits != null) throw new TypeError("curve: limits need series or panels");
-  var a = curveAdapters[Object.prototype.hasOwnProperty.call(curveAdapters, o.kind || "mtf") ? o.kind || "mtf" : "chromaticFocus"](data(o));
-  return typedCurve({ series: a.series, x: a.x, y: a.y, width: o.width, height: o.height, grid: o.grid, view: o.view });
+  throw new TypeError("curve: pass series or panels");
 }

@@ -5,9 +5,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ELEO from '../../packages/plots/src/renderers.js';
-import sample from '../../packages/plots/src/sample.js';
 import * as scale from '../../packages/plots/src/scale.js';
+import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
+// plan #1258 #1208: spot takes typed panels; the sample's spots as the call the old sample spot drew (a series per wavelength or per field, centroid-referenced, µm).
+const sampleSpot = (S, { colorBy, ...o } = {}) => ({ panels: S.spots.map((per, fi) => ({ title: `${S.fields[fi].toFixed(1)}°`, series: per.map((pts, wi) => ({ points: pts, index: colorBy === 'field' ? fi : wi })), airy: S.airy })), reference: 'centroid', unit: 'µm', ...o });
+const fanOf = (S, o) => globalThis.ELEOSampleAdapters.rayFan(S, o); // #1207: the fans are curve panels, sized as rayFan's old call did
+const tfOf = (S) => globalThis.ELEOSampleAdapters.throughFocus(S); // plan #1258 #1205: throughFocus takes typed props
 import { frameText as fText, frameWeight as fWeight, frameOf, layoutText as lText, layoutWeight as lWeight } from '../../packages/plots/src/scale.js';
+const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+
 
 const TOL = 0.01; // px
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));
@@ -54,10 +60,10 @@ test('text and weight per renderer (U18)', () => {
   for (const width of [200, 300, 1200]) checkFramed(`curve ${width}`, ELEO.curve({ ...curveInput, width }), curveBranches);
   assert.deepEqual([...curveBranches].sort(), ['above', 'below', 'inside'], 'curve widths cover the floor, the band and the knee');
 
-  // rayFan: three columns; F is one panel's frame.
+  // the fans as curve panels: three columns; F is one panel's frame.
   const fanBranches = new Set();
-  for (const width of [450, 900, 3600]) checkFramed(`rayFan ${width}`, ELEO.rayFan({ ...sample, width }), fanBranches);
-  assert.deepEqual([...fanBranches].sort(), ['above', 'below', 'inside'], 'rayFan widths cover the floor, the band and the knee');
+  for (const width of [450, 900, 3600]) checkFramed(`fan panels ${width}`, ELEO.curve(fanOf(sample, { width })), fanBranches);
+  assert.deepEqual([...fanBranches].sort(), ['above', 'below', 'inside'], 'fan widths cover the floor, the band and the knee');
 
   // layout2D: W is its width; labels and the scale bar are hidden where W / 70 is under 9.
   const L = fixture('analysis'), layoutBranches = new Set();
@@ -141,7 +147,7 @@ test('text and weight per renderer (U18): bars, spot, throughFocus', () => {
   // spot: three panels at the sample's default; F is one panel's side.
   const spot = new Set();
   for (const width of [400, 600, 1500]) {
-    const svg = ELEO.spot({ ...sample, width }), F = panelFrames(svg);
+    const svg = ELEO.spot(sampleSpot(sample, { width })), F = panelFrames(svg);
     assert.ok(F.length > 0, `spot ${width}: panels are drawn`);
     F.forEach((f) => near(f, F[0], `spot ${width}: one panel side`));
     checkText(`spot ${width}`, svg, F[0], spot);
@@ -151,7 +157,7 @@ test('text and weight per renderer (U18): bars, spot, throughFocus', () => {
   // throughFocus: fields by rows, focus shifts by columns; F is one panel's side.
   const tf = new Set();
   for (const width of [500, 1100, 3000]) {
-    const svg = ELEO.throughFocus({ ...sample, width }), F = panelFrames(svg);
+    const svg = ELEO.throughFocus({ ...tfOf(sample), width }), F = panelFrames(svg);
     assert.ok(F.length > 0, `throughFocus ${width}: panels are drawn`);
     F.forEach((f) => near(f, F[0], `throughFocus ${width}: one panel side`));
     checkText(`throughFocus ${width}`, svg, F[0], tf);
@@ -172,11 +178,11 @@ test("table matches each renderer's floor width", () => {
   const svgs = {
     curve: ELEO.curve({ ...curveInput, width: at('curve') }),
     bars: ELEO.bars({ categories: ['a', 'b'], series: [{ values: [2, 5] }], width: at('bars') }),
-    rayFan: ELEO.rayFan({ ...sample, width: at('rayFan', 3) }),
+    rayFan: ELEO.curve(fanOf(sample, { width: at('rayFan', 3) })),
   };
   for (const k of Object.keys(svgs)) { near(only(frames(svgs[k]), k), 162, `${k} frame at its minWidth`); floorText(svgs[k], k); }
-  assert.equal(frames(svgs.rayFan).length, 6, 'rayFan draws three columns of two rows');
-  const spot = ELEO.spot({ ...sample, width: at('spot', 3) }), tf = ELEO.throughFocus({ ...sample, width: at('throughFocus', 5) });
+  assert.equal(frames(svgs.rayFan).length, 6, 'the fans draw three columns of two rows');
+  const spot = ELEO.spot(sampleSpot(sample, { width: at('spot', 3) })), tf = ELEO.throughFocus({ ...tfOf(sample), width: at('throughFocus', 5) });
   near(only(panelFrames(spot), 'spot'), 162, 'spot panel at its minWidth'); floorText(spot, 'spot');
   assert.equal(panelFrames(spot).length, 3);
   near(only(panelFrames(tf), 'throughFocus'), 162, 'throughFocus panel at its minWidth'); floorText(tf, 'throughFocus');
@@ -230,12 +236,10 @@ test('minWidth gives the floor frame (#587)', async () => {
   }
   // A wider colorbar label costs TEXT_MIN px per text unit (0.6 a character): five characters against one.
   near(minWidth('map2D', log) - minWidth('map2D', colorbar), scale.TEXT_MIN * 0.6 * 4, 'five characters against one');
-  // Without a sample a rayFan counts one panel; the table's width otherwise.
-  // (Importing sample.js loaded the sample as the default data, and rayFan({}) would draw its three fields; unload it for the no-sample case.)
-  const T = scale.PLOT_SIZES.rayFan;
-  near(minWidth('rayFan', {}), T.minWidth + 2 * T.panelStep, 'rayFan with the sample loaded counts its three fields');
-  ELEO.useSample(null);
-  try { near(minWidth('rayFan', {}), T.minWidth, 'rayFan with no sample is one panel'); } finally { ELEO.useSample(sample); }
+  // #1207: minWidth('rayFan') falls through the curve branch: without panels it is the table's width, with the fans' panels it counts their three columns.
+  const T = scale.PLOT_SIZES.rayFan, f = globalThis.ELEOSampleAdapters.fanPanels(sample, {});
+  near(minWidth('rayFan', {}), T.minWidth, 'rayFan without panels is one panel');
+  near(minWidth('rayFan', { panels: f.panels, columns: f.columns, x: f.x, y: f.y }), T.minWidth + 2 * T.panelStep, 'rayFan with the fans panels counts its three columns');
 });
 
 // Plan #677 M3 (#790, finding 3): spot and throughFocus margins follow labelM(half), so a small half's longer y labels still leave an F_LO frame.
@@ -307,4 +311,14 @@ test('map2D and spot read the margin export', () => {
   assert.doesNotMatch(code('map2d.js'), /\b(4\.6|2\.6|3\.6)\b/, 'map2d.js has no hand copy of a margin');
   assert.doesNotMatch(code('spot.js'), /\b(4\.6|3\.6)\b/, 'spot.js has no hand copy of a margin');
   assert.doesNotMatch(code('map2d.js'), /\bR: R, Rt: Rt\b/, 'map2d.js sc has no unread R');
+});
+
+// Plan #1258 M1, O6 (issue #1205): minWidth('throughFocus', props) reads the columns from props.defocus, not from the sample.
+// oracle: closed form ADR-0003: a figure of n panels needs minWidth + (n - 1) * panelStep.
+test('minWidth for throughFocus counts the typed defocus columns (#1205)', async () => {
+  const { minWidth } = await import('../../packages/plots/src/sizes.js');
+  const T = scale.PLOT_SIZES.throughFocus;
+  assert.equal(minWidth('throughFocus', { defocus: [-30, 0, 30] }), T.minWidth + 2 * T.panelStep);
+  assert.equal(minWidth('throughFocus', { defocus: [0] }), T.minWidth);
+  assert.equal(minWidth('throughFocus', {}), T.minWidth, 'no defocus: one column');
 });

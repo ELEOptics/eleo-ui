@@ -5,6 +5,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ELEO from '../../packages/plots/src/index.js';
 import { niceRange } from '../../packages/plots/src/axis.js';
+import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters (its fanPanels is the fans' panel shape)
+
+const SAMPLE = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+const fanPanels = (s, o) => globalThis.ELEOSampleAdapters.fanPanels(s, o);
 
 // adapters.js reads ELEO from globalThis when mtf() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -197,36 +201,6 @@ test('series round trip', () => {
   assert.ok(!/NaN|Infinity/.test(ELEO.curve({ series: [], x: { label: 'a' }, y: { label: 'b' } })), 'no series draws finite numbers');
 });
 
-// Plan #162, issue #173: each kind is an adapter over the typed path.
-// oracle: metamorphic (curve({kind}) equals curve of its adapter's output) plus the sample data (adapter points are the sample's)
-test("kind draws its adapter's series", async () => {
-  await import('../../packages/plots/src/sample.js');
-  const { curveAdapters } = await import('../../packages/plots/src/curve.js');
-  const { data } = await import('../../packages/plots/src/data.js');
-  const D = data({});
-  const pick = {
-    mtf: () => [D.mtf.diff.map((v, i) => [i * D.mtf.df, v]), ...D.mtf.fields.flatMap((f) => [f.T, f.S].map((a) => a.map((v, i) => [i * D.mtf.df, v])))],
-    fieldCurvature: () => [D.fieldCurv.map((r) => [r[1], r[0]]), D.fieldCurv.map((r) => [r[2], r[0]])],
-    distortion: () => [D.distortion.map((r) => [r[1], r[0]])],
-    chromaticFocus: () => [D.chromFocus.map((r) => [r[1], r[0]])],
-  };
-  for (const kind of Object.keys(pick)) {
-    const a = curveAdapters[kind](D);
-    assert.deepEqual(a.series.map((s) => s.points), pick[kind](), `${kind}: the adapter's points are the sample's`);
-    for (const [width, height] of SIZES) {
-      assert.equal(ELEO.curve({ kind, width, height }), ELEO.curve({ ...a, width, height }), `${kind} ${width}px`);
-    }
-  }
-  assert.deepEqual(curveAdapters.mtf(D).series.map((s) => s.role), ['reference', ...D.mtf.fields.flatMap(() => ['tangential', 'sagittal'])]);
-});
-
-// oracle: metamorphic (an unknown kind equals chromaticFocus)
-test('unknown kind draws chromatic focus', async () => {
-  await import('../../packages/plots/src/sample.js');
-  const want = ELEO.curve({ kind: 'chromaticFocus' });
-  for (const kind of ['toString', 'nope']) assert.equal(ELEO.curve({ kind }), want, kind);
-});
-
 test('aria-label escapes labels once', () => {
   const svg = ELEO.curve({ series: [{ points: [[0, 0], [1, 1]], role: 'reference' }], x: { label: 'S&P', range: [0, 1] }, y: { label: 'Modulus', range: [0, 1] } });
   const label = /aria-label="([^"]*)"/.exec(svg)[1];
@@ -359,14 +333,13 @@ test('x tick labels stay inside the viewBox', () => {
 
 // Plan #232, outcome O1 (issue #233; #234 adds curve's panels, #235 fanPanels, #236 unskips).
 // oracle: fixture packages/plots/src/sample.json fans and opdFans (TransverseRayError waits on ELEOptics/phos-core#371; user 2026-10-11), changing U6's oracle for the fans
-// What #234 and #235 must provide: fanPanels(sample, { kind }) in packages/plots/src/fan.js returns { panels, columns, x, y },
+// What #234 and #235 must provide: fanPanels(sample, { kind }) (now gallery/sample-adapters.js) returns { panels, columns, x, y },
 // each panel { title, series: [{ points: [[pupil, value | null], …], index }] } (a null value is a vignetted ray), and
 // curve({ panels, columns, x, y, width, height }) draws one nested <svg> and transform group per panel, a series as a <path>
 // whose `M`/`L` data starts a new subpath after each null.
 test('sample fans round trip through panels (U6)', async () => {
-  const { fanPanels } = await import('../../packages/plots/src/fan.js');
   const { default: sample } = await import('../../packages/plots/src/sample.json', { with: { type: 'json' } });
-  // The sample holds no null, so a second pass runs on a clone with one interior value of each fan nulled (as fan.test.js does).
+  // The sample holds no null, so a second pass runs on a clone with one interior value of each fan nulled (as the removed fan test did).
   const nulled = structuredClone(sample);
   nulled.fans[1].T[0][3] = null;
   nulled.opdFans[1].T[0][3] = null;
@@ -590,7 +563,7 @@ test('limits draw single and paneled', () => {
     svg = ELEO.curve({ series, x, y, limits: [{ y: [2, 9], label: 'gone' }, { x: [500, 600], label: 'gone' }], width, height });
     assert.ok(!svg.includes('gone'), 'no label for a band outside the range');
   }
-  assert.throws(() => ELEO.curve({ kind: 'mtf', limits }), { name: 'TypeError', message: 'curve: limits need series or panels' });
+  assert.throws(() => ELEO.curve({ limits }), { name: 'TypeError', message: 'curve: limits need series or panels' });
   assert.ok(!ELEO.curve({ series, x, y }).includes('eleo-limit'), 'no limits, no marks');
   assert.throws(() => ELEO.curve({ series, x, y, limits: [{ y: [0.5, 0.5] }] }), { name: 'TypeError', message: 'curve: a band needs two distinct ends' });
   assert.throws(() => ELEO.curve({ series, x, y, limits: [{ x: [3, 3] }] }), { name: 'TypeError', message: 'curve: a band needs two distinct ends' });
@@ -712,19 +685,12 @@ test('text and margins follow ADR-0003', async () => {
 
 // Plan #512, issue #540, CR #538. oracle: spec (CR #538): an auto-height SVG lays out at scale 1 in a box of its own width, so its height is whole px
 test('default heights are whole px', async () => {
-  const { rayFan } = await import('../../packages/plots/src/fan.js');
-  const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
   const series = [{ points: [[0, 0], [1, 2], [2, 1]], index: 0, role: 'tangential' }];
   const input = { series, x: { label: 'Frequency', unit: 'cy/mm', range: [0, 2], ticks: [0, 1, 2] }, y: { label: 'Modulus', range: [0, 2], ticks: [0, 1, 2] } };
   const h = (svg) => +/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1];
   for (const W of [300.6, 461, 999.9]) {
     const v = h(ELEO.curve({ ...input, width: W }));
     assert.ok(Number.isInteger(v) && Math.abs(v - W * 260 / 460) <= 0.5, `curve ${W}: height ${v}`);
-  }
-  const cols = sample.fans.length, base = cols * (170 + 58);
-  for (const W of [450.3, 901]) {
-    const v = h(rayFan({ data: sample, width: W }));
-    assert.ok(Number.isInteger(v) && Math.abs(v - W * 314 / base) <= 0.5, `rayFan ${W}: height ${v}`);
   }
 });
 
@@ -736,7 +702,6 @@ test('default heights are whole px', async () => {
 // every non-Alive sample null, each error minus its fan's chief-ray error, a symmetric y range at fanPanels' next nice step over the shifted errors).
 test('recorded ray fans round trip (U6)', async () => {
   const { existsSync } = await import('node:fs');
-  const { fanPanels } = await import('../../packages/plots/src/fan.js');
   await import('../fixtures/phos-core/adapters.js');
   const { ELEOAdapters } = globalThis;
   assert.ok(typeof ELEOAdapters?.fans === 'function', 'adapters.js assigns globalThis.ELEOAdapters.fans');
@@ -917,11 +882,10 @@ test('plotCell without grid', async () => {
   assert.equal(on.replace(/<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g, ''), off, 'nothing else differs');
 });
 
-// Plan #677, issue #759 (CR #757). oracle: property: grid: false on curve (single, panels), rayFan and bars removes exactly the grid lines; without it the SVG is unchanged.
+// Plan #677, issue #759 (CR #757). oracle: property: grid: false on curve (single, panels, the fans' panels) and bars removes exactly the grid lines; without it the SVG is unchanged.
 test('grid false', async () => {
   const { curve } = await import('../../packages/plots/src/curve.js');
   const { bars } = await import('../../packages/plots/src/bars.js');
-  const { rayFan } = await import('../../packages/plots/src/fan.js');
   const gridLine = /<line [^>]*stroke="var\(--plot-grid\)"[^>]*\/>/g;
   const count = (s) => (s.match(gridLine) || []).length;
   const texts = (s) => s.match(/<text [^>]*>[^<]*<\/text>/g);
@@ -939,16 +903,14 @@ test('grid false', async () => {
     assert.deepEqual(texts(off), texts(on), name + ': tick text unchanged');
     assert.ok(off.includes('<rect') && off.length < on.length, name + ': frame stays');
   }
-  await import('../../packages/plots/src/sample.js');
-  for (const kind of ['mtf', 'fieldCurvature', 'distortion', 'chromaticFocus']) {
-    const on = curve({ kind }), off = curve({ kind, grid: false });
-    assert.equal(curve({ kind, grid: true }), on, kind + ': grid: true is the default');
-    assert.ok(count(on) > 0 && count(off) === 0, kind + ': no grid lines with grid: false');
-    assert.deepEqual(texts(off), texts(on), kind + ': tick text unchanged');
-  }
-  const fan = rayFan({ grid: false }), fanOn = rayFan({});
-  assert.ok(count(fanOn) > 0 && count(fan) === 0, 'rayFan: no grid lines with grid: false');
-  assert.deepEqual(texts(fan), texts(fanOn), 'rayFan: tick text unchanged');
+  const focus = globalThis.ELEOSampleAdapters.chromaticFocus(SAMPLE);
+  const on = curve(focus), off = curve({ ...focus, grid: false });
+  assert.equal(curve({ ...focus, grid: true }), on, 'chromaticFocus: grid: true is the default');
+  assert.ok(count(on) > 0 && count(off) === 0, 'chromaticFocus: no grid lines with grid: false');
+  assert.deepEqual(texts(off), texts(on), 'chromaticFocus: tick text unchanged');
+  const fan = curve(globalThis.ELEOSampleAdapters.rayFan(SAMPLE, { grid: false })), fanOn = curve(globalThis.ELEOSampleAdapters.rayFan(SAMPLE, {}));
+  assert.ok(count(fanOn) > 0 && count(fan) === 0, 'fan panels: no grid lines with grid: false');
+  assert.deepEqual(texts(fan), texts(fanOn), 'fan panels: tick text unchanged');
 });
 
 // Plan #804 M1 (#806): each curve mark names its series, so a hover or click can say which one.
@@ -1022,10 +984,10 @@ test('view overrides the range', () => {
   assert.ok(Math.abs(toPx(M, [0, 0])[1] - ph) <= TOL_PX && Math.abs(toPx(M, [0, 5])[1]) <= TOL_PX, 'y keeps its range');
   // A view that is not two finite increasing numbers is dropped.
   assert.equal(ELEO.curve({ series, width: 460, height: 300, view: { x: [4, 2], y: [NaN, 1] } }), base, 'a bad view is ignored');
-  // rayFan passes it through.
-  const fan = ELEO.rayFan({ width: 600, view: { x: [-0.5, 0.5], y: [-10, 10] } });
+  // Panels built from the fans take it too.
+  const fan = ELEO.curve(globalThis.ELEOSampleAdapters.rayFan(SAMPLE, { width: 600, view: { x: [-0.5, 0.5], y: [-10, 10] } }));
   const first = panelGroups(fan)[0];
-  assert.ok(Math.hypot(...toPx(first.M, [-0.5, -10]).map((v, i) => v - [0, first.box.ph][i])) <= TOL_PX, 'rayFan: view reaches the panels');
+  assert.ok(Math.hypot(...toPx(first.M, [-0.5, -10]).map((v, i) => v - [0, first.box.ph][i])) <= TOL_PX, 'fan panels: view reaches the panels');
 });
 
 // Plan #804 M3 (#989, CR #984): with a view each series (and each run of a panel's path) is cut to the plot area plus 32 px, a cut piece carries data-from.

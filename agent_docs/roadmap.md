@@ -6,7 +6,7 @@ draws today (the lens layout first), then every renderer as a generic plot type 
 series, covering every phos-core result shape; callers build their analyses from those types on the design system.
 ADRs: `agent_docs/adr/` (0001 plot boundary, accepted at D; 0002 LayerChart weighed, not adopted; 0003 plot scale, accepted at O).
 Constraints: group "Plots the website can share" releases when the website pulls (one minor carried rows A and B; L ships the next);
-the sample and every gallery tile keep working through every row. Group "Plot types for phos": each row adds its typed API alongside the old one; a release ships when a
+every gallery tile keeps working through every row; after K the gallery draws the sample through its own adapters. Group "Plot types for phos": each row adds its typed API alongside the old one; a release ships when a
 consumer pulls (after C for phos, then whenever phos adopts the next converted renderer), and K removes
 `kind` and the sample-shaped `data` in one breaking minor; 1.0 waits until a consumer has used the API (user, plan #1193). Recorded phos-core fixtures cover public lenses
 only (the sample achromat, the Cooke triplet, the Wandersleb triplet). From row D on, each row keeps U14's redraw budget for the
@@ -38,7 +38,7 @@ Row letters and the Plan column: `agent_docs/agents/workflow.md`, Artifacts (Roa
 | -- | -- | -- | -- | -- | -- | -- |
 | tolerance-curve |  | Plot types for phos |  | The cumulative probability curve (MonteCarloTolerance) through `curve`, recorded by `scripts/record-phos-core.py`, once ELEOptics/phos-core#372 puts MonteCarloTolerance in phos-core's Python client. | U6 passes for the cumulative curve. | later |
 | J | #1193 | Plot types for phos |  | `layout3D` on a typed `RecordedLayout` (revolved) with U12's glass fills, drawn with three.js (re-planned after the M1 course check stop, user 2026-11-20), mirrors in 3D. | U10 passes in Chromium, Firefox and WebKit. | done 2026-11-24 |
-| K |  | Plot types for phos | J | The breaking minor removing `kind` and the sample-shaped `data` (0.x: no 1.0 until a consumer has used the API, user 2026-11-18); split from #1193 at its re-plan (user 2026-11-20), carrying its old O5-O7 and items #1203-#1213, #139. | The breaking minor's changesets are on `main` (the npm publish is the user's, by the Version Packages PR). | next |
+| K | #1258 | Plot types for phos | J | The breaking minor removing `kind` and the sample-shaped `data` (0.x: no 1.0 until a consumer has used the API, user 2026-11-18); split from #1193 at its re-plan (user 2026-11-20), carrying its old O5-O7 and items #1203-#1213, #139. | The breaking minor's changesets are on `main` (the npm publish is the user's, by the Version Packages PR). | done 2026-11-25 |
 
 ## Decision rights
 
@@ -83,6 +83,7 @@ coverage table). Each row names the plan that delivers it.
 
 One bullet per entry (bare lines render as one paragraph).
 
+- 2026-11-25 done (orchestrator): K (#1258) done: the sample-free breaking minor (plots and plots-svelte minors) removes `kind`, the sample-shaped `data`, `./sample` and `eleo-plots-sample.js`; the gallery draws the sample through its own adapters with 0 of 112 shots changed. The plots-svelte peer raise waits for plots 0.11.0 on npm (CR #1310, user; #1279).
 - 2026-11-24 done (orchestrator): J (#1193) done: `layout3D` draws a recorded layout through three.js, mirrors, holes and obscurations included, in Chromium, Firefox and WebKit. U10's wording follows the user's default-view decision (near-axis from the object side, `iso` a preset; plan #1193 CR #1290).
 - 2026-11-18 plan (user): J planned as #1193 (3 milestones, 22 items). Interview: layout3D takes a `RecordedLayout` revolved, and U10's oracle becomes its closed-form projection (phos-core's 3D `visualize` is Rust only); mirrors drawn in 3D; `throughFocus` typed; `./sample` and `eleo-plots-sample.js` removed; the release is a breaking 0.x minor, not 1.0 ("no client has really used eleo-ui"). Absorbs #158 and #139; supersedes #125, #639, #424, #132 and #133, so their Deferred rows drop at the next pick.
 - 2026-11-18 next (director): J (typed `layout3D`, then the major release) next, the order as written. T is done (PR #1182). T left one keyboard measurement over 16 ms: an arrow on the 10,000-point spot with 10% dead points takes about 19.5 ms (plan #1175's base). Row U (key response) was drafted ahead of J. The user deferred it: no row, and U14 is not extended to key response. It is filed as #1192 and deferred, with #850 (its candidate fix) still deferred. Runner-up: none. tolerance-curve still waits on ELEOptics/phos-core#372 (open, last touched 2026-10-20). No open plan and no row pin. No kill criterion fired: T's redraw and hover medians are under 16 ms. 20 issues deferred: the 18 before, plus #1191 and #1192.

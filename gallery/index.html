@@ -71,12 +71,13 @@
     <section class="eleo-plot" data-tile="icons"><div class="eleo-plot__hd"><h3 class="eleo-plot__title">Icons</h3><span class="eleo-plot__meta">glass, then line</span></div><div class="eleo-plot__body icons" data-icons></div></section>
   </template>
   <script src="/packages/plots/dist/eleo-plots.js"></script>
-  <script src="/packages/plots/dist/eleo-plots-sample.js"></script>
   <script src="/packages/plots/dist/eleo-layout3d.js"></script>
+  <script src="/gallery/sample-adapters.js"></script>
   <script>
-    // The sample tiles keep their framing: a pinned box, not the rays' bounds. If eleo-plots-sample.js failed to load,
-    // ELEO.sample is null, SAMPLE_BOX stays null and the sample tiles draw nothing while the rest of the page draws.
-    var SAMPLE_BOX = ELEO.sample && { zmin: -8, zmax: ELEO.sample.zimg + 4, ylo: -13.5, yhi: 13.5 };
+    // The sample tiles draw sample.json by typed calls through ELEOSampleAdapters (gallery/sample-adapters.js); the renderers do not read the sample.
+    // SAMPLE is unset until sample.json is fetched below; if the fetch fails it stays unset and the sample tiles draw nothing while the rest of the page draws.
+    var SAMPLE;
+    var SA = globalThis.ELEOSampleAdapters;
     // The glasses tile: analysis.json with named glasses (tests/fixtures/layouts/README.md). Filled by fetch() below;
     // if the fixture fails, GLASSES stays unset and only this tile draws nothing.
     var GLASSES;
@@ -88,14 +89,10 @@
     var REC = {};
     // Each tile names the data it needs and draws from it. draw() below calls a tile only when `need()` gives something;
     // otherwise the tile draws nothing and the rest of the page draws.
-    function sampleBox() { return SAMPLE_BOX; }
+    // The sample tiles keep their framing: a pinned box, not the rays' bounds.
+    function sampleBox() { return SAMPLE && { zmin: -8, zmax: SAMPLE.zimg + 4, ylo: -13.5, yhi: 13.5 }; }
     // Key entries from the sample's fields and wavelengths, labelled as the footer legends were ("F1 0.0°", "λ1 486.1 nm"); none without a sample.
-    function legendKey(kind) {
-      var S = ELEO.sample; if (!S) return [];
-      return (kind === 'field' ? S.fields : S.wl).map(function (v, i) {
-        return { label: kind === 'field' ? 'F' + (i + 1) + ' ' + ELEO.fmt(v, 1) + '°' : 'λ' + (i + 1) + ' ' + v.toFixed(1) + ' nm', index: i };
-      });
-    }
+    function legendKey(kind) { return SAMPLE ? SA.keyLabels(SAMPLE, kind) : []; }
     // The Cooke tile keys the fields it draws rays for (F1..Fn), then its glasses, in one list.
     function fieldKey(d) { return d.rays.map(function (_, i) { return { label: 'F' + (i + 1), index: i }; }).concat('glass'); }
     // A recorded tile: draws REC[k] (the adapter's result) through the renderer `render`; blank while REC[k] is unset.
@@ -105,8 +102,8 @@
     function atWidth(d, w, more, v) { return Object.assign({}, d, more, v ? { view: v } : {}, { width: w }); }
     var MTF_LIMITS = [{ y: 0.3, label: 'MTF \u2265 0.3' }, { x: 50, label: '50 cycles/mm' }, { y: [0, 0.3] }];
     var SVG = {
-      'layout2D': { need: sampleBox, draw: function (box, w, v) { return ELEO.layout2D(atWidth({}, w, { box: box, key: legendKey('field') }, v)); } },
-      'layout2D-fan': { need: sampleBox, draw: function (box, w, v) { return ELEO.layout2D(atWidth({}, w, { box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }, v)); } },
+      'layout2D': { need: sampleBox, draw: function (box, w, v) { return ELEO.layout2D(atWidth({ data: SA.layouts(SAMPLE).field }, w, { box: box, key: legendKey('field') }, v)); } },
+      'layout2D-fan': { need: sampleBox, draw: function (box, w, v) { return ELEO.layout2D(atWidth({ data: SA.layouts(SAMPLE).wavelength }, w, { box: box, colorBy: 'wavelength', rays: 'fan', key: legendKey('wavelength') }, v)); } },
       'layout2D-glasses': { need: function () { return GLASSES; }, draw: function (d, w, v) { return ELEO.layout2D({ data: d, width: w, marks: false, key: fieldKey(d), view: v || undefined }); } },
       'layout2D-wandersleb': recTile('layout', function (d, w, v) { return ELEO.layout2D(atWidth(d, w, null, v)); }),
       'layout2D-cassegrain': recTile('cassegrainLayout', function (d, w, v) { return ELEO.layout2D(atWidth(d, w, null, v)); }),
@@ -116,16 +113,16 @@
       // A y limit reads as a requirement: the sums stay within 0.05 mm (the data reaches 0.07).
       'seidel': recTile('seidel', function (d, w) { return ELEO.bars(atWidth(d, w, { limits: [{ y: 0.05, label: '0.05 mm' }] })); }),
       'seidel-terms': recTile('seidelTerms', function (d, w) { return ELEO.bars(atWidth(d, w)); }),
-      'throughFocus': { need: sampleBox, draw: function (_, w, v) { return ELEO.throughFocus(atWidth({}, w, null, v)); } },
+      'throughFocus': { need: sampleBox, draw: function (_, w, v) { return ELEO.throughFocus(atWidth(SA.throughFocus(SAMPLE), w, null, v)); } },
       // The recorded achromat's fans through curve, as tall as rayFan's panels are (PLOT_SIZES.rayFan.aspect) over its columns.
       'rayFan': recTile('rayFan', function (d, w, v) { return ELEO.curve(atWidth(d, w, { height: w * ELEO.PLOT_SIZES.rayFan.aspect / d.columns }, v)); }),
-      'rayFan-opd': { need: sampleBox, draw: function (_, w, v) { return ELEO.rayFan(atWidth({}, w, { kind: 'opd', key: true }, v)); } },
+      'rayFan-opd': { need: sampleBox, draw: function (_, w, v) { return ELEO.curve(SA.rayFan(SAMPLE, { kind: 'opd', key: true, width: w, view: v || undefined })); } },
       'mtf': recTile('mtf', function (d, w, v) { return ELEO.curve(atWidth(d, w, null, v)); }),
       // The same recording as the MTF tile, with a requirement line, a spatial-frequency marker and a below-requirement band.
       'mtf-limits': recTile('mtf', function (d, w, v) { return ELEO.curve(atWidth(d, w, { limits: MTF_LIMITS }, v)); }),
       'fieldCurvature': recTile('fieldCurvature', function (d, w, v) { return ELEO.curve(atWidth(d, w, null, v)); }),
       'distortion': recTile('distortion', function (d, w, v) { return ELEO.curve(atWidth(d, w, { keyAt: 'top-right' }, v)); }),
-      'chromaticFocus': { need: sampleBox, draw: function (_, w, v) { return ELEO.curve(atWidth({}, w, { kind: 'chromaticFocus' }, v)); } }
+      'chromaticFocus': { need: sampleBox, draw: function (_, w, v) { return ELEO.curve(atWidth(SA.chromaticFocus(SAMPLE), w, null, v)); } }
     };
     function airyTile(canvas, n) {
       canvas.width = canvas.height = n;
@@ -176,7 +173,7 @@
     // A layout3D tile reserves its final box at once (drawCanvas) but paints only when it is in or near the viewport (paintCanvas, from the observer below), so a load that never scrolls to it pays nothing for WebGL; one out of view when its width, theme, palette or ratio changes is marked stale (no data-drawn) and paints when it scrolls in. A drawn canvas carries data-drawn.
     function drawCanvas(el) {
       var w = el._w, k = el.dataset.canvas;
-      if (!w || (k === 'layout3D-glasses' ? !GLASSES : k === 'layout3D-cassegrain' ? !CASSEGRAIN : k !== 'airy' && !SAMPLE_BOX)) return;
+      if (!w || (k === 'layout3D-glasses' ? !GLASSES : k === 'layout3D-cassegrain' ? !CASSEGRAIN : k !== 'airy' && !SAMPLE)) return;
       var is3D = k.indexOf('layout3D') === 0, h = is3D ? w * 320 / 560 : w;
       el.style.width = w + 'px'; el.style.height = h + 'px';
       // The layout3D tiles (default, front, glasses, Cassegrain) sit above tiles the specs mount hosts after, and a fractional page offset moves a 1 px ray off the pixel they aim at (interact.spec 'layout zoom pan and reset', map2d.spec U8 clip): trim its canvas so the tile is a whole number of px tall and the tiles below stay where they were. The box is reserved before the tile draws, so nothing below moves when it does.
@@ -190,7 +187,7 @@
       // A tile that throws (no WebGL, or the layout3D script failed to load) skips only itself, as drawMap's does.
       try {
         if (k === 'airy') airyTile(el, n);
-        else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : k === 'layout3D-cassegrain' ? CASSEGRAIN : ELEO.sample.layout, view: k === 'layout3D-front' ? 'front' : undefined, width: w, height: h });
+        else ELEO.layout3D(el, { data: k === 'layout3D-glasses' ? GLASSES : k === 'layout3D-cassegrain' ? CASSEGRAIN : SA.layouts(SAMPLE).field, view: k === 'layout3D-front' ? 'front' : undefined, width: w, height: h });
         el.dataset.drawn = 'true';
       } catch (e) { console.error('gallery: ' + k + ' tile skipped:', e); }
     }
@@ -225,6 +222,8 @@
         if (k === 'curve') return ELEO.minWidth('curve', REC[tile]);
         if (k === 'spot') return ELEO.minWidth('spot', REC[tile === 'footprint' ? 'footprint' : 'spot']);
         if (k === 'map2D') return ELEO.minWidth('map2D', m && MAPS[m.dataset.map]);
+        if (k === 'throughFocus' && SAMPLE) return ELEO.minWidth(k, SA.throughFocus(SAMPLE));
+        if (k === 'rayFan' && SAMPLE) return ELEO.minWidth(k, SA.rayFan(SAMPLE, { kind: 'opd', key: true }));
         return ELEO.minWidth(k);
       } catch (e) { console.error('gallery: ' + tile + ' minimum skipped:', e); return 0; }
     }
@@ -316,6 +315,12 @@
       drawMaps();
       drawCanvases();
     });
+    var sample = fetch('/packages/plots/src/sample.json').then(function (r) {
+      if (!r.ok) throw new Error('sample.json: ' + r.status);
+      return r.json();
+    }).then(function (d) { SAMPLE = d; }).catch(function (e) {
+      console.error('gallery: sample tiles skipped:', e);
+    });
     var glasses = fetch('/tests/fixtures/layouts/analysis-glasses.json').then(function (r) {
       if (!r.ok) throw new Error('analysis-glasses.json: ' + r.status);
       return r.json();
@@ -363,7 +368,7 @@
     ].reduce(function (all, lt) {
       return all.concat(lt[1].map(function (t) { return recorded(t[0], lt[0], t[1], t[2]); }));
     }, []));
-    Promise.all([glasses, phos]).then(function () {
+    Promise.all([sample, glasses, phos]).then(function () {
       draw();
       document.body.dataset.ready = 'true';
     });

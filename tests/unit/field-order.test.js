@@ -9,7 +9,11 @@ import {
 import { STANDARD } from '../../packages/plots/src/common.js';
 import ELEO from '../../packages/plots/src/renderers.js';
 import { layout3dScene } from '../../packages/plots/src/layout3dThree.js';
-import '../../packages/plots/src/sample.js';
+import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
+const SAMPLE = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+
+// plan #1258 #1208: spot takes typed panels; the sample's spots as the call the old sample spot drew (a series per wavelength or per field, centroid-referenced, µm).
+const sampleSpot = (S, { colorBy, ...o } = {}) => ({ panels: S.spots.map((per, fi) => ({ title: `${S.fields[fi].toFixed(1)}°`, series: per.map((pts, wi) => ({ points: pts, index: colorBy === 'field' ? fi : wi })), airy: S.airy })), reference: 'centroid', unit: 'µm', ...o });
 
 const json = JSON.parse(readFileSync(new URL('../../packages/tokens/src/tokens.json', import.meta.url)));
 const token = (name, theme) => json.color.tokens.find((t) => t.name === name).value[theme];
@@ -102,7 +106,7 @@ const series = (text) => [...new Set([...text.matchAll(/--series-(\d+)/g)].map((
 // layout3D's rays are three.js lines coloured by CSS the browser resolves: the fills its scene asks `resolve` for, in order, each a `var(--series-N, var(--field-X))`.
 function layout3DFills() {
   const fills = [];
-  layout3dScene(ELEO.sample.layout, {}, (fill) => { fills.push(fill); return 0x808080; });
+  layout3dScene(SAMPLE.layout, {}, (fill) => { fills.push(fill); return 0x808080; });
   return fills;
 }
 const firstUse = (fills, name) => [...new Set(fills.flatMap((f) => [...f.matchAll(new RegExp(`--${name}-\\d+`, 'g'))].map((m) => m[0])))];
@@ -119,16 +123,13 @@ test('standard order is rule R under normal vision', (t) => {
 
   // Every SVG renderer resolves index k to --series-k, with the standard field as its fallback (no plots.css).
   const drawn = {
-    layout2D: ELEO.layout2D({ colorBy: 'field' }),
-    'layout2D wavelength': ELEO.layout2D({ colorBy: 'wavelength' }),
-    'spot wavelength': ELEO.spot(),
-    'spot field': ELEO.spot({ colorBy: 'field' }),
-    throughFocus: ELEO.throughFocus(),
-    rayFan: ELEO.rayFan(),
-    'curve mtf': ELEO.curve({ kind: 'mtf' }),
-    'curve fieldCurvature': ELEO.curve({ kind: 'fieldCurvature' }),
-    'curve distortion': ELEO.curve({ kind: 'distortion' }),
-    'curve chromaticFocus': ELEO.curve({ kind: 'chromaticFocus' }),
+    layout2D: ELEO.layout2D({ data: globalThis.ELEOSampleAdapters.layouts(SAMPLE).field, colorBy: 'field' }), // plan #1258 #1210: a recorded layout
+    'layout2D wavelength': ELEO.layout2D({ data: globalThis.ELEOSampleAdapters.layouts(SAMPLE).wavelength, colorBy: 'wavelength' }),
+    'spot wavelength': ELEO.spot(sampleSpot(SAMPLE)),
+    'spot field': ELEO.spot(sampleSpot(SAMPLE, { colorBy: 'field' })),
+    throughFocus: ELEO.throughFocus(globalThis.ELEOSampleAdapters.throughFocus(SAMPLE)), // plan #1258 #1205: typed
+    'curve fans': ELEO.curve(globalThis.ELEOSampleAdapters.rayFan(SAMPLE, {})), // plan #1258 #1207: typed
+    'curve chromaticFocus': ELEO.curve(globalThis.ELEOSampleAdapters.chromaticFocus(SAMPLE)), // plan #1258 #1206: typed
     'legend field': ELEO.legend('field', 8),
     'legend wavelength': ELEO.legend('wavelength', 8),
   };

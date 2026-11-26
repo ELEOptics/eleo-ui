@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import sample from '../../packages/plots/src/sample.js';
 import { glassFill, drawnGlasses } from '../../packages/plots/src/glass.js';
+const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../fixtures/layouts/${name}.json`, import.meta.url)));
 const LAYOUTS = { achromat: sample.layout, cooke: fixture('analysis-glasses'), wandersleb: JSON.parse(readFileSync(new URL('../fixtures/phos-core/wandersleb-layout.json', import.meta.url))) };
@@ -28,7 +28,7 @@ function profileZ(s, r) {
 }
 
 // Plan #1193, item #1228 (review M1 round 1, finding 6): a bad chief index names layout3D, not layout2D.
-// oracle: layout2D's message for the same defect, with the caller's name in its place
+// oracle: reference layout2D's message for the same defect, with the caller's name in its place
 const air = (L) => ({ ...L, surfaces: L.surfaces.map((s) => ({ ...s, glass: null })) });
 test('bad chief names layout3D', async () => {
   const { layout3dScene } = await three(), L = air(sample.layout);
@@ -49,13 +49,13 @@ test('image plane and stop ring', async () => {
   const L = LAYOUTS.wandersleb, { scene } = layout3dScene(L, { width: 560, height: 320 }, () => 0x808080), img = [], ring = [];
   scene.traverse((o) => { if (o.isMesh && o.userData.image) img.push(o); if (o.isMesh && o.userData.stop) ring.push(o); });
   const pts = (o) => { const a = o.geometry.attributes.position; return Array.from({ length: a.count }, (_, i) => [a.getX(i), a.getY(i), a.getZ(i)]); };
-  // oracle: the layout's own image surface (sd, z): the plane is the square [-sd, sd]^2 at that z, written out corner by corner
+  // oracle: closed-form the layout's own image surface (sd, z): the plane is the square [-sd, sd]^2 at that z, written out corner by corner
   const im = L.surfaces.find((s) => s.image);
   assert.equal(img.length, 1, 'wandersleb: one image plane');
   const corners = pts(img[0]), want = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [a * im.sd, b * im.sd, im.z]);
   for (const w of want) assert.ok(corners.some((p) => p.every((c, n) => Math.abs(c - w[n]) < 1e-3)), `wandersleb: image plane has the corner ${w}`);
   for (const p of corners) assert.ok(want.some((w) => p.every((c, n) => Math.abs(c - w[n]) < 1e-3)), `wandersleb: image plane has no other vertex than ${p}`);
-  // oracle: layout2D's stop tick length (2.5 mm) and the profile's edge point: every stop-ring vertex has radius in [sd, sd + 2.5] and z at the last profile point
+  // oracle: reference layout2D's stop tick length (2.5 mm) and the profile's edge point: every stop-ring vertex has radius in [sd, sd + 2.5] and z at the last profile point
   const st = L.surfaces.find((s) => s.stop), ze = st.profile[st.profile.length - 1][0];
   assert.ok(ring.length > 0, 'wandersleb: a stop ring');
   for (const p of ring.flatMap(pts)) {
@@ -66,7 +66,7 @@ test('image plane and stop ring', async () => {
 });
 
 // Plan #1193, issue #1243 (review M1 round 7, finding 4): a layout with no glazed surface, stop or image has no edges; layout3dScene still returns a scene.
-// oracle: the same layout's rays, which an air-only layout still draws: no mesh and no rim exist, so the scene's objects are exactly the ray lines
+// oracle: reference the same layout's rays, which an air-only layout still draws: no mesh and no rim exist, so the scene's objects are exactly the ray lines
 test('empty scene', async () => {
   const { layout3dScene } = await three(), L = air(sample.layout), bare = { ...L, surfaces: L.surfaces.map((s) => ({ ...s, stop: false, image: false })) };
   const kinds = (o) => { const out = []; layout3dScene(bare, o, () => 0x808080).scene.traverse((n) => { if (n.isMesh) out.push(n.isLineSegments2 ? (n.userData.ray ? 'ray' : 'edge') : n.isMesh ? 'mesh' : null); }); return out; };
@@ -380,7 +380,7 @@ test('mirror edge outlines', async () => {
 });
 
 // Plan #1193 M3, issue #1296 (review M3 round 1, finding 3): a mirror keeps its two silhouette lines when its recorded numbers are inexact.
-// oracle: the unmodified fixture's counts (U17's polygons, "mirror edge outlines"): two silhouette lines and the same rims per mirror
+// oracle: fixture the unmodified fixture's counts (U17's polygons, "mirror edge outlines"): two silhouette lines and the same rims per mirror
 test('mirror silhouettes survive inexact numbers', async () => {
   const { layout3dScene } = await three(), counts = (L) => {
     const { scene } = layout3dScene(L, { width: 560, height: 320 }, () => 0x808080), out = {};
@@ -396,7 +396,7 @@ test('mirror silhouettes survive inexact numbers', async () => {
 });
 
 // Plan #1193 M3, issue #1301 (review M3 round 2, finding 2): corners that are one rim but fall either side of a rounding boundary are still one rim.
-// oracle: the unmodified fixture's counts; a holeless mirror's flat back has two corners at one z, one at -y and one at y, so their |y| can straddle a half micron
+// oracle: fixture the unmodified fixture's counts; a holeless mirror's flat back has two corners at one z, one at -y and one at y, so their |y| can straddle a half micron
 test('mirror rims merge corners by tolerance', async () => {
   const { layout3dScene } = await three(), counts = (L, i) => {
     const { scene } = layout3dScene(L, { width: 560, height: 320 }, () => 0x808080);
@@ -412,7 +412,7 @@ test('mirror rims merge corners by tolerance', async () => {
 });
 
 // Plan #1193 M3, issues #1303 (CR #1302) and #1305: a mirror rim's cache name is the rim's index; a redraw finds the geometry again, and the rims of one mirror do not share one. A characterization: it passes before and after the key became an index.
-// oracle: two properties. The geometry objects of the mirror rim lines are the same objects on every call for one layout, and the rim lines of one mirror hold distinct geometry objects, one per rim line.
+// oracle: property (two properties). The geometry objects of the mirror rim lines are the same objects on every call for one layout, and the rim lines of one mirror hold distinct geometry objects, one per rim line.
 test('mirror rims do not grow per redraw', async () => {
   const { layout3dScene } = await three(), rims = () => lines(layout3dScene(CASSEGRAIN, { width: 560, height: 320 }, () => 0x808080).scene, (u) => u.edge === 'rim' && u.mirror !== undefined);
   const a = rims(), b = rims();

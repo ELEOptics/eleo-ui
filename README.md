@@ -5,7 +5,7 @@ The design tokens and optical plots behind ELEO's tools, including Phos and eleo
 | Package | What it is |
 | -- | -- |
 | [`@eleoptics/tokens`](packages/tokens) | Colors for light and dark themes, colormaps, type, spacing and line weights, as `tokens.css` and as data |
-| [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, RayFan, Map2D (PSF, wavefront), CurvePlot (MTF and more), BarPlot (Seidel sums), icons and legends; plus small, exact physics helpers (`airy`, `airyRadius`, `j1`, `slabMode`, `colormap`, `mtfDiffraction`) |
+| [`@eleoptics/plots`](packages/plots) | Framework-free renderers: Layout2D, Layout3D, SpotDiagram, Map2D (PSF, wavefront), CurvePlot (MTF and more), BarPlot (Seidel sums), icons and legends; plus small, exact physics helpers (`airy`, `airyRadius`, `j1`, `slabMode`, `colormap`, `mtfDiffraction`) |
 | [`@eleoptics/plots-svelte`](packages/plots-svelte) | Svelte 5 components around `@eleoptics/plots`: PlotCard, Layout2D, Map2D and the rest, redrawn on a theme or palette change |
 
 ## Use it
@@ -20,13 +20,13 @@ import '@eleoptics/plots/plots.css';
 import { layout2D, map2D } from '@eleoptics/plots';
 
 el.innerHTML = layout2D({ data: mySystem });   // SVG; follows the theme by itself
-map2D(canvas, { data: mySystem, kind: 'psf' });  // canvas; call again after a theme or palette change
+el.innerHTML = map2D({ values, extent: [-2, 2, -2, 2] });  // SVG, its cells baked at draw time: call again after a theme or palette change
 ```
 
-- Pass your traced system as `data`, or `import '@eleoptics/plots/sample'` to draw the sample achromat (190 KB, so it is opt-in).
+- Pass your recorded layout or typed data to each call; nothing draws by default.
 - Themes: light by default, dark when the OS prefers it, or force either with `data-theme="light"` or `"dark"` on any element; plots inside follow it.
 - Fonts: the plots use Fira Sans and Fira Code. Load them yourself (Google Fonts on the web, bundled files in a desktop app).
-- Without a bundler: load `@eleoptics/plots/eleo-plots.js` (then `eleo-plots-sample.js` if you want the sample); both add to `window.ELEO`. `eleo-physics.js` is the 1 KB physics helpers alone. `eleo-layout.js` is `layout2D`, `layoutBounds`, `glassLegend` and `fit` alone, with no sample.
+- Without a bundler: load `@eleoptics/plots/eleo-plots.js` (and `eleo-layout.js` or `eleo-physics.js` beside it); each adds to `window.ELEO`. `eleo-physics.js` is the 1 KB physics helpers alone. `eleo-layout.js` is `layout2D`, `layoutBounds`, `glassLegend` and `fit` alone.
 
 In Svelte:
 
@@ -38,12 +38,12 @@ In Svelte:
   let { system } = $props();
 </script>
 
-<PlotCard title="PSF" meta="0.0°, linear">
-  <Map2D data={system} kind="psf" label="Point spread function" />
+<PlotCard title="Wavefront" meta="0.0°">
+  <Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />
 </PlotCard>
 ```
 
-A typed grid draws as SVG with axes and a colorbar: `<Map2D values={grid} extent={[-2, 2, -2, 2]} x={{ label: 'x', unit: 'mm' }} y={{ label: 'y', unit: 'mm' }} map="wave" label="Wavefront" />`.
+`Map2D` draws a typed grid as SVG with axes and a colorbar.
 
 ## Work on it
 
@@ -64,7 +64,7 @@ To try an unpublished change in another project, link it: `npm link` in `package
 ### Changing things
 
 - **A token:** edit `packages/tokens/src/tokens.json`, keeping every color in both themes and each text color at 4.5:1 on its ground. The renderers read tokens as CSS variables, so most token changes need no renderer change, except the field order: it is pinned per palette in `packages/plots/src/plots.css` and checked against the tokens, so a field token change reruns that check.
-- **A renderer:** edit its module in `packages/plots/src/`: `curve.js`, `bars.js`, `legend.js`, `spot.js`, `fan.js` (`rayFan`), `map2d.js`, `layout3dThree.js` (`layout3D`; `layout3d.js` is its entry), `layout2d.js` (`layout2D`) or `icons.js`. The shared helpers live in `common.js` (`STANDARD`, `NS`, `idx`, `svg`), `data.js`, `color.js`, `axis.js`, `limits.js` (limit lines and bands, shared by `curve` and `bars`), `scale.js` (the scale rule and `PLOT_SIZES`), `sizes.js` (`minWidth(name, props)`, the narrowest figure of a call; separate because `scale.js` is imported by `map2d.js` and `curve.js`) and `fit.js` (`fit`, the redraw on a width change); `renderers.js` only assembles the API. Then check the gallery in both themes. A new renderer also gets a gallery tile, a type in `index.d.ts` and a Svelte wrapper.
+- **A renderer:** edit its module in `packages/plots/src/`: `curve.js`, `bars.js`, `legend.js`, `spot.js`, `map2d.js`, `layout3dThree.js` (`layout3D`; `layout3d.js` is its entry), `layout2d.js` (`layout2D`) or `icons.js`. The shared helpers live in `common.js` (`STANDARD`, `NS`, `idx`, `svg`), `color.js`, `axis.js`, `limits.js` (limit lines and bands, shared by `curve` and `bars`), `scale.js` (the scale rule and `PLOT_SIZES`), `sizes.js` (`minWidth(name, props)`, the narrowest figure of a call; separate because `scale.js` is imported by `map2d.js` and `curve.js`) and `fit.js` (`fit`, the redraw on a width change); `renderers.js` only assembles the API. Then check the gallery in both themes. A new renderer also gets a gallery tile, a type in `index.d.ts` and a Svelte wrapper.
 - **Every PR that changes a package** adds a changeset (`npx changeset`): patch for fixes, minor for new renderers, props or tokens, major for anything that breaks a consumer. While a package's major is 0, a breaking change is a minor instead, and its changeset starts with **Breaking:** and says how to migrate.
 
 ## Release

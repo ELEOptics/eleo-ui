@@ -617,3 +617,41 @@ test('row H changesets became minors',
     assert.equal(entry('plots', ROW_H_PLOTS_ENTRY).kind, 'Minor');
     assert.equal(entry('plots-svelte', ROW_H_SVELTE_ENTRY).kind, 'Minor');
   });
+
+// Plan #1258 M1, O7 (issues #1203, #1213): the sample-free minor's changesets and README migration table.
+// oracle: spec semver for 0.x (a minor may break) and plan #1258's removal table
+// "K changesets": `.changeset/sample-free.md` bumps plots minor and `sample-free-svelte.md` plots-svelte minor (read in a temp workspace);
+// the twin reads the CHANGELOGs once `changeset version` consumed them. The plots-svelte peer raise waits for publish (CR #1310, #1279).
+const K_PLOTS_ENTRY = /Breaking: `useSample`, `sample`/;
+const K_SVELTE_ENTRY = /Breaking: `RayFan` was removed/;
+const kConsumed = barsConsumed('sample-free.md', 'plots', K_PLOTS_ENTRY) && barsConsumed('sample-free-svelte.md', 'plots-svelte', K_SVELTE_ENTRY);
+
+test('K changesets', { skip: kConsumed && 'consumed by changeset version' }, () => {
+  const plots = parse('sample-free.md');
+  const svelte = parse('sample-free-svelte.md');
+  assert.deepEqual(plots.bumps, { '@eleoptics/plots': 'minor' });
+  assert.deepEqual(svelte.bumps, { '@eleoptics/plots-svelte': 'minor' });
+  assert.match(plots.body, K_PLOTS_ENTRY, 'the plots entry regex matches its changeset');
+  assert.match(svelte.body, K_SVELTE_ENTRY, 'the plots-svelte entry regex matches its changeset');
+  assert.doesNotMatch(plots.body, /RayFan\.svelte/, 'the plots changelog names a plots-svelte file');
+  withWorkspace({ ...plots.bumps, ...svelte.bumps }, (ws) => {
+    run(ws, process.execPath, [changeset, 'status', '--output', 'status.json']);
+    const { releases } = JSON.parse(readFileSync(join(ws, 'status.json'), 'utf8'));
+    const type = (name) => releases.find((r) => r.name === name)?.type;
+    assert.equal(type('@eleoptics/plots'), 'minor');
+    assert.equal(type('@eleoptics/plots-svelte'), 'minor');
+  });
+});
+
+test('K changesets, consumed', { skip: !kConsumed && 'changesets not yet versioned' }, () => {
+  assert.equal(entry('plots', K_PLOTS_ENTRY).kind, 'Minor');
+  assert.equal(entry('plots-svelte', K_SVELTE_ENTRY).kind, 'Minor');
+});
+
+test('migration table', () => {
+  const readme = readFileSync(join(repo, 'packages/plots/README.md'), 'utf8');
+  assert.match(readme, /removed in the sample-free minor \(the CHANGELOG names its version\)/);
+  assert.doesNotMatch(readme, /Migration: `data\.layout`/, 'the data.layout migration is folded into the table');
+  const table = readme.slice(readme.indexOf('removed in the sample-free minor'));
+  for (const row of ['throughFocus', 'curve({ kind', 'rayFan', 'spot({})', 'map2D(canvas', 'LayoutSystem', 'layout2D({})', 'legend(kind)', 'padded glass', 'useSample', './sample', 'data.layout']) assert.ok(table.includes(row), `the migration table names ${row}`);
+});

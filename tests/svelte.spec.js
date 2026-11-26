@@ -12,7 +12,7 @@ import { moveTo, pageHelpers } from './page-helpers.js';
 test.beforeEach(({ page }) => pageHelpers(page));
 
 const lib = fileURLToPath(new URL('../packages/plots-svelte/src/lib/', import.meta.url));
-const NAMES = ['CurvePlot', 'RayFan', 'BarPlot', 'Map2D', 'SpotDiagram', 'Layout2D'];
+const NAMES = ['CurvePlot', 'BarPlot', 'Map2D', 'SpotDiagram', 'Layout2D'];
 
 const bundle = async (extra = '') => {
   const svelte = {
@@ -20,7 +20,7 @@ const bundle = async (extra = '') => {
     setup(b) {
       b.onResolve({ filter: /^@eleoptics\/plots$/ }, () => ({ path: 'eleo', namespace: 'eleo' }));
       b.onLoad({ filter: /.*/, namespace: 'eleo' }, () => ({
-        contents: 'const E = window.ELEO; export const { curve, rayFan, bars, spot, layout2D, map2D, interact, readout } = E;', loader: 'js',
+        contents: 'const E = window.ELEO; export const { curve, bars, spot, layout2D, map2D, interact, readout } = E;', loader: 'js',
       }));
       b.onLoad({ filter: /\.svelte$/ }, (a) => ({ contents: compile(readFileSync(a.path, 'utf8'), { generate: 'client', filename: a.path }).js.code, loader: 'js' }));
       b.onLoad({ filter: /\.svelte\.js$/ }, (a) => ({ contents: compileModule(readFileSync(a.path, 'utf8'), { generate: 'client', filename: a.path }).js.code, loader: 'js' }));
@@ -39,11 +39,10 @@ const drawn = async (page, boxes) => {
     const { mount, ...W } = window.WRAPPERS;
     const props = {
       CurvePlot: { series: [{ points: [[0, 1], [100, 0.62]], index: 0, role: 'tangential' }], x: { label: 'Spatial frequency', range: [0, 400] }, y: { label: 'Modulus', range: [0, 1] } },
-      RayFan: {},
       BarPlot: { categories: ['1', '2'], series: [{ values: [0.012, -0.004], index: 0, label: 'SI' }] },
       Map2D: { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1] },
-      SpotDiagram: {},
-      Layout2D: {},
+      SpotDiagram: { panels: [{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }], airy: 2.4 }], unit: 'µm' },
+      Layout2D: { data: window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field }, // plan #1258 #1210: a recorded layout, no sample default
     };
     const settle = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done))));
     const out = {};
@@ -72,7 +71,7 @@ test('wrappers draw at their fractional width', async ({ page }) => {
 // oracle: reference `fit`'s `measure`, which rounds the measured width to 2 decimals.
 test('wrappers round their width as fit does', async ({ page }) => {
   const widths = await drawn(page, ['calc(1000px / 3)']);
-  expect(Object.keys(widths)).toHaveLength(6);
+  expect(Object.keys(widths)).toHaveLength(5);
   for (const [key, width] of Object.entries(widths)) expect(width, key).toBe(333.33);
 });
 
@@ -91,7 +90,7 @@ test('Layout2D in a narrow box draws its default', async ({ page }) => {
       const host = document.createElement('div');
       host.style.width = `${box}px`;
       document.body.append(host);
-      mount(Layout2D, { target: host, props: {} });
+      mount(Layout2D, { target: host, props: { data: window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field } });
       await settle();
       const svg = host.querySelector('svg');
       out[box] = svg ? +svg.getAttribute('viewBox').split(/\s+/)[2] : null;
@@ -151,7 +150,8 @@ const mountHarness = async (page, id, name, props, controlled = false) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await page.addScriptTag({ content: await bundle(`import ViewHarness from ${JSON.stringify(viewHarness)};\nwindow.WRAPPERS.ViewHarness = ViewHarness;`) });
-  await page.evaluate(([id, name, props, controlled]) => {
+  await page.evaluate(async ([id, name, props, controlled]) => {
+    if (props.data === 'sample layout') props = { ...props, data: window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field };
     const host = document.createElement('div');
     host.id = id;
     host.style.width = '600px';
@@ -169,24 +169,23 @@ const spotPanels = (sign) => [{ title: '0.0°', series: [{ points: [[0.1 * sign,
 const ZOOMABLE = {
   CurvePlot: { props: { series: [{ points: [[0, 1], [120, 0.62], [240, 0.3]], index: 0, role: 'tangential' }], x: { label: 'f' }, y: { label: 'm' } },
     patch: { series: [{ points: [[0, 1], [120, 0.5], [240, 0.3]], index: 0, role: 'tangential' }] } },
-  RayFan: { at: [115, 60], props: {}, patch: { data: 'sample copy' } },
-  Layout2D: { props: {}, patch: { data: 'sample copy' } },
+  Layout2D: { props: { data: 'sample layout' }, patch: { data: 'sample layout copy' } }, // the page swaps the sentinels for the sample's recorded layout (plan #1258 #1210)
   SpotDiagram: { props: { panels: spotPanels(1), half: 5, unit: 'µm' }, patch: { panels: spotPanels(-1) } },
   Map2D: { props: { values: [[0, 1, 2, 3], [1, 2, 3, 4]], extent: [-2, 2, -1, 1], x: { label: 'x' }, y: { label: 'y' } }, patch: { values: [[3, 2, 1, 0], [4, 3, 2, 1]] } },
 };
-for (const [name, { props, patch, at }] of Object.entries(ZOOMABLE)) {
+for (const [name, { props, patch }] of Object.entries(ZOOMABLE)) {
   test(`view survives a data redraw (${name})`, async ({ page }) => {
     const host = await mountHarness(page, 'vh', name, props);
     const ticks = () => host.evaluate((el) => el.querySelector('svg').innerHTML);
     const first = await ticks();
     const box = await host.boundingBox();
-    const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
+    const [px, py] = [box.x + box.width / 2, box.y + box.height / 2];
     await moveTo(page, px, py);
     await page.mouse.wheel(0, -300);
     await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));
     const zoomed = await ticks();
     // new data with the same extent: the default view would redraw as `first`
-    await page.evaluate((patch) => window.setProps(patch.data === 'sample copy' ? { data: { ...window.ELEO.sample } } : patch), patch);
+    await page.evaluate(async (patch) => window.setProps(patch.data === 'sample layout copy' ? { data: { ...window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field } } : patch), patch);
     await page.waitForTimeout(100);
     expect(axisText(await ticks())).toBe(axisText(zoomed));
     expect(axisText(await ticks())).not.toBe(axisText(first));
@@ -196,13 +195,13 @@ for (const [name, { props, patch, at }] of Object.entries(ZOOMABLE)) {
 }
 
 // Plan #804, outcome O5 (issue #946, CR #941). oracle: the axis text after `view = null` equals the default view's axis text.
-for (const [name, { props, at }] of Object.entries(ZOOMABLE)) {
+for (const [name, { props }] of Object.entries(ZOOMABLE)) {
   test(`a controlled view resets with null (${name})`, async ({ page }) => {
     const host = await mountHarness(page, 'vc', name, props, true);
     const ticks = () => host.evaluate((el) => el.querySelector('svg').innerHTML);
     const first = await ticks();
     const box = await host.boundingBox();
-    const [px, py] = at ? [box.x + at[0], box.y + at[1]] : [box.x + box.width / 2, box.y + box.height / 2];
+    const [px, py] = [box.x + box.width / 2, box.y + box.height / 2];
     await moveTo(page, px, py);
     await page.mouse.wheel(0, -300);
     await expect.poll(async () => axisText(await ticks())).not.toBe(axisText(first));

@@ -124,13 +124,13 @@ for (const [tile, fixture] of [['footprint', 'cooke-footprint.json'], ['rayFan',
   });
 }
 
-// Plan #90, #131: a missing eleo-plots-sample.js fails the tiles that draw the sample, not the page. oracle: property,
+// Plan #90, #131, #1258 #1204: a missing sample.json (which the gallery fetches and draws its sample tiles from) fails the tiles that draw the sample, not the page. oracle: property,
 // the tiles that bring their own data (glasses, the recorded curves and spot) or need none (airy, icons) still draw. The 404 is the expected
 // console error.
-test('a missing sample script blanks only the sample tiles', async ({ page }) => {
+test('a missing sample.json blanks only the sample tiles', async ({ page }) => {
   const thrown = [];
   page.on('pageerror', (e) => thrown.push(e.message));
-  await page.route('**/eleo-plots-sample.js', (route) => route.fulfill({ status: 404, body: '' }));
+  await page.route('**/sample.json', (route) => route.fulfill({ status: 404, body: '' }));
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   await draw3D(page, ['layout3D', 'layout3D-front']);
@@ -150,28 +150,25 @@ test('a missing sample script blanks only the sample tiles', async ({ page }) =>
   }
 });
 
-// Plan #90, O3, #47: the classic build exposes the sample. Loading eleo-plots.js, then eleo-plots-sample.js, leaves
-// window.ELEO.sample set, so the gallery can read zimg from it. oracle: fixture packages/plots/src/sample.json's zimg
-test('classic build exposes the sample', async ({ page }) => {
-  const { zimg } = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url)));
+// Plan #1258 #1212 (supersedes #47): the classic build carries no sample. The gallery loads eleo-plots.js and draws its sample tiles from the
+// fetched sample.json. oracle: property: no key of window.ELEO names a sample
+test('classic build carries no sample', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
-  expect(await page.evaluate(() => window.ELEO.sample?.zimg)).toBe(zimg);
+  expect(await page.evaluate(() => Object.keys(window.ELEO).filter((k) => /sample/i.test(k)))).toEqual([]);
 });
 
-// Plan #90, #129: iife.js's merge branch. With eleo-layout.js loaded first, window.ELEO already exists, so
-// eleo-plots.js merges into it; eleo-plots-sample.js then leaves window.ELEO.sample set, read through the merged
-// object. oracle: fixture packages/plots/src/sample.json's zimg
-test('classic entries merge and expose the sample', async ({ page }) => {
-  const { zimg } = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url)));
+// Plan #90, #129, #1258 #1212: iife.js's merge branch. With eleo-layout.js loaded first, window.ELEO already exists, so
+// eleo-plots.js merges into it; the merged object has no sample. oracle: property: the keys of both entries, no `sample`
+test('classic entries merge', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/tests/fixtures/classic-merge.html');
   expect(errors).toEqual([]);
   const scripts = await page.evaluate(() => [...document.scripts].map((s) => new URL(s.src).pathname));
-  expect(scripts).toEqual(['/packages/plots/dist/eleo-layout.js', '/packages/plots/dist/eleo-plots.js', '/packages/plots/dist/eleo-plots-sample.js']);
+  expect(scripts).toEqual(['/packages/plots/dist/eleo-layout.js', '/packages/plots/dist/eleo-plots.js']);
   expect(await page.evaluate(() => ({ layout2D: typeof window.ELEO.layout2D, spot: typeof window.ELEO.spot }))).toEqual({ layout2D: 'function', spot: 'function' });
-  expect(await page.evaluate(() => window.ELEO.sample?.zimg)).toBe(zimg);
+  expect(await page.evaluate(() => 'sample' in window.ELEO)).toBe(false);
 });
 
 // O3 (plan #30): eleo-layout.js loads alone and draws. oracle: property: the entry loads in a page with no
@@ -1090,7 +1087,7 @@ test('layout3D rejected fill falls back to crown', async ({ page }) => {
 // Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O4 (issue #690; #696 unskips); plan #1193 #1253 moves it to three.js. layout3D draws the rays over the image plane they end on.
 // oracle: user request 9 (rays over the plane they end on); property: the image plane's projected square, from the scene's own camera matrices (three's Vector3.project, here in node), shrunk 10%: sampled points of it are not the background in the bare drawing (rays: false), and some of them differ once the rays are drawn, in both themes, in the default view.
 test('layout3D rays over the image plane', async ({ page }) => {
-  const data = (await import('../packages/plots/src/sample.js')).default.layout, W = 560, H = 320;
+  const data = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url))).layout, W = 560, H = 320;
   const { scene, camera } = layout3dScene(data, { width: W, height: H }, () => 0x808080);
   const plane = []; scene.traverse((o) => { if (o.isMesh && o.userData.image) plane.push(o); });
   const a = plane[0].geometry.attributes.position, c4 = Array.from({ length: a.count }, (_, i) => new Vector3(a.getX(i), a.getY(i), a.getZ(i)).project(camera)).map((v) => [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]);
@@ -1102,7 +1099,7 @@ test('layout3D rays over the image plane', async ({ page }) => {
   await page.goto('/gallery/');
   await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
   for (const theme of ['light', 'dark']) {
-    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout3D"] .eleo-plot__body`).evaluate((body, pts) => {
+    const r = await page.locator(`.theme[data-theme="${theme}"] [data-tile="layout3D"] .eleo-plot__body`).evaluate(async (body, pts) => {
       const bg = (() => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = window.ELEO.css(body, 'surface'); p.fillRect(0, 0, 1, 1); return [...p.getImageData(0, 0, 1, 1).data.slice(0, 3)]; })();
       const read = (o) => {
         const c = document.createElement('canvas');
@@ -1112,7 +1109,7 @@ test('layout3D rays over the image plane', async ({ page }) => {
         c.remove();
         return out;
       };
-      const data = window.ELEO.sample.layout, bare = read({ data, rays: false }), withRays = read({ data });
+      const data = window.ELEOSampleAdapters.layouts(await fetch('/packages/plots/src/sample.json').then((r) => r.json())).field, bare = read({ data, rays: false }), withRays = read({ data });
       return { planeDrawn: bare.filter((p) => p.some((v, n) => Math.abs(v - bg[n]) > 3)).length, rayOver: withRays.filter((p, i) => p.some((v, n) => Math.abs(v - bare[i][n]) > 3)).length };
     }, pts);
     expect(r.planeDrawn, `${theme} the plane is drawn`).toBeGreaterThan(0.9 * pts.length);
@@ -1142,8 +1139,8 @@ test('map tiles', async ({ page }) => {
 // Plan #677 (agent_docs/plans/677-gallery-polish.md), outcome O5 (issue #697; #701 unskips). layout2D keys its fans or glasses in the SVG, with no HTML footer.
 // Contract: every key entry's label is a <text data-key> in the figure's SVG (as in 'curve keys'), in the order of the `key` list; CR #728: the glass key joins the field key in one row.
 // oracle: closed-form ADR-0003 (layoutText above) for the key text size, within 1%, at 1440, 1100, 700 px; at a width where layoutText is null (the labels are hidden below 630 px) the tile has no key text;
-// reference: the key texts equal the text of legend('field' | 'wavelength') and glassLegend(fixture), in order (the glasses tile: exactly the field entries, then the glass entries, all in one row at 1440).
-// The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (the sample's legend('field') keys the sample's fields, not this recording); the same source #699 passes as `key`.
+// reference: the key texts equal the text of legend(kind, values) for 'field' | 'wavelength' and glassLegend(fixture), in order (the glasses tile: exactly the field entries, then the glass entries, all in one row at 1440).
+// The glasses fixture records three ray fields and no angles, so its field entries are what the tile draws rays for, "F1"."F3" (legend(kind) without values is gone; the keys come from this recording's values); the same source #699 passes as `key`.
 const LAYOUT_KEYS = { layout2D: 'field', 'layout2D-fan': 'wavelength', 'layout2D-glasses': 'field+glass' };
 test('layout keys',async ({ page }) => {
   await page.goto('/gallery/');
@@ -1151,8 +1148,10 @@ test('layout keys',async ({ page }) => {
   const expected = await page.evaluate(async (kinds) => {
     const text = (html) => [...new DOMParser().parseFromString(html, 'text/html').body.children].map((e) => e.textContent);
     const glasses = await fetch('/tests/fixtures/layouts/analysis-glasses.json').then((r) => r.json());
+    const S = await fetch('/packages/plots/src/sample.json').then((r) => r.json());
+    const vals = { field: S.fields, wavelength: S.wl };
     const out = {};
-    for (const [tile, kind] of Object.entries(kinds)) out[tile] = kind === 'field+glass' ? { field: glasses.rays.map((_, i) => `F${i + 1}`), glass: text(window.ELEO.glassLegend(glasses)) } : { all: text(window.ELEO.legend(kind)) };
+    for (const [tile, kind] of Object.entries(kinds)) out[tile] = kind === 'field+glass' ? { field: glasses.rays.map((_, i) => `F${i + 1}`), glass: text(window.ELEO.glassLegend(glasses)) } : { all: text(window.ELEO.legend(kind, vals[kind].length, vals[kind])) };
     return out;
   }, LAYOUT_KEYS);
   const measure = (theme) => page.evaluate(([th, names]) => names.map((name) => {

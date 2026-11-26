@@ -1,7 +1,7 @@
 <!-- Spot diagram per field, with the Airy circle.
   Typed: <SpotDiagram panels={[{ title: '0.0°', series: [{ points: [[0.1, -0.2], [0.3, 0.4]], index: 0 }], airy: 2.4 }]}
     origin="chief ray" reference="centroid" showStats showAiry scale="common" half={5} unit="µm" label="Spot diagrams" width={300} />
-  Sample: <SpotDiagram colorBy="wavelength" airy />. Every dot is the same size; no color option. -->
+  Every dot is the same size; no color option. -->
 <script>
   import { spot } from '@eleoptics/plots';
   import { hover } from './interact.svelte.js';
@@ -12,7 +12,7 @@
   const setView = (/** @type {any} */ v) => { inner = v; onview?.(v); };
   let rect = $state(); // the box's content rect: unset on the server, so the server draws the default and the client redraws on hydration
   const w = $derived(width ?? (rect?.width > 0 ? +rect.width.toFixed(2) : undefined));
-  const unit = $derived(props.panels ? /** @type {any} */ (props).unit : 'µm'); // the sample call draws in µm
+  const unit = $derived(/** @type {any} */ (props).unit);
   const svg = $derived(spot(/** @type {any} */ ({ ...props, width: w, view })));
 </script>
 

@@ -7,6 +7,10 @@ import { idx } from '../../packages/plots/src/common.js';
 import * as common from '../../packages/plots/src/common.js';
 import { readFileSync } from 'node:fs';
 import { frameText } from '../../packages/plots/src/scale.js';
+import '../../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters
+const tfOf = (S) => globalThis.ELEOSampleAdapters.throughFocus(S); // plan #1258 #1205: throughFocus takes typed props
+// plan #1258 #1208: spot takes typed panels; the sample's spots as the call the old sample spot drew (a series per wavelength or per field, centroid-referenced, µm).
+const sampleSpot = (S, { colorBy, ...o } = {}) => ({ panels: S.spots.map((per, fi) => ({ title: `${S.fields[fi].toFixed(1)}°`, series: per.map((pts, wi) => ({ points: pts, index: colorBy === 'field' ? fi : wi })), airy: S.airy })), reference: 'centroid', unit: 'µm', ...o });
 
 // adapters.js reads ELEO from globalThis when spot() runs, not when it loads.
 globalThis.ELEO = ELEO;
@@ -125,28 +129,6 @@ test('typed points round trip, common and auto scale', () => {
   assert.ok(ELEO.spot({ panels: [panels[2]], scale: 'common', half: 7 }).includes('>−5<'), 'half overrides the common size: the ticks run to ±5');
 });
 
-// #240: spot() on the sample is the adapter spotPanels(sample, o) and then the typed path.
-// oracle: reference packages/plots/src/sample.json: points, Airy radius and stats are the sample's.
-test('spotPanels carries the sample\'s spots', async () => {
-  const { spotPanels } = await import('../../packages/plots/src/spot.js');
-  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
-  const o = spotPanels(sample, { scale: 'auto', half: 7 });
-  assert.equal(o.unit, 'µm');
-  assert.equal(o.scale, 'auto');
-  assert.equal(o.half, 7);
-  assert.equal(o.panels.length, sample.spots.length, 'a panel per field');
-  o.panels.forEach((p, fi) => {
-    assert.equal(p.title, `${sample.fields[fi].toFixed(1)}°`);
-    assert.equal(p.airy, sample.airy, 'the Airy radius is the circle');
-    assert.deepEqual(p.series.map((s) => s.points), sample.spots[fi], 'a series per wavelength, the sample\'s points');
-    assert.deepEqual(p.series.map((s) => s.index), sample.spots[fi].map((_, w) => w));
-    assert.equal(p.notes, undefined, 'no RMS/GEO notes: the renderer computes them');
-  });
-  assert.ok(spotPanels(sample, { colorBy: 'field' }).panels.every((p, fi) => p.series.every((s) => s.index === fi)), 'colorBy field: index = field');
-  assert.equal(spotPanels(sample, { showStats: false }).showStats, false, 'showStats passes through');
-  assert.equal(spotPanels(sample, { airy: false }).panels[0].airy, undefined, 'airy: false draws no circle');
-});
-
 // #260: a panel's reference circle counts toward its half, so a circle beyond the spot is not clipped.
 // oracle: property: for every panel, circle radius <= half, where half = (box side / 2) / |scale|
 test('the half holds the reference circle', () => {
@@ -163,16 +145,13 @@ test('the half holds the reference circle', () => {
   }
 });
 
-// #261:  empty panels non-negative viewBox, no no-op fill-opacity, sample aria-label names colorBy.
-// oracle: property, and the base's output ("Spot diagrams, colored by <colorBy>")
-test('typed spot hardening', async () => {
-  await import('../../packages/plots/src/sample.js');
+// #261:  empty panels non-negative viewBox, no no-op fill-opacity, a typed label.
+// oracle: property
+test('typed spot hardening', () => {
   const s = ELEO.spot({ panels: [{ series: [{ points: [[0.1, 0.1]] }] }] });
   const vb = /viewBox="([^"]+)"/.exec(ELEO.spot({ panels: [] }))[1].split(/\s+/).map(Number);
   assert.ok(vb.every((v) => v >= 0), 'empty panels give a non-negative viewBox: ' + vb);
   assert.ok(!/fill-opacity/.test(s), 'no fill-opacity on stroked dots');
-  assert.ok(ELEO.spot({}).includes('aria-label="Spot diagrams, colored by wavelength"'), 'sample label names colorBy');
-  assert.ok(ELEO.spot({ colorBy: 'field' }).includes('colored by field'));
   assert.ok(ELEO.spot({ panels: [{ series: [] }], label: 'Mine' }).includes('aria-label="Mine"'), 'typed call takes a label');
   const ev = ELEO.spot({ panels: [{ series: [] }], label: 'x" onfocus="a<b' });
   assert.ok(ev.includes('aria-label="x&quot; onfocus=&quot;a&lt;b"'), 'label is escaped inside aria-label');
@@ -277,9 +256,9 @@ test('labelled circle', () => {
   assert.ok(noLine(blank), 'a blank label adds no caption line: ' + JSON.stringify(texts(blank)));
 });
 
-// #275 (CR #270): the caption is one line per active setting, inside the figure; stats at 3 significant digits; centroid default for the sample.
+// #275 (CR #270): the caption is one line per active setting, inside the figure; stats at 3 significant digits.
 // oracle: property: each caption line's estimated width (6 px a character, as layout2D estimates) <= the viewBox width; radii equal at 3 digits print once.
-test('caption lines and stats labels', async () => {
+test('caption lines and stats labels', () => {
   const texts = (svg) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
   const vbw = (svg) => +/viewBox="0 0 ([\d.]+)/.exec(svg)[1];
   const series = [{ points: [[0.4, -1.2], [1.1, 0.3]] }];
@@ -293,10 +272,6 @@ test('caption lines and stats labels', async () => {
   assert.ok(ys[2] < H, 'last line inside the height');
   const mm = texts(ELEO.spot({ panels: [{ series: [{ points: [[0.001234, 0], [-0.001234, 0]] }] }], unit: 'mm' }));
   assert.ok(mm.includes('RMS 0.00123 mm') && mm.includes('GEO 0.00123 mm'), 'three significant digits: ' + mm);
-  const { spotPanels } = await import('../../packages/plots/src/spot.js');
-  const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
-  assert.equal(spotPanels(sample).reference, 'centroid', 'the sample is centroid-referenced');
-  assert.equal(spotPanels(sample, { reference: 'chief' }).reference, 'chief', 'a given reference wins');
   const pts = [{ points: [[3, 1], [5, 3]] }];
   assert.equal(ELEO.spot({ panels: [{ series: pts }], reference: ' Centroid ' }), ELEO.spot({ panels: [{ series: pts }], reference: 'centroid' }), 'a mis-cased reference re-centres');
   assert.ok(!texts(ELEO.spot({ panels: [{ series: [{ points: [[NaN, 1]] }] }] })).includes('RMS, GEO'), 'no stats line for empty points');
@@ -429,7 +404,7 @@ test('text follows ADR-0003 per panel', async () => {
   }
   assert.deepEqual([...seen].sort(), ['above', 'below', 'inside']);
   // Three panels: F is one panel's side, (width - 2 gaps) / 3, not the figure's width.
-  const m3 = ELEO.spot({ data: sample, width: 1500 }), F3 = frameOf((1500 - 44) / 3, 2.4);
+  const m3 = ELEO.spot(sampleSpot(sample, { width: 1500 })), F3 = frameOf((1500 - 44) / 3, 2.4);
   texts(m3).forEach((x, i) => near(+x.size[1], frameText(F3), `three panels text ${i}`));
   // A height that bites shrinks the panel; the text follows the smaller side.
   const mh = ELEO.spot({ ...base, width: 600, height: 300 }), side = +/<svg x="[\d.]+" y="4" width="([\d.]+)"/.exec(mh)[1];
@@ -448,7 +423,7 @@ test('text follows ADR-0003 per panel', async () => {
   const tfSeen = new Set(), tfRects = (m) => [...m.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1);
   const cols = 5; // the sample's defocus steps
   for (const width of [500, 1100, 3000]) {
-    const m = ELEO.throughFocus({ data: sample, width }), F = tfRects(m)[0], t = frameText(F);
+    const m = ELEO.throughFocus({ ...tfOf(sample), width }), F = tfRects(m)[0], t = frameText(F);
     tfSeen.add(F < 162 ? 'below' : F <= 234 ? 'inside' : 'above');
     assert.ok(F > 1, `${width}: panels drawn`);
     texts(m).forEach((x, i) => { assert.ok(x.size, `${width}: text ${i} inline`); near(+x.size[1], t, `${width} text ${i}`); });
@@ -579,7 +554,7 @@ test('grid', () => {
 test('throughFocus panels', async () => {
   const { frameWeight } = await import('../../packages/plots/src/scale.js');
   const sample = JSON.parse((await import('node:fs')).readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
-  const tf = ELEO.throughFocus({ data: sample, width: 1100 });
+  const tf = ELEO.throughFocus({ ...tfOf(sample), width: 1100 });
   const rects = [...tf.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)];
   assert.ok(rects.length > 0, 'cells drawn');
   const F = +/\bwidth="([\d.]+)"/.exec(rects[0][0])[1] + 1;
@@ -601,7 +576,7 @@ test('throughFocus panels', async () => {
     assert.ok(+m[1] > ox && +m[1] < ox + F, 'a grid line is strictly inside its frame');
   });
   // grid: false draws none and nothing else changes.
-  const off = ELEO.throughFocus({ data: sample, width: 1100, grid: false });
+  const off = ELEO.throughFocus({ ...tfOf(sample), width: 1100, grid: false });
   assert.ok(!/data-grid/.test(off), 'grid: false draws none');
   assert.equal(off.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), tf.replace(/<path [^>]*data-grid="[xy]"\/>/g, ''), 'grid: false removes the grid lines only');
 });
@@ -645,7 +620,7 @@ test('throughFocus tick labels', async () => {
   const rows = sample.throughFocus.spots.length, cols = sample.throughFocus.defocus.length;
   const tx = (svg) => [...svg.matchAll(/<text\b([^>]*)>(.*?)<\/text>/g)].map((m) => ({ a: m[1], t: m[2].replace(/<[^>]*>/g, ''), x: +/\bx="(-?[\d.]+)"/.exec(m[1])[1], y: +/\by="(-?[\d.]+)"/.exec(m[1])[1] }));
   for (const grid of [true, false]) {
-    const width = 1100, svg = ELEO.throughFocus({ data: sample, width, grid }), all = tx(svg);
+    const width = 1100, svg = ELEO.throughFocus({ ...tfOf(sample), width, grid }), all = tx(svg);
     const rects = [...svg.matchAll(/<rect\b[^>]*stroke="var\(--[a-z-]+\)"[^>]*>/g)].map((r) => ({ x: +/\bx="([\d.]+)"/.exec(r[0])[1] - .5, y: +/\by="([\d.]+)"/.exec(r[0])[1] - .5, w: +/\bwidth="([\d.]+)"/.exec(r[0])[1] + 1 }));
     const F = rects[0].w, t = frameText(F), left = rects[0].x, bottom = Math.max(...rects.map((r) => r.y));
     near2(F, frameOf((width - cols * 10) / cols, (4.2 + 2.4) / cols), 'F solves the row label and the y labels');
@@ -707,7 +682,7 @@ test('series data attributes', () => {
     { 'data-series': '0', 'data-panel': '1' }], 'position, label and panel; the colour index is not the identity');
   const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
   const T = sample.throughFocus, cols = T.defocus.length, rows = T.spots.length;
-  const tf = paths(ELEO.throughFocus({ data: sample }));
+  const tf = paths(ELEO.throughFocus({ ...tfOf(sample) }));
   const per = T.spots[0][0].pts.length;
   assert.equal(tf.length, rows * cols * per, 'a path per series per cell');
   tf.forEach((a, k) => {
@@ -734,12 +709,12 @@ test('view windows every panel', () => {
   const base = ELEO.spot({ width: 400, panels });
   edges(ELEO.spot({ width: 400, panels, view }), 2);
   edges(ELEO.spot({ width: 400, panels, view, scale: 'auto' }), 2);
-  edges(ELEO.throughFocus({ data: sample, view }), sample.throughFocus.spots.length * sample.throughFocus.defocus.length);
+  edges(ELEO.throughFocus({ ...tfOf(sample), view }), sample.throughFocus.spots.length * sample.throughFocus.defocus.length);
   const labels = (svg) => [...svg.matchAll(/<text class="eleo-tick"[^>]*>(\S+)<\/text>/g)].map((m) => +m[1].replace('−', '-')).filter(Number.isFinite);
   assert.ok(labels(ELEO.spot({ width: 400, panels, view })).every((v) => (v > 3 && v < 7) || (v > -5 && v < -1)), 'tick labels lie inside the window');
   assert.equal(ELEO.spot({ width: 400, panels, view: undefined }), base, 'no view: markup unchanged');
   [{ center: [0, 0], half: 0 }, { center: [0, 0], half: -1 }, { center: [NaN, 0], half: 1 }, { center: [0], half: 1 }, null, 3].forEach((v) => assert.equal(ELEO.spot({ width: 400, panels, view: v }), base, `invalid view ${JSON.stringify(v)} is ignored`));
-  assert.equal(ELEO.throughFocus({ data: sample, view: { center: [0, 0], half: 0 } }), ELEO.throughFocus({ data: sample }), 'throughFocus ignores an invalid view');
+  assert.equal(ELEO.throughFocus({ ...tfOf(sample), view: { center: [0, 0], half: 0 } }), ELEO.throughFocus({ ...tfOf(sample) }), 'throughFocus ignores an invalid view');
 });
 
 test('auto-scale margin ignores panel order', () => {
@@ -750,8 +725,8 @@ test('auto-scale margin ignores panel order', () => {
 
 // oracle: closed form: the sample call with view { center: [0, 0], half: 2 } differs from the call without, and its data group maps x -2 and 2 to the frame's left and right edges.
 test('the sample spot takes view', () => {
-  const view = { center: [0, 0], half: 2 };
-  const base = ELEO.spot({ width: 500 }), zoomed = ELEO.spot({ width: 500, view });
+  const view = { center: [0, 0], half: 2 }, S = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
+  const base = ELEO.spot(sampleSpot(S, { width: 500 })), zoomed = ELEO.spot(sampleSpot(S, { width: 500, view }));
   assert.notEqual(zoomed, base, 'view changes the sample spot');
   panelGroups(zoomed).forEach((g, i) => {
     const e = (p) => toPx(g.M, p);
@@ -772,4 +747,17 @@ test('data-skip when a point drops', () => {
   assert.match(two[0].tag, /data-skip="0,2,3"/);
   const clean = ELEO.spot({ panels: [{ series: [{ points: [[0, 0], [1, 1]], index: 0 }] }] });
   assert.ok(!/data-skip/.test(clean), 'no dropped point, no data-skip');
+});
+
+// Plan #1258 #1315 (review M1 finding 4): throughFocus names a malformed row instead of throwing a bare TypeError.
+test('throughFocus names a malformed row', () => {
+  const ok = { defocus: [-1, 0, 1], rows: [{ title: 'a', series: [[{ points: [[1, 1]] }], [], []] }] };
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [null] }), /throughFocus: rows\[0\] is not an object/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [ok.rows[0], { title: 'b', series: [{ points: [[1, 1]] }, [], []] }] }), /throughFocus: rows\[1\]\.series\[0\] is not an array of series/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ series: [[], 5, []] }] }), /rows\[0\]\.series\[1\] is not an array of series/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ title: 'd', series: 5 }] }), /throughFocus: rows\[0\]\.series is not an array/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ title: 'e', series: [[null]] }] }), /throughFocus: rows\[0\]\.series\[0\]\[0\] is not a series/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ series: [[[1, 1]]] }] }), /throughFocus: rows\[0\]\.series\[0\]\[0\] is not a series/);
+  assert.throws(() => ELEO.throughFocus({ ...ok, rows: [{ series: [[{ points: 5 }]] }] }), /throughFocus: rows\[0\]\.series\[0\]\[0\]\.points is not an array/);
+  assert.doesNotThrow(() => ELEO.throughFocus({ ...ok, rows: [{ title: 'c' }, { series: [[]] }] }), 'a missing cell stays an empty cell');
 });

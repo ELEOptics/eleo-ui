@@ -6,11 +6,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import ELEO from '../../packages/plots/src/renderers.js';
-import sample from '../../packages/plots/src/sample.js';
 import * as layout2dModule from '../../packages/plots/src/layout2d.js';
 import * as plots from '../../packages/plots/src/index.js';
 import { vertexRadius, thickLensF } from '../../packages/plots/src/lens.js';
 import { clipPolygon } from '../../packages/plots/src/clip.js';
+
+const sample = JSON.parse(readFileSync(new URL('../../packages/plots/src/sample.json', import.meta.url), 'utf8'));
 const { layoutBounds } = layout2dModule;
 
 const TOL = 0.01; // mm
@@ -103,7 +104,7 @@ function roundTrip(L, svg) {
 test('recorded layouts round-trip', async (t) => {
   const cases = [
     ...FIXTURES.map((name) => { const L = fixture(name); return { name, data: L, layout: L }; }),
-    { name: 'sample', data: sample, layout: sample.layout },
+    { name: 'sample', data: sample.layout, layout: sample.layout },
   ];
   for (const { name, data, layout } of cases) {
     await t.test(name, () => {
@@ -284,7 +285,9 @@ test('layoutBounds ports the site', async (t) => {
 // oracle: spec the recorded format allows a fan with every ray dropped (eleo-website scripts/layout.py drops dead rays)
 test('old shape is named', () => {
   const old = { layout: [[[0, 1], [10, 0]]], profiles: [], zimg: 10 };
-  assert.throws(() => ELEO.layout2D({ data: old }),
+  // #1210: the old shape carries a `layout`, which is a system key and now named as removed.
+  assert.throws(() => ELEO.layout2D({ data: old }), { message: 'layout2D: LayoutSystem was removed; see the README migration table' });
+  assert.throws(() => ELEO.layout2D({ data: { profiles: [], zimg: 10 } }),
     { message: 'layout2D: data is not a recorded layout ({surfaces, rays}); see the plots README migration note' });
 });
 

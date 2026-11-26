@@ -8,12 +8,15 @@
 // and the throughFocus entry at plan #512 #570 (after #525, same choice); #528 re-runs it if a later M2 change moves it,
 // and the throughFocus entry again at plan #677 #783 and #785 by the user's choice (CR #780: one panel function; CR #781: tick labels on the outer edges),
 // and the layout2D, layout2D-fan and layout2D-glasses entries again at plan #677 #733 by the user's choice (CR #729: a stop bar wherever STO is labelled),
+// and the rayFan-opd and chromaticFocus entries added at plan #1258 #1203 from the merged base's build (nothing else re-recorded),
 // and the throughFocus entry again at plan #1076 #1121 by the user's choice (CR #1122: dots draw as a 0.01 px segment, which WebKit paints once).
 //   node scripts/record-renderers.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import ELEO from '../packages/plots/dist/index.js';
-import SAMPLE from '../packages/plots/dist/sample.js';
 import '../tests/fixtures/phos-core/adapters.js'; // a classic script: assigns globalThis.ELEOAdapters
+import '../gallery/sample-adapters.js'; // a classic script: assigns globalThis.ELEOSampleAdapters (plan #1258 #1204)
+
+const SAMPLE = JSON.parse(readFileSync(new URL('../packages/plots/src/sample.json', import.meta.url), 'utf8'));
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../tests/fixtures/layouts/${name}.json`, import.meta.url), 'utf8'));
 
@@ -26,15 +29,17 @@ const phosLayout = (name) => {
 
 const seidelRecording = () => JSON.parse(readFileSync(new URL('../tests/fixtures/phos-core/achromat-seidel.json', import.meta.url), 'utf8'));
 
-// The calls the gallery makes (gallery/index.html, SVG and legend tiles), keyed by tile.
+// The calls the gallery makes (gallery/index.html, SVG and legend tiles), keyed by tile. The sample tiles draw from sample.json by typed calls.
 export function draws() {
+  const sampleLayouts = globalThis.ELEOSampleAdapters.layouts(SAMPLE);
   const box = { zmin: -8, zmax: SAMPLE.zimg + 4, ylo: -13.5, yhi: 13.5 };
   const before = fixture('merit-before'), after = fixture('merit-after'), glasses = fixture('analysis-glasses');
   const meritBox = ELEO.layoutBounds([before, after]);
   const merit = (data) => ELEO.layout2D({ data, width: 1000, box: meritBox, labels: ['0°', '12°', '24°'], marks: false });
   const out = {
-    'layout2D': () => ELEO.layout2D({ width: 1000, box }),
-    'layout2D-fan': () => ELEO.layout2D({ width: 1000, box, colorBy: 'wavelength', rays: 'fan' }),
+    // The sample's two layouts through gallery/sample-adapters.js (plan #1258 #1204): the same SVG as the sample calls drew.
+    'layout2D': () => ELEO.layout2D({ data: sampleLayouts.field, width: 1000, box }),
+    'layout2D-fan': () => ELEO.layout2D({ data: sampleLayouts.wavelength, width: 1000, box, colorBy: 'wavelength', rays: 'fan' }),
     'merit-before': () => merit(before),
     'merit-after': () => merit(after),
     'layout2D-glasses': () => ELEO.layout2D({ data: glasses, width: 1000, marks: false }),
@@ -43,12 +48,15 @@ export function draws() {
       `layout2D-${name}-${width}`,
       () => ELEO.layout2D({ ...globalThis.ELEOAdapters.layout(phosLayout(name)), width }),
     ]))),
-    'throughFocus': () => ELEO.throughFocus(),
+    'throughFocus': () => ELEO.throughFocus(globalThis.ELEOSampleAdapters.throughFocus(SAMPLE)),
+    // The gallery's sample tiles that no entry covered, recorded at plan #1258 #1203 from the merged base's build (before row K removes the sample calls).
+    'rayFan-opd': () => ELEO.curve(globalThis.ELEOSampleAdapters.rayFan(SAMPLE, { kind: 'opd', key: true })),
+    'chromaticFocus': () => ELEO.curve(globalThis.ELEOSampleAdapters.chromaticFocus(SAMPLE)),
     // The recorded achromat Seidel sums through the adapter, as the gallery's seidel tiles draw them (plan #677 #679: before the key extraction).
     'seidel': () => ELEO.bars({ ...globalThis.ELEOAdapters.seidel(seidelRecording()), limits: [{ y: 0.05, label: '0.05 mm' }], width: 1000 }),
     'seidel-terms': () => ELEO.bars({ ...globalThis.ELEOAdapters.seidel(seidelRecording(), { by: 'term' }), width: 1000 }),
-    'legend-field': () => ELEO.legend('field'),
-    'legend-wavelength': () => ELEO.legend('wavelength'),
+    'legend-field': () => ELEO.legend('field', SAMPLE.fields.length, SAMPLE.fields),
+    'legend-wavelength': () => ELEO.legend('wavelength', SAMPLE.wl.length, SAMPLE.wl),
     'legend-ts': () => ELEO.legend('ts'),
     'glassLegend': () => ELEO.glassLegend(glasses),
   };

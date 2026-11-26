@@ -50,7 +50,7 @@ export function drawnGlasses(surfaces, fn = 'layout2D') {
   surfaces.forEach((s, i) => {
     const g = s.glass;
     if (g == null || g === 'crown' || g === 'flint') return;
-    if (typeof g === 'object' && typeof g.name === 'string' && g.name.trim() && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
+    if (typeof g === 'object' && typeof g.name === 'string' && g.name.trim() && g.name === g.name.trim() && Number.isFinite(g.nd) && Number.isFinite(g.vd)) return;
     throw new Error(`${fn}: surface ${i} glass ${show(g)} is not crown, flint, null or {name, nd, vd}`);
   });
   return surfaces.filter((s, i) => s.glass && typeof s.glass === 'object' && surfaces[i + 1]).map((s) => s.glass);
@@ -58,16 +58,15 @@ export function drawnGlasses(surfaces, fn = 'layout2D') {
 
 /**
  * Legend keys for a layout's glasses: one swatch key per distinct drawn glass, in first-use order, filled as
- * layout2D fills it. `data` is a recorded layout or a system carrying one in `layout`, else in `layoutWl` (both carry
- * the same glasses). "" when no named glass is drawn. Throws a named error for anything else.
- * @param {{surfaces?: object[], layout?: {surfaces: object[]}, layoutWl?: {surfaces: object[]}}} data
+ * layout2D fills it. `data` is a recorded layout. "" when no named glass is drawn. Throws a named error for anything else.
+ * @param {{surfaces: object[], rays: unknown[]}} data
  * @returns {string}
  */
 export function glassLegend(data) {
-  const L = data && (data.surfaces ? data : data.layout || data.layoutWl);
-  if (!L || !Array.isArray(L.surfaces) || !Array.isArray(L.rays)) {
-    throw new Error('glassLegend: data is not a recorded layout ({surfaces, rays}) or a system carrying one in layout or layoutWl');
-  }
+  if (data && !data.surfaces && (data.layout || data.layoutWl)) throw new Error('glassLegend: LayoutSystem was removed; see the README migration table');
+  if (!data || !data.surfaces) throw new Error('glassLegend: pass { data: RecordedLayout }');
+  const L = data;
+  if (!Array.isArray(L.surfaces) || !Array.isArray(L.rays)) throw new Error('glassLegend: data is not a recorded layout ({surfaces, rays})');
   const glasses = drawnGlasses(L.surfaces, 'glassLegend'), fills = glassFill(glasses);
   return [...new Set(glasses.map((g) => g.name))].map((n) => `<span class="eleo-key eleo-key--swatch" style="--c:${fills.get(n)}">${esc(n)}</span>`).join('');
 }
