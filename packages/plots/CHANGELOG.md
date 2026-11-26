@@ -1,5 +1,27 @@
 # @eleoptics/plots
 
+## 0.11.0
+
+### Minor Changes
+
+- 17008f6: New `standalone(svg)` (a self-contained SVG string with styles inlined and the used Fira faces embedded) and `png(svg, { scale })` (a PNG `Blob`).
+- b0ef1cb: Breaking: `layout3D` moved out of the main entry to `@eleoptics/plots/layout3d` (and its own `eleo-layout3d.js` IIFE for classic pages), and draws through three.js, an optional peer (`npm i three`). `import { layout3D } from '@eleoptics/plots'` no longer works. `layout3D(canvas, { data: layout, rays: "fan", view: "front" })` is typed as `Layout3DProps` (`data: RecordedLayout`, `rays: "marginal-chief" | "fan" | "chief" | false`, `view: "iso" | "front" | "top"`; with no `view`, `yaw` or `pitch` the camera looks mainly along +z from the object side, turned 20° in yaw and 15° in pitch off the optical axis, i.e. yaw 70, pitch -15, a missing `yaw` or `pitch` taking those values; `"iso"` is true isometric at yaw -45, pitch 35.264), and `<Layout3D data={layout} />` takes the same props. It no longer reads `profiles` or `rays3d`, and throws `layout3D: pass { data: RecordedLayout }` without `data`.
+  
+  Breaking, `@eleoptics/plots-svelte`: `Layout3D` moved out of the index to `@eleoptics/plots-svelte/layout3d` (`import { Layout3D } from '@eleoptics/plots-svelte/layout3d'`), so an app that imports only the 2D wrappers bundles without `three`; `three` is needed only for that subpath.
+- d8c9ea5: Breaking: `useSample`, `sample`, `ELEO.sample`, the `./sample` export and `eleo-plots-sample.js` are removed, so no renderer reads a built-in sample and the package ships none. Each removed call throws an error that says `see the README migration table`, or is no longer exported: `throughFocus` takes `{ defocus, rows }`, `curve` takes `series` or `panels` (its `kind` and `CurveKindProps` are gone), `spot` takes `panels`, `map2D` takes `{ values, extent }` and no longer takes a canvas, `layout2D` and `glassLegend` take `{ data: RecordedLayout }` (a `LayoutSystem` is rejected), `legend(kind)` returns `""` without `n` or `values`, and a padded glass name (`" N-BK7"`) throws the unknown-glass error. `rayFan` and `RayFanProps` are removed: draw fans with `curve({ panels })`. See "Migration: removed in the sample-free minor" in the README, which has a row for each.
+
+### Patch Changes
+
+- a134e9a: `curve` and `spot` write `data-skip` (the data indices of the points a series dropped) on its marks, so a hovered or keyboard-picked point past a gap reports its index in the caller's data.
+- 0ecac39: `standalone` embeds a font served with a non-font MIME (such as `text/html`) as `data:font/woff2` (or the type of its extension).
+- eb00900: The keyboard starts at the hovered point: hovering a curve or spot point makes it the keyboard's current point (an interpolated hover sets the segment's nearer end), and a pointer leave keeps it.
+- cb18ef2: The arrow keys step bars: left and right the categories of the current series, up and down the series; hovering a bar makes it the keyboard's current point.
+- 5eb397c: The arrow keys step layout2D rays: left and right the rays of the current field, up and down the fields; hovering a ray makes it the keyboard's current point.
+- c51e442: Dashed limit lines keep their dash phase when a zoomed curve pans: the dashes no longer crawl.
+- 17d9eb9: The hover tooltip is hidden from screen readers; a visually hidden live region beside it announces snapped points and key steps only, not every interpolated reading.
+- 45ee048: `interact()`'s `stop()` restores the `tabindex` it added: the last live call on a host to stop removes it, if it is still `"0"`.
+- 50c6302: Dots in spot and curve plots draw at their true opacity in WebKit: a dot is a round-cap segment 0.01 px long, not a zero-length one.
+
 ## 0.10.0
 
 ### Minor Changes

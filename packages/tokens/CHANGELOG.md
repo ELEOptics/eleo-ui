@@ -1,5 +1,11 @@
 # @eleoptics/tokens
 
+## 0.3.1
+
+### Patch Changes
+
+- 1c5a335: `--stroke-ray`'s usage text now reads "Rays in 3D drawings.", since only `layout3D` draws rays at that width.
+
 ## 0.3.0
 
 ### Minor Changes
